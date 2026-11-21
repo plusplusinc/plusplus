@@ -16,6 +16,7 @@ enum RoutineMigrationPlan: SchemaMigrationPlan {
             RoutineSchemaV9.self,
             RoutineSchemaV10.self,
             RoutineSchemaV11.self,
+            RoutineSchemaV12.self,
         ]
     }
 
@@ -31,9 +32,10 @@ enum RoutineMigrationPlan: SchemaMigrationPlan {
             .lightweight(fromVersion: RoutineSchemaV8.self, toVersion: RoutineSchemaV9.self),
             .lightweight(fromVersion: RoutineSchemaV9.self, toVersion: RoutineSchemaV10.self),
             .lightweight(fromVersion: RoutineSchemaV10.self, toVersion: RoutineSchemaV11.self),
+            .lightweight(fromVersion: RoutineSchemaV11.self, toVersion: RoutineSchemaV12.self),
         ]
     }
 
     /// The current shape, the plan's last.
-    static let current = RoutineSchemaV11.self
+    static let current = RoutineSchemaV12.self
 }

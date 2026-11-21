@@ -66,7 +66,7 @@ extension RoutineScreen {
                 // measured, the list stayed put (13 Starts, 2026-11-01).
                 phase.fadeIn()
             }
-            return keyReturns { phase.run() }
+            return keyReturns { phase.run(on: arrivingCount()) }
         }
         try await bringFirstIntoView()
         try check(pressed)
@@ -87,7 +87,7 @@ extension RoutineScreen {
         // reactions run, so the bar draws it back from what it already holds
         // (`KeyStage.dropped`).
         try await laterTurn()
-        keyReturns { phase.run() }
+        keyReturns { phase.run(on: arrivingCount()) }
     }
 
     /// If the first exercise is scrolled away, scrolls the list to its top, then gives the
@@ -194,7 +194,7 @@ extension RoutineScreen {
         var ended = phase
         guard let workout = session.workout, ended.end(workout) else { return }
         sequence.cancel()
-        let tookOver = phase != .running
+        let tookOver = !phase.isAtRest
         withTransaction(\.disablesAnimations, true) {
             // The next workout's key starts from the log, whatever this one's last showed.
             keyWayBack = nil

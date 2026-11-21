@@ -2,8 +2,8 @@ import Foundation
 import OSLog
 import SwiftData
 
-typealias StoredWorkout = RoutineSchemaV11.StoredWorkout
-typealias StoredSet = RoutineSchemaV11.StoredSet
+typealias StoredWorkout = RoutineSchemaV12.StoredWorkout
+typealias StoredSet = RoutineSchemaV12.StoredSet
 
 /// As #127 shipped it, with logged sets, its routines still V4's.
 enum RoutineSchemaV6: VersionedSchema {
@@ -81,6 +81,22 @@ extension StoredWorkout {
         update(\.pausedAt, to: workout.pausedAt)
         update(\.pausedSeconds, to: workout.pausedSeconds)
         update(\.endedAt, to: workout.endedAt)
+        update(\.countRowID, to: workout.count?.set.row)
+        update(\.countRound, to: workout.count?.set.round)
+        update(\.countSide, to: workout.count?.set.side?.rawValue)
+        update(\.countStartClock, to: workout.count?.startClock)
+        update(\.countAdded, to: workout.count?.added ?? 0)
+    }
+
+    /// The count under way, when its row, round, and start clock are all stored.
+    private var count: SetCount? {
+        guard let countRowID, let countRound, let countStartClock else { return nil }
+        let set = PlannedSet(
+            row: countRowID,
+            round: countRound,
+            side: countSide.flatMap(Side.init(rawValue:)),
+        )
+        return SetCount(set: set, startClock: countStartClock, added: countAdded)
     }
 
     /// The workout, its sets in the order logged; a set it can't read is left out.
@@ -94,6 +110,7 @@ extension StoredWorkout {
             pausedSeconds: pausedSeconds,
             endedAt: endedAt,
             sets: (sets ?? []).sorted { $0.position < $1.position }.compactMap(\.loggedSet),
+            count: count,
         )
     }
 }
@@ -120,6 +137,7 @@ extension StoredSet {
         update(\.loggedAt, to: set.loggedAt)
         update(\.clockWhenLogged, to: set.clockWhenLogged)
         update(\.restAdjustment, to: set.restAdjustment)
+        update(\.timeAdded, to: set.timeAdded)
     }
 
     /// A set's reps or time and weight, as the stored fields hold them.
@@ -169,6 +187,7 @@ extension StoredSet {
         )
         set.clockWhenLogged = clockWhenLogged
         set.restAdjustment = restAdjustment
+        set.timeAdded = timeAdded
         return set
     }
 

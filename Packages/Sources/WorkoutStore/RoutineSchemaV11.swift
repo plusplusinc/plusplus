@@ -1,8 +1,8 @@
 import Foundation
 import SwiftData
 
-/// Today's shape: V10's, with each logged set keeping where the workout's clock stood at its log
-/// and the + and − taps on the rest after it, so a rest running at a relaunch carries on.
+/// As #236 shipped it: V10's, with each logged set keeping where the workout's clock stood at its
+/// log and the + and − taps on the rest after it, so a rest running at a relaunch carries on.
 enum RoutineSchemaV11: VersionedSchema {
     static let versionIdentifier = Schema.Version(11, 0, 0)
     static var models: [any PersistentModel.Type] {

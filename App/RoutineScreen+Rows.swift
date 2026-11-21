@@ -66,7 +66,7 @@ extension RoutineScreen {
         return routine.exercises.reduce(into: [:]) { parts, item in
             parts[item.id] = RowParts(
                 bars: bars[item.id],
-                restBetween: setRest(of: item.id, current: current),
+                restBetween: setWait(of: item.id, current: current),
                 restAfter: rest?.block(in: item.id, above: false) ?? .closed,
                 restBefore: rest?.block(in: item.id, above: true) ?? .closed,
                 isDone: finished.contains(item.id),

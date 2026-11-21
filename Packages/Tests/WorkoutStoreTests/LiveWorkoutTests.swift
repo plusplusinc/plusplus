@@ -221,11 +221,12 @@ struct LiveWorkoutTests {
             #expect(took)
         }
         func finishStep() {
+            phase.rollOn(on: nil)
             phase.show()
             phase.land()
             phase.shift()
             phase.roll()
-            phase.settle()
+            phase.settle(on: nil)
             #expect(phase == .running)
             expectDrawnWhereTaken()
         }

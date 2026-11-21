@@ -42,6 +42,8 @@ extension RoutineScreen {
     func stopSequence() {
         session.closeRowSheet()
         sequence.cancel()
+        // A timed set the stopped sequence was landing on counts from now.
+        session.beginCount(override: restOverride)
         withTransaction(\.disablesAnimations, true) {
             phase.settleAtOnce(resuming: live, restOverride: restOverride, at: .now)
             closingRoomTop = nil

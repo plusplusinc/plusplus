@@ -178,19 +178,11 @@ public struct RowLabel: View {
             if let focus {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     if let bars {
-                        SetSegments(progress: bars, isOnSet: setRest?.isRunning != true)
+                        SetSegments(progress: bars, isOnSet: setRest?.isOnSet ?? true)
                     }
                     CaptionLine(spacing: Spacing.md) {
                         progressLine(focus)
-                        // Laid out through a rest too, faded, so the line keeps its height.
-                        Text(AttributedString.monoNumbers(
-                            focus.after ?? "",
-                            font: .ppCurrentProgress,
-                        ))
-                        .font(.ppCurrentProgress)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .opacity(focus.showsAfter ? 1 : 0)
-                        .modifier(SetRoomGoing(isResting: setRest?.isRunning == true))
+                        CaptionEndWords(focus: focus, isResting: setRest?.isResting == true)
                     }
                 }
                 .padding(.top, Spacing.sm)
@@ -267,7 +259,12 @@ public struct RowLabel: View {
     }
 
     private var spokenLabel: String {
-        let isResting = setRest?.isRunning == true
+        let isResting = setRest?.isResting == true
+        // A rest's or a set's own count reads as its own element after the label
+        // (`SetRest.spoken`), in the figures' place. Landing on "Starts in", the label says the
+        // set's time (the figures') and that it starts in 10 seconds.
+        let startsIn = setRest?.spokenStartsIn
+        let hidesFigures = isResting || setRest?.kind == .count
         let parts = if let focus {
             [
                 title,
@@ -277,11 +274,10 @@ public struct RowLabel: View {
                     focus.showsSide ? focus.side : nil,
                 ]
                 .compactMap(\.self).joined(separator: ", "),
-                // During a rest between sets the figures are gone from its place; the rest reads
-                // as its own element after the label (`SetRest.spoken`).
-                isResting ? "" : focus.spokenFigures,
-                isResting || !focus.showsAfter
+                hidesFigures ? "" : focus.spokenFigures,
+                isResting || startsIn != nil || !focus.showsAfter
                     ? "" : focus.spokenAfter ?? focus.after ?? "",
+                startsIn ?? "",
             ]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
@@ -340,6 +336,9 @@ public struct RowFocus: Equatable {
     /// Whether `after` shows; unseen, it keeps its room, as on a set's first side, where the
     /// other side follows, so the line holds the height the second side's rest gives it.
     public var showsAfter = true
+    /// Words the line's end keeps room for, unseen, in every state of the set: a timed set's
+    /// time and its "then rest", so the line, and the figures under it, never move between them.
+    public var afterRoom: [String] = []
     public init(
         progress: String,
         side: String? = nil,

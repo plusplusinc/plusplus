@@ -37,7 +37,7 @@ struct WorkoutPhaseTests {
         case .land: phase.land()
         case .shift: phase.shift()
         case .roll: phase.roll()
-        case .settle: phase.settle()
+        case .settle: phase.settle(on: nil)
         }
     }
 
@@ -94,10 +94,17 @@ struct WorkoutPhaseTests {
         #expect(phase.held == Self.logged)
         #expect(phase.hidden == [Self.logged])
         #expect(!phase.isMovingOn)
-        let shown = Self.after([.show], from: phase)
+        var shown = phase
+        let showed = shown.show()
+        #expect(!showed, "A held set rolls on, never shows as a move does")
+        let rolled = shown.rollOn(on: nil)
+        #expect(rolled)
         #expect(shown == .running)
         #expect(shown.held == nil)
         #expect(shown.hidden.isEmpty)
+        var timed = phase
+        timed.rollOn(on: .startsIn)
+        #expect(timed == .timing(.startsIn), "On a timed set, at rest on its Starts in")
     }
 
     @Test("A move is hidden until shown, its node unlit until landed, its beats only in order")
@@ -161,7 +168,7 @@ struct WorkoutPhaseTests {
         #expect(phase == .closing(Self.logged, isShown: false))
         #expect(phase.isMovingOn)
         #expect(phase.hidden == [Self.logged])
-        let settledEarly = phase.settle()
+        let settledEarly = phase.settle(on: nil)
         #expect(!settledEarly, "Not before it shows")
         phase = Self.after([.show], from: phase)
         #expect(phase == .closing(Self.logged, isShown: true))
@@ -179,7 +186,7 @@ struct WorkoutPhaseTests {
         for (step, moves) in [(LiveWorkout.Step.last, true), (Self.down, false), (.last, false)] {
             var phase = Self.logging(step, moves: moves)
             let logged = phase
-            let settledEarly = phase.settle()
+            let settledEarly = phase.settle(on: nil)
             #expect(!settledEarly, "Not before it shows: \(logged)")
             #expect(phase == logged)
             phase = Self.after([.show], from: phase)

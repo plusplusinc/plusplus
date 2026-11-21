@@ -93,6 +93,7 @@ extension RoutineScreen {
             )?.text
             focus.showsAfter = false
         }
+        timedCaption(&focus, of: item)
         // Resting between two sets, the line says the set just done, "1 of 3 done", until the
         // next set swaps back up; the caption line's end still says the rest it went to as it
         // fades, not what follows the next set.
@@ -249,7 +250,7 @@ extension RoutineScreen {
                     landings += 1
                 }
             }
-            phase.settle()
+            phase.settle(on: arrivingCount())
             letRoomGo()
             if next != nil, target == nil {
                 scrollToCurrent()
@@ -281,7 +282,7 @@ extension RoutineScreen {
                 phase.roll()
             }
             try await beat(until: start + .seconds(SetMotion.move(way)))
-            phase.settle()
+            phase.settle(on: arrivingCount())
             letRoomGo()
             if target == nil {
                 withAnimation(.snappy(duration: SetMotion.roll), scrollToCurrent)
@@ -307,7 +308,7 @@ extension RoutineScreen {
             let start = ContinuousClock.now
             try await beat(until: start + .seconds(SetMotion.closeStart + SetMotion.close))
             closingRoomTop = nil
-            phase.settle()
+            phase.settle(on: arrivingCount())
             letRoomGo()
             settleWayBack()
         }

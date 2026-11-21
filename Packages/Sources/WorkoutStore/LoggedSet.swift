@@ -26,6 +26,8 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
     public var clockWhenLogged: Double?
     /// The + and − taps on the rest after this set, in seconds.
     public var restAdjustment = 0
+    /// The +15 s taps on this set's own count, a timed set's, in seconds.
+    public var timeAdded = 0
 
     public init(
         id: UUID = UUID(),

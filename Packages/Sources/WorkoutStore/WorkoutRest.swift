@@ -91,6 +91,15 @@ extension LiveWorkout {
         else { return workout }
         var adjusted = workout
         adjusted.sets[adjusted.sets.count - 1].restAdjustment += seconds
+        // A cut past the rest's end ends it now: a timed set next counts from the tap, not from
+        // where the cut put the end, up to 15 s back, which read as a rest missed.
+        let clock = workout.clock(at: now)
+        let next = LiveWorkout(routine: routine, workout: adjusted)
+        if next.rest(override: override)?.isOver(atClock: clock) == true, next.isOnTimedSet,
+           let set = next.currentSet
+        {
+            adjusted.count = SetCount(set: set, startClock: clock)
+        }
         return adjusted
     }
 

@@ -54,6 +54,9 @@ struct RoutineLauncher: View {
                         store: store,
                         namer: namer,
                     )
+                    // A timed set that ran out while the app was away is logged, before the
+                    // screen opens on the workout.
+                    session.catchUp(override: RoutineScreen.restOverride)
                     self.session = session
                     // Read ahead, so the Routines screen's first showing has its list.
                     await session.refreshRecent(weightUnit: WeightUnit(region: locale))

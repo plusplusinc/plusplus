@@ -39,6 +39,19 @@ public struct RestBlock: View {
         self.pausedLeft = pausedLeft
     }
 
+    /// The block held at what it showed at `date`.
+    func holding(at date: Date) -> Self {
+        Self(stage: stage, length: length, ends: ends, pausedLeft: left(at: date))
+    }
+
+    /// The seconds the countdown shows at `date`, kept within `shown`. Closing with a time
+    /// given, as a workout ended mid-rest, it holds that time.
+    func left(at date: Date, within shown: ClosedRange<Double> = 0 ... .infinity) -> Double {
+        let left = pausedLeft
+            ?? (stage == .open ? max(0, ends.timeIntervalSince(date)) : Double(length))
+        return min(shown.upperBound, max(shown.lowerBound, left))
+    }
+
     /// No rest: a row's room for one, closed.
     public static let closed = Self(stage: .none, length: 0)
 
@@ -52,34 +65,54 @@ public struct RestBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The time left; with `turns` off, it changes at once rather than rolling.
-    func countdown(size: CGFloat, locale: Locale, turns: Bool = true) -> some View {
+    /// The time left; with `turns` off, it changes at once rather than rolling. Always within
+    /// `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes, never 0:00.
+    func countdown(
+        size: CGFloat,
+        locale: Locale,
+        turns: Bool = true,
+        color: ColorToken = .textPrimary,
+        shown: ClosedRange<Double> = 0 ... .infinity,
+    ) -> some View {
         let isOpen = stage == .open
         return TimelineView(RestSchedule(
             ends: ends,
             isPaused: pausedLeft != nil || !isOpen,
         )) { context in
-            // Closing with a time given, as a workout ended mid-rest, it holds that time.
-            let left = pausedLeft
-                ?? (isOpen ? max(0, ends.timeIntervalSince(context.date)) : Double(length))
-            Text(Self.text(left, locale: locale))
+            let seconds = left(at: context.date, within: shown)
+            let text = Self.text(seconds, locale: locale)
+            Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
-                .foregroundStyle(.pp(.textPrimary))
+                .foregroundStyle(.pp(color))
+                // Gray at a pause and white at a resume at once, with the bar's time and the
+                // key's fill: a resume moves `ends`, and the figure's glide below grayed it out
+                // over half a second.
+                .animation(nil, value: color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 // A + or − turns the figure; a second going by, or the rest's end on the move's
                 // delayed shift, changes it at once: on that shift, 0:00 came in half a second
                 // after the dot had left. So does a − that ends the rest: turning, the figure
-                // rolled down to 0:00 as it shrank away.
+                // rolled down to 0:00 as it shrank away. Only a change of its own: taking every
+                // update's animation away, the figure jumped to where a part going drops it
+                // while the part faded on its curve.
                 .contentTransition(turns ? .numericText(countsDown: true) : .identity)
-                .animation(
-                    isOpen && turns && left > 0 ? .snappy(duration: SetMotion.restGlide) : nil,
-                    value: ends,
-                )
-                .transaction { $0.animation = nil }
+                .transaction(value: ends) {
+                    if isOpen, turns, seconds > 0 {
+                        $0.animation = .snappy(duration: SetMotion.restGlide)
+                    }
+                }
+                // A figure that turns only: one that never rolls, as a held count, changes at
+                // once anyway, and taking the animation, a count at its run-out jumped to where
+                // its leaving exercise drops it.
+                .transaction(value: text) {
+                    if turns {
+                        $0.animation = nil
+                    }
+                }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")
-                .accessibilityValue(Self.spoken(left, locale: locale))
+                .accessibilityValue(Self.spoken(seconds, locale: locale))
         }
     }
 

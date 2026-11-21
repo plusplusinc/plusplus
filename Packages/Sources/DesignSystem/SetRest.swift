@@ -20,6 +20,45 @@ public struct SetRest {
     /// Whether a + or − turns the countdown's figure: once it is up. Turning as it came in, its
     /// end set at the log, it rolled from its length to itself.
     let turns: Bool
+    /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
+    public let kind: Kind
+    /// Held by a pause: the count takes the gray the workout's paused time does, and its white
+    /// back on resume. A count held by its log, as between a side plank's sides, stays white.
+    let isPaused: Bool
+
+    /// Whether a rest runs in the slot: "then rest 1:00" goes for a rest only, and stays through
+    /// "Starts in" and a set's count, as through a reps set.
+    var isResting: Bool {
+        isRunning && kind == .rest
+    }
+
+    /// Whether the set's segment is green, as the set is under way: not through a rest, nor
+    /// through a timed set's "Starts in", but while its count runs, and held where its log
+    /// stopped it until the segment turns purple.
+    var isOnSet: Bool {
+        switch kind {
+        case .rest: !isRunning
+        case .startsIn: false
+        case .count: true
+        }
+    }
+
+    /// "starts in 10 seconds", for the exercise's label during "Starts in"; nil otherwise.
+    var spokenStartsIn: String? {
+        guard case .startsIn = kind else { return nil }
+        return String(localized: "starts in \(length) seconds")
+    }
+
+    /// What a wait in the figures' slot is.
+    public enum Kind: Equatable, Sendable {
+        /// "Rest" over the countdown, over its bar.
+        case rest
+        /// "Starts in" over the short count, nothing under it: the set's time in words ("30
+        /// seconds") is at the caption line's end. `time` is for VoiceOver.
+        case startsIn(time: String)
+        /// A timed set's own count where the figures stand, with no word over it and no bar.
+        case count
+    }
 
     public init(
         isRunning: Bool,
@@ -28,7 +67,11 @@ public struct SetRest {
         pausedLeft: Double? = nil,
         isOver: Bool = false,
         turns: Bool = false,
+        kind: Kind = .rest,
+        isPaused: Bool = false,
     ) {
+        self.kind = kind
+        self.isPaused = isPaused
         self.isRunning = isRunning
         self.length = length
         self.ends = ends
@@ -37,11 +80,12 @@ public struct SetRest {
         self.turns = turns
     }
 
-    /// The rest as VoiceOver reads it while it runs: its own element after the exercise's label,
-    /// which holds every other part of the current exercise as one, "Rest", its time left as its
-    /// value, changing as the countdown does. Nothing before it runs, or once it is over.
+    /// The wait as VoiceOver reads it while it runs: its own element after the exercise's label,
+    /// which holds every other part of the current exercise as one, "Rest", "Starts in", or, for
+    /// a timed set's own count, "Time left", its time left as its value, changing as the
+    /// countdown does. Nothing before it runs, or once it is over.
     public var spoken: some View {
-        SpokenRest(block: block)
+        SpokenRest(block: block, label: kind.spokenAs, shown: kind.shown(length: length))
             .opacity(isRunning && !isOver ? 1 : 0)
             .accessibilityHidden(!isRunning || isOver)
     }
@@ -103,32 +147,87 @@ struct SetRoom: View, Animatable {
                 if let rest, let block {
                     // "Rest" over the countdown, as over the rest between exercises: its line
                     // takes the place of the caption's under the figures.
+                    // A wait of one kind giving way to another ("Starts in" reaching 0, a rest
+                    // ending on a timed set's count) swaps as the figures and a rest do.
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         // Its capitals' tops where the figures' are, as far under the caption
                         // line, not the font's room over them lower.
-                        Text("Rest")
+                        // Over a timed set's own count, unseen, so the count stands where
+                        // "Starts in"'s did and nothing below moves between them.
+                        Text(Self.word(rest.kind) ?? "Starts in")
                             .font(.ppFigureCaption)
                             .foregroundStyle(.pp(.textSecondary))
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, -Self.overCapitals(size: captionSize))
+                            .opacity(Self.word(rest.kind) == nil ? 0 : 1)
+                            .accessibilityHidden(Self.word(rest.kind) == nil)
                         // With Reduce Motion the figure changes at once.
-                        block.countdown(
+                        WaitCountdown(
+                            block: block,
                             size: size,
-                            locale: locale,
                             turns: rest.turns && !reduceMotion,
+                            color: rest.isPaused ? .textSecondary : .textPrimary,
+                            shown: rest.kind.shown(length: rest.length),
                         )
                         .figureBox(size: size)
                     }
+                    .id(rest.kind.swapID)
+                    .transition(Self.kindSwap)
                     .coming(coming)
                 }
             }
-            if let block {
-                block.progress
-                    .padding(.top, Spacing.md)
-                    .opacity(coming)
+            if let rest, let block {
+                // In a stack of its own, so the line going and the one coming share one place.
+                ZStack(alignment: .topLeading) {
+                    under(rest, block: block)
+                        .id(rest.kind.swapID)
+                        .transition(Self.kindSwap)
+                }
+                .opacity(coming)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// What stands under the countdown: a rest's bar, or under "Starts in" and a set's own count
+    /// a caption's line, unseen, for the same room.
+    @ViewBuilder
+    private func under(_ rest: SetRest, block: RestBlock) -> some View {
+        switch rest.kind {
+        case .rest:
+            block.progress
+                .padding(.top, Spacing.md)
+        case .startsIn, .count:
+            Text(verbatim: " ")
+                .font(.ppFigureCaption)
+                .padding(.top, Spacing.sm)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// One wait giving way to another in the slot: the one going fades as it drops, over the
+    /// swap's first part, then the one coming fades in as it rises, on the change's own curve
+    /// (`SetMotion.restSwap`), as the figures and a rest swap.
+    private static var kindSwap: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(
+                active: KindSwap(swap: 0, isComing: true),
+                identity: KindSwap(swap: 1, isComing: true),
+            ),
+            removal: .modifier(
+                active: KindSwap(swap: 1, isComing: false),
+                identity: KindSwap(swap: 0, isComing: false),
+            ),
+        )
+    }
+
+    /// The word over the countdown: none over a timed set's own count.
+    private static func word(_ kind: SetRest.Kind) -> LocalizedStringKey? {
+        switch kind {
+        case .rest: "Rest"
+        case .startsIn: "Starts in"
+        case .count: nil
+        }
     }
 
     /// The room a line of the system font at `size` leaves over its capitals.
@@ -145,9 +244,103 @@ struct SetRoom: View, Animatable {
     static let handOff: CGFloat = 0.4
 }
 
+/// A wait going or coming in the figures' slot as another kind takes its place, `swap` from 0 to
+/// 1, its fade and drop or rise worked out as `SetRoom`'s are.
+private struct KindSwap: ViewModifier, Animatable {
+    var swap: CGFloat
+    let isComing: Bool
+
+    var animatableData: CGFloat {
+        get { swap }
+        set { swap = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        if isComing {
+            content.coming(RestRoomFade.fade(
+                swap,
+                from: SetRoom.handOff,
+                width: 1 - SetRoom.handOff,
+            ))
+        } else {
+            content.going(RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
+                // Going, its count holds where it stood: still ticking, "Starts in" cut short by
+                // "Start now" read one second less as it went.
+                .environment(\.waitLeaves, swap > 0)
+        }
+    }
+}
+
+/// A wait's countdown in the figures' slot, held where it stood once it is going
+/// (`waitLeaves`).
+private struct WaitCountdown: View {
+    let block: RestBlock
+    let size: CGFloat
+    let turns: Bool
+    let color: ColorToken
+    let shown: ClosedRange<Double>
+
+    @Environment(\.locale) private var locale
+    @Environment(\.waitLeaves) private var leaves
+    @State private var leftAt: Date?
+
+    var body: some View {
+        (leaves ? block.holding(at: leftAt ?? .now) : block)
+            .countdown(
+                size: size,
+                locale: locale,
+                turns: turns,
+                color: color,
+                shown: shown,
+            )
+            .onChange(of: leaves, initial: true) {
+                leftAt = leaves ? .now : nil
+            }
+            // Read by its own element, named for its kind (`SetRest.spoken`), never as "Rest".
+            .accessibilityHidden(true)
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether a wait in the figures' slot is going, as another kind takes its place.
+    @Entry var waitLeaves = false
+}
+
+extension SetRest.Kind {
+    /// The seconds left a countdown of this kind shows, `length` long. "Starts in" reads 0:01
+    /// through its last second until it goes, never 0:00; and at most its length, as it counts
+    /// from after the slot has come in, so its 0:10 shows a full second at full strength.
+    func shown(length: Int) -> ClosedRange<Double> {
+        if case .startsIn = self {
+            0.001 ... Double(length)
+        } else {
+            0 ... .infinity
+        }
+    }
+
+    /// What VoiceOver calls the countdown: a set's own count is read as the time it has left,
+    /// never as a rest.
+    var spokenAs: LocalizedStringKey {
+        switch self {
+        case .rest: "Rest"
+        case .startsIn: "Starts in"
+        case .count: "Time left"
+        }
+    }
+
+    /// Which wait this is in the slot: a change swaps one for the other.
+    var swapID: Int {
+        switch self {
+        case .rest: 0
+        case .startsIn: 1
+        case .count: 2
+        }
+    }
+}
+
 /// A part of the set outside the figures slot, "then rest 1:00" at the caption line's end, going
-/// as the rest comes in and back as it ends, on the slot's own fade and drop, so it leaves with
-/// the figures. `swap` as `SetRoom`'s.
+/// as the rest comes in and back as it ends, on the slot's own fade, in place: words at the line's
+/// end never move or cross the words beside them. `swap` as `SetRoom`'s.
 struct SetRoomGoing: ViewModifier, Animatable {
     var swap: CGFloat
 
@@ -161,7 +354,7 @@ struct SetRoomGoing: ViewModifier, Animatable {
     }
 
     func body(content: Content) -> some View {
-        content.going(RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
+        content.opacity(1 - RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
     }
 }
 

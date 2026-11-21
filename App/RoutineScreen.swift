@@ -115,6 +115,8 @@ struct RoutineScreen: View {
     /// Counts the rests that have run to their end, each with a heavy tap, the strongest of the
     /// screen's, so the end of a rest is felt with the phone set down.
     @State var restEnds = 0
+    /// A timed set's beats: "Starts in" ending, and the set running out (`RoutineScreen+Timing`).
+    @State var countBeats = CountBeats()
     /// Where the workout is in its sequence: out of one, starting, at rest, showing a set just
     /// logged (`play(_:leadingTo:)`), or ending. Every change to it lands in a transaction the
     /// screen names.
@@ -339,7 +341,7 @@ struct RoutineScreen: View {
             isPresented: showsKey,
             face: liveKey.role,
             keepsRoom: phase.keyGone == .keepingRoom,
-            plusOnes: setLogs + sideLogs,
+            plusOnes: setLogs + sideLogs + countBeats.ends,
             drop: startDrop,
             floatsLow: footShowsEmpty,
         ) { role, isOut in
@@ -351,6 +353,7 @@ struct RoutineScreen: View {
         // Cancelled as the screen goes, so the wait never outlives it.
         .task(id: createdWait) { await showCreated() }
         .task(id: restWatch) { await watchRest() }
+        .timedSets(self)
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
