@@ -24,7 +24,7 @@ extension RenameUITests {
                 app.pickerRows[seeded[0].label].tap()
                 XCTAssertTrue(search.disappears(), "The add left the picker open")
                 XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
-                // What Start does is `WorkoutUITests`'.
+                // What Start does is `LiveWorkoutUITests`'.
                 XCTAssertTrue(start.appears())
                 XCTAssertTrue(
                     app.noExercises.disappears(),

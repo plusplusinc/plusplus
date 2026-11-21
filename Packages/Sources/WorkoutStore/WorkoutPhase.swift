@@ -53,7 +53,7 @@ public enum WorkoutPhase: Equatable, Sendable {
 
     /// A workout ending, from End's choice until Start comes back.
     public struct Ending: Equatable, Sendable {
-        /// The workout as it was, whose time fades out of its key.
+        /// The logged workout as it was, whose time fades out of its key.
         public let loggedWorkout: LoggedWorkout
         /// When End came: the rest drawn holds where it stood then (`drawnEnd`).
         public let date: Date

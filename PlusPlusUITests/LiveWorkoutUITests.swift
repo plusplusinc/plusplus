@@ -12,9 +12,9 @@ import XCTest
 /// launches with a workout's own setup.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
-final nonisolated class WorkoutUITests: XCTestCase {
+final nonisolated class LiveWorkoutUITests: XCTestCase {
     @MainActor
-    func testWorkoutSurvivesRelaunch() throws {
+    func testLiveWorkoutSurvivesRelaunch() throws {
         let app = XCUIApplication()
         // Long enough to scroll the current exercise, Pull-up once grown, out of view
         // past the list's end: with eight rows, the end came up before it had.

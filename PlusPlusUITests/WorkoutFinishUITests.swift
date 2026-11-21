@@ -13,7 +13,7 @@ import XCTest
 /// (`-seedSets 1`, `-seedTime 3`), which counts down and logs itself after "Start now", with no
 /// tap on its key: only the running app has the count's watch on the real clock and its wire to
 /// the log, whose rules `TimedSetTests` holds. That one log reaches the workout's end; logs
-/// that stay on an exercise, tapped, are `WorkoutUITests`'.
+/// that stay on an exercise, tapped, are `LiveWorkoutUITests`'.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class WorkoutFinishUITests: XCTestCase {

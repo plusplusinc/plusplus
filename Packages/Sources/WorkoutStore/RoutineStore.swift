@@ -52,8 +52,8 @@ public actor RoutineStore {
         return try (Self.routine(from: latest, exercises: exercises(), weightUnit: weightUnit), nil)
     }
 
-    /// Saves the workout as it is now, every field. Once it has ended, its routine, if cleared
-    /// to nothing while it ran, goes in the same save.
+    /// Saves the logged workout as it is now, every field. Once it has ended, its routine, if
+    /// cleared to nothing while it ran, goes in the same save.
     public func save(_ loggedWorkout: LoggedWorkout) throws {
         let target = try storedWorkout(id: loggedWorkout.id) ?? {
             let new = StoredWorkout(id: loggedWorkout.id)
@@ -90,8 +90,8 @@ public actor RoutineStore {
         }
     }
 
-    /// Deletes the workout, keeping nothing of it, its sets with it, and its routine if cleared to
-    /// nothing while it ran, in one save; nothing if there is none.
+    /// Deletes the logged workout, keeping nothing of it, its sets with it, and its routine if
+    /// cleared to nothing while it ran, in one save; nothing if there is none.
     public func discardLoggedWorkout(_ id: LoggedWorkout.ID) throws {
         guard let stored = try storedWorkout(id: id) else { return }
         if let routineID = stored.routineID {

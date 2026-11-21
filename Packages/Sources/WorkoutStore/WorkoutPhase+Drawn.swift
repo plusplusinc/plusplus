@@ -1,7 +1,7 @@
 import Foundation
 
 extension WorkoutPhase {
-    /// The workout End took from the store, while the list still draws it.
+    /// The logged workout End took from the store, while the list still draws it.
     public var drawnLoggedWorkout: LoggedWorkout? {
         guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }
         return ending.loggedWorkout

@@ -1,8 +1,8 @@
 import Foundation
 
-/// A workout: a routine being done, from Start to Finish. Running, paused, and finished follow
-/// from its dates, so there is no state to fall out of step with them. Every change takes the
-/// moment it happens, `now`, so the clock is the caller's.
+/// A logged workout: a routine being done, from Start to Finish. Running, paused, and finished
+/// follow from its dates, so there is no state to fall out of step with them. Every change
+/// takes the moment it happens, `now`, so the clock is the caller's.
 public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     public let id: UUID
     /// The routine it runs. An id, not the routine, so deleting the routine leaves the workout.

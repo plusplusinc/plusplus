@@ -23,7 +23,7 @@ public final class RoutineSession {
     public private(set) var isDrawerHeld = false
     /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public internal(set) var screen = Screen.routine
-    /// The workout running the open routine, from Start until Finish or Discard.
+    /// The logged workout running the open routine, from Start until Finish or Discard.
     public private(set) var loggedWorkout: LoggedWorkout?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
