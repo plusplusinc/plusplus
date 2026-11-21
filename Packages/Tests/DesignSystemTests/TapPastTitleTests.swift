@@ -7,16 +7,16 @@ struct TapPastTitleTests {
     private func endingEdit() -> TapPastTitle {
         var tap = TapPastTitle()
         tap.keyboardWillShow()
-        tap.touchDown(onTitle: false, endingEdit: true)
+        tap.touchDown(.endingEdit)
         return tap
     }
 
     @Test("At rest, a tap acts at once; on the title, never")
     func atRest() {
         var tap = TapPastTitle()
-        tap.touchDown(onTitle: false, endingEdit: false)
+        tap.touchDown(.outside)
         let outside = tap.tap(actsAfterEdit: false)
-        tap.touchDown(onTitle: true, endingEdit: false)
+        tap.touchDown(.onTitle)
         let onTitle = tap.tap(actsAfterEdit: true)
         #expect(outside)
         #expect(!onTitle)
@@ -36,7 +36,7 @@ struct TapPastTitleTests {
     @Test("A tap that ends the edit with no keyboard up acts at once")
     func actsAtOnceWithNoKeyboard() {
         var tap = TapPastTitle()
-        tap.touchDown(onTitle: false, endingEdit: true)
+        tap.touchDown(.endingEdit)
         let acts = tap.tap(actsAfterEdit: true)
         #expect(acts)
         #expect(!tap.isWaiting)
@@ -53,12 +53,24 @@ struct TapPastTitleTests {
 
     @Test("A new touch drops what an earlier tap left waiting")
     func newTouchDropsWait() {
-        for onTitle in [true, false] {
+        for start in [TapPastTitle.Start.onTitle, .outside] {
             var tap = endingEdit()
             _ = tap.tap(actsAfterEdit: true)
-            tap.touchDown(onTitle: onTitle, endingEdit: false)
+            tap.touchDown(start)
             let atHide = tap.keyboardDidHide()
             #expect(!atHide, "A waiting tap acted after a new touch")
         }
+    }
+
+    @Test("A second tap while the keyboard goes down waits for it too")
+    func secondTapWaits() {
+        var tap = endingEdit()
+        _ = tap.tap(actsAfterEdit: false)
+        // The edit has ended, so the next touch has none to end.
+        tap.touchDown(.outside)
+        let atTap = tap.tap(actsAfterEdit: false)
+        let atHide = tap.keyboardDidHide()
+        #expect(!atTap, "It acted with the keyboard still going down")
+        #expect(atHide, "The keyboard went down and the tap never acted")
     }
 }

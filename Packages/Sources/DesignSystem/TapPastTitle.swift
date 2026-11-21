@@ -7,13 +7,14 @@ import UIKit
 /// does with the keyboard down, and the keyboard goes down with it.
 ///
 /// The touch comes down before the edit ends (`onTouchDownOutsideTitle`), and by the tap's end
-/// the edit has already ended either way, so where it came down is kept for the tap. A tap
-/// that ended an edit and opens a sheet waits for the keyboard to be all the way down, so the
-/// two never cross; a place that only acts at rest, as the room below a list's last row, has
-/// only ended the edit. The caller reports the keyboard's coming and going.
-public struct TapPastTitle: Equatable, Sendable {
+/// the edit has already ended either way, so where it came down is kept for the tap. A tap that
+/// acts while the keyboard is still on its way down waits for it to be all the way down, so
+/// what it opens and the keyboard never cross; a place that only acts at rest, as the room
+/// below a list's last row, has only ended the edit. The caller reports the keyboard's coming
+/// and going (`onKeyboardDown(for:perform:)`).
+public struct TapPastTitle {
     /// Where the touch down last came.
-    public enum Start: Equatable, Sendable {
+    public enum Start {
         case onTitle
         /// Outside the title, with no edit to end.
         case outside
@@ -21,18 +22,18 @@ public struct TapPastTitle: Equatable, Sendable {
         case endingEdit
     }
 
-    public private(set) var start = Start.onTitle
+    private(set) var start = Start.onTitle
     /// Whether the keyboard is up, from the start of its way up to the end of its way down.
-    public private(set) var isKeyboardUp = false
+    private(set) var isKeyboardUp = false
     /// Whether a tap's action waits for the keyboard to be down.
-    public private(set) var isWaiting = false
+    private(set) var isWaiting = false
 
     public init() { }
 
-    /// A touch came down, on the title or outside it, while the title was or wasn't in edit.
-    /// It drops an action an earlier tap left waiting: the new touch does its own thing.
-    public mutating func touchDown(onTitle: Bool, endingEdit: Bool) {
-        start = onTitle ? .onTitle : endingEdit ? .endingEdit : .outside
+    /// A touch came down. It drops an action an earlier tap left waiting: the new touch does
+    /// its own thing.
+    public mutating func touchDown(_ start: Start) {
+        self.start = start
         isWaiting = false
     }
 
@@ -42,10 +43,9 @@ public struct TapPastTitle: Equatable, Sendable {
         switch start {
         case .onTitle:
             return false
-        case .outside:
-            return true
-        case .endingEdit:
-            guard actsAfterEdit else { return false }
+        case .endingEdit where !actsAfterEdit:
+            return false
+        case .outside, .endingEdit:
             isWaiting = isKeyboardUp
             return !isKeyboardUp
         }
@@ -66,9 +66,9 @@ public struct TapPastTitle: Equatable, Sendable {
 extension View {
     /// Tells `tap` of the keyboard's coming and going, and runs `action` for a tap that waited
     /// for it to be down: at the end of its way down, so what the tap opens rises only after.
-    public func keyboard(
+    public func onKeyboardDown(
         for tap: Binding<TapPastTitle>,
-        then action: @escaping () -> Void,
+        perform action: @escaping () -> Void,
     ) -> some View {
         #if os(iOS)
         onReceive(NotificationCenter.default.publisher(

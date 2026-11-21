@@ -179,10 +179,10 @@ struct RoutineScreen: View {
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
         // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
         .onTouchDownOutsideTitle(
-            onTitle: { titleTap.touchDown(onTitle: true, endingEdit: false) },
+            onTitle: { titleTap.touchDown(.onTitle) },
             perform: { touchedDownOutsideTitle() },
         )
-        .keyboard(for: $titleTap) { openPicker() }
+        .onKeyboardDown(for: $titleTap) { openPicker() }
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,

@@ -145,12 +145,15 @@ public struct EditableTitle: View {
                 // Only a tap that lands on the target starts the edit. SwiftUI hands the target
                 // a tap a few points below it too, which the screen takes as outside the title
                 // and acts on: on an empty routine Add exercise opened, and the deferred focus
-                // then raised the keyboard over it.
-                touchTarget.gesture(SpatialTapGesture().onEnded { tap in
-                    if CGRect(origin: .zero, size: targetSize).contains(tap.location) {
-                        isEditing = true
-                    }
-                })
+                // then raised the keyboard over it. The same rectangle, in window space, is
+                // `TitleFieldView.touchTargetInWindow`, which tells the screen a touch is on it.
+                touchTarget
+                    .onGeometryChange(for: CGSize.self, of: \.size) { targetSize = $0 }
+                    .gesture(SpatialTapGesture().onEnded { tap in
+                        if CGRect(origin: .zero, size: targetSize).contains(tap.location) {
+                            isEditing = true
+                        }
+                    })
             }
         }
         .task(id: restingTitle) {
@@ -197,7 +200,6 @@ public struct EditableTitle: View {
         Color.clear
             .frame(minHeight: ScreenTitle.touchTarget)
             .contentShape(.rect)
-            .onGeometryChange(for: CGSize.self, of: \.size) { targetSize = $0 }
     }
 
     /// Brings the drawn title to the resting one: a suggestion typed in at rest, the placeholder
