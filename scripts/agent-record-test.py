@@ -133,6 +133,14 @@ elif args[:2] == ["api", "graphql"]:
         self.assertIn("builder", run.stderr)
         self.assertIn("or general-purpose with --model", run.stderr)
 
+    def test_a_foreground_agents_usage_lines_are_read_too(self):
+        tagged = self.run_script("line", "builder", usage(147497, 77, 996539))
+        for text in ("<usage>subagent_tokens: 147497\ntool_uses: 77\nduration_ms: 996539</usage>",
+                     "subagent_tokens: 147497\\ntool_uses: 77\\nduration_ms: 996539"):
+            run = self.run_script("line", "builder", text)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(run.stdout, tagged.stdout)
+
     def test_no_usage_line_fails_saying_what_to_pass(self):
         run = self.run_script("line", "builder", "it went fine")
         self.assertEqual(run.returncode, 1)
