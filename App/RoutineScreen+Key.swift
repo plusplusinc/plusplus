@@ -90,7 +90,7 @@ extension RoutineScreen {
     /// +15 s on the rest running: the key's fill steps back at once and the countdown turns; the
     /// dot stays put. Only when `WorkoutKey.extendRest(by:)` says so.
     private func extendRest(by seconds: Int) {
-        withAnimation(.snappy(duration: SetMotion.restGlide)) {
+        withAnimation(SetMotion.restRoll) {
             session.extendRest(by: seconds, override: restOverride)
         }
     }
@@ -98,6 +98,9 @@ extension RoutineScreen {
     /// Skip rest: the rest is stored as ended at the tap, then ends as one that ran out does
     /// (`endRest()`). Only when `WorkoutKey.skipRest` says so.
     private func skipRest() {
+        // With the store's change, before `endRest()`'s animated swap: a new figure put in during
+        // the swap stood where it ends from its first frame.
+        restSkips += 1
         session.skipRest(override: restOverride)
         endRest()
     }
@@ -115,7 +118,7 @@ extension RoutineScreen {
               let (resting, workout) = drawnResting,
               !resting.isOver(atClock: workout.clock(at: .now))
         else { return .over }
-        let (ends, pausedLeft) = Self.times(of: resting, on: workout)
+        let (ends, pausedLeft) = Self.times(of: resting, on: workout, end: phase.drawnEnd)
         return KeyFill(
             length: Double(resting.length),
             ends: ends,

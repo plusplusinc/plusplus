@@ -224,8 +224,12 @@ public enum SetMotion {
 
     // MARK: A rest between exercises
 
-    /// A rest's countdown figure turning to its new time after +15 s.
+    /// A count's figure turning to its new time, as each second goes and on +15 s. Under a
+    /// second, so one second's roll ends before the next starts.
     public static let restGlide = 0.45
+
+    /// The roll a count's figure turns on (`restGlide`).
+    public static let restRoll = Animation.snappy(duration: restGlide)
 
     /// Into a rest between exercises, or out of one, everything the move changes: the row left
     /// closing, the rest's room opening or closing, the next exercise growing, and any scroll,

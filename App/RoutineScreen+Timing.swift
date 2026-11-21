@@ -166,6 +166,7 @@ extension RoutineScreen {
                 length: LiveWorkout.startsIn,
                 ends: workout.date(ofClock: timed.startClock),
                 pausedLeft: holds ? timed.startsIn(atClock: clock) : nil,
+                turns: true,
                 kind: .startsIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
                 isPaused: workout.isPaused,
             )

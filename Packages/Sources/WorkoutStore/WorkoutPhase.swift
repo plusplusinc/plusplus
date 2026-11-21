@@ -55,6 +55,8 @@ public enum WorkoutPhase: Equatable, Sendable {
     public struct Ending: Equatable, Sendable {
         /// The workout as it was, whose time fades out of its key.
         public let workout: Workout
+        /// When End came: the rest drawn holds where it stood then (`drawnEnd`).
+        public let date: Date
         /// A set logged but not yet drawn when End came, kept hidden so the screen stays as drawn
         /// until the workout goes.
         public let hidden: PlannedSet?
@@ -173,9 +175,10 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// End, with `workout` as it was: from any phase with a workout, whatever was playing. A set
     /// not yet drawn stays hidden, so the screen stays as drawn: a held set, a close's or a fade's
     /// not yet shown, and a move's until its rows start to shift, hidden again where it had
-    /// shown, so what End moves, it moves from where it is drawn.
+    /// shown, so what End moves, it moves from where it is drawn. A rest drawn holds where it
+    /// stood at `date`.
     @discardableResult
-    public mutating func end(_ workout: Workout) -> Bool {
+    public mutating func end(_ workout: Workout, at date: Date = .now) -> Bool {
         guard canEnd else { return false }
         let hidden: PlannedSet? = switch self {
         case .idle, .starting, .running, .timing, .closing(_, true), .fadingOn(_, true), .ending:
@@ -187,7 +190,7 @@ public enum WorkoutPhase: Equatable, Sendable {
         case let .resting(rest):
             rest.beat == .logged ? rest.set : nil
         }
-        var ending = Ending(workout: workout, hidden: hidden, beat: .began)
+        var ending = Ending(workout: workout, date: date, hidden: hidden, beat: .began)
         ending.rest = resting.flatMap { $0.beat >= .shown ? $0 : nil }
         ending.count = timing
         self = .ending(ending)

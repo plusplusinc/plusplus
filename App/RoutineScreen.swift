@@ -107,12 +107,12 @@ struct RoutineScreen: View {
     @State var closingRoomTop: CGFloat?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<RoutineExercise.ID>?
-    /// Counts the moves to another exercise that have landed on its node, each with a light tick,
-    /// lighter than a log's.
+    /// Counts the moves landed on another exercise's node, each with a tick lighter than a log's.
     @State var landings = 0
-    /// Counts the rests that have run to their end, each with a heavy tap, the strongest of the
-    /// screen's, so the end of a rest is felt with the phone set down.
+    /// Counts the rests run to their end, each with a heavy tap, felt with the phone set down;
+    /// and the taps on Skip rest, each a new count figure (`RestBlock.figureKey(skips:)`).
     @State var restEnds = 0
+    @State var restSkips = 0
     /// A timed set's beats: "Starts in" ending, and the set running out (`RoutineScreen+Timing`).
     @State var countBeats = CountBeats()
     /// Where the workout is in its sequence: out of one, starting, at rest, showing a set just
@@ -246,6 +246,7 @@ struct RoutineScreen: View {
                     ) { item in
                         rowContent(item, current: currentID, on: currentSet, parts: rows[item.id])
                             .environment(\.exerciseMoveWay, moveWay)
+                            .environment(\.restSkips, restSkips)
                             .id(item.id)
                             .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
