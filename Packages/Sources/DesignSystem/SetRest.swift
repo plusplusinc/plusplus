@@ -104,6 +104,7 @@ public struct SetRest {
             length: length,
             ends: ends,
             pausedLeft: isOver ? 0 : pausedLeft,
+            isPaused: isPaused,
         )
     }
 }

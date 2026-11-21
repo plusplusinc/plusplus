@@ -115,7 +115,7 @@ extension RoutineScreen {
               let (resting, workout) = drawnResting,
               !resting.isOver(atClock: workout.clock(at: .now))
         else { return .over }
-        let (ends, pausedLeft) = Self.times(of: resting, on: workout)
+        let (ends, pausedLeft) = Self.times(of: resting, on: workout, end: phase.drawnEnd)
         return KeyFill(
             length: Double(resting.length),
             ends: ends,

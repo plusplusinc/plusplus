@@ -12,7 +12,9 @@ import SwiftUI
 /// before `ends` on a timeline, drawing once while paused (`pausedLeft`), so nothing is written
 /// per second. It reads "0:35", rounded up, so it shows the whole rest as it starts and 0:00 only
 /// as it ends. Its changing digits roll down as each second goes and up on +15 s, its last change,
-/// to 0:00, at once. To VoiceOver it is one element, "Rest", its value the time left in words.
+/// to 0:00, at once; cut, to 0:00 or held as it goes, it shows whole at once, whatever roll was
+/// in flight (`isCut(at:)`). To VoiceOver it is one element, "Rest", its value the time left in
+/// words.
 public struct RestBlock: View {
     public enum Stage: Sendable {
         case none
@@ -45,14 +47,13 @@ public struct RestBlock: View {
         self.isPaused = isPaused
     }
 
-    /// The block held at what it showed at `date`.
+    /// The block leaving, held at what it showed at `date`: held by its going, not a pause.
     func holding(at date: Date) -> Self {
         Self(
             stage: stage,
             length: length,
             ends: ends,
             pausedLeft: left(at: date),
-            isPaused: isPaused,
         )
     }
 
@@ -121,6 +122,11 @@ public struct RestBlock: View {
                         $0.animation = rolls(on: .tick, to: seconds) ? SetMotion.restRoll : nil
                     }
                 }
+                // A cut figure is a new one, put in and the old taken out at once, with any roll
+                // in flight: a cut landing on a second's roll, its change at once, carried the
+                // roll on to the new digits as the count went, toward 0:00 on Skip rest.
+                .transition(.identity)
+                .id(isCut(at: seconds))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")
                 .accessibilityValue(Self.spoken(seconds, locale: locale))
@@ -130,6 +136,13 @@ public struct RestBlock: View {
     /// Whether the count runs: open and not held by a pause, the workout's end, or leaving.
     var ticks: Bool {
         stage == .open && pausedLeft == nil
+    }
+
+    /// Whether the figure showing `seconds` is cut, any roll in flight dropped: at 0:00, as at
+    /// the run-out or on Skip rest, and held other than by a pause, as the workout ends or the
+    /// count leaves. A paused count is not: a roll in flight at a pause ends gray.
+    func isCut(at seconds: Double) -> Bool {
+        seconds <= 0 || stage != .open || pausedLeft != nil && !isPaused
     }
 
     /// What changed the figure.

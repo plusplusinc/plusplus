@@ -1,8 +1,17 @@
+import Foundation
+
 extension WorkoutPhase {
     /// The workout End took from the store, while the list still draws it.
     public var drawnWorkout: Workout? {
         guard case let .ending(ending) = self, ending.drawsWorkout else { return nil }
         return ending.workout
+    }
+
+    /// When End came, while the list still draws the workout it took: the rest drawn holds where
+    /// it stood then.
+    public var drawnEnd: Date? {
+        guard case let .ending(ending) = self, ending.drawsWorkout else { return nil }
+        return ending.date
     }
 
     /// The rest the screen draws: the one under way, or the one End came in, while the list still

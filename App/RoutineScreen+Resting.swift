@@ -252,7 +252,7 @@ extension RoutineScreen {
         if let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .shown,
            let (resting, workout) = drawnResting, let row = restRow(of: rest, in: workout)
         {
-            let (ends, pausedLeft) = Self.times(of: resting, on: workout)
+            let (ends, pausedLeft) = Self.times(of: resting, on: workout, end: phase.drawnEnd)
             let block = RestBlock(
                 stage: .open,
                 length: resting.length,
@@ -280,16 +280,20 @@ extension RoutineScreen {
     }
 
     /// When `rest` ends, on `workout`'s clock running on from now, and the seconds it has left
-    /// where that clock stands still: paused, ended, or `stopped`, so the countdown holds.
+    /// where that clock stands still: paused, ended, or `stopped`, so the countdown holds; or
+    /// where it stood at `end`, End's choice (`WorkoutPhase.drawnEnd`), as the list shrinks out
+    /// of the workout End took: running on through the shrink, the count went on with a
+    /// second's roll as it went.
     static func times(
         of rest: WorkoutRest,
         on workout: Workout,
         stopped: Bool = false,
+        end: Date? = nil,
     ) -> (ends: Date, pausedLeft: Double?) {
-        let holds = stopped || workout.isPaused || !workout.isInProgress
+        let holds = stopped || end != nil || workout.isPaused || !workout.isInProgress
         return (
             workout.date(ofClock: rest.endClock),
-            holds ? rest.remaining(atClock: workout.clock(at: .now)) : nil,
+            holds ? rest.remaining(atClock: workout.clock(at: end ?? .now)) : nil,
         )
     }
 
@@ -305,7 +309,7 @@ extension RoutineScreen {
            let (resting, workout) = drawnResting
         {
             let isOver = within.beat == .returning
-            let (ends, pausedLeft) = Self.times(of: resting, on: workout)
+            let (ends, pausedLeft) = Self.times(of: resting, on: workout, end: phase.drawnEnd)
             return SetRest(
                 isRunning: !isOver,
                 length: resting.length,

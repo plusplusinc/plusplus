@@ -31,6 +31,34 @@ struct CountRollTests {
         #expect(!RestBlock.closed.rolls(on: .moved, to: 45))
     }
 
+    @Test("A figure is cut, any roll in flight dropped, at 0:00 and held as it goes, not paused")
+    func cut() {
+        #expect(!Self.running.isCut(at: 9))
+        #expect(Self.running.isCut(at: 0))
+        // Held by End, or by a timed set's log.
+        #expect(Self.held.isCut(at: 30))
+        #expect(RestBlock.closed.isCut(at: 30))
+        let paused = RestBlock(
+            stage: .open,
+            length: 60,
+            ends: .now + 30,
+            pausedLeft: 30,
+            isPaused: true,
+        )
+        #expect(!paused.isCut(at: 30))
+        // Leaving while paused, a wait is held by its going.
+        #expect(paused.holding(at: .now).isCut(at: 30))
+        // A rest between sets paused keeps its roll, as a rest between exercises does.
+        let pausedBetweenSets = SetRest(
+            isRunning: true,
+            length: 60,
+            pausedLeft: 30,
+            turns: true,
+            isPaused: true,
+        )
+        #expect(!pausedBetweenSets.block.isCut(at: 30))
+    }
+
     @Test("A rest between sets turns its figure once up and as it goes, never as it comes in")
     func restBetweenSets() {
         let coming = SetRest(isRunning: true, length: 60, turns: false)

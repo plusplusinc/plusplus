@@ -69,7 +69,8 @@ extension WorkoutPhaseTests {
 
     static func ending(from phase: WorkoutPhase) -> WorkoutPhase {
         var ended = phase
-        ended.end(workout)
+        // One moment for every ending, so two endings of one phase are equal.
+        ended.end(workout, at: workout.startedAt)
         return ended
     }
 
@@ -209,6 +210,19 @@ extension WorkoutPhaseTests {
             #expect(!applied, "\(other)")
             #expect(tried == other)
         }
+    }
+
+    @Test("Drawn after End, the workout's rest holds where End came, until the list leaves it")
+    func drawnEnd() {
+        let came = Date.now
+        var phase = Self.logging(.nextSet)
+        #expect(phase.drawnEnd == nil)
+        phase.end(Self.workout, at: came)
+        #expect(phase.drawnEnd == came)
+        _ = Self.applying([.keyLeaves], to: &phase)
+        #expect(phase.drawnEnd == came, "The key's beats leave the rest held")
+        phase.listLeaves()
+        #expect(phase.drawnEnd == nil)
     }
 
     @Test("An ending's beats apply in order; the time shows until it fades; then out of a workout")
