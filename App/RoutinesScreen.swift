@@ -11,7 +11,7 @@ import WorkoutStore
 /// menu with Delete, red with a trash, the held row lifted on a rounded platter in the screen's
 /// color, as a row in Add exercise is. Either asks first in a centered alert, "Delete <name>?",
 /// the name as the row shows it; confirmed, the row leaves and the rows below close the gap,
-/// and the screen stays on Routines (`RoutineSession.delete(_:)`).
+/// and the screen stays on Workouts (`RoutineSession.delete(_:)`).
 struct RoutinesScreen: View {
     @Bindable var session: RoutineSession
     let namer: RoutineNamer

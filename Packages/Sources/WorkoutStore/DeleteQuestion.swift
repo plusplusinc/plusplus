@@ -5,7 +5,7 @@ import Foundation
 /// then that workout history stays.
 public enum DeleteQuestion {
     /// When the open routine, the one behind the sheet, uses the exercise, it is named first, as
-    /// this routine, and the others are counted after it (decided 2026-11-18); otherwise the
+    /// "this workout", and the others are counted after it (decided 2026-11-18); otherwise the
     /// routines are counted. `routineCount` counts every routine that uses it, the open one
     /// included.
     public static func message(routineCount: Int, usedByOpenRoutine: Bool) -> String {

@@ -27,9 +27,9 @@ struct EditableTitleBindingFocusTests {
             EditableTitle(
                 text: $model.name,
                 isEditing: $model.isEditing,
-                placeholder: "New routine",
-                accessibilityLabel: "Routine name",
-                accessibilityHint: "Renames the routine.",
+                placeholder: "New workout",
+                accessibilityLabel: "Workout name",
+                accessibilityHint: "Renames the workout.",
             )
             .frame(width: 370)
         }

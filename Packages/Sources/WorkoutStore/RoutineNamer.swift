@@ -32,7 +32,7 @@ public struct RoutineNamer: Sendable {
     }
 
     /// The name a routine shows: the one chosen, else the one made from its exercises, else
-    /// nil for New routine.
+    /// nil for New workout.
     public func shownName(of routine: Routine) -> String? {
         routine.name.isEmpty
             ? name(for: routine.exercises.map(\.exercise), of: routine.id)

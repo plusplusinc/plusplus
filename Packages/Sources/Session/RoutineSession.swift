@@ -148,7 +148,7 @@ public final class RoutineSession {
         workout == nil && !isSwitching && routine == current.id && !current.exercises.isEmpty
     }
 
-    /// The name the open routine shows, which a workout on it keeps: empty for New routine.
+    /// The name the open routine shows, which a workout on it keeps: empty for New workout.
     private var shownName: String {
         namer.shownName(of: current) ?? ""
     }
@@ -346,7 +346,7 @@ extension RoutineSession {
     }
 
     /// Deletes a saved routine, its finished workouts staying stored. For the open one, its last
-    /// edit lands and the session takes a new, empty routine and shows Routines, whether the
+    /// edit lands and the session takes a new, empty routine and shows Workouts, whether the
     /// deleted one was pushed or at the root, before the store deletes it, so no save can bring
     /// it back. Refused for the routine a workout runs on, and while a switch is under way. A
     /// delete that fails leaves the routine listed.

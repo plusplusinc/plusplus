@@ -104,7 +104,7 @@ extension RoutineScreen {
     /// Whether `id`'s row measures its pitch at rest from a hidden copy of it
     /// (`restingContent(_:in:)`): the current exercise, while it stands grown. Measured, not noted
     /// from the row before it grew, since a screen made with the workout under way, as the app
-    /// reopening into one and Start on a routine opened from Routines both make, never saw that
+    /// reopening into one and Start on a routine opened from Workouts both make, never saw that
     /// row at rest: with no pitch, a move off it landed the next row as the shift ended, in a
     /// second motion. Not while Start grows it or a move is under way, when nothing reads it and
     /// the copy would only be laid out again on every frame.

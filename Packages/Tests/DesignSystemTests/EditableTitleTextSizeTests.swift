@@ -44,12 +44,12 @@ struct EditableTitleTextSizeTests {
                     draft: .constant(draft),
                     // Held as the field is focused below, so nothing asks it to give up focus.
                     isFocused: .constant(isEditing),
-                    placeholder: "New routine",
-                    shownPlaceholder: "New routine",
+                    placeholder: "New workout",
+                    shownPlaceholder: "New workout",
                     isEditing: isEditing,
                     blinks: false,
-                    accessibilityLabel: "Routine name",
-                    accessibilityHint: "Renames the routine.",
+                    accessibilityLabel: "Workout name",
+                    accessibilityHint: "Renames the workout.",
                 )
                 // The routine screen scrolls, so the title is as tall as it asks to be.
                 .fixedSize(horizontal: false, vertical: true)

@@ -3,7 +3,7 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// What ++ opens: the app's title, then Routines, showing its list in place of the screen
+/// What ++ opens: the app's title, then Workouts, showing its list in place of the screen
 /// showing. It is marked while it shows; while a routine shows, it isn't.
 ///
 /// The mark doesn't change while any of it shows: it is taken as the drawer starts to show and

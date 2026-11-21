@@ -63,7 +63,7 @@ struct EditableTitleTests {
     @Test("A suggestion that changes once types in, or crossfades or snaps where it can't")
     func restingChangedOnce() {
         #expect(Self.step(shown: "Push", resting: "Pull") == .typeIn)
-        #expect(Self.step(shown: "Push", resting: "New routine", crossfades: true) == .crossfade)
+        #expect(Self.step(shown: "Push", resting: "New workout", crossfades: true) == .crossfade)
         #expect(Self.step(shown: "Push", resting: "Pull", canType: false) == .snap)
     }
 

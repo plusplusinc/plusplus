@@ -32,10 +32,10 @@ struct ComponentSnapshotTests {
             EditableTitle(
                 text: .constant(name),
                 isEditing: .constant(false),
-                placeholder: "New routine",
+                placeholder: "New workout",
                 suggestion: suggestion,
-                accessibilityLabel: "Routine name",
-                accessibilityHint: "Renames the routine.",
+                accessibilityLabel: "Workout name",
+                accessibilityHint: "Renames the workout.",
             )
             if !equipment.isEmpty {
                 Capsules(equipment)
@@ -112,10 +112,10 @@ struct ComponentSnapshotTests {
                 EditableTitle(
                     text: .constant(name),
                     isEditing: .constant(false),
-                    placeholder: "New routine",
+                    placeholder: "New workout",
                     suggestion: suggestion,
-                    accessibilityLabel: "Routine name",
-                    accessibilityHint: "Renames the routine.",
+                    accessibilityLabel: "Workout name",
+                    accessibilityHint: "Renames the workout.",
                 )
             }
         }
@@ -134,7 +134,7 @@ struct ComponentSnapshotTests {
                 .font(.ppRowTitle)
                 .makesSomething()
             Spacer()
-            Button("New routine", systemImage: "plus") { }
+            Button("New workout", systemImage: "plus") { }
                 .labelStyle(.iconOnly)
                 .makesSomething()
         }
