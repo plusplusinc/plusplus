@@ -93,17 +93,21 @@ struct DrawerSnapshotTests {
             Text("Routines")
                 .ppFixedTitleFont()
                 .foregroundStyle(.pp(.textPrimary))
+                .padding(.horizontal, Spacing.md)
                 .padding(.bottom, Spacing.md)
-            ForEach(names, id: \.self, content: NameRow.init)
+            ForEach(names, id: \.self) { name in
+                NameRow(name)
+                    .padding(.horizontal, Spacing.md)
+                    .overlay(alignment: .bottom) { RowLine().padding(.horizontal, Spacing.md) }
+            }
         }
-        .padding(.horizontal, Spacing.md)
         .padding(.top, Spacing.sm)
         .padding(.bottom, Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.pp(.background))
     }
 
-    @Test("The Routines screen: a name per row, a long one wrapping")
+    @Test("The Routines screen: a name per row under a line, a long one wrapping")
     func routinesScreen() {
         assertThemedSnapshots(
             of: routinesList([

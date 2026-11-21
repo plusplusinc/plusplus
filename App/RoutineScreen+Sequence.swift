@@ -36,13 +36,16 @@ func laterTurn() async throws {
 
 extension RoutineScreen {
     /// The screen going away: the sequence playing stops, and the phase settles at once to what
-    /// the store holds, so the key never waits on a workout that is gone, or ignores one there.
+    /// the store holds, so the key never waits on a workout that is gone, or ignores one there,
+    /// a rest still running settled in place, as a relaunch opens on it.
     /// A row's sheet still set closes: with no screen to show it, it kept the drawer shut.
     func stopSequence() {
         session.closeRowSheet()
         sequence.cancel()
+        // A timed set the stopped sequence was landing on counts from now.
+        session.beginCount(override: restOverride)
         withTransaction(\.disablesAnimations, true) {
-            phase.settleAtOnce(hasWorkout: session.workout != nil)
+            phase.settleAtOnce(resuming: live, restOverride: restOverride, at: .now)
             closingRoomTop = nil
             isCrossfading = false
             // Start's ride down, and any lift drawn for a motion, are over.

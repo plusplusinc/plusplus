@@ -139,6 +139,34 @@ struct RailPulseTests {
         #expect(gone <= SetMotion.move(way))
     }
 
+    @Test(
+        "Into a rest, as the node left rises with its closing row, the pulse never goes up with it",
+    )
+    @MainActor
+    func leavesRisingNode() {
+        // The node left has risen 20 pt since the tap; the rest is 64 pt below where it was.
+        let risen = RailRoute.line(from: CGPoint(x: 0, y: -20), to: CGPoint(x: 0, y: 64))
+        let drawn = RailPulseRun.drawn(risen, way: .down, leavesNode: true, origin: .zero)
+        #expect(drawn.route.points.first == .zero)
+        #expect(!drawn.leavesNode)
+        for step in 0 ... 60 {
+            let time = PulseShape.runEnd(.down) * Double(step) / 60
+            let box = PulseShape(
+                time: time,
+                route: drawn.route,
+                size: 14,
+                restingSize: 10,
+                leavesNode: drawn.leavesNode,
+                joinsNode: false,
+            ).path(in: .zero).boundingRect
+            // One shape, never above the dot it set off as.
+            #expect(box.isNull || box.minY >= -7 - 1e-9, "at \(time) s: \(box)")
+        }
+        // A node that stays put is left behind as before.
+        let still = RailRoute.line(from: .zero, to: CGPoint(x: 0, y: 64))
+        #expect(RailPulseRun.drawn(still, way: .down, leavesNode: true, origin: .zero).leavesNode)
+    }
+
     @Test("Up a loop, the travel shoots off, ends where it lands, and still moves as it lands")
     func loopTravel() {
         #expect(SetMotion.distance(at: 0, .loop) == 0)
@@ -188,32 +216,29 @@ struct RailPulseTests {
     )
     @MainActor
     func beats(way: SetMotion.Way) {
-        // Down the rail a quarter-second run lands at 0.33 s and the whole move takes 0.93 s;
-        // up a loop, a 0.42 s run lands at 0.5 s and the move takes 1.1 s.
-        let (landing, move) = way == .down ? (0.33, 0.93) : (0.5, 1.1)
-        #expect(abs(SetMotion.landing(way) - landing) < 1e-9)
-        #expect(abs(SetMotion.move(way) - move) < 1e-9)
-        // The shift and the parts going hold until 0.15 s after the landing, as the plop's first
-        // squash has sprung back, so the landing plays on a still screen.
+        // The shift and the parts going hold until the plop's first squash has sprung back, so
+        // the landing plays on a still screen.
         let start = SetMotion.moveShiftStart(way)
-        #expect(abs(start - SetMotion.landing(way) - 0.15) < 1e-9)
-        #expect(abs(SetMotion.squash(at: SetMotion.landingHold)) < 0.25)
-        #expect(SetMotion.leaveDelay(.figures, way: way) == start)
+        #expect(start > SetMotion.landing(way))
+        #expect(abs(SetMotion.squash(at: start - SetMotion.landing(way))) < 0.25)
+        #expect(SetMotion.leaveDelay(.equipment, way: way) == start)
         #expect(SetMotion.detailOut(way: way) == .easeIn(duration: 0.06).delay(start))
         // Bottom first out, every part gone before the first comes in, top first, by the end.
-        #expect(SetMotion.leaveDelay(.figures, way: way) < SetMotion.leaveDelay(
-            .progress,
-            way: way,
-        ))
+        #expect(SetMotion.leaveDelay(.equipment, way: way)
+            < SetMotion.leaveDelay(.figures, way: way))
         #expect(SetMotion.leaveDelay(.progress, way: way) + SetMotion.leaveFade
             <= SetMotion.arriveDelay(.progress, way: way) + 1e-9)
         #expect(SetMotion.arriveDelay(.progress, way: way)
             < SetMotion.arriveDelay(.figures, way: way))
-        #expect(SetMotion.arriveDelay(.figures, way: way) < SetMotion.shiftEnd(way))
+        #expect(SetMotion.arriveDelay(.figures, way: way)
+            < SetMotion.arriveDelay(.equipment, way: way))
         #expect(abs(SetMotion.shiftEnd(way) - start - SetMotion.moveShift) < 1e-9)
         // A round's roll shows on the grown row, within the move.
         #expect(SetMotion.roundRoll(way) > SetMotion.arriveDelay(.progress, way: way))
         #expect(SetMotion.roundRoll(way) < SetMotion.move(way))
-        #expect(abs(SetMotion.move(way) - SetMotion.shiftEnd(way)) < 0.02)
+        // The move is over once the last part is in and the shift has stopped, not before.
+        #expect(SetMotion.move(way)
+            >= SetMotion.arriveDelay(.equipment, way: way) + SetMotion.arriveFade - 1e-9)
+        #expect(SetMotion.move(way) >= SetMotion.shiftEnd(way))
     }
 }

@@ -44,7 +44,7 @@ extension RenameUITests {
         XCTContext.runActivity(named: "A scroll ends the edit and scrolls the list") { _ in
             startEdit()
             let top = row(0).frame.minY
-            // Row 1, clear of Start riding above the keyboard, which covers row 3.
+            // Row 1, clear of the keyboard, which covers the lower rows.
             row(1).center.press(
                 forDuration: 0.05,
                 thenDragTo: row(1).center.down(-200),
@@ -72,7 +72,7 @@ extension RenameUITests {
     }
 
     /// Starts an edit with a tap on the title and ends it with `end`, then watches the title,
-    /// the capsules, and the first row for as long as UIKit could take to move them: none may.
+    /// the capsules, and the first row for `endedEditWindow`: none may move.
     private func endEditWithoutMoving(
         in app: XCUIApplication,
         keyboard: XCUIElement,
@@ -91,7 +91,7 @@ extension RenameUITests {
         end()
         XCTAssertTrue(keyboard.disappears(), "The edit did not end")
         XCTAssertEqual(
-            watchFrames(of: elements, for: Self.keyboardAvoidanceWindow),
+            watchFrames(of: elements, for: Self.endedEditWindow),
             atRest,
             "The title, the capsules, or the first row moved",
         )

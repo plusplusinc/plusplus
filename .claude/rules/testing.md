@@ -88,7 +88,7 @@ Cheapest first. The tests' display names are the inventory of what each tier hol
   trip. A relaunch costs 5 to 7 s on CI.
 - **Rows come from `-seedExercises`**, not adds through the picker, unless the add is what's
   checked.
-- **Screenshots in UI tests are kept only on failure** (`attach(named:)`).
+- **A UI test screenshots only once it has failed** (`attach(named:)`).
 - **Hosted and snapshot tests are main-actor work**, and `DesignSystemTests` runs them one at
   a time (the test plan's `parallelizable: false`), so each one's own time is read, and a slow
   one is named.
@@ -171,7 +171,7 @@ system's selection to it. `TitleShot.swift` reads the `_`, the title's lines, an
 from pixels: a name, typed or generated, reaches further from the background than the
 placeholder's gray.
 
-Wait with `appears()`, `disappears()`, `value(becoming:)`, and, for anything else read,
+Wait with `appears()`, `disappears()`, `staysAway()`, `value(becoming:)`, and, for anything else,
 `reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
 their first check, and again between checks. Read many elements' labels or values from one
 snapshot (`exerciseRowLabels`, `snapshots(where:)`): each element read on its own resolves its

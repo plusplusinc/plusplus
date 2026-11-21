@@ -16,7 +16,8 @@ extension RoutineDrawerUITests {
         XCTContext.runActivity(named: "A row's More menu opens its exercise's Customize") { _ in
             app.exerciseRows.element(boundBy: 0).tap()
             XCTAssertTrue(sets.appears(), "Tapping a row opened no sheet")
-            app.buttons["More"].tap()
+            // The sheet's, not the routine's ••• in the bar behind it, also More.
+            app.buttons["exerciseSheet.more"].tap()
             let customize = app.buttons["Customize…"]
             XCTAssertTrue(customize.appears(), "The More menu offers no Customize…")
             XCTAssertTrue(app.buttons["Remove"].exists, "The More menu offers no Remove")
@@ -64,17 +65,12 @@ extension RoutineDrawerUITests {
     }
 
     /// In Add exercise, holding a row opens the system's context menu instead of adding it: a
-    /// built-in's offers Customize… alone, which pushes its form, and back finds
-    /// the list. Create closes the sheet, adds the row, and opens the row's own sheet on the
-    /// exercise's form, which a swipe down closes with the row left in. Back in Add exercise,
-    /// the search lists it; held, it also offers Delete, which asks in a centered alert and then
-    /// takes it from the list and its row from the routine, its name free to create again. That
-    /// a delete removes its rows, and the question's count, are the package's
-    /// (`RoutineStoreCustomizeTests`, `RoutineSessionExerciseTests`).
-    func holdMenuCustomizesAndDeletes(in app: XCUIApplication) {
+    /// built-in's offers Customize… alone, which pushes its form, and back finds the list. A
+    /// created one's menu, which adds Delete, is `RowDragUITests`', on the exercise its Create
+    /// made.
+    func builtInHoldMenuCustomizes(in app: XCUIApplication) {
         let name = app.textFields["customize.name"]
         let customize = app.buttons["Customize…"]
-        let delete = app.buttons["picker.menu.delete"]
         let count = app.exerciseRows.count
         XCTContext.runActivity(named: "A built-in's hold menu offers Customize… alone") { _ in
             _ = app.openPicker()
@@ -84,7 +80,10 @@ extension RoutineDrawerUITests {
             let label = first.label
             first.press(forDuration: 1)
             XCTAssertTrue(customize.appears(), "Holding a row opened no menu")
-            XCTAssertFalse(delete.exists, "A built-in's hold menu offers Delete")
+            XCTAssertFalse(
+                app.buttons["picker.menu.delete"].exists,
+                "A built-in's hold menu offers Delete",
+            )
             customize.tap()
             XCTAssertTrue(name.appears(), "Customize… opened no form")
             let exercise = name.value as? String ?? ""
@@ -92,24 +91,46 @@ extension RoutineDrawerUITests {
             app.tapBack()
             XCTAssertTrue(first.appears(), "Back didn't come to the list")
             XCTAssertEqual(app.exerciseRows.count, count, "The hold added the exercise")
+            let close = app.buttons["Close"]
+            XCTAssertTrue(close.settles(), "Close kept moving")
+            close.tap()
+            XCTAssertTrue(close.disappears(), "Close left the picker up")
         }
+    }
+
+    /// An exercise created here is deleted from the form its hold menu's Customize… pushes
+    /// inside Add exercise: the form goes back to the list, still searched, and only then does
+    /// the row leave it, the name free to create again, and its row leave the routine. Only the
+    /// running app shows the sheet's own navigation popping under an alert's answer; the hold
+    /// menu's Delete (`RowDragUITests`) and the row's sheet (`deleteCreatedEmptiesRoutine`)
+    /// close nothing or a whole sheet.
+    func customizeInPickerDeletes(in app: XCUIApplication) {
+        let count = app.exerciseRows.count
+        _ = app.openPicker()
         createdSheetSwipesDown(in: app, from: count)
-        XCTContext.runActivity(named: "A created one's hold menu deletes it, asking first") { _ in
-            _ = app.openPicker()
+        XCTContext.runActivity(named: "Customize… in Add exercise deletes a created one") { _ in
+            let search = app.openPicker()
             app.search(for: "zq")
-            let create = app.buttons["picker.create"]
             let row = app.pickerRows["Zq"]
             XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
             XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
             row.press(forDuration: 1)
-            XCTAssertTrue(delete.appears(), "A created one's hold menu offers no Delete")
-            XCTAssertTrue(customize.exists, "A created one's hold menu offers no Customize…")
+            let customize = app.buttons["Customize…"]
+            XCTAssertTrue(customize.appears(), "Holding the row opened no menu")
+            customize.tap()
+            let name = app.textFields["customize.name"]
+            XCTAssertTrue(name.appears(), "Customize… opened no form")
+            let delete = app.buttons["Delete exercise"]
+            XCTAssertTrue(delete.appears(), "The form has no Delete exercise")
+            XCTAssertTrue(delete.settles(), "Delete exercise kept moving")
             delete.tap()
             app.answerAlert("Delete Zq?", with: "Delete exercise")
-            XCTAssertTrue(row.disappears(), "The deleted exercise is still listed")
-            XCTAssertTrue(create.appears(), "Its name isn't free to create again")
-            // Closing the search brings Close back, out of the closing field.
-            app.searchButton.tap()
+            XCTAssertTrue(name.disappears(), "Delete left the form up")
+            XCTAssertTrue(search.exists, "Delete closed Add exercise with the form")
+            // The row leaves a rest after the list is back.
+            XCTAssertTrue(row.disappears(within: 4), "The deleted exercise is still listed")
+            XCTAssertTrue(app.buttons["picker.create"].appears(), "Its name isn't free again")
+            search.tap()
             let close = app.buttons["Close"]
             XCTAssertTrue(close.settles(), "Close kept moving")
             close.tap()

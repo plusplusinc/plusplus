@@ -145,20 +145,23 @@ run() {
 }
 
 # Brings the main checkout's main to origin/main, since the night runs that checkout's scripts and
-# skills and nothing else moves it: only a fast-forward, only of a checkout on main with no tracked
-# changes. Otherwise it leaves the checkout as it is and writes why to the night's
+# skills and nothing else moves it: only a fast-forward, only of a checkout on main. An uncommitted
+# change stays as it is and stops the fast-forward only when origin/main changed the same file,
+# which git refuses. Otherwise it leaves the checkout as it is and writes why to the night's
 # main-checkout.txt, which the tooling runner's digest puts at its top. It always returns 0.
 catch_up() {
     local main=$1 night=$2 branch why=""
     branch=$(git -C "$main" symbolic-ref --quiet --short HEAD || true)
     if [ "$branch" != main ]; then
         why="it is on ${branch:-a detached HEAD}, not main"
-    elif [ -n "$(git -C "$main" status --porcelain --untracked-files=no)" ]; then
-        why="it has uncommitted changes"
     elif ! git -C "$main" fetch --quiet origin main 2> /dev/null; then
         why="fetching origin failed"
     elif ! git -C "$main" merge --ff-only --quiet origin/main > /dev/null 2>&1; then
-        why="its main has commits origin/main doesn't"
+        if git -C "$main" merge-base --is-ancestor HEAD origin/main; then
+            why="it has uncommitted changes to files origin/main changed"
+        else
+            why="its main has commits origin/main doesn't"
+        fi
     fi
     if [ -n "$why" ]; then
         echo "Main checkout not brought up to date: $why; the night runs $(git -C "$main" rev-parse --short HEAD)" |

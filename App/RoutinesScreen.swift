@@ -4,7 +4,14 @@ import SwiftUI
 import WorkoutStore
 
 /// Every saved routine, most recently opened or edited first, each by its name.
-/// Tapping one pushes it on the routine screen; + pushes a new one.
+/// Tapping one pushes it on the routine screen; + pushes a new one. A line runs under each row,
+/// the last included, as under each row in Add exercise.
+///
+/// A row swiped left shows the system's red Delete, and a row held opens the system's context
+/// menu with Delete, red with a trash, the held row lifted on a rounded platter in the screen's
+/// color, as a row in Add exercise is. Either asks first in a centered alert, "Delete <name>?",
+/// the name as the row shows it; confirmed, the row leaves and the rows below close the gap,
+/// and the screen stays on Routines (`RoutineSession.delete(_:)`).
 struct RoutinesScreen: View {
     @Bindable var session: RoutineSession
     let namer: RoutineNamer
@@ -15,6 +22,12 @@ struct RoutinesScreen: View {
     @State private var scrollPosition = ScrollPosition()
     /// Whether the title has scrolled out of sight under the bar, for its small copy to show.
     @State private var isTitleUnderBar = false
+    /// The routine Delete last asked about, kept as the alert goes, so its title keeps the name.
+    @State private var deleting: Routine?
+    @State private var isAskingToDelete = false
+    /// Routines whose delete is confirmed, left out of the list from the confirming tap, in its
+    /// animation, before the store has taken the delete.
+    @State private var leaving: Set<Routine.ID> = []
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -25,6 +38,7 @@ struct RoutinesScreen: View {
                         .ppFixedTitleFont()
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
+                        .padding(.horizontal, Spacing.md)
                         .padding(.bottom, Spacing.md)
                         .onScrollVisibilityChange(threshold: 0.01) { isVisible in
                             withAnimation(.easeOut(duration: RoutineScreen.barFade)) {
@@ -36,11 +50,12 @@ struct RoutinesScreen: View {
                 // The scroll view takes its content's width, so with no row to stretch it the
                 // title alone would set it.
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.md)
             }
             .scrollPosition($scrollPosition)
+            // One row open at a time, closed by a scroll or a tap anywhere else.
+            .swipeActionsContainer()
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
             .onAppear(perform: takeOrder)
@@ -82,6 +97,15 @@ struct RoutinesScreen: View {
                 }
             }
         }
+        // Outside the stack, as the picker's: centered, with the system's colors.
+        .alert(
+            "Delete \(deleting.map(namer.listedName(of:)) ?? "")?",
+            isPresented: $isAskingToDelete,
+            presenting: deleting,
+        ) { routine in
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) { delete(routine.id) }
+        }
         .task {
             await session.refreshRecent(weightUnit: weightUnit)
             takeOrder()
@@ -93,10 +117,57 @@ struct RoutinesScreen: View {
             Task { await session.open(routine.id, weightUnit: weightUnit) }
         } label: {
             NameRow(namer.listedName(of: routine))
+                .padding(.leading, Spacing.md)
+                .padding(.trailing, Spacing.md - Self.swipeInset)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("routines.row")
+        // The system draws a swiped action inset from its row's end, so the row it swipes
+        // ends that far short of the screen's edge, and Delete ends in line with the line
+        // under the row and with the bar's +.
+        .swipeActions(edge: .trailing) {
+            Button("Delete", role: .destructive) { askToDelete(routine) }
+        }
+        .padding(.trailing, Self.swipeInset)
+        // The platter the held row lifts on, as a list row's in Add exercise: in the screen's
+        // own color, so it shows only once the screen behind it dims. Like a picker row's cell,
+        // it spans the screen with the name a margin inside, and the system shrinks the lifted
+        // row into the screen's margins, which leaves the name the picker's room inside the
+        // lifted platter. Behind the swiped row, so it never covers Delete.
+        .background(Color.pp(.background), in: Self.platter)
+        .contentShape(.contextMenuPreview, Self.platter)
+        .contextMenu {
+            Button("Delete", systemImage: "trash", role: .destructive) { askToDelete(routine) }
+        }
+        // Across the name's width, outside the platter, so a held row lifts without it.
+        .overlay(alignment: .bottom) {
+            RowLine().padding(.horizontal, Spacing.md)
+        }
+    }
+
+    private static let platter = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
+    /// How far inside its row's end the system draws a swiped action.
+    private static let swipeInset = Spacing.sm
+
+    private func askToDelete(_ routine: Routine) {
+        deleting = routine
+        isAskingToDelete = true
+    }
+
+    /// Takes the row out at once, the rows below closing the gap, then deletes the routine.
+    private func delete(_ id: Routine.ID) {
+        withAnimation(.snappy) {
+            _ = leaving.insert(id)
+        }
+        Task {
+            await session.delete(id)
+            // Gone from the session's list once stored; back in the list if the delete failed,
+            // or was refused as a switch was under way.
+            withAnimation(.snappy) {
+                _ = leaving.remove(id)
+            }
+        }
     }
 
     /// The stack's push: the session's pushed routine, which the back button and the back swipe
@@ -112,7 +183,7 @@ struct RoutinesScreen: View {
     }
 
     private var shown: [Routine] {
-        session.recent.held(in: order)
+        session.recent.held(in: order).filter { !leaving.contains($0.id) }
     }
 
     private func takeOrder() {

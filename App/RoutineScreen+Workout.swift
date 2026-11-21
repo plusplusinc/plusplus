@@ -32,6 +32,7 @@ extension RoutineScreen {
             // bound to that edge, and followed it down into the room, off the screen.
             scrollPosition.scrollTo(y: scrollBeat.scrolledY)
             isMakingRoom = true
+            endFollow = nil
             startDrop = 0
             // Where a workout that ended left its current exercise: the first row reports its
             // own place from the press, and the landing's room waits for it.
@@ -52,8 +53,6 @@ extension RoutineScreen {
     /// motion, and the key rides down off the screen with the rows below it. With Reduce
     /// Motion, the list crossfades into the workout.
     private func leave(_ pressed: Routine.ID) async throws {
-        // What the first row gives back as it shrinks, which the move off it lands by.
-        noteRestingPitch(of: routine.exercises.first?.id)
         guard !reduceMotion else {
             try check(pressed)
             beginCrossfade(scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY)
@@ -67,7 +66,7 @@ extension RoutineScreen {
                 // measured, the list stayed put (13 Starts, 2026-11-01).
                 phase.fadeIn()
             }
-            return keyReturns { phase.run() }
+            return keyReturns { phase.run(on: arrivingCount()) }
         }
         try await bringFirstIntoView()
         try check(pressed)
@@ -88,7 +87,7 @@ extension RoutineScreen {
         // reactions run, so the bar draws it back from what it already holds
         // (`KeyStage.dropped`).
         try await laterTurn()
-        keyReturns { phase.run() }
+        keyReturns { phase.run(on: arrivingCount()) }
     }
 
     /// If the first exercise is scrolled away, scrolls the list to its top, then gives the
@@ -157,14 +156,15 @@ extension RoutineScreen {
     /// it. Switched on with the grow, the room grew in with it, and when the room under the list
     /// went mid-grow the scroll view's trailing size, 45 to 130 pt short, clamped the list down.
     var landingRoomTop: CGFloat? {
-        let isLanding = currentID != nil || isMovingOn || isStarting
+        let isLanding = currentID != nil || isMovingOn || isStarting || isResting
         return closingRoomTop ?? (isLanding ? currentPlace?.landingY : nil)
     }
 
     /// Takes away the screen's room under the list's end once Start or a move to the next
     /// exercise is over. It can go at any moment: `landingRoomTop` holds the landing.
     func letRoomGo() {
-        guard isMakingRoom, !isStarting, !isMovingOn, session.workout != nil else { return }
+        guard isMakingRoom, !isStarting, !isMovingOn, !isResting, session.workout != nil
+        else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
 
@@ -194,7 +194,7 @@ extension RoutineScreen {
         var ended = phase
         guard let workout = session.workout, ended.end(workout) else { return }
         sequence.cancel()
-        let tookOver = phase != .running
+        let tookOver = !phase.isAtRest
         withTransaction(\.disablesAnimations, true) {
             // The next workout's key starts from the log, whatever this one's last showed.
             keyWayBack = nil
@@ -206,7 +206,9 @@ extension RoutineScreen {
         }
         // The workout's key slides down as it fades, and Start stays away until the list has
         // landed: taken out with no animation, the key went on the frame.
-        withAnimation(.easeOut(duration: Self.barFade)) { phase.keyLeaves() }
+        withAnimation(.easeOut(duration: Self.barFade)) {
+            phase.keyLeaves()
+        }
         guard !reduceMotion else {
             withAnimation(Self.crossfadeCurve) { change() }
             beginCrossfade(scrollingTo: 0)
@@ -349,13 +351,6 @@ extension RoutineScreen {
         settleWayBack()
     }
 
-    /// Scrolls the current exercise's row up to just under the bar.
-    func scrollToCurrent() {
-        if let place = currentPlace {
-            scrollPosition.scrollTo(y: place.landingY)
-        }
-    }
-
     /// Back in a workout after a relaunch, opens the list on the current exercise, once it has
     /// its place in a list with a height. Wherever the row is: at the largest text sizes, the
     /// equipment under the title can leave it below the screen.
@@ -366,9 +361,8 @@ extension RoutineScreen {
         settleWayBack()
     }
 
-    /// The beat between Start's press and its leaving. The
-    /// workout's first frame takes a few more to draw, so the rows move about 0.5 s after the
-    /// press.
+    /// The beat between Start's press and its leaving. The workout's first frame takes a few
+    /// more to draw, so the rows move about 0.5 s after the press.
     static let pressHold = 0.4
     static let scrollDuration = 0.35
     /// How long Start waits for its scroll to the first exercise to report it has stopped

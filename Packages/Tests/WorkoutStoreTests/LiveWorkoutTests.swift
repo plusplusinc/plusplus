@@ -204,7 +204,7 @@ struct LiveWorkoutTests {
         let push = try RoutineExercise.builtIn("Push-up") { $0.sets = 3 }
         let pull = try RoutineExercise.builtIn("Pull-up")
         var stored = live(Routine(exercises: [push, pull]))
-        var phase = WorkoutPhase(hasWorkout: true)
+        var phase = WorkoutPhase.running
         // Wherever the key takes a log, the set it logs is the one drawn as current.
         func expectDrawnWhereTaken() {
             if phase.takesLog {
@@ -221,11 +221,12 @@ struct LiveWorkoutTests {
             #expect(took)
         }
         func finishStep() {
+            phase.rollOn(on: nil)
             phase.show()
             phase.land()
             phase.shift()
             phase.roll()
-            phase.settle()
+            phase.settle(on: nil)
             #expect(phase == .running)
             expectDrawnWhereTaken()
         }

@@ -73,8 +73,8 @@ extension RoutineScreen {
     }
 
     /// A row's sheet, its More menu's Customize… pushing the exercise's form inside it. Each
-    /// change shows in the routine behind it as it is stored; a Delete there takes the row and
-    /// shuts the sheet.
+    /// change shows in the routine behind it as it is stored; a Delete there shuts the sheet,
+    /// still on the form, and then takes the exercise's rows (`deleteExercise(_:closing:)`).
     @ViewBuilder
     func exerciseSheet(_ opened: RowSheet) -> some View {
         let id = opened.id
@@ -84,18 +84,14 @@ extension RoutineScreen {
                 partners: routine.partnerNames(of: id),
                 parts: routine.sheetParts(of: id),
                 rounds: roundSteps(of: id),
-                customize: { back in
+                customize: {
+                    let exercise = item.wrappedValue.exercise.id
                     CustomizeScreen(
-                        id: item.wrappedValue.exercise.id,
+                        id: exercise,
                         session: session,
                         namer: namer,
-                        onStored: {
-                            showStoredRoutine()
-                            if row(id) == nil {
-                                session.closeRowSheet()
-                            }
-                        },
-                        back: back,
+                        onStored: { showStoredRoutine() },
+                        onDelete: { await deleteExercise(exercise, closing: .rowSheet) },
                     )
                 },
                 onDelete: { delete(id, footDelay: Self.exerciseSheetGone) },
@@ -110,7 +106,7 @@ extension RoutineScreen {
     /// sheet opens on Customize (`showCreated()`).
     var picker: some View {
         ExercisePicker(
-            exercises: session.exercises,
+            exercises: leavingExercise.map(session.exercises.removing) ?? session.exercises,
             onPick: addPicked,
             // Full height with search, in the field's own transaction (decided 2026-11-17).
             onSearchOpen: { pickerDetent = .large },
@@ -120,27 +116,30 @@ extension RoutineScreen {
                 isPicking = false
                 add(exercise) { createdWait = CreatedWait(row: $0, wasIdle: wasIdle) }
             },
-            routineCount: { session.routines(using: $0).count },
-            onDelete: { id in
-                await session.deleteExercise(id, weightUnit: WeightUnit(region: locale))
-                showStoredRoutine()
+            deleteMessage: { id in
+                DeleteQuestion.message(
+                    routineCount: session.routines(using: id).count,
+                    usedByOpenRoutine: session.openRoutineUses(id),
+                )
             },
+            onDelete: { await deleteExercise($0, closing: .nothing) },
             customize: { id, back in
                 CustomizeScreen(
                     id: id,
                     session: session,
                     namer: namer,
-                    onStored: showStoredRoutine,
-                    back: back,
+                    onStored: { showStoredRoutine() },
+                    onDelete: { await deleteExercise(id, closing: .pop(back: back)) },
                 )
             },
         )
     }
 
     /// Shuts the picker and adds what was picked there. A second tap while the sheet goes down
-    /// keeps the first.
+    /// keeps the first. One whose delete is confirmed, still listed until its row's beat, adds
+    /// nothing.
     func addPicked(_ exercise: Exercise) {
-        guard isPicking else { return }
+        guard isPicking, !session.isDeleting(exercise.id) else { return }
         isPicking = false
         add(exercise)
     }
@@ -160,7 +159,8 @@ extension RoutineScreen {
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
         entering = row.id
-        endFollow = .waiting
+        // Under Start's room or a move's, the row enters where it is (`keepEndInView`).
+        endFollow = isMakingRoom ? nil : .waiting
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, starts the wait for the list's end a moment into the sheet's slide.
         withAnimation(.linear(duration: RailArrival.appendFade)) {
@@ -209,11 +209,14 @@ extension RoutineScreen {
 
     /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
     /// as the scroll lands, unless the end is in view or Start's room is opening, when it returns
-    /// at once. On deadlines, not the scroll's completion or its phase: the phase reported idle
-    /// only about 0.3 s after the list had stopped, and the row waited on a still list.
+    /// at once, the room leaving the in-step scroll off (`keepEndInView`). On deadlines, not the
+    /// scroll's
+    /// completion or its phase: the phase reported idle only about 0.3 s after the list had
+    /// stopped, and the row waited on a still list.
     private func reachEnd(added: ContinuousClock.Instant) async {
+        guard !isMakingRoom else { return }
         endFollow = .ready
-        guard !isEndInView, !isMakingRoom else { return }
+        guard !isEndInView else { return }
         try? await Task.sleep(until: added + Self.pickerGone, tolerance: .zero, clock: .continuous)
         // Start pressed meanwhile: the row enters where it is.
         guard !isMakingRoom else { return }
@@ -249,7 +252,10 @@ extension RoutineScreen {
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
     /// with the list's end in view, so the end is where the scroll stays. Not once Start is
     /// pressed: its room under the list grows the content too, and following that took the
-    /// list off the screen, as `add` says.
+    /// list off the screen, as `add` says. Start's room and a move's turn it off, not only
+    /// pause it (`pressStart()`, `add`): left on, it woke as Start's room went, with the landing's
+    /// room still under
+    /// the list, and scrolled the list into that (Xcode Cloud runs 495 and 499).
     ///
     /// From the place's first growth on (`EndFollow.following`), it follows the end on any
     /// change while short of it, not only on a growth: a growth is reported before the scroll

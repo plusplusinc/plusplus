@@ -22,7 +22,7 @@ extension WorkoutPhaseTests {
             case .grow: phase.grow()
             case .landStart: phase.landStart()
             case .fadeIn: phase.fadeIn()
-            case .run: phase.run()
+            case .run: phase.run(on: nil)
             case .keyLeaves: phase.keyLeaves()
             case .timeFades: phase.timeFades()
             case .rest: phase.rest()
