@@ -28,7 +28,10 @@ fails. A file the PR deletes outright counts only when all of that commit still 
 the merge base is undone too: deleting a file a recent commit added, while the rest of that commit stands, is the
 change's intent, and a stale squash undoes all of a commit, one that only added files included,
 by deleting them. A revert that is meant is made with `git revert`, whose
-"This reverts commit <sha>" line, a short sha too, exempts that commit. The guard reads history,
+"This reverts commit <sha>" line, a short sha too, exempts that commit. A rename that changes
+every line a small commit added to a file looks the same to the guard as a stale copy (#249's
+rename of two lines #233 added): a commit message saying "This rewrites commit <sha>" exempts
+that commit, once the author has checked nothing it added is lost. The guard reads history,
 so this job checks out the whole of it; `scripts/pr-check-test.py`, which `scripts/test.sh`
 runs, replays #136's case in a temporary repository, beside a deletion, a partial undo, and moves.
 

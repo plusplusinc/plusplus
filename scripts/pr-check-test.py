@@ -97,6 +97,21 @@ class Reverts(unittest.TestCase):
         self.git("revert", "--no-edit", self.landed)
         self.assertEqual(self.check().returncode, 0, self.check().stderr)
 
+    def test_a_rename_of_every_line_the_commit_added_fails_until_it_says_it_rewrites_it(self):
+        # #249's shape: #233 only added two lines to a file, and a rename changed both.
+        asking = "    /// Whether the alert shows.\n    @State var isAskingToDeleteRoutine = false\n"
+        self.land("Ask before deleting (#233)", {"RailRow.swift": LANDED[:-2] + asking + "}\n"})
+        added = self.git("rev-parse", "main")
+        self.git("merge", "-q", "--no-edit", "main")
+        renamed = asking.replace("alert", "question").replace("Routine", "Workout")
+        self.write("RailRow.swift", LANDED[:-2] + renamed + "}\n")
+        self.commit("Call the plan a workout")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("This rewrites commit", result.stderr)
+        self.git("commit", "-q", "--allow-empty", "-m", f"Note it\n\nThis rewrites commit {added[:9]}.")
+        self.assertEqual(self.check().returncode, 0, self.check().stderr)
+
     def test_a_revert_by_hand_fails(self):
         self.git("merge", "-q", "--no-edit", "main")
         self.write("RailRow.swift", ROW)
