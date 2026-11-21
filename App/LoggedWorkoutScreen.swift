@@ -2,8 +2,9 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A finished workout, pushed onto Log, read-only: its routine's name as it was, its day, length,
-/// and sets, then its exercises in the order done, each with its rounds' figures in purple, the
+/// A finished workout, pushed onto Log, read-only: its routine's name as it was, centered in the
+/// bar as its inline title beside the system's back button; its day, length, and sets, then its
+/// exercises in the order done, each with its rounds' figures in purple, the
 /// change from the time before it was done (a gain in green, anything else in gray), and a quiet
 /// line for one done a side at a time or a set short of its plan.
 struct LoggedWorkoutScreen: View {
@@ -18,20 +19,14 @@ struct LoggedWorkoutScreen: View {
         let sets = rows.reduce(0) { $0 + $1.exercise.rounds.count }
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(LogScreen.name(of: workout))
-                        .ppFixedTitleFont()
-                        .foregroundStyle(.pp(.textPrimary))
-                        .accessibilityAddTraits(.isHeader)
-                    Text(AttributedString.monoNumbers(
-                        workout.logLine(sets: sets, locale: locale),
-                        font: .ppRowDetailNumber,
-                    ))
-                    .font(.ppRowDetail)
-                    .foregroundStyle(.pp(.textSecondary))
-                    .accessibilityLabel(workout.spokenLogLine(sets: sets, locale: locale))
-                }
-                .padding(.bottom, Spacing.sm)
+                Text(AttributedString.monoNumbers(
+                    workout.logLine(sets: sets, locale: locale),
+                    font: .ppRowDetailNumber,
+                ))
+                .font(.ppRowDetail)
+                .foregroundStyle(.pp(.textSecondary))
+                .accessibilityLabel(workout.spokenLogLine(sets: sets, locale: locale))
+                .padding(.bottom, Spacing.xs)
                 ForEach(rows, id: \.exercise.id) { row in
                     LogRow(
                         row.exercise.name,
@@ -49,6 +44,7 @@ struct LoggedWorkoutScreen: View {
             .padding(.bottom, Spacing.md)
         }
         .background { Color.pp(.background).ignoresSafeArea() }
+        .navigationTitle(LogScreen.name(of: workout))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

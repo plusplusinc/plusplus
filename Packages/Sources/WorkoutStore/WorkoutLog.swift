@@ -1,8 +1,8 @@
 import Foundation
 
 /// The record of finished workouts, newest first, and its readings: an opened workout's
-/// exercises against the time before, what went up over four weeks, and what has been left
-/// alone. Windows are calendar days: a workout is `n` days ago when `n` days lie between the
+/// exercises against the time before, the diff over the period (`LogPeriod`), and what has been
+/// left alone. Days are calendar days: a workout is `n` days ago when `n` days lie between the
 /// start of the day it finished and the start of today.
 public struct WorkoutLog: Equatable, Sendable {
     /// Finished workouts, the latest finish first.
@@ -51,9 +51,15 @@ public struct WorkoutLog: Equatable, Sendable {
         return calendar.dateComponents([.day], from: end, to: today).day ?? 0
     }
 
-    /// The workouts finished in the last `days` days, newest first.
-    func within(days: Int, of now: Date, calendar: Calendar) -> [Workout] {
-        workouts.filter { Self.daysAgo($0, now: now, calendar: calendar) < days }
+    /// The workouts finished in the period around `now`, newest first.
+    func inPeriod(now: Date, calendar: Calendar) -> [Workout] {
+        let firstDay = LogPeriod.firstDay(calendar: calendar, now: now)
+        return workouts.filter { ($0.endedAt ?? .distantPast) >= firstDay }
+    }
+
+    /// The period around `now`, with the days a workout finished on.
+    public func period(now: Date, calendar: Calendar) -> LogPeriod {
+        LogPeriod(workouts: workouts, calendar: calendar, now: now)
     }
 
     /// Every exercise in the workouts, by id, with its top set in each, oldest workout first, and

@@ -28,7 +28,7 @@ struct WorkoutGapsTests {
         #expect(missed(gaps([core(14)])).contains(.core))
     }
 
-    @Test("A group counts its sets of the last 4 weeks, a per-side round once, 28 days none")
+    @Test("A group counts its sets since the period's first day, a per-side round once")
     func setCounts() {
         let sides = Fixture.workout(daysAgo: 3, [
             Fixture.set("plank", round: 1, .time(seconds: 30), side: .left),
@@ -40,9 +40,9 @@ struct WorkoutGapsTests {
         #expect(group(.chest, in: gaps)?.sets == 0)
         #expect(gaps.mostSets == 4)
         #expect(group(.core, in: gaps)?.spokenText(locale: Fixture.locale)
-            == "Core, 4 sets in the last 4 weeks")
+            == "Core, 4 sets")
         #expect(group(.chest, in: gaps)?.spokenText(locale: Fixture.locale)
-            == "Chest, 0 sets in the last 4 weeks")
+            == "Chest, 0 sets")
     }
 
     @Test("Groups run fewest sets first, ties in declaration order")

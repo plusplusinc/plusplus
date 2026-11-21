@@ -3,34 +3,26 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// The record of finished workouts, read three ways in the system's segmented control:
-/// Workouts, the workouts themselves, newest first; Progress, what went up over four weeks; and
-/// Gaps, what has been left alone. It opens on Workouts each time the drawer shows it. Purple
-/// marks every logged number and green only a gain; nothing else on it is green. A workout's row
-/// pushes it, read-only, with the system push, as a routine is pushed on Routines.
+/// The record of finished workouts, read three ways in the system's segmented control under the
+/// bar: Workouts, a calendar of the period and the workouts themselves, newest first; Diff, what
+/// changed since the period's first day; and Gaps, what has been left alone. "Log" is the bar's
+/// own inline title, centered, with ++ leading. It opens on Workouts each time the drawer shows
+/// it. The period is `LogPeriod`'s four calendar weeks, and the three tabs name its first day.
+/// Purple marks every logged number and green only a gain; nothing else on it is green. A
+/// workout's row pushes it, read-only, with the system push, as a routine is pushed on Routines.
 struct LogScreen: View {
     @Bindable var session: RoutineSession
 
     enum Tab: Hashable, CaseIterable {
         case workouts
-        case progress
+        case diff
         case gaps
 
         var title: String {
             switch self {
             case .workouts: "Workouts"
-            case .progress: "Progress"
+            case .diff: "Diff"
             case .gaps: "Gaps"
-            }
-        }
-
-        /// What the tab will hold, in place of its rows while it has none. Gaps has none: with
-        /// no workouts it shows every group at 0.
-        var emptyText: String? {
-            switch self {
-            case .workouts: "Finished workouts show up here."
-            case .progress: "Exercises done in two workouts show up here."
-            case .gaps: nil
             }
         }
     }
@@ -38,33 +30,22 @@ struct LogScreen: View {
     /// View state: it starts on Workouts each time Log opens from the drawer, and holds across a
     /// push and pop, since the stack keeps its root.
     @State var tab = Tab.workouts
-    @State private var scrollPosition = ScrollPosition()
-    @State private var isTitleUnderBar = false
+    /// The scroll view's height inside its bars, for the empty Workouts to fill.
+    @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Log")
-                        .ppFixedTitleFont()
-                        .foregroundStyle(.pp(.textPrimary))
-                        .accessibilityAddTraits(.isHeader)
-                        .padding(.bottom, Spacing.md)
-                        .onScrollVisibilityChange(threshold: 0.01) { isVisible in
-                            withAnimation(.easeOut(duration: RoutineScreen.barFade)) {
-                                isTitleUnderBar = !isVisible
-                            }
-                        }
                     Picker("Show", selection: $tab) {
                         ForEach(Tab.allCases, id: \.self) { tab in
                             Text(tab.title).tag(tab)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .padding(.bottom, Spacing.sm)
-                    // With nothing to show, the tab draws nothing but the empty line over it.
-                    if let log = session.log, emptyText == nil {
+                    .padding(.bottom, Spacing.md)
+                    if let log = session.log {
                         tabContent(log)
                     }
                 }
@@ -72,9 +53,16 @@ struct LogScreen: View {
                 .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.md)
+                // With nothing logged, Workouts' line and Go to Routines center in the room
+                // under the calendar.
+                .frame(height: isWorkoutsEmpty ? visibleHeight : nil, alignment: .top)
             }
-            .scrollPosition($scrollPosition)
-            .emptyNote(emptyText ?? "", isEmpty: emptyText != nil)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.containerSize.height - geometry.contentInsets.top
+                    - geometry.contentInsets.bottom
+            } action: { _, height in
+                visibleHeight = height
+            }
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
             .navigationDestination(item: pushedWorkout) { id in
@@ -82,25 +70,9 @@ struct LogScreen: View {
                     LoggedWorkoutScreen(workout: workout, log: log, exercises: session.exercises)
                 }
             }
+            .navigationTitle("Log")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .title) {
-                    Button {
-                        withAnimation(.snappy) { scrollPosition.scrollTo(edge: .top) }
-                    } label: {
-                        Text("Log")
-                            .font(.ppBarTitle)
-                            .foregroundStyle(.pp(.textPrimary))
-                            .lineLimit(1)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityHint("Scrolls to the top.")
-                    .hiddenBehindDrawer()
-                    .opacity(isTitleUnderBar ? 1 : 0)
-                    .allowsHitTesting(isTitleUnderBar)
-                    .accessibilityShown(isTitleUnderBar)
-                }
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
                 }
@@ -112,10 +84,14 @@ struct LogScreen: View {
     @ViewBuilder
     private func tabContent(_ log: WorkoutLog) -> some View {
         switch tab {
-        case .workouts: workoutRows(log)
-        case .progress: progressRows(log)
-        case .gaps: gapRows(log)
+        case .workouts: workoutsTab(log)
+        case .diff: diffTab(log)
+        case .gaps: gapsTab(log)
         }
+    }
+
+    private var isWorkoutsEmpty: Bool {
+        tab == .workouts && session.log?.workouts.isEmpty == true
     }
 
     /// The pushed workout, which the back button and the back swipe pop.
@@ -137,6 +113,11 @@ struct LogScreen: View {
 
     func openWorkout(_ id: Workout.ID) {
         session.openWorkout(id)
+    }
+
+    /// Routines at the root, as the drawer's Routines row shows it, never pushed onto Log.
+    func goToRoutines() {
+        session.showRoutines()
     }
 
     var now: Date {

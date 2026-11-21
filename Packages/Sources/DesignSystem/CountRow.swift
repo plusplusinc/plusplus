@@ -34,7 +34,8 @@ public struct CountRow: View {
             FillBar(fraction: fraction)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, Spacing.md)
+        // With no line between rows, the bars part them, so the rows sit closer than a list's.
+        .padding(.vertical, Spacing.sm)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
     }

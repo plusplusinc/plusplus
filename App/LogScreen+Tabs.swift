@@ -2,19 +2,79 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-// Log's three lists, and the one line Workouts and Progress show with nothing in them.
+// Log's three tabs: Workouts' period line, calendar, and list; Diff's date line, rows, and rule;
+// Gaps' caption, groups, and Not moving.
 
 extension LogScreen {
-    /// The one line the tab showing has in place of its rows, and the tab then draws nothing
-    /// else; nil while it has rows, and before the first read, so the line never flashes before
-    /// the workouts come. Gaps has no line: it always shows its groups, at 0 with no workouts.
-    var emptyText: String? {
-        guard let log = session.log, let text = tab.emptyText else { return nil }
-        let isEmpty = log.workouts.isEmpty || (tab == .progress && progress(log).isEmpty)
-        return isEmpty ? text : nil
+    /// Workouts with nothing logged, under the empty calendar.
+    static let noWorkoutsText = "A workout shows here once it's finished."
+    static let goToRoutinesLabel = "Go to Routines"
+    /// Under Diff's rows, or in their place while it has none.
+    static let diffRuleText = "An exercise shows here once it has been done in two workouts."
+
+    func workoutsTab(_ log: WorkoutLog) -> some View {
+        let period = log.period(now: now, calendar: calendar)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                periodLine("Since \(period.firstDayText(locale: locale, calendar: calendar))")
+                    .accessibilityLabel(
+                        "Since \(period.spokenFirstDay(locale: locale, calendar: calendar))",
+                    )
+                Spacer(minLength: Spacing.sm)
+                workoutCount(period)
+            }
+            .accessibilityElement(children: .combine)
+            .padding(.bottom, Spacing.sm)
+            DayGrid(
+                initials: LogPeriod.weekdayInitials(calendar: calendar),
+                weeks: period.weeks.map { week in
+                    week.map { day in
+                        DayGrid.Square(
+                            id: day.date,
+                            isDone: day.hasWorkout,
+                            isToday: day.isToday,
+                            isShown: !day.isAfterToday,
+                            spoken: LogPeriod.spokenDay(day, locale: locale, calendar: calendar),
+                        )
+                    }
+                },
+            )
+            .padding(.bottom, Spacing.md)
+            if log.workouts.isEmpty {
+                noWorkouts
+            } else {
+                workoutRows(log)
+            }
+        }
     }
 
-    func workoutRows(_ log: WorkoutLog) -> some View {
+    /// "9 workouts", its number in purple.
+    private func workoutCount(_ period: LogPeriod) -> some View {
+        let text = period.workoutCountText(locale: locale)
+        let number = period.workoutCount.formatted(.number.locale(locale))
+        var attributed = AttributedString.monoNumbers(text, font: .ppRowDetailNumber)
+        if let range = attributed.range(of: number) {
+            attributed[range].foregroundColor = .pp(.done)
+        }
+        return Text(attributed)
+            .font(.ppRowDetail)
+            .foregroundStyle(.pp(.textSecondary))
+    }
+
+    private var noWorkouts: some View {
+        VStack(spacing: Spacing.md) {
+            Text(Self.noWorkoutsText)
+                .font(.ppRowDetail)
+                .foregroundStyle(.pp(.textSecondary))
+                .multilineTextAlignment(.center)
+            Button(Self.goToRoutinesLabel, action: goToRoutines)
+                .buttonStyle(.compactKey)
+                .accessibilityIdentifier("log.goToRoutines")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func workoutRows(_ log: WorkoutLog) -> some View {
         ForEach(log.workouts) { workout in
             let name = Self.name(of: workout)
             Button {
@@ -33,61 +93,86 @@ extension LogScreen {
         }
     }
 
-    func progressRows(_ log: WorkoutLog) -> some View {
-        ForEach(progress(log)) { item in
-            let load = item.exercise?.load
-            let first = item.first.figure(load: load, locale: locale)
-            let latest = item.latest.figure(load: load, locale: locale)
-            LogRow(
-                item.name,
-                tag: Self.tag(item.change, locale: locale),
-                figures: "\(first) → \(latest)",
-                detail: item.isPerSide ? "Per side." : nil,
-                spoken: [
-                    item.name,
-                    item.change.spokenText(locale: locale),
-                    "from \(item.first.spokenFigure(load: load, locale: locale))"
-                        + " to \(item.latest.spokenFigure(load: load, locale: locale))",
-                ].compactMap(\.self).joined(separator: ", "),
-            )
-            .overlay(alignment: .bottom) { RowLine() }
+    func diffTab(_ log: WorkoutLog) -> some View {
+        let period = log.period(now: now, calendar: calendar)
+        return VStack(alignment: .leading, spacing: 0) {
+            periodLine("\(period.firstDayText(locale: locale, calendar: calendar)) → today")
+                .accessibilityLabel(
+                    "\(period.spokenFirstDay(locale: locale, calendar: calendar)) to today",
+                )
+            ForEach(log.diff(in: session.exercises, now: now, calendar: calendar)) { item in
+                diffRow(item)
+            }
+            Text(Self.diffRuleText)
+                .font(.ppRowDetail)
+                .foregroundStyle(.pp(.textSecondary))
+                .padding(.top, Spacing.md)
         }
     }
 
+    private func diffRow(_ item: DiffItem) -> some View {
+        let load = item.exercise?.load
+        let first = item.first.figure(load: load, locale: locale)
+        let latest = item.latest.figure(load: load, locale: locale)
+        return LogRow(
+            item.name,
+            tag: Self.tag(item.change, locale: locale),
+            figures: "\(first) → \(latest)",
+            detail: item.isPerSide ? "Per side." : nil,
+            spoken: [
+                item.name,
+                item.change.spokenText(locale: locale),
+                "from \(item.first.spokenFigure(load: load, locale: locale))"
+                    + " to \(item.latest.spokenFigure(load: load, locale: locale))",
+            ].compactMap(\.self).joined(separator: ", "),
+        )
+        .overlay(alignment: .bottom) { RowLine() }
+    }
+
     @ViewBuilder
-    func gapRows(_ log: WorkoutLog) -> some View {
-        let gaps = gaps(log)
+    func gapsTab(_ log: WorkoutLog) -> some View {
+        let period = log.period(now: now, calendar: calendar)
+        let gaps = log.gaps(in: session.exercises, now: now, calendar: calendar)
         let most = gaps.mostSets
-        Text("Sets in the last 4 weeks, fewest first")
-            .font(.ppRowDetail)
-            .foregroundStyle(.pp(.textSecondary))
-            .padding(.top, Spacing.sm)
-        ForEach(gaps.groups) { group in
-            CountRow(
-                group.group.name,
-                count: group.sets.formatted(.number.locale(locale)),
-                fraction: most > 0 ? Double(group.sets) / Double(most) : 0,
-                isStressed: group.isMissed,
-                spoken: group.spokenText(locale: locale),
-            )
-            .overlay(alignment: .bottom) { RowLine() }
-        }
-        if !gaps.notMoving.isEmpty {
-            heading("Not moving")
-            ForEach(gaps.notMoving) { stuck in
-                let load = stuck.exercise?.load
-                LogRow(
-                    stuck.name,
-                    tag: .quiet(stuck.countText(locale: locale)),
-                    figures: stuck.topSet.figure(load: load, locale: locale),
-                    detail: stuck.isPerSide ? "Per side." : nil,
-                    spoken: "\(stuck.name), "
-                        + stuck.topSet.spokenFigure(load: load, locale: locale)
-                        + " in \(stuck.countText(locale: locale))",
+        VStack(alignment: .leading, spacing: 0) {
+            periodLine("Sets since \(period.firstDayText(locale: locale, calendar: calendar))")
+                .accessibilityLabel(
+                    "Sets since \(period.spokenFirstDay(locale: locale, calendar: calendar))",
                 )
-                .overlay(alignment: .bottom) { RowLine() }
+            // No line between the groups: their bars part them.
+            ForEach(gaps.groups) { group in
+                CountRow(
+                    group.group.name,
+                    count: group.sets.formatted(.number.locale(locale)),
+                    fraction: most > 0 ? Double(group.sets) / Double(most) : 0,
+                    isStressed: group.isMissed,
+                    spoken: group.spokenText(locale: locale),
+                )
+            }
+            if !gaps.notMoving.isEmpty {
+                heading("Not moving")
+                ForEach(gaps.notMoving) { stuck in
+                    let load = stuck.exercise?.load
+                    LogRow(
+                        stuck.name,
+                        tag: .quiet(stuck.countText(locale: locale)),
+                        figures: stuck.topSet.figure(load: load, locale: locale),
+                        detail: stuck.isPerSide ? "Per side." : nil,
+                        spoken: "\(stuck.name), "
+                            + stuck.topSet.spokenFigure(load: load, locale: locale)
+                            + " in \(stuck.countText(locale: locale))",
+                    )
+                    .overlay(alignment: .bottom) { RowLine() }
+                }
             }
         }
+    }
+
+    /// A tab's first line, naming the period's first day, its numbers in SF Mono.
+    private func periodLine(_ text: String) -> some View {
+        Text(AttributedString.monoNumbers(text, font: .ppRowDetailNumber))
+            .font(.ppRowDetail)
+            .foregroundStyle(.pp(.textSecondary))
     }
 
     private func heading(_ text: String) -> some View {
@@ -96,14 +181,6 @@ extension LogScreen {
             .foregroundStyle(.pp(.textSecondary))
             .accessibilityAddTraits(.isHeader)
             .padding(.top, Spacing.lg)
-    }
-
-    private func progress(_ log: WorkoutLog) -> [ProgressItem] {
-        log.progress(in: session.exercises, now: now, calendar: calendar)
-    }
-
-    private func gaps(_ log: WorkoutLog) -> Gaps {
-        log.gaps(in: session.exercises, now: now, calendar: calendar)
     }
 
     /// A workout's name as it was, New routine for an empty one.

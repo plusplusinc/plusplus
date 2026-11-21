@@ -2,13 +2,13 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-@Suite("Progress over 4 weeks")
-struct WorkoutProgressTests {
+@Suite("Diff over the period")
+struct WorkoutDiffTests {
     private typealias Fixture = LogFixture
 
-    private func progress(_ workouts: [Workout]) -> [ProgressItem] {
+    private func progress(_ workouts: [Workout]) -> [DiffItem] {
         WorkoutLog(workouts: workouts)
-            .progress(in: .builtIn, now: Fixture.now, calendar: Fixture.calendar)
+            .diff(in: .builtIn, now: Fixture.now, calendar: Fixture.calendar)
     }
 
     private func bench(_ daysAgo: Int, _ pounds: Double, id: String = "bench") -> Workout {
@@ -21,7 +21,7 @@ struct WorkoutProgressTests {
         #expect(progress([bench(1, 135), bench(3, 135)]).count == 1)
     }
 
-    @Test("A workout 27 days ago counts and one 28 days ago doesn't")
+    @Test("A workout on the period's first day, Sunday Oct 25, counts and the day before doesn't")
     func window() {
         #expect(progress([bench(1, 150), bench(27, 135)]).count == 1)
         #expect(progress([bench(1, 150), bench(28, 135)]).isEmpty)

@@ -216,9 +216,42 @@ extension Workout {
 }
 
 extension GroupRecency {
-    /// "Core, 0 sets in the last 4 weeks".
+    /// "Core, 0 sets", read after the caption that names the period's first day.
     public func spokenText(locale: Locale = .current) -> String {
-        "\(group.name), \(counted(sets, "set", "sets", locale: locale)) in the last 4 weeks"
+        "\(group.name), \(counted(sets, "set", "sets", locale: locale))"
+    }
+}
+
+extension LogPeriod {
+    /// The first day, "Oct 25", as the period's lines name it.
+    public func firstDayText(locale: Locale = .current, calendar: Calendar = .current) -> String {
+        firstDay.formatted(Self.style(locale: locale, calendar: calendar).month(.abbreviated).day())
+    }
+
+    /// "October 25", for VoiceOver.
+    public func spokenFirstDay(locale: Locale = .current, calendar: Calendar = .current) -> String {
+        firstDay.formatted(Self.style(locale: locale, calendar: calendar).month(.wide).day())
+    }
+
+    /// "9 workouts", "1 workout".
+    public func workoutCountText(locale: Locale = .current) -> String {
+        counted(workoutCount, "workout", "workouts", locale: locale)
+    }
+
+    /// "Saturday, November 21, workout", "Friday, November 20, no workout", for VoiceOver.
+    public static func spokenDay(
+        _ day: Day,
+        locale: Locale = .current,
+        calendar: Calendar = .current,
+    ) -> String {
+        let date = day.date.formatted(style(locale: locale, calendar: calendar)
+            .weekday(.wide).month(.wide).day())
+        let today = day.isToday ? "Today, " : ""
+        return "\(today)\(date), \(day.hasWorkout ? "workout" : "no workout")"
+    }
+
+    private static func style(locale: Locale, calendar: Calendar) -> Date.FormatStyle {
+        Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
     }
 }
 

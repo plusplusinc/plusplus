@@ -1,11 +1,11 @@
 import Foundation
 
-/// A muscle group's sets in the last 4 weeks, and when it was last worked.
+/// A muscle group's sets in the period, and when it was last worked.
 public struct GroupRecency: Identifiable, Equatable, Sendable {
     public let group: MuscleGroup
     /// Days between the day of the newest workout with a set for it and today; nil for none.
     public let daysAgo: Int?
-    /// Its sets in the last 4 weeks, a round done one side at a time counted once.
+    /// Its sets in the period, a round done one side at a time counted once.
     public let sets: Int
 
     public var id: MuscleGroup {
@@ -18,7 +18,7 @@ public struct GroupRecency: Identifiable, Equatable, Sendable {
     }
 }
 
-/// An exercise in three or more workouts in the last 4 weeks, its top set the same in all.
+/// An exercise in three or more workouts in the period, its top set the same in all.
 public struct StuckExercise: Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
@@ -50,7 +50,7 @@ extension WorkoutLog {
     /// created exercise toward every group it checks, and one that no longer resolves toward
     /// none.
     public func gaps(in list: ExerciseList, now: Date, calendar: Calendar) -> Gaps {
-        let recent = within(days: Self.progressDays, of: now, calendar: calendar)
+        let recent = inPeriod(now: now, calendar: calendar)
         let recentExercises = recent.flatMap { $0.loggedExercises(in: list) }
         let groups = MuscleGroup.allCases.enumerated().map { index, group in
             let newest = workouts.first { workout in
