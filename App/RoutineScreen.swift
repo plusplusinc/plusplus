@@ -44,7 +44,7 @@ struct RoutineScreen: View {
     @State var isEditingTitle = false
     /// Where the touch down last came, which tells a tap on the list what to do, and the
     /// keyboard a picker waits on (`tappedList(at:)`).
-    @State var listTouch = ListTouch()
+    @State var titleTap = TapPastTitle()
     /// Whether the screen's foot shows the routine as empty: no Start, and the + low. It follows
     /// the exercises, but the first add and the last Remove change it only once their sheet has
     /// gone, so Start and the + are seen rising or going down (`settleFoot(after:)`).
@@ -179,10 +179,10 @@ struct RoutineScreen: View {
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
         // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
         .onTouchDownOutsideTitle(
-            onTitle: { listTouch.began(.onTitle) },
+            onTitle: { titleTap.touchDown(onTitle: true, endingEdit: false) },
             perform: { touchedDownOutsideTitle() },
         )
-        .opensPickerOnKeyboardDown(self)
+        .keyboard(for: $titleTap) { openPicker() }
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,
