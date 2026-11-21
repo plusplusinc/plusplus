@@ -16,7 +16,7 @@ public struct SetRest {
     /// Over, and swapping back: the countdown reads 0:00 and holds still as it goes, never
     /// rolling its last figure.
     let isOver: Bool
-    /// Whether a + or − turns the countdown's figure: once it is up. Turning as it came in, its
+    /// Whether +15 s turns the countdown's figure: once it is up. Turning as it came in, its
     /// end set at the log, it rolled from its length to itself.
     let turns: Bool
     /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
@@ -351,9 +351,10 @@ extension View {
     }
 }
 
-/// A part's fade over a change from 0 to 1: 0 until `start`, 1 `width` later.
+/// A part's fade over a change from 0 to 1: 0 until `start`, 1 `width` later, and whole by the
+/// change's end however late `start` is.
 enum RestRoomFade {
     static func fade(_ share: CGFloat, from start: CGFloat, width: CGFloat) -> CGFloat {
-        min(max((share - start) / width, 0), 1)
+        min(max((share - min(start, 1 - width)) / width, 0), 1)
     }
 }

@@ -108,11 +108,8 @@ extension RoutineScreen {
         if let (_, workout) = phase.restLeft,
            let left = LiveWorkout(routine: routine, workout: workout).rest(override: restOverride)
         {
-            return KeyFill(
-                length: Double(left.length),
-                ends: .distantPast,
-                pausedLeft: left.remaining(atClock: workout.clock(at: .now)),
-            )
+            let (ends, pausedLeft) = Self.times(of: left, on: workout, stopped: true)
+            return KeyFill(length: Double(left.length), ends: ends, pausedLeft: pausedLeft)
         }
         guard let rest = phase.drawnRest, rest.beat < .returning,
               let (resting, workout) = drawnResting,

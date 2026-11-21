@@ -29,11 +29,14 @@ public struct KeyFill: Equatable, Sendable {
         self.isOver = isOver
     }
 
+    /// A count's fill once it is over (a set logged, a rest ended), early or run out: full, held
+    /// for its beat.
+    public static let over = Self(length: 1, ends: .distantPast, isOver: true)
+
     /// The share filled at `date`, from 0 to 1.
     public func share(at date: Date) -> Double {
         guard length > 0, !isOver else { return 1 }
-        let left = pausedLeft ?? ends.timeIntervalSince(date)
-        return min(1, max(0, 1 - left / length))
+        return 1 - left(at: date) / length
     }
 
     /// "12 of 30 seconds done" at `date`, as VoiceOver hears a timed set's fill: the seconds done
@@ -73,7 +76,7 @@ struct FillingFace: View {
     var color: ColorToken?
 
     var body: some View {
-        // At most 60 a second: on ProMotion, 120 moved the rest's old bar under a point.
+        // At most 60 a second: on ProMotion, 120 moved a long rest's fill under a point a frame.
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: filling.holds)) { context in
             GeometryReader { geometry in
                 Rectangle()

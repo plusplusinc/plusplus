@@ -347,7 +347,7 @@ extension RoutineScreen {
         )
     }
 
-    /// What the rest's watch waits on: a + or −, a pause, or a resume starts it again.
+    /// What the rest's watch waits on: +15 s, a skip, a pause, or a resume starts it again.
     var restWatch: RestWatch? {
         guard let resting, let workout = session.workout else { return nil }
         return RestWatch(endClock: resting.endClock, isPaused: workout.isPaused)

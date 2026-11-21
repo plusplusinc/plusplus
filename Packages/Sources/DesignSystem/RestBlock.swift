@@ -95,16 +95,16 @@ public struct RestBlock: View {
             Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
                 .foregroundStyle(.pp(color))
-                // Gray at a pause and white at a resume at once, with the bar's time and the
+                // Gray at a pause and white at a resume at once, with the workout's time and the
                 // key's fill: a resume moves `ends`, and the figure's glide below grayed it out
                 // over half a second.
                 .animation(nil, value: color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                // A + or − turns the figure; a second going by, or the rest's end on the move's
+                // +15 s turns the figure; a second going by, or the rest's end on the move's
                 // delayed shift, changes it at once: on that shift, 0:00 came in half a second
-                // after the dot had left. So does a − that ends the rest: turning, the figure
-                // rolled down to 0:00 as it shrank away. Only a change of its own: taking every
+                // after the dot had left. So does Skip rest: turning, a cut to 0:00 rolled down
+                // as it shrank away. Only a change of its own: taking every
                 // update's animation away, the figure jumped to where a part going drops it
                 // while the part faded on its curve.
                 .contentTransition(turns ? .numericText(countsDown: true) : .identity)
@@ -197,7 +197,7 @@ private struct RestRoom: View, Animatable {
     /// insets under it wherever the rest is: under a label, the row's bottom inset and the next
     /// row's top inset follow it; above a superset's first member, nothing does, and there the
     /// name sat 16 pt closer than after a rest between exercises.
-    static func below(isAboveLabel: Bool) -> CGFloat {
+    private var below: CGFloat {
         Spacing.lg + (isAboveLabel ? 2 * RailRowMetrics.verticalInset : 0)
     }
 
@@ -207,11 +207,11 @@ private struct RestRoom: View, Animatable {
         // with the room a third open, half of it drawn against the first member's name.
         let word = RestRoomFade.fade(open, from: bottoms.start(bottoms.word, or: 0.2), width: 0.15)
         // The room's last part: whole by the time the room is open, however near the room's
-        // bottom its own bottom sits. Left to its bottom alone, it stood at two thirds through
-        // the rest, gray.
+        // bottom its own bottom sits (`RestRoomFade`). Left to its bottom alone, it stood at two
+        // thirds through the rest, gray.
         let countdown = RestRoomFade.fade(
             open,
-            from: min(bottoms.start(bottoms.countdown, or: 0.7), 1 - 0.15),
+            from: bottoms.start(bottoms.countdown, or: 0.7),
             width: 0.15,
         )
         VStack(alignment: .leading, spacing: 0) {
@@ -242,7 +242,7 @@ private struct RestRoom: View, Animatable {
             .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
             .coming(countdown)
         }
-        .padding(.bottom, Self.below(isAboveLabel: isAboveLabel))
+        .padding(.bottom, below)
         .coordinateSpace(.named(Self.space))
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { bottoms.room = $0 }
         .accessibilityHidden(block.stage != .open)

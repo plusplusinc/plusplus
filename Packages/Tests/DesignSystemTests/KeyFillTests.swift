@@ -44,7 +44,6 @@ struct KeyFillTests {
             == "35 seconds left")
         #expect(Self.running(90, left: 64.2).spokenLeft(at: Self.now, locale: Self.locale)
             == "1 minute, 5 seconds left")
-        let over = KeyFill(length: 90, ends: .distantPast, isOver: true)
-        #expect(over.spokenLeft(at: Self.now, locale: Self.locale) == nil)
+        #expect(KeyFill.over.spokenLeft(at: Self.now, locale: Self.locale) == nil)
     }
 }
