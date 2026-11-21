@@ -69,27 +69,30 @@ extension RenameUITests {
         }
     }
 
-    /// On an empty routine, a tap in the empty space opens the picker, unless all it did was end
-    /// the title's edit: through the tap gesture and the touch-down that ends the edit, which
-    /// only the running app arbitrates.
+    /// On an empty routine, a tap in the empty space opens the picker, and one that ends the
+    /// title's edit opens it too, once the keyboard is down: through the tap gesture, the title's
+    /// own tap, the touch-down that ends the edit, and the real keyboard's going, which only the
+    /// running app arbitrates. That the picker waits for the keyboard is `TapPastTitleTests`'.
     private func openPickerFromEmptySpace(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchButton
-        // The line takes no touches, so a tap on it lands on the screen's empty space.
-        let emptySpace = app.noExercises.center
-        XCTContext.runActivity(named: "A tap that ends the title's edit opens no picker") { _ in
+        XCTContext.runActivity(named: "A tap just under the title opens the picker, no edit") { _ in
             XCTAssertTrue(app.noExercises.exists, "An empty routine shows no No exercises")
+            XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
+            // Past the title's 44pt target, where SwiftUI still hands the target a tap.
+            app.routineTitle.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: 60, dy: 50)).tap()
+            XCTAssertTrue(search.appears(within: 1), "The tap under the title opened no picker")
+            XCTAssertTrue(keyboard.staysAway(), "The tap under the title also started an edit")
+            app.buttons["Close"].tap()
+            XCTAssertTrue(search.disappears(), "Close left the picker up")
+        }
+        XCTContext.runActivity(named: "A tap that ends the title's edit opens the picker") { _ in
             app.routineTitle.tap()
             XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
-            emptySpace.tap()
-            XCTAssertTrue(keyboard.disappears(), "The tap on empty space did not end the edit")
-            // The keyboard's element goes before a sheet the tap opened would be in the tree.
-            XCTAssertTrue(search.staysAway(), "The tap that ended the edit opened the picker")
-        }
-        XCTContext.runActivity(named: "A tap in an empty routine's space opens the picker") { _ in
-            XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
-            emptySpace.tap()
-            XCTAssertTrue(search.appears(within: 1), "The tap on empty space opened no picker")
-            XCTAssertFalse(keyboard.exists, "Search took focus when the picker opened")
+            // The line takes no touches, so a tap on it lands on the screen's empty space.
+            app.noExercises.center.tap()
+            XCTAssertTrue(search.appears(within: 2), "The tap that ended the edit opened no picker")
+            XCTAssertFalse(keyboard.exists, "The picker opened with the keyboard still up")
             XCTAssertEqual(app.pickerRows.firstMatch.label, "Backward arm circles")
         }
     }

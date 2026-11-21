@@ -14,17 +14,21 @@ extension RoutineScreen {
         isPicking = true
     }
 
-    /// A tap anywhere on an empty routine, or below the last row, opens the picker, unless it
-    /// only ended the title's edit.
+    /// A tap anywhere on an empty routine, or below the last row, opens the picker, once the
+    /// keyboard is down if it is up or going down, so the two never cross. One that ended the
+    /// title's edit opens it only on an empty routine; below the last row it has only ended the
+    /// edit (`TapPastTitle`).
     func tappedList(at location: CGPoint) {
-        guard tapOpensPicker, routine.exercises.isEmpty || location.y >= listEnd.top else { return }
-        openPicker()
+        let isEmpty = routine.exercises.isEmpty
+        guard isEmpty || location.y >= listEnd.top else { return }
+        if titleTap.tap(actsAfterEdit: isEmpty) {
+            openPicker()
+        }
     }
 
-    /// A touch outside the title ends its edit, and its tap opens the picker
-    /// only if there was no edit to end.
+    /// A touch outside the title ends its edit.
     func touchedDownOutsideTitle() {
-        tapOpensPicker = !isEditingTitle
+        titleTap.touchDown(isEditingTitle ? .endingEdit : .outside)
         isEditingTitle = false
     }
 

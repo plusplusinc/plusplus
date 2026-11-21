@@ -88,12 +88,8 @@ struct TitleTextView: UIViewRepresentable {
         view.accessibilityHint = accessibilityHint
         view.accessibilityPlaceholder = accessibilityPlaceholder
 
-        if let isFocused {
-            if isFocused.wrappedValue, !view.isFirstResponder {
-                _ = view.becomeFirstResponder()
-            } else if !isFocused.wrappedValue, view.isFirstResponder {
-                _ = view.resignFirstResponder()
-            }
+        if let isFocused, isFocused.wrappedValue != view.isFirstResponder {
+            context.coordinator.followFocus(of: view)
         }
         if let selection, view.selectedRange != selection {
             view.selectedRange = selection
@@ -155,6 +151,28 @@ struct TitleTextView: UIViewRepresentable {
 
         init(_ parent: TitleTextView) {
             self.parent = parent
+        }
+
+        /// Gives the field focus, or takes it away, as the binding says, once SwiftUI's update
+        /// has ended. Never inside it: on its way along the responder chain UIKit asks the
+        /// hosting view whether it can take focus, SwiftUI answers from the graph it is still
+        /// updating, and AttributeGraph logs a dependency cycle, as a tap below a short title
+        /// and a touch outside an edited one each did. Read when it runs, so a binding that
+        /// changes back meanwhile changes nothing; a field that can't take focus then, gone from
+        /// its window, sets the binding back, so the title doesn't keep its editing look.
+        func followFocus(of view: TitleFieldView) {
+            DispatchQueue.main.async { [self, weak view] in
+                guard let view, let isFocused = parent.isFocused,
+                      isFocused.wrappedValue != view.isFirstResponder
+                else { return }
+                if isFocused.wrappedValue {
+                    if !view.becomeFirstResponder() {
+                        isFocused.wrappedValue = false
+                    }
+                } else {
+                    _ = view.resignFirstResponder()
+                }
+            }
         }
 
         func textView(
