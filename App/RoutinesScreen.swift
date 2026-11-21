@@ -207,7 +207,7 @@ struct RoutinesScreen: View {
 }
 
 extension RoutineNamer {
-    /// A routine's name where routines are listed: the name it shows, else New routine.
+    /// A routine's name where routines are listed: the name it shows, else New workout.
     func listedName(of routine: Routine) -> String {
         shownName(of: routine) ?? RoutineScreen.defaultName
     }
