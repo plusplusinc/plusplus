@@ -66,6 +66,9 @@ struct LogScreen: View {
             }
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
+            // The stack's own layer, under the screen: left the system's black, it showed
+            // through as Log faded out with Reduce Motion, and the screen went darker.
+            .containerBackground(Color.pp(.background), for: .navigation)
             .navigationDestination(item: pushedLoggedWorkout) { id in
                 if let log = session.log, let loggedWorkout = log.loggedWorkout(id: id) {
                     LoggedWorkoutScreen(

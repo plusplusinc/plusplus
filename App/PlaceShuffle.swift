@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// Log's Go to Workouts as two cards swapping: Log is put away below, sliding straight down off
-/// the screen like a dismissed sheet and staying opaque, while Workouts is brought forward in
-/// front of it, rising from `rise` below its place and growing from `startScale` to full size.
-/// Workouts fades in over the first `fadeShare` of the move, quickly enough that the two part-
-/// transparent screens never let the dark behind them show through.
+/// Log's Go to Workouts as two cards swapping: Log, in front, is put away like a dismissed sheet,
+/// sliding straight down off the screen, opaque, its top corners rounded and a soft shadow above
+/// its edge so the edge reads against the same-colored screen behind. Behind it Workouts sits in
+/// its own place from the first frame and grows from `startScale` to full size. Nothing fades:
+/// a fading screen's bar fades its layers one by one, and the screen went darker mid-fade.
 ///
-/// With Reduce Motion nothing slides or scales: Workouts fades in over Log, which stays opaque
-/// underneath until the fade ends, so nothing gets darker.
+/// With Reduce Motion nothing slides or scales: Log fades out over Workouts, at rest behind it.
+/// Log's stack has a container background of the screen's color, so its fade never shows the
+/// system's black layer through and nothing gets darker.
 ///
 /// These transitions run only inside an animated place change, and only Log's pill animates
 /// one: a place changed from the drawer swaps at once, under the drawer as it closes.
@@ -16,35 +17,56 @@ enum PlaceShuffle {
     static let duration = 0.35
     static let animation = Animation.timingCurve(0.3, 0.7, 0.2, 1, duration: duration)
 
-    static let rise: CGFloat = 40
     static let startScale: CGFloat = 0.94
-    static let fadeShare = 0.3
-
-    /// Log going: down off the screen, opaque throughout.
-    static func leaving(reduceMotion: Bool) -> AnyTransition {
-        if reduceMotion {
-            // Kept fully drawn until Workouts has faded in over it, then gone at once.
-            return .opacity.animation(.linear(duration: 0).delay(duration))
-        }
-        return .move(edge: .bottom)
-    }
-
-    /// Workouts arriving, in front of Log.
-    static func arriving(reduceMotion: Bool) -> AnyTransition {
-        if reduceMotion {
-            return .opacity.animation(.easeOut(duration: duration))
-        }
-        return AnyTransition(CardRise())
-    }
-
-    /// How round the arriving card's corners start, squaring off as it lands.
+    /// How round a moving card's corners are; at rest they are square.
     static let cornerRadius: CGFloat = 40
+    static let shadowRadius: CGFloat = 16
+    static let shadowOpacity = 0.5
+
+    /// Log going, in front: down off the screen, opaque throughout.
+    static func leaving(reduceMotion: Bool) -> AnyTransition {
+        reduceMotion ? .opacity.animation(.easeOut(duration: duration)) : AnyTransition(SheetEdge())
+    }
+
+    /// Workouts arriving behind Log.
+    static func arriving(reduceMotion: Bool) -> AnyTransition {
+        reduceMotion ? .identity : AnyTransition(CardGrow())
+    }
 }
 
-/// Workouts as a card coming forward. The mask keeps the screen's background, which ignores the
-/// safe area, inside the card: unmasked, it filled the whole screen from the first frame and hid
-/// Log going away beneath it.
-private struct CardRise: Transition {
+/// Log as a sheet going down off the screen: rounded top corners and a shadow above its top edge
+/// while it moves. One transition, so the shadow's card travels with the screen: combined with a
+/// `move`, the card stayed put over the whole screen and hid Workouts.
+private struct SheetEdge: Transition {
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        let radius = phase.isIdentity ? 0 : PlaceShuffle.cornerRadius
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: radius,
+            topTrailingRadius: radius,
+            style: .continuous,
+        )
+        content
+            .mask { shape.ignoresSafeArea() }
+            .background {
+                shape
+                    .fill(Color.pp(.background))
+                    .shadow(
+                        color: .black.opacity(phase.isIdentity ? 0 : PlaceShuffle.shadowOpacity),
+                        radius: PlaceShuffle.shadowRadius,
+                    )
+                    .ignoresSafeArea()
+            }
+            .visualEffect { content, proxy in
+                // Past the screen's bottom edge, shadow and all.
+                let below = proxy.size.height + proxy.safeAreaInsets.top
+                    + proxy.safeAreaInsets.bottom + PlaceShuffle.shadowRadius * 2
+                return content.offset(y: phase.isIdentity ? 0 : below)
+            }
+    }
+}
+
+/// Workouts growing in its place, its corners rounded until it lands.
+private struct CardGrow: Transition {
     func body(content: Content, phase: TransitionPhase) -> some View {
         content
             .mask {
@@ -54,7 +76,9 @@ private struct CardRise: Transition {
                 )
                 .ignoresSafeArea()
             }
-            .scaleEffect(phase.isIdentity ? 1 : PlaceShuffle.startScale, anchor: .bottom)
-            .offset(y: phase.isIdentity ? 0 : PlaceShuffle.rise)
+            // From the top: UIKit works the bar's safe area out from where the screen sits, so a
+            // scale about the center moved the screen's top edge, the bar rode at a stale inset,
+            // and it jumped 12 pt as the move ended. Pinned at the top, the inset scales with it.
+            .scaleEffect(phase.isIdentity ? 1 : PlaceShuffle.startScale, anchor: .top)
     }
 }
