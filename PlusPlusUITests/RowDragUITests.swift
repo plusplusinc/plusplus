@@ -53,7 +53,7 @@ final nonisolated class RowDragUITests: XCTestCase {
     /// sheet, and then takes it from the list and its row from the routine, its name free to
     /// create again. A built-in's menu is `RoutineDrawerUITests`'. That a delete removes its rows,
     /// and the question's wording, are the package's (`StoreCustomizeTests`,
-    /// `RoutineSessionExerciseTests`, `DeleteQuestionTests`).
+    /// `AppSessionExerciseTests`, `DeleteQuestionTests`).
     @MainActor
     private func createdHoldMenuDeletes(in app: XCUIApplication) {
         XCTContext.runActivity(named: "A created one's hold menu deletes it, asking first") { _ in

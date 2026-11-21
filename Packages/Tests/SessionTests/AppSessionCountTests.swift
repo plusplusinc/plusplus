@@ -7,7 +7,7 @@ import Testing
 /// A timed set's count through the session: each change stored, so a relaunch, a second store
 /// on the container, opens on it.
 @Suite("Routine session, timed set")
-struct RoutineSessionCountTests {
+struct AppSessionCountTests {
     private let container: ModelContainer
 
     init() throws {
@@ -33,12 +33,12 @@ struct RoutineSessionCountTests {
 
     @Test("Start, Start now, +15 s, and the log are each stored as the session shows them")
     func eachChangeStored() async throws {
-        let routine = try Self.planks()
-        let row = routine.exercises[0]
-        let session = RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
-        session.save(routine)
+        let workout = try Self.planks()
+        let row = workout.exercises[0]
+        let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
+        session.save(workout)
         let steps: [(name: String, change: () -> Void)] = [
-            ("start", { session.start(on: routine.id, at: Self.at(10)) }),
+            ("start", { session.start(on: workout.id, at: Self.at(10)) }),
             ("landed", { session.beginCount(at: Self.at(10)) }),
             ("start now", { session.startCountNow(at: Self.at(12)) }),
             ("+15 s", { session.extendCount(by: 15, at: Self.at(20)) }),
@@ -59,12 +59,12 @@ struct RoutineSessionCountTests {
 
     @Test("+15 s and Skip rest on the rest after a set are each stored; reopened, the rest is over")
     func restTapsStored() async throws {
-        var routine = try Self.planks()
-        routine.exercises[0].setRest(30)
-        let row = routine.exercises[0]
-        let session = RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
-        session.save(routine)
-        session.start(on: routine.id, at: Self.at(0))
+        var workout = try Self.planks()
+        workout.exercises[0].setRest(30)
+        let row = workout.exercises[0]
+        let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
+        session.save(workout)
+        session.start(on: workout.id, at: Self.at(0))
         session.beginCount(at: Self.at(0))
         session.startCountNow(at: Self.at(0))
         // Logged early at 20 s: its rest runs from 20 to 50.
@@ -80,7 +80,7 @@ struct RoutineSessionCountTests {
             #expect(relaunched == session.loggedWorkout, "after \(step.name)")
         }
         let stored = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
-        let live = LiveWorkout(workout: routine, loggedWorkout: stored)
+        let live = LiveWorkout(workout: workout, loggedWorkout: stored)
         let rest = try #require(live.rest())
         #expect(rest.length == 10)
         #expect(rest.isOver(atClock: stored.clock(at: Self.at(30))))
@@ -90,10 +90,10 @@ struct RoutineSessionCountTests {
 
     @Test("Finish mid-count stores the set at the time done, as Log early would have")
     func finishMidCount() async throws {
-        let routine = try Self.planks()
-        let session = RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
-        session.save(routine)
-        session.start(on: routine.id, at: Self.at(0))
+        let workout = try Self.planks()
+        let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
+        session.save(workout)
+        session.start(on: workout.id, at: Self.at(0))
         session.beginCount(at: Self.at(0))
         session.extendCount(by: 15, at: Self.at(12))
         // Counting from 10: 18 s done at 28.
@@ -106,16 +106,16 @@ struct RoutineSessionCountTests {
 
     @Test("Reopened after the count would have ended, the set is logged at its full time")
     func catchUpAtLaunch() async throws {
-        let routine = try Self.planks()
-        let first = RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
-        first.save(routine)
-        first.start(on: routine.id, at: Self.at(0))
+        let workout = try Self.planks()
+        let first = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
+        first.save(workout)
+        first.start(on: workout.id, at: Self.at(0))
         first.beginCount(at: Self.at(0))
         await first.writesLanded()
 
         let stored = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
-        let second = RoutineSession(
-            routine: routine,
+        let second = AppSession(
+            workout: workout,
             loggedWorkout: stored,
             store: relaunch(),
             namer: .muscleGroupsOnly,

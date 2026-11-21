@@ -7,7 +7,7 @@ import Testing
 /// The session's list of exercises, and the order it stores a created one in. A relaunch is a
 /// second store over the same container: it sees only what landed.
 @Suite("Routine session exercises")
-struct RoutineSessionExerciseTests {
+struct AppSessionExerciseTests {
     private let container: ModelContainer
 
     init() throws {
@@ -20,8 +20,8 @@ struct RoutineSessionExerciseTests {
 
     @Test("A created exercise is stored before the routine save that names it, and listed at once")
     func createdBeforeRow() async throws {
-        let session = RoutineSession(
-            routine: Workout(),
+        let session = AppSession(
+            workout: Workout(),
             store: relaunch(),
             namer: .muscleGroupsOnly,
         )
@@ -30,25 +30,25 @@ struct RoutineSessionExerciseTests {
         #expect(session.exercises.exercise(id: created.id) == exercise)
         // Stored once `create` returns, before any routine save could name it.
         #expect(try await relaunch().exercises().exercise(id: created.id) == exercise)
-        let routine = Workout(exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)])
-        session.save(routine)
+        let workout = Workout(exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)])
+        session.save(workout)
         await session.writesLanded()
-        #expect(try await relaunch().launch(weightUnit: .pounds).workout == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
     }
 
     /// A session open on a routine with a row of a created exercise and a push-up, its last
     /// edit not yet landed, and another saved routine using the exercise.
     private func sessionUsing(
         _ created: CreatedExercise,
-    ) async throws -> (RoutineSession, other: Workout) {
+    ) async throws -> (AppSession, other: Workout) {
         let store = relaunch()
         try await store.save(created)
         let row = WorkoutExercise(exercise: Exercise(created: created), weightUnit: .pounds)
         let other = Workout(name: "Other", exercises: [row])
         try await store.save(other, at: Date(timeIntervalSinceReferenceDate: 1))
         let open = Workout(name: "Open", exercises: [row])
-        let session = try await RoutineSession(
-            routine: open,
+        let session = try await AppSession(
+            workout: open,
             exercises: store.exercises(),
             store: store,
             namer: .muscleGroupsOnly,
@@ -65,7 +65,7 @@ struct RoutineSessionExerciseTests {
     func customizeReachesOpen() async throws {
         let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
         let (session, other) = try await sessionUsing(created)
-        #expect(session.routines(using: created.id).map(\.name) == ["Open", "Other"])
+        #expect(session.workouts(using: created.id).map(\.name) == ["Open", "Other"])
         var renamed = created
         renamed.name = "Hammer curl"
         await session.customize(renamed.id, to: renamed.settings, weightUnit: .pounds)
@@ -83,7 +83,7 @@ struct RoutineSessionExerciseTests {
         let other = Workout(name: "Other", exercises: [row])
         try await store.save(other, at: Date(timeIntervalSinceReferenceDate: 1))
         let open = Workout(name: "Open", exercises: [row])
-        let session = RoutineSession(routine: open, store: store, namer: .muscleGroupsOnly)
+        let session = AppSession(workout: open, store: store, namer: .muscleGroupsOnly)
         // Not yet landed as the customize starts.
         session.save(open)
         await session.refreshRecent(weightUnit: .pounds)
@@ -111,19 +111,19 @@ struct RoutineSessionExerciseTests {
         await session.deleteExercise(created.id, weightUnit: .pounds)
         #expect(session.exercises == .builtIn)
         #expect(session.current.exercises.map(\.exercise.name) == ["Push-up"])
-        #expect(session.routines(using: created.id).isEmpty)
+        #expect(session.workouts(using: created.id).isEmpty)
         let saved = try #require(session.recent.first { $0.id == other.id })
         #expect(saved.exercises.isEmpty)
     }
 
     @Test("The open routine uses an exercise while it has a row of it, and not once deleted")
-    func openRoutineUsesUntilDeleted() async throws {
+    func openWorkoutUsesUntilDeleted() async throws {
         let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
         let (session, _) = try await sessionUsing(created)
-        #expect(session.openRoutineUses(created.id))
-        #expect(!session.openRoutineUses("push-up-unused"))
+        #expect(session.openWorkoutUses(created.id))
+        #expect(!session.openWorkoutUses("push-up-unused"))
         await session.deleteExercise(created.id, weightUnit: .pounds)
-        #expect(!session.openRoutineUses(created.id))
+        #expect(!session.openWorkoutUses(created.id))
     }
 
     @Test("Through a delete's beats, its rows open no sheet and it can't be picked; others can")
@@ -150,8 +150,8 @@ struct RoutineSessionExerciseTests {
     func refusedDeleteReopensRows() async {
         let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
         let row = WorkoutExercise(exercise: Exercise(created: created), weightUnit: .pounds)
-        let session = RoutineSession(
-            routine: Workout(exercises: [row]),
+        let session = AppSession(
+            workout: Workout(exercises: [row]),
             store: nil,
             namer: .muscleGroupsOnly,
         )
@@ -164,7 +164,7 @@ struct RoutineSessionExerciseTests {
 
     @Test("A change that can't be stored leaves the list as it was")
     func unstoredChangeListsNothing() async {
-        let session = RoutineSession(routine: Workout(), store: nil, namer: .muscleGroupsOnly)
+        let session = AppSession(workout: Workout(), store: nil, namer: .muscleGroupsOnly)
         let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
         _ = await session.create(created)
         var renamed = created

@@ -5,7 +5,7 @@ import XCTest
 /// Which routines come first is `StoreRecencyTests`'. Names come from the muscle groups
 /// (`-fallbackNames`). A name typed on a pushed routine and left with no Return shows in the list
 /// once popped, which only the session's save puts there; that a save reaches the store is
-/// `RoutineSessionTests`', and that one survives a quit `RoutineAutosaveUITests`'.
+/// `AppSessionTests`', and that one survives a quit `RoutineAutosaveUITests`'.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RoutineDrawerUITests: XCTestCase {

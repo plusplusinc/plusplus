@@ -1,38 +1,38 @@
-extension RoutineSession {
+extension AppSession {
     /// Where the app is, under the drawer.
     public enum Screen {
         /// The open routine, at the root: as launched, and once a workout starts.
-        case routine
+        case workout
         /// The Routines screen, its list showing.
-        case routines
+        case workouts
         /// The open routine, pushed onto the Routines screen from its list.
-        case pushedRoutine
+        case pushedWorkout
     }
 
     /// Shows the Routines screen and closes the drawer.
-    public func showRoutines() {
-        screen = .routines
+    public func showWorkouts() {
+        screen = .workouts
         closeDrawer()
     }
 
     /// Pops the routine pushed onto the Routines screen, showing the list again, as its back
     /// button and back swipe do. A push goes through `open` or `startNew`.
-    public func popRoutine() {
-        if screen == .pushedRoutine {
-            screen = .routines
+    public func popWorkout() {
+        if screen == .pushedWorkout {
+            screen = .workouts
         }
     }
 
     /// What the drawer marks as showing: the Routines screen, or a routine, which marks nothing.
     public var showing: Showing {
         switch screen {
-        case .routines: .routines
-        case .routine, .pushedRoutine: .routine
+        case .workouts: .workouts
+        case .workout, .pushedWorkout: .workout
         }
     }
 
     public enum Showing {
-        case routines
-        case routine
+        case workouts
+        case workout
     }
 }

@@ -19,7 +19,7 @@ extension RoutineScreen {
     /// screen's task, which the screen going away stops. A second press in the meantime does
     /// nothing. The press leaves the drawer open, as Dave decided (2026-11-14): a routine
     /// switched to before the workout begins stops Start's beats (`check(_:)`), and the session
-    /// starts a workout only on the routine pressed (`RoutineSession.start(on:at:)`). Start stays
+    /// starts a workout only on the routine pressed (`AppSession.start(on:at:)`). Start stays
     /// up a moment after the last Remove, until the sheet has gone (`settleFoot(after:)`), and
     /// does nothing then: the session starts nothing on a routine with no exercises.
     func pressStart() {

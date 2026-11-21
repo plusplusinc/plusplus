@@ -3,10 +3,10 @@ import WorkoutStore
 
 /// The two queues the session writes through, each landing its writes in the store in order: the
 /// open routine's saves, newest only, and a workout's writes, every one.
-extension RoutineSession {
+extension AppSession {
     /// A routine to save, and whether to keep it once it is empty, as while its workout runs.
-    struct RoutineSave {
-        let routine: Workout
+    struct WorkoutSave {
+        let workout: Workout
         let keepsEmpty: Bool
     }
 
@@ -23,17 +23,17 @@ extension RoutineSession {
 
     static func startSaving(
         to store: Store?,
-    ) -> (AsyncStream<RoutineSave>.Continuation, Task<Void, Never>) {
+    ) -> (AsyncStream<WorkoutSave>.Continuation, Task<Void, Never>) {
         let (stream, continuation) = AsyncStream.makeStream(
-            of: RoutineSave.self,
+            of: WorkoutSave.self,
             bufferingPolicy: .bufferingNewest(1),
         )
         let task = Task {
             for await version in stream {
                 do {
-                    try await store?.save(version.routine, keepsEmpty: version.keepsEmpty)
+                    try await store?.save(version.workout, keepsEmpty: version.keepsEmpty)
                 } catch {
-                    Logger.session.error("The routine didn't save: \(error)")
+                    Logger.session.error("The workout didn't save: \(error)")
                 }
             }
         }

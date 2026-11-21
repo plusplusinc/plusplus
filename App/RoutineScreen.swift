@@ -13,7 +13,7 @@ struct RoutineScreen: View {
     /// The routine as drawn. Written only through `routine`, which saves each change.
     @State private var shownRoutine: Workout
     /// Saves every change, and opens the drawer.
-    let session: RoutineSession
+    let session: AppSession
     let namer: WorkoutNamer
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
     let isPushed: Bool
@@ -128,7 +128,7 @@ struct RoutineScreen: View {
     static let defaultName = String(localized: "New workout")
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
-    init(session: RoutineSession, namer: WorkoutNamer, isPushed: Bool = false) {
+    init(session: AppSession, namer: WorkoutNamer, isPushed: Bool = false) {
         _shownRoutine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
         _phase = State(initialValue: WorkoutPhase(
@@ -394,7 +394,7 @@ extension RoutineScreen {
 
 #Preview {
     RoutineScreen(
-        session: RoutineSession(routine: Workout(), store: nil, namer: .muscleGroupsOnly),
+        session: AppSession(workout: Workout(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
     )
 }

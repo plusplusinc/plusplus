@@ -18,7 +18,7 @@ public struct RowSheet: Identifiable {
     }
 }
 
-extension RoutineSession {
+extension AppSession {
     /// Opens `sheet` once `hold` has passed, as a created row's does, if `wanted()` still says so
     /// then. Nothing opens if the wait is cancelled, as when the screen that asked goes and its
     /// task with it, or the app has left that screen or routine meanwhile: a routine popped off
@@ -30,10 +30,10 @@ extension RoutineSession {
         if wanted: () -> Bool,
     ) async {
         let screen = screen
-        let routine = opened.id
+        let workout = opened.id
         // A sleep that had already ended when it was cancelled resumes without throwing.
         guard await (try? Task.sleep(for: hold, tolerance: .zero)) != nil, !Task.isCancelled,
-              wanted(), self.screen == screen, opened.id == routine else { return }
+              wanted(), self.screen == screen, opened.id == workout else { return }
         openRowSheet(sheet)
     }
 }

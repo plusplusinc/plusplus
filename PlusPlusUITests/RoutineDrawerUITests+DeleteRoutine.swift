@@ -3,7 +3,7 @@ import XCTest
 @MainActor
 extension RoutineDrawerUITests {
     /// On a new routine with nothing saved, the ••• menu's Delete is dimmed. That such a routine
-    /// can't be deleted is `RoutineSessionDeleteTests`'; this is the menu item's wire to it,
+    /// can't be deleted is `AppSessionDeleteTests`'; this is the menu item's wire to it,
     /// which only the running app's bar menu shows. Leaves the menu closed.
     func newRoutineDimsDelete(in app: XCUIApplication) {
         let more = app.buttons["routine.more"]
@@ -26,7 +26,7 @@ extension RoutineDrawerUITests {
     /// On the Routines screen with two routines, a row's hold menu and its swipe each ask before
     /// deleting, and the pushed routine's ••• deletes it and shows Routines. The system's swipe
     /// actions, context menu, and alert, and a bar menu, show only in the running app; what a
-    /// delete stores and what shows next is `RoutineSessionDeleteTests`', and that a deleted
+    /// delete stores and what shows next is `AppSessionDeleteTests`', and that a deleted
     /// routine stays gone after a relaunch `StoreDeleteTests`'.
     func routinesDeleteRoutines(in app: XCUIApplication, title: XCUIElement) {
         let delete = app.buttons["Delete"]

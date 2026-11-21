@@ -11,9 +11,9 @@ import WorkoutStore
 /// menu with Delete, red with a trash, the held row lifted on a rounded platter in the screen's
 /// color, as a row in Add exercise is. Either asks first in a centered alert, "Delete <name>?",
 /// the name as the row shows it; confirmed, the row leaves and the rows below close the gap,
-/// and the screen stays on Routines (`RoutineSession.delete(_:)`).
+/// and the screen stays on Routines (`AppSession.delete(_:)`).
 struct RoutinesScreen: View {
-    @Bindable var session: RoutineSession
+    @Bindable var session: AppSession
     let namer: WorkoutNamer
 
     /// The order the rows are drawn in, taken only while the list is out of sight or as it
@@ -174,10 +174,10 @@ struct RoutinesScreen: View {
     /// pop.
     private var isRoutinePushed: Binding<Bool> {
         Binding {
-            session.screen == .pushedRoutine
+            session.screen == .pushedWorkout
         } set: { isPushed in
             if !isPushed {
-                session.popRoutine()
+                session.popWorkout()
             }
         }
     }
@@ -197,8 +197,8 @@ struct RoutinesScreen: View {
 
 #Preview {
     RoutinesScreen(
-        session: RoutineSession(
-            routine: Workout(name: "Upper body"),
+        session: AppSession(
+            workout: Workout(name: "Upper body"),
             store: nil,
             namer: .muscleGroupsOnly,
         ),

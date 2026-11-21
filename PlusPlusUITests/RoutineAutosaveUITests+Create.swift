@@ -12,7 +12,7 @@ extension RoutineAutosaveUITests {
     /// Close leaves the routine with the row in. The relaunch after it lists the exercise with
     /// the equipment checked here, so each change was stored as made. The rule for Create, the
     /// derived plan, and the store's round trip are the package's (`CreatedExerciseTests`,
-    /// `StoreExerciseTests`, `RoutineSessionTests`); this holds the wire through the
+    /// `StoreExerciseTests`, `AppSessionTests`); this holds the wire through the
     /// sheets, the search, and the pushed screens.
     @MainActor
     func createAnExercise(in app: XCUIApplication) {

@@ -2,7 +2,7 @@ import Foundation
 import WorkoutStore
 
 /// A timed set's count: each change through `LiveWorkout`'s rules and `change(_:)`.
-extension RoutineSession {
+extension AppSession {
     /// Begins the current set's count, when it is timed and has none: as a rest before it ends.
     /// `override`, for the UI tests, is every rest's length.
     public func beginCount(override: Int? = nil, at now: Date = .now) {

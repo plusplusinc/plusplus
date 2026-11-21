@@ -11,7 +11,7 @@ struct RoutineLauncher: View {
     let namer: WorkoutNamer
     let resetsStore: Bool
 
-    @State private var session: RoutineSession?
+    @State private var session: AppSession?
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -26,18 +26,18 @@ struct RoutineLauncher: View {
                     isOpen ? session.openDrawer() : session.closeDrawer()
                 },
                 isHeld: Binding { session.isDrawerHeld } set: { session.holdDrawer($0) },
-                swipeOpens: session.screen != .pushedRoutine && !session.isDrawerLocked
+                swipeOpens: session.screen != .pushedWorkout && !session.isDrawerLocked
                     && session.rowSheet == nil,
             ) {
                 DrawerMenu(session: session)
             } content: {
                 switch session.screen {
-                case .routine:
+                case .workout:
                     // A switch to another routine gives a fresh screen: scroll, sheets,
                     // and title.
                     RoutineScreen(session: session, namer: namer)
                         .id(session.opened.id)
-                case .routines, .pushedRoutine:
+                case .workouts, .pushedWorkout:
                     RoutinesScreen(session: session, namer: namer)
                 }
             }
@@ -47,8 +47,8 @@ struct RoutineLauncher: View {
                 .ignoresSafeArea()
                 .task {
                     let launch = await launch()
-                    let session = await RoutineSession(
-                        routine: launch.routine,
+                    let session = await AppSession(
+                        workout: launch.routine,
                         loggedWorkout: launch.loggedWorkout,
                         exercises: exercises(),
                         store: store,
@@ -90,7 +90,7 @@ struct RoutineLauncher: View {
             let launch = try await store.launch(weightUnit: WeightUnit(region: locale))
             return (launch.workout ?? Workout(), launch.loggedWorkout)
         } catch {
-            Logger.app.error("Opening a new routine: the saved one didn't load: \(error)")
+            Logger.app.error("Opening a new workout: the saved one didn't load: \(error)")
             return (Workout(), nil)
         }
     }

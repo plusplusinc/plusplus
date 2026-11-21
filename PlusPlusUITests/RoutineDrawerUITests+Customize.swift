@@ -7,7 +7,7 @@ extension RoutineDrawerUITests {
     /// Delete, disabled while nothing is changed. Arms checked, Clear asks first in a centered
     /// alert, saying what changed; confirmed, the form reads as shipped; back comes to the sheet.
     /// What a customize or clear does to the routines, and the question's wording, are the
-    /// package's (`StoreBuiltInTests`, `RoutineSessionExerciseTests`,
+    /// package's (`StoreBuiltInTests`, `AppSessionExerciseTests`,
     /// `CustomizationTests`); this holds the wire through the menu, the push, the checklist, and
     /// the alert, which only the running app composes.
     func rowCustomizes(in app: XCUIApplication) {

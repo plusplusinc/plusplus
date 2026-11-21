@@ -10,7 +10,7 @@ import WorkoutStore
 /// routine: an edit just before a switch is never lost, and the routine opened is newer than
 /// the one left.
 @Observable
-public final class RoutineSession {
+public final class AppSession {
     /// The routine as it was opened. Changes only on a switch, which gives a fresh screen.
     public private(set) var opened: Workout
     /// The open routine as it is now, edits included.
@@ -22,7 +22,7 @@ public final class RoutineSession {
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
     /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
-    public internal(set) var screen = Screen.routine
+    public internal(set) var screen = Screen.workout
     /// The logged workout running the open routine, from Start until Finish or Discard.
     public private(set) var loggedWorkout: LoggedWorkout?
     /// Every exercise there is to pick, the ones created this session included.
@@ -44,7 +44,7 @@ public final class RoutineSession {
     @ObservationIgnored private let namer: WorkoutNamer
     /// Where every change to the routine goes, to be saved one at a time in the order they
     /// happened, so an older version can never land last. Only the newest unsaved one waits.
-    @ObservationIgnored private var saves: AsyncStream<RoutineSave>.Continuation
+    @ObservationIgnored private var saves: AsyncStream<WorkoutSave>.Continuation
     @ObservationIgnored private var saving: Task<Void, Never>
     /// Where every change to a workout goes, saved in the order they happened. Every one waits
     /// its turn: one workout's end and the next one's start can both be waiting, and keeping
@@ -53,15 +53,15 @@ public final class RoutineSession {
     private let loggedWorkoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
 
     public init(
-        routine: Workout,
+        workout: Workout,
         loggedWorkout: LoggedWorkout? = nil,
         exercises: ExerciseList = .builtIn,
         store: Store?,
         namer: WorkoutNamer,
     ) {
         self.namer = namer
-        opened = routine
-        current = routine
+        opened = workout
+        current = workout
         self.loggedWorkout = loggedWorkout
         self.exercises = exercises
         self.store = store
@@ -75,9 +75,9 @@ public final class RoutineSession {
     }
 
     /// Saves a change to the open routine.
-    public func save(_ routine: Workout) {
-        current = routine
-        saves.yield(RoutineSave(routine: routine, keepsEmpty: loggedWorkout != nil))
+    public func save(_ workout: Workout) {
+        current = workout
+        saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
     }
 
     /// While a workout runs, the drawer stays shut: neither ++ nor the edge swipe opens it.
@@ -128,16 +128,16 @@ public final class RoutineSession {
 
     /// Starts a workout on `routine`, shown at the root, so no back button or swipe leaves it,
     /// named as the routine shows now, when `canStart(on:)` allows it.
-    public func start(on routine: Workout.ID, at now: Date = .now) {
-        guard canStart(on: routine) else { return }
+    public func start(on workout: Workout.ID, at now: Date = .now) {
+        guard canStart(on: workout) else { return }
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
         // A timed first set's "Starts in" begins as the screen lands on it (`beginCount`).
-        change(.save(LoggedWorkout(workoutID: routine, workoutName: shownName, startedAt: now)))
-        if screen != .routine {
+        change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
+        if screen != .workout {
             // A fresh screen at the root, opening on the routine as it is now.
             opened = current
-            screen = .routine
+            screen = .workout
         }
         closeDrawer()
     }
@@ -145,8 +145,8 @@ public final class RoutineSession {
     /// Whether a Start pressed on `routine` may still start: only on the open routine, once it
     /// has an exercise, with no workout running and no switch under way. A routine switched away
     /// from, or being switched away from, starts nothing: the switch stops Start.
-    public func canStart(on routine: Workout.ID) -> Bool {
-        loggedWorkout == nil && !isSwitching && routine == current.id && !current.exercises.isEmpty
+    public func canStart(on workout: Workout.ID) -> Bool {
+        loggedWorkout == nil && !isSwitching && workout == current.id && !current.exercises.isEmpty
     }
 
     /// The name the open routine shows, which a workout on it keeps: empty for New workout.
@@ -217,7 +217,7 @@ public final class RoutineSession {
     /// ends, it is deleted, as any cleared routine is.
     private func deleteIfCleared() {
         if current.isEmpty {
-            saves.yield(RoutineSave(routine: current, keepsEmpty: false))
+            saves.yield(WorkoutSave(workout: current, keepsEmpty: false))
         }
     }
 
@@ -232,7 +232,7 @@ public final class RoutineSession {
             guard switches == switchesBefore else { return }
             saved = read
         } catch {
-            Logger.session.error("The recent routines didn't load: \(error)")
+            Logger.session.error("The recent workouts didn't load: \(error)")
         }
     }
 
@@ -248,7 +248,7 @@ public final class RoutineSession {
             do {
                 return try await store.openWorkout(id, weightUnit: weightUnit)
             } catch {
-                Logger.session.error("The routine didn't open: \(error)")
+                Logger.session.error("The workout didn't open: \(error)")
                 return nil
             }
         }
@@ -272,19 +272,19 @@ public final class RoutineSession {
         isSwitching = true
         defer { isSwitching = false }
         await finishSaving()
-        let routine = await next()
+        let workout = await next()
         await finishSaving()
-        if let routine {
-            show(routine)
+        if let workout {
+            show(workout)
         }
     }
 
-    private func show(_ routine: Workout, on shown: Screen = .pushedRoutine) {
+    private func show(_ workout: Workout, on shown: Screen = .pushedWorkout) {
         // The routine left stays in the list at its place, before its last save reads back.
         saved = recent
         switches += 1
-        opened = routine
-        current = routine
+        opened = workout
+        current = workout
         screen = shown
     }
 
@@ -300,7 +300,7 @@ public final class RoutineSession {
             do {
                 try await store?.save(landed, keepsEmpty: loggedWorkout != nil)
             } catch {
-                Logger.session.error("The routine didn't save: \(error)")
+                Logger.session.error("The workout didn't save: \(error)")
             }
         }
         (saves, saving) = Self.startSaving(to: store)
@@ -315,7 +315,7 @@ public final class RoutineSession {
     }
 }
 
-extension RoutineSession {
+extension AppSession {
     /// Lets every edit to the open routine land, then stores `change` to the exercises,
     /// and reads the open routine and the saved ones back, so each shows what it did to their
     /// rows. The list takes `listing` only once the change is stored, so a refused or failed
@@ -344,7 +344,7 @@ extension RoutineSession {
     }
 }
 
-extension RoutineSession {
+extension AppSession {
     /// Whether the open routine has anything to delete: one with nothing saved has none, and
     /// the one a workout runs on is not deleted.
     public var canDeleteOpen: Bool {
@@ -362,12 +362,12 @@ extension RoutineSession {
         defer { isSwitching = false }
         if id == current.id {
             await finishSaving()
-            show(Workout(), on: .routines)
+            show(Workout(), on: .workouts)
         }
         do {
             try await store?.deleteWorkout(id)
         } catch {
-            Logger.session.error("The routine didn't delete: \(error)")
+            Logger.session.error("The workout didn't delete: \(error)")
             return
         }
         // A read of the list the delete overtook still holds the routine: dropped.

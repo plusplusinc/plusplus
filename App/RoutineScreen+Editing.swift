@@ -118,8 +118,8 @@ extension RoutineScreen {
             },
             deleteMessage: { id in
                 DeleteQuestion.message(
-                    workoutCount: session.routines(using: id).count,
-                    usedByOpenWorkout: session.openRoutineUses(id),
+                    workoutCount: session.workouts(using: id).count,
+                    usedByOpenWorkout: session.openWorkoutUses(id),
                 )
             },
             onDelete: { await deleteExercise($0, closing: .nothing) },
@@ -189,7 +189,7 @@ extension RoutineScreen {
     /// gone, or Start was pressed since the Create (`wasIdle` and no longer idle): the sheet
     /// rose over the first exercise growing, and the press says the workout comes first. A
     /// Create during a workout still opens it, as a tap on the row there does. The drawer and
-    /// the sheet keep each other out as a tap's sheet does (`RoutineSession.openRowSheet(_:)`).
+    /// the sheet keep each other out as a tap's sheet does (`AppSession.openRowSheet(_:)`).
     /// The wait is the screen's own task (`createdWait`), so it ends with the screen, and the
     /// session drops it if the app has left this screen or routine by then.
     func showCreated() async {

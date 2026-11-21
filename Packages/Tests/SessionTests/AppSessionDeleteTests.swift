@@ -8,7 +8,7 @@ import Testing
 /// the session on a new routine with the Routines screen showing, and a relaunch never brings
 /// either back. A relaunch is a second store over the same container.
 @Suite("Routine session delete")
-struct RoutineSessionDeleteTests {
+struct AppSessionDeleteTests {
     private let container: ModelContainer
     private let lower = Workout(name: "Lower")
 
@@ -21,8 +21,8 @@ struct RoutineSessionDeleteTests {
         Store(modelContainer: container)
     }
 
-    private func session(_ routine: Workout) -> RoutineSession {
-        RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
+    private func session(_ workout: Workout) -> AppSession {
+        AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
     }
 
     private static func upper() throws -> Workout {
@@ -42,11 +42,11 @@ struct RoutineSessionDeleteTests {
         let upper = try Self.upper()
         let session = session(upper)
         session.save(upper)
-        session.showRoutines()
+        session.showWorkouts()
         await session.refreshRecent(weightUnit: .pounds)
         await session.delete(lower.id)
         #expect(session.recent.map(\.id) == [upper.id])
-        #expect(session.screen == .routines)
+        #expect(session.screen == .workouts)
         #expect(session.current == upper)
         await session.writesLanded()
         #expect(try await storedIDs() == [upper.id])
@@ -68,7 +68,7 @@ struct RoutineSessionDeleteTests {
         try await relaunch().save(upper)
         let session = session(upper)
         await session.delete(upper.id)
-        #expect(session.screen == .routines)
+        #expect(session.screen == .workouts)
         #expect(session.current.isEmpty)
         #expect(session.opened == session.current)
         #expect(session.current.id != upper.id)
@@ -78,11 +78,11 @@ struct RoutineSessionDeleteTests {
     @Test("Deleting a pushed routine pops back to Routines on a new, empty routine")
     func deletePushed() async throws {
         let session = session(Workout())
-        session.showRoutines()
+        session.showWorkouts()
         await session.open(lower.id, weightUnit: .pounds)
-        #expect(session.screen == .pushedRoutine)
+        #expect(session.screen == .pushedWorkout)
         await session.delete(lower.id)
-        #expect(session.screen == .routines)
+        #expect(session.screen == .workouts)
         #expect(session.current.isEmpty)
         #expect(try await storedIDs().isEmpty)
     }

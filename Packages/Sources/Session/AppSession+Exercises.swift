@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 import WorkoutStore
 
-extension RoutineSession {
+extension AppSession {
     /// Adds a created exercise to the list at once, and returns it once it is stored, so a
     /// routine save that names it always lands after it: await this before adding its row.
     /// A failed save is logged, and the exercise stays usable this session.
@@ -87,12 +87,12 @@ extension RoutineSession {
     }
 
     /// Whether the open routine has a row of `id`: the routine a delete's question names first.
-    public func openRoutineUses(_ id: Exercise.ID) -> Bool {
+    public func openWorkoutUses(_ id: Exercise.ID) -> Bool {
         current.exercises.contains { $0.exercise.id == id }
     }
 
     /// The routines with a row of `id`, the latest opened or edited first.
-    public func routines(using id: Exercise.ID) -> [Workout] {
-        recent.filter { routine in routine.exercises.contains { $0.exercise.id == id } }
+    public func workouts(using id: Exercise.ID) -> [Workout] {
+        recent.filter { workout in workout.exercises.contains { $0.exercise.id == id } }
     }
 }

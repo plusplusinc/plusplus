@@ -7,7 +7,7 @@ import Testing
 /// Where the session shows, one value: the routine, the Routines screen, or a routine pushed on
 /// it, through each way in and out, and what the drawer marks for each.
 @Suite("Routine session screen")
-struct RoutineSessionScreenTests {
+struct AppSessionScreenTests {
     private let store: Store
     private let saved = Workout(name: "Lower")
 
@@ -20,41 +20,41 @@ struct RoutineSessionScreenTests {
         try await store.save(saved, at: Date(timeIntervalSinceReferenceDate: 1))
     }
 
-    private func session(_ routine: Workout = Workout(name: "Upper")) -> RoutineSession {
-        RoutineSession(routine: routine, store: store, namer: .muscleGroupsOnly)
+    private func session(_ workout: Workout = Workout(name: "Upper")) -> AppSession {
+        AppSession(workout: workout, store: store, namer: .muscleGroupsOnly)
     }
 
     /// A session on a routine of one bench press row, and the row, whose sheet can open.
-    private func sessionWithRow() throws -> (RoutineSession, row: WorkoutExercise.ID) {
+    private func sessionWithRow() throws -> (AppSession, row: WorkoutExercise.ID) {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         let row = WorkoutExercise(exercise: exercise, weightUnit: .pounds)
         return (session(Workout(name: "Upper", exercises: [row])), row.id)
     }
 
     /// A session on the Routines screen, `saved` pushed on it.
-    private func pushedSession() async -> RoutineSession {
+    private func pushedSession() async -> AppSession {
         let session = session()
-        session.showRoutines()
+        session.showWorkouts()
         await session.open(saved.id, weightUnit: .pounds)
         return session
     }
 
     /// `routine` with a bench press added, saved to the session.
-    private func addingExercise(to routine: Workout, in session: RoutineSession) throws -> Workout {
+    private func addingExercise(to workout: Workout, in session: AppSession) throws -> Workout {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
-        var edited = routine
+        var edited = workout
         edited.exercises = [WorkoutExercise(exercise: exercise, weightUnit: .pounds)]
         session.save(edited)
         return edited
     }
 
     @Test("Routines from the drawer shows the list, marked, and closes the drawer")
-    func showRoutines() {
+    func showWorkouts() {
         let session = session()
         session.openDrawer()
-        session.showRoutines()
-        #expect(session.screen == .routines)
-        #expect(session.showing == .routines)
+        session.showWorkouts()
+        #expect(session.screen == .workouts)
+        #expect(session.showing == .workouts)
         #expect(!session.isDrawerOpen)
     }
 
@@ -136,7 +136,7 @@ struct RoutineSessionScreenTests {
         // The pushed screen goes only once its pop has played, after the pop itself; the pop
         // lands at the hold's end, as the wait's own conditions are read.
         await session.openRowSheet(RowSheet(id: row), after: .milliseconds(10)) {
-            session.popRoutine()
+            session.popWorkout()
             return true
         }
         #expect(session.rowSheet == nil)
@@ -147,46 +147,46 @@ struct RoutineSessionScreenTests {
     @Test("A routine opened from the list is pushed on it")
     func openFromList() async {
         let session = await pushedSession()
-        #expect(session.screen == .pushedRoutine)
+        #expect(session.screen == .pushedWorkout)
         #expect(session.current == saved)
-        #expect(session.showing == .routine)
+        #expect(session.showing == .workout)
     }
 
     @Test("The open routine opened from the list is pushed on it as it is")
     func openOpenFromList() async {
         let session = session()
-        session.showRoutines()
+        session.showWorkouts()
         await session.open(session.current.id, weightUnit: .pounds)
-        #expect(session.screen == .pushedRoutine)
+        #expect(session.screen == .pushedWorkout)
         #expect(session.current.name == "Upper")
     }
 
     @Test("The list's + pushes a new routine on it, which marks neither place")
     func newFromList() async {
         let session = session()
-        session.showRoutines()
+        session.showWorkouts()
         await session.startNew()
-        #expect(session.screen == .pushedRoutine)
+        #expect(session.screen == .pushedWorkout)
         #expect(session.current.isEmpty)
-        #expect(session.showing == .routine)
+        #expect(session.showing == .workout)
     }
 
     @Test("Back from a pushed routine shows the list again")
     func back() async {
         let session = await pushedSession()
-        session.popRoutine()
-        #expect(session.screen == .routines)
-        #expect(session.showing == .routines)
+        session.popWorkout()
+        #expect(session.screen == .workouts)
+        #expect(session.showing == .workouts)
         #expect(session.current == saved)
     }
 
     @Test("A pop the stack sends after Start leaves the workout at the root")
     func popAfterStart() async throws {
         let session = await pushedSession()
-        let routine = try addingExercise(to: session.current, in: session)
-        session.start(on: routine.id)
-        session.popRoutine()
-        #expect(session.screen == .routine)
+        let workout = try addingExercise(to: session.current, in: session)
+        session.start(on: workout.id)
+        session.popWorkout()
+        #expect(session.screen == .workout)
     }
 
     @Test("Start on a pushed routine shows its workout at the root, as the routine is now")
@@ -194,18 +194,18 @@ struct RoutineSessionScreenTests {
         let session = await pushedSession()
         let edited = try addingExercise(to: saved, in: session)
         session.start(on: session.current.id)
-        #expect(session.screen == .routine)
+        #expect(session.screen == .workout)
         #expect(session.opened == edited)
         #expect(session.loggedWorkout?.workoutID == saved.id)
     }
 
     @Test("Start at the root keeps the screen the routine opened with")
     func startAtRoot() throws {
-        let routine = Workout(name: "Upper")
-        let session = session(routine)
-        _ = try addingExercise(to: routine, in: session)
+        let workout = Workout(name: "Upper")
+        let session = session(workout)
+        _ = try addingExercise(to: workout, in: session)
         session.start(on: session.current.id)
-        #expect(session.screen == .routine)
-        #expect(session.opened == routine)
+        #expect(session.screen == .workout)
+        #expect(session.opened == workout)
     }
 }

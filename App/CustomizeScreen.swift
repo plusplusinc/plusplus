@@ -11,7 +11,7 @@ import WorkoutStore
 /// longer has.
 struct CustomizeScreen: View {
     let id: Exercise.ID
-    let session: RoutineSession
+    let session: AppSession
     let namer: WorkoutNamer
     /// Runs once each change has reached the store.
     var onStored: () -> Void = { }
@@ -22,7 +22,7 @@ struct CustomizeScreen: View {
 
     var body: some View {
         let weightUnit = WeightUnit(region: locale)
-        let usedIn = session.routines(using: id).map(namer.listedName(of:))
+        let usedIn = session.workouts(using: id).map(namer.listedName(of:))
         if let exercise = session.exercises.exercise(id: id) {
             ExerciseForm(
                 customizing: id,
@@ -49,7 +49,7 @@ struct CustomizeScreen: View {
                 onStored()
             }
         } else {
-            .delete(usedByOpenWorkout: session.openRoutineUses(id), onDelete)
+            .delete(usedByOpenWorkout: session.openWorkoutUses(id), onDelete)
         }
     }
 }

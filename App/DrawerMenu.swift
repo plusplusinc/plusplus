@@ -10,11 +10,11 @@ import WorkoutStore
 /// held until it has fully closed, so a tap that switches places never moves the mark under the
 /// finger before the drawer slides away.
 struct DrawerMenu: View {
-    let session: RoutineSession
+    let session: AppSession
 
     /// The place showing as the drawer started to show. The drawer is in the hierarchy only
     /// while it shows, so this is taken anew each time it starts to.
-    @State private var held: RoutineSession.Showing?
+    @State private var held: AppSession.Showing?
     @AccessibilityFocusState private var isTitleFocused: Bool
 
     var body: some View {
@@ -36,9 +36,9 @@ struct DrawerMenu: View {
                 .padding(.horizontal, Spacing.sm)
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Button("Workouts", systemImage: "checklist") {
-                        session.showRoutines()
+                        session.showWorkouts()
                     }
-                    .buttonStyle(.drawer(isSelected: showing == .routines))
+                    .buttonStyle(.drawer(isSelected: showing == .workouts))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -54,8 +54,8 @@ struct DrawerMenu: View {
 
 #Preview {
     DrawerMenu(
-        session: RoutineSession(
-            routine: Workout(name: "Upper body"),
+        session: AppSession(
+            workout: Workout(name: "Upper body"),
             store: nil,
             namer: .muscleGroupsOnly,
         ),
