@@ -76,7 +76,8 @@ public struct RestBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The time left; with `turns` off, it changes at once rather than rolling. Always within
+    /// The time left, its changing digits rolling each second and on +15 s; with `turns` off, as
+    /// with Reduce Motion, it changes at once. Always within
     /// `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes, never 0:00.
     func countdown(
         size: CGFloat,
@@ -86,9 +87,10 @@ public struct RestBlock: View {
         shown: ClosedRange<Double> = 0 ... .infinity,
     ) -> some View {
         let isOpen = stage == .open
+        let ticks = isOpen && pausedLeft == nil
         return TimelineView(RestSchedule(
             ends: ends,
-            isPaused: pausedLeft != nil || !isOpen,
+            isPaused: !ticks,
         )) { context in
             let seconds = left(at: context.date, within: shown)
             let text = Self.text(seconds, locale: locale)
@@ -101,12 +103,12 @@ public struct RestBlock: View {
                 .animation(nil, value: color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                // +15 s turns the figure; a second going by, or the rest's end on the move's
-                // delayed shift, changes it at once: on that shift, 0:00 came in half a second
-                // after the dot had left. So does Skip rest: turning, a cut to 0:00 rolled down
-                // as it shrank away. Only a change of its own: taking every
-                // update's animation away, the figure jumped to where a part going drops it
-                // while the part faded on its curve.
+                // +15 s and each second going by turn the figure, on the one roll. Its last
+                // change, to 0:00 at the run-out or on Skip rest, is at once: rolling, 0:00 came
+                // in half a second after the dot had left, and a cut to 0:00 rolled down as it
+                // shrank away. A held count, paused, ended, or going, never ticks. Only a change
+                // of its own: taking every update's animation away, the figure jumped to where a
+                // part going drops it while the part faded on its curve.
                 .contentTransition(turns ? .numericText(countsDown: true) : .identity)
                 .transaction(value: ends) {
                     if isOpen, turns, seconds > 0 {
@@ -118,7 +120,9 @@ public struct RestBlock: View {
                 // its leaving exercise drops it.
                 .transaction(value: text) {
                     if turns {
-                        $0.animation = nil
+                        $0.animation = ticks && seconds > 0
+                            ? .snappy(duration: SetMotion.restGlide)
+                            : nil
                     }
                 }
                 .accessibilityElement(children: .ignore)
@@ -155,6 +159,7 @@ private struct RestRoom: View, Animatable {
     /// default text size, scaled with it.
     @ScaledMetric(relativeTo: .body) private var capHeight = Self.defaultCapHeight
     @Environment(\.restIsAboveLabel) private var isAboveLabel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let defaultCapHeight: CGFloat = {
         #if canImport(UIKit)
@@ -235,6 +240,7 @@ private struct RestRoom: View, Animatable {
             block.countdown(
                 size: size,
                 locale: locale,
+                turns: !reduceMotion,
                 color: block.isPaused ? .textSecondary : .textPrimary,
             )
             .figureBox(size: size)
