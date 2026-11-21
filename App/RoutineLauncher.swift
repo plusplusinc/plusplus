@@ -41,7 +41,7 @@ struct RoutineLauncher: View {
                     RoutinesScreen(session: session, namer: namer)
                 }
             }
-            .keepsScreenOn(session.workout != nil)
+            .keepsScreenOn(session.loggedWorkout != nil)
         } else {
             Color.pp(.background)
                 .ignoresSafeArea()
@@ -49,7 +49,7 @@ struct RoutineLauncher: View {
                     let launch = await launch()
                     let session = await RoutineSession(
                         routine: launch.routine,
-                        workout: launch.workout,
+                        loggedWorkout: launch.loggedWorkout,
                         exercises: exercises(),
                         store: store,
                         namer: namer,
@@ -75,7 +75,7 @@ struct RoutineLauncher: View {
         }
     }
 
-    private func launch() async -> (routine: Routine, workout: Workout?) {
+    private func launch() async -> (routine: Routine, loggedWorkout: LoggedWorkout?) {
         guard let store else { return (Routine(), nil) }
         do {
             #if DEBUG
@@ -88,7 +88,7 @@ struct RoutineLauncher: View {
             }
             #endif
             let launch = try await store.launch(weightUnit: WeightUnit(region: locale))
-            return (launch.routine ?? Routine(), launch.workout)
+            return (launch.routine ?? Routine(), launch.loggedWorkout)
         } catch {
             Logger.app.error("Opening a new routine: the saved one didn't load: \(error)")
             return (Routine(), nil)

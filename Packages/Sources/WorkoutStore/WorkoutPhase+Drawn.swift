@@ -1,16 +1,16 @@
 import Foundation
 
 extension WorkoutPhase {
-    /// The workout End took from the store, while the list still draws it.
-    public var drawnWorkout: Workout? {
-        guard case let .ending(ending) = self, ending.drawsWorkout else { return nil }
-        return ending.workout
+    /// The logged workout End took from the store, while the list still draws it.
+    public var drawnLoggedWorkout: LoggedWorkout? {
+        guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }
+        return ending.loggedWorkout
     }
 
     /// When End came, while the list still draws the workout it took: the rest drawn holds where
     /// it stood then.
     public var drawnEnd: Date? {
-        guard case let .ending(ending) = self, ending.drawsWorkout else { return nil }
+        guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }
         return ending.date
     }
 
@@ -21,24 +21,24 @@ extension WorkoutPhase {
         if let resting {
             return resting
         }
-        guard case let .ending(ending) = self, ending.drawsWorkout else { return nil }
+        guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }
         return ending.rest
     }
 
     /// The rest End came in, with the workout as it was, once the list has left it: its room
     /// closes showing the time it had. Gone with the list, its room closed drawing an empty rest,
     /// "0:00".
-    public var restLeft: (rest: Resting, workout: Workout)? {
-        guard case let .ending(ending) = self, !ending.drawsWorkout, let rest = ending.rest
+    public var restLeft: (rest: Resting, loggedWorkout: LoggedWorkout)? {
+        guard case let .ending(ending) = self, !ending.drawsLiveWorkout, let rest = ending.rest
         else { return nil }
-        return (rest, ending.workout)
+        return (rest, ending.loggedWorkout)
     }
 
     /// The list leaves the workout End took from the store: it shrinks, or crossfades, out of it.
     @discardableResult
     public mutating func listLeaves() -> Bool {
-        guard case var .ending(ending) = self, ending.drawsWorkout else { return false }
-        ending.drawsWorkout = false
+        guard case var .ending(ending) = self, ending.drawsLiveWorkout else { return false }
+        ending.drawsLiveWorkout = false
         self = .ending(ending)
         return true
     }

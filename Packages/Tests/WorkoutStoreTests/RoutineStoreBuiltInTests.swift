@@ -76,20 +76,20 @@ struct RoutineStoreBuiltInTests {
         let store = relaunch()
         let routine = try Routine(name: "Push", exercises: [Self.row()])
         try await store.save(routine)
-        var workout = Workout(
+        var loggedWorkout = LoggedWorkout(
             routineID: routine.id,
             routineName: "Push",
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
         )
         for second in [20.0, 30] {
-            let next = try #require(routine.nextSet(after: workout.sets))
-            workout = workout.logging(
+            let next = try #require(routine.nextSet(after: loggedWorkout.sets))
+            loggedWorkout = loggedWorkout.logging(
                 next,
                 of: routine.exercises[0],
                 at: Date(timeIntervalSinceReferenceDate: second),
             )
         }
-        try await store.save(workout)
+        try await store.save(loggedWorkout)
         // One logged before V9 stored a name.
         let context = ModelContext(container)
         let first = try #require(try context.fetch(FetchDescriptor<StoredSet>(
@@ -104,13 +104,13 @@ struct RoutineStoreBuiltInTests {
 
         // Logged after the rename, it keeps that name once the rename is cleared.
         let renamed = try #require(try await relaunch().routine(routine.id, weightUnit: .pounds))
-        let next = try #require(renamed.nextSet(after: workout.sets))
-        workout = workout.logging(
+        let next = try #require(renamed.nextSet(after: loggedWorkout.sets))
+        loggedWorkout = loggedWorkout.logging(
             next,
             of: renamed.exercises[0],
             at: Date(timeIntervalSinceReferenceDate: 40),
         )
-        try await relaunch().save(workout)
+        try await relaunch().save(loggedWorkout)
         try await relaunch().clearCustomizations("barbell-bench-press")
         #expect(try await reread(routine.id).exercise.name == "Barbell bench press")
         #expect(try loggedNames() == ["Barbell bench press", "Barbell bench press", "Bench press"])

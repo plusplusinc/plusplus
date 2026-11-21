@@ -10,13 +10,13 @@ extension RoutineSession {
         let keepsEmpty: Bool
     }
 
-    enum WorkoutWrite {
-        case save(Workout)
-        case discard(Workout.ID)
+    enum LoggedWorkoutWrite {
+        case save(LoggedWorkout)
+        case discard(LoggedWorkout.ID)
     }
 
-    enum WorkoutQueueEntry {
-        case write(WorkoutWrite)
+    enum LoggedWorkoutQueueEntry {
+        case write(LoggedWorkoutWrite)
         /// Every write before it has landed.
         case landed(CheckedContinuation<Void, Never>)
     }
@@ -40,23 +40,23 @@ extension RoutineSession {
         return (continuation, task)
     }
 
-    static func startWritingWorkouts(
+    static func startWritingLoggedWorkouts(
         to store: RoutineStore?,
-    ) -> AsyncStream<WorkoutQueueEntry>.Continuation {
+    ) -> AsyncStream<LoggedWorkoutQueueEntry>.Continuation {
         let (stream, continuation) = AsyncStream.makeStream(
-            of: WorkoutQueueEntry.self,
+            of: LoggedWorkoutQueueEntry.self,
             bufferingPolicy: .unbounded,
         )
         Task {
             for await entry in stream {
                 do {
                     switch entry {
-                    case let .write(.save(workout)): try await store?.save(workout)
-                    case let .write(.discard(id)): try await store?.discardWorkout(id)
+                    case let .write(.save(loggedWorkout)): try await store?.save(loggedWorkout)
+                    case let .write(.discard(id)): try await store?.discardLoggedWorkout(id)
                     case let .landed(done): done.resume()
                     }
                 } catch {
-                    Logger.session.error("The workout didn't save: \(error)")
+                    Logger.session.error("The logged workout didn't save: \(error)")
                 }
             }
         }

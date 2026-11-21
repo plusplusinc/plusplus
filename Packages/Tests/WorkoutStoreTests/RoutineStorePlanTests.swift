@@ -55,13 +55,13 @@ struct RoutineStorePlanTests {
 
         let next = try #require(reopened.nextSet(after: []))
         let row = try #require(reopened.exercises.first)
-        let workout = Workout(
+        let loggedWorkout = LoggedWorkout(
             routineID: reopened.id,
             routineName: reopened.name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
         ).logging(next, of: row, at: Date(timeIntervalSinceReferenceDate: 20))
-        try await relaunch().save(workout)
-        let launched = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        try await relaunch().save(loggedWorkout)
+        let launched = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
         #expect(launched.sets.first?.weight == Weight(27.5, .pounds))
     }
 

@@ -2,7 +2,7 @@ import XCTest
 
 /// After the last planned set, the key at the bottom reads Finish workout and finishes at once,
 /// with no "End this workout?" dialog, and keeps the workout: a relaunch then opens a new
-/// routine, where after Discard it reopens this one (`RoutineStoreWorkoutTests` holds both
+/// routine, where after Discard it reopens this one (`RoutineStoreLoggedWorkoutTests` holds both
 /// launch rules and every saved field). Which set comes next is `WorkoutLoggingTests`', and
 /// how the row looks is `WorkoutRailSnapshotTests`'; this is the key's wire to finishing, which
 /// nothing in the app shows afterward, so a break that discarded the sets would go unseen. On
@@ -13,7 +13,7 @@ import XCTest
 /// (`-seedSets 1`, `-seedTime 3`), which counts down and logs itself after "Start now", with no
 /// tap on its key: only the running app has the count's watch on the real clock and its wire to
 /// the log, whose rules `TimedSetTests` holds. That one log reaches the workout's end; logs
-/// that stay on an exercise, tapped, are `WorkoutUITests`'.
+/// that stay on an exercise, tapped, are `LiveWorkoutUITests`'.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class WorkoutFinishUITests: XCTestCase {

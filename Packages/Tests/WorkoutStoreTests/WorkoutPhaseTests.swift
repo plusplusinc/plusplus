@@ -226,19 +226,22 @@ struct WorkoutPhaseTests {
     @Test("Stopped at once, the phase follows the store: at rest in a workout, out of one without")
     func settleAtOnce() {
         for phase in Self.everyPhase + Self.startAndEnd {
-            for hasWorkout in [false, true] {
+            for hasLiveWorkout in [false, true] {
                 var stopped = phase
-                let live = LiveWorkout(routine: Routine(), workout: Self.workout)
+                let live = LiveWorkout(routine: Routine(), loggedWorkout: Self.loggedWorkout)
                 stopped.settleAtOnce(
-                    resuming: hasWorkout ? live : nil,
+                    resuming: hasLiveWorkout ? live : nil,
                     restOverride: nil,
                     at: .now,
                 )
-                #expect(stopped == (hasWorkout ? .running : .idle), "\(phase), \(hasWorkout)")
-                #expect(stopped.takesLog == hasWorkout, "The key logs only with a workout")
+                #expect(
+                    stopped == (hasLiveWorkout ? .running : .idle),
+                    "\(phase), \(hasLiveWorkout)",
+                )
+                #expect(stopped.takesLog == hasLiveWorkout, "The key logs only with a workout")
                 var ended = stopped
-                let endable = ended.end(Self.workout)
-                #expect(endable == hasWorkout, "End ends only a workout")
+                let endable = ended.end(Self.loggedWorkout)
+                #expect(endable == hasLiveWorkout, "End ends only a workout")
             }
         }
     }

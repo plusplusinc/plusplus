@@ -98,7 +98,7 @@ struct RoutineSessionDeleteTests {
     }
 
     @Test("A delete asked during a workout on that routine keeps it")
-    func refusedDuringWorkout() async throws {
+    func refusedDuringLiveWorkout() async throws {
         let upper = try Self.upper()
         let session = session(upper)
         session.save(upper)
@@ -110,7 +110,7 @@ struct RoutineSessionDeleteTests {
     }
 
     @Test("A finished workout on the deleted routine is still stored")
-    func workoutKept() async throws {
+    func loggedWorkoutKept() async throws {
         let upper = try Self.upper()
         let session = session(upper)
         session.save(upper)
@@ -118,8 +118,8 @@ struct RoutineSessionDeleteTests {
         session.finish(at: Date(timeIntervalSinceReferenceDate: 20))
         await session.delete(upper.id)
         await session.writesLanded()
-        let workouts = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
-        #expect(workouts.map(\.workout.routineID) == [upper.id])
-        #expect(workouts.allSatisfy { !$0.workout.isInProgress })
+        let loggedWorkouts = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        #expect(loggedWorkouts.map(\.loggedWorkout.routineID) == [upper.id])
+        #expect(loggedWorkouts.allSatisfy { !$0.loggedWorkout.isInProgress })
     }
 }

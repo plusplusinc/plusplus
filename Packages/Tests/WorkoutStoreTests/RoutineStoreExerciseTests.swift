@@ -64,9 +64,9 @@ struct RoutineStoreExerciseTests {
         try await store.save(routine)
         #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
         try await relaunch()
-            .save(Workout(routineID: routine.id, routineName: "Day A", startedAt: .now))
+            .save(LoggedWorkout(routineID: routine.id, routineName: "Day A", startedAt: .now))
         let launch = try await relaunch().launch(weightUnit: .pounds)
-        #expect(launch.workout != nil)
+        #expect(launch.loggedWorkout != nil)
         #expect(launch.routine == routine)
         #expect(try await relaunch().routinesByRecency(weightUnit: .pounds) == [routine])
     }

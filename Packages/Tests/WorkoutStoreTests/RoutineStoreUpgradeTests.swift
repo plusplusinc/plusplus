@@ -145,13 +145,13 @@ struct RoutineStoreUpgradeTests {
     }
 
     @Test("A store written before workouts opens with every routine, then keeps a workout")
-    func upgradeBeforeWorkouts() async throws {
+    func upgradeBeforeLoggedWorkouts() async throws {
         let folder = FileManager.default.temporaryDirectory
             .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        try Self.writeBeforeWorkouts(to: url)
+        try Self.writeBeforeLoggedWorkouts(to: url)
 
         func open() throws -> RoutineStore {
             try RoutineStore(modelContainer: ModelContainer(
@@ -170,15 +170,15 @@ struct RoutineStoreUpgradeTests {
             #expect(routine.exercises.map(\.plan.target) == [.reps(6), .reps(6)])
             #expect(routine.exercises.allSatisfy { $0.supersetID != nil })
         }
-        let workout = Workout(
+        let loggedWorkout = LoggedWorkout(
             routineID: routines[0].id,
             routineName: routines[0].name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
         )
-        try await store.save(workout)
+        try await store.save(loggedWorkout)
 
         let launch = try await open().launch(weightUnit: .pounds)
-        #expect(launch.workout == workout)
+        #expect(launch.loggedWorkout == loggedWorkout)
         #expect(launch.routine?.name == "Older")
     }
 
@@ -189,8 +189,8 @@ struct RoutineStoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        try Self.writeBeforeWorkouts(to: url)
-        let workoutID = UUID()
+        try Self.writeBeforeLoggedWorkouts(to: url)
+        let loggedWorkoutID = UUID()
         do {
             let schema = Schema(versionedSchema: RoutineSchemaV5.self)
             let old = try ModelContainer(
@@ -201,11 +201,11 @@ struct RoutineStoreUpgradeTests {
             let routine = try #require(try context
                 .fetch(FetchDescriptor<StoredRoutine>())
                 .first { $0.name == "Older" })
-            let workout = RoutineSchemaV5.StoredWorkout(id: workoutID)
-            workout.routineID = routine.id
-            workout.routineName = "Older"
-            workout.startedAt = Date(timeIntervalSinceReferenceDate: 10)
-            context.insert(workout)
+            let loggedWorkout = RoutineSchemaV5.StoredWorkout(id: loggedWorkoutID)
+            loggedWorkout.routineID = routine.id
+            loggedWorkout.routineName = "Older"
+            loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 10)
+            context.insert(loggedWorkout)
             try context.save()
         }
 
@@ -215,14 +215,14 @@ struct RoutineStoreUpgradeTests {
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let launch = try await RoutineStore(modelContainer: current).launch(weightUnit: .pounds)
-        #expect(launch.workout?.id == workoutID)
-        #expect(launch.workout?.sets == [])
+        #expect(launch.loggedWorkout?.id == loggedWorkoutID)
+        #expect(launch.loggedWorkout?.sets == [])
         #expect(launch.routine?.name == "Older")
     }
 
     /// Today's routines as #91 stored them: two, each with a superset of two rows with plans,
     /// one opened after the other's edit.
-    static func writeBeforeWorkouts(to url: URL) throws {
+    static func writeBeforeLoggedWorkouts(to url: URL) throws {
         let schema = Schema([
             RoutineSchemaV4.StoredRoutine.self,
             RoutineSchemaV4.StoredRoutineExercise.self,

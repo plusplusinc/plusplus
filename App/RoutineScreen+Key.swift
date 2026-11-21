@@ -108,22 +108,23 @@ extension RoutineScreen {
     /// The fill of Skip rest: running while the rest runs, gray and held while paused; held where
     /// it stood where End came mid-rest; else full, as the keys leave once the rest is over.
     var restKeyFill: KeyFill {
-        if let (_, workout) = phase.restLeft,
-           let left = LiveWorkout(routine: routine, workout: workout).rest(override: restOverride)
+        if let (_, loggedWorkout) = phase.restLeft,
+           let left = LiveWorkout(routine: routine, loggedWorkout: loggedWorkout)
+               .rest(override: restOverride)
         {
-            let (ends, pausedLeft) = Self.times(of: left, on: workout, stopped: true)
+            let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)
             return KeyFill(length: Double(left.length), ends: ends, pausedLeft: pausedLeft)
         }
         guard let rest = phase.drawnRest, rest.beat < .returning,
-              let (resting, workout) = drawnResting,
-              !resting.isOver(atClock: workout.clock(at: .now))
+              let (resting, loggedWorkout) = drawnResting,
+              !resting.isOver(atClock: loggedWorkout.clock(at: .now))
         else { return .over }
-        let (ends, pausedLeft) = Self.times(of: resting, on: workout, end: phase.drawnEnd)
+        let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
         return KeyFill(
             length: Double(resting.length),
             ends: ends,
             pausedLeft: pausedLeft,
-            isPaused: workout.isPaused,
+            isPaused: loggedWorkout.isPaused,
         )
     }
 

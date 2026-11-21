@@ -168,7 +168,7 @@ extension RoutineScreen {
     /// Takes away the screen's room under the list's end once Start or a move to the next
     /// exercise is over. It can go at any moment: `landingRoomTop` holds the landing.
     func letRoomGo() {
-        guard isMakingRoom, !isStarting, !isMovingOn, !isResting, session.workout != nil
+        guard isMakingRoom, !isStarting, !isMovingOn, !isResting, session.loggedWorkout != nil
         else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
@@ -192,12 +192,12 @@ extension RoutineScreen {
     ///
     /// `change`, the store's finish or discard, is made at once, here, on every path: only the
     /// motion is the sequence's, which the screen going away cancels. The list draws the workout
-    /// as it was from the phase (`WorkoutPhase.drawnWorkout`) until it shrinks or crossfades out
-    /// of it. `change` takes the curve the bar's End and time would have moved on with it.
+    /// as it was from the phase (`WorkoutPhase.drawnLoggedWorkout`) until it shrinks or crossfades
+    /// out of it. `change` takes the curve the bar's End and time would have moved on with it.
     func end(_ change: () -> Void) {
         // Once only: a second End is refused.
         var ended = phase
-        guard let workout = session.workout, ended.end(workout) else { return }
+        guard let loggedWorkout = session.loggedWorkout, ended.end(loggedWorkout) else { return }
         sequence.cancel()
         let tookOver = !phase.isAtRest
         withTransaction(\.disablesAnimations, true) {

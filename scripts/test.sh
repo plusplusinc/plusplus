@@ -6,7 +6,7 @@
 #   scripts/test.sh sim      # the app scheme on the simulator: package, snapshot, and UI tests;
 #                            # in a worktree, on its own simulator after scripts/sim.sh reset
 #   scripts/test.sh sim WorkoutStoreTests/WorkoutStoreContainerTests   # -only-testing filter
-#   scripts/test.sh sim PlusPlusUITests/WorkoutUITests PlusPlusUITests/RowDragUITests  # several
+#   scripts/test.sh sim PlusPlusUITests/LiveWorkoutUITests PlusPlusUITests/RowDragUITests  # several
 #
 # The package declares a macOS platform so its tests run with `swift test` and no simulator.
 # Tests that need UIKit are compiled out there and run in the simulator tier, whose test
