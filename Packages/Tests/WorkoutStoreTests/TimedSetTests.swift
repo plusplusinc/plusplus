@@ -117,22 +117,20 @@ struct TimedSetTests {
         #expect(landed.timedSet?.startsIn(atClock: 40.75) == 10)
     }
 
-    @Test("A rest cut short by −15 s ends now: the timed set next counts from the tap")
-    func restCutShort() throws {
+    @Test("A skipped rest ends now: the timed set next counts from the tap")
+    func restSkipped() throws {
         let live = try Self.started(Self.routine(rest: 30))
         let after = try Self.logged(live, at: 45)
-        // The rest runs from 40 to 70; 7 s left at 63, cut by 15 s.
+        // The rest runs from 40 to 70; skipped at 63.
         let cut = LiveWorkout(
             routine: after.routine,
-            workout: after.adjustingRest(by: -15, at: Self.at(63)),
+            workout: after.skippingRest(at: Self.at(63)),
         )
-        let timed = try #require(cut.timedSet, "Begun at the tap, not from the cut's end")
+        let timed = try #require(cut.timedSet, "Begun at the tap, not at the rest's end")
         #expect(timed.startClock == 63)
         #expect(cut.countStage(at: Self.at(63)) == .counting)
         // The screen's own begin, as the rest ends, changes nothing.
         #expect(cut.beginningCount(at: Self.at(63.1)) == cut.workout)
-        // A cut that leaves time begins nothing.
-        #expect(after.adjustingRest(by: -15, at: Self.at(50)).count == nil)
     }
 
     @Test("A rest that just ended starts the count at its end; while it runs, none begins")

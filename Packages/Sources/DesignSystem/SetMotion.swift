@@ -224,8 +224,7 @@ public enum SetMotion {
 
     // MARK: A rest between exercises
 
-    /// The bar under a rest's countdown gliding to its new fill after −15 s or +15 s, and the
-    /// countdown's figure turning with it.
+    /// A rest's countdown figure turning to its new time after +15 s.
     public static let restGlide = 0.45
 
     /// Into a rest between exercises, or out of one, everything the move changes: the row left
@@ -246,7 +245,7 @@ public enum SetMotion {
     /// Everything a log that rests between sets changes, from the tap, and the rest's end
     /// changes back, on one curve: the figures and the rest swapping in their slot, the set's
     /// segment turning purple, and the caption line rolling. The key at the bottom swaps for
-    /// −15 s and +15 s on the bar's own swap (`RestKeys`).
+    /// Skip rest and +15 s on the bar's own swap (`CountKeys`).
     public static var restSwap: Animation {
         .snappy(duration: roll)
     }

@@ -214,7 +214,7 @@ struct WorkoutKeyTests {
     func key(_ row: Row) {
         #expect(row.key.role == row.role)
         #expect(row.key.tap == row.tap)
-        #expect(row.key.restTap(by: -15) == (row.adjustsRest ? .adjustRest(by: -15) : .nothing))
-        #expect(row.key.restTap(by: 15) == (row.adjustsRest ? .adjustRest(by: 15) : .nothing))
+        #expect(row.key.skipRest == (row.adjustsRest ? .skipRest : .nothing))
+        #expect(row.key.extendRest(by: 15) == (row.adjustsRest ? .extendRest(by: 15) : .nothing))
     }
 }

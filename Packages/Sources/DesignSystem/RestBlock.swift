@@ -4,8 +4,9 @@ import SwiftUI
 /// row's own animation, so its height and the rows below move with the row. Open, under the
 /// exercise just finished, as the exercise closes to its row: "Rest" in a row's name style, as
 /// an exercise's name, then the time left in a large figure's style and size (`CurrentFigure`),
-/// then the bar of its progress (`RestProgress`), each coming in as the room has grown to hold it
-/// (`RestRoom`). −15 s and +15 s are at the bottom, in the key's place.
+/// each coming in as the room has grown to hold it (`RestRoom`). There is no bar under it: Skip
+/// rest, at the bottom in the key's place, fills as the rest runs, with +15 s beside it
+/// (`CountKeys`). Paused, the count is gray.
 ///
 /// Nothing in it is green: a rest looks like an active exercise. The time ticks on whole seconds
 /// before `ends` on a timeline, drawing once while paused (`pausedLeft`), so nothing is written
@@ -23,6 +24,8 @@ public struct RestBlock: View {
     let ends: Date
     /// While paused, or closing as the workout ends, the seconds left; nil while running.
     let pausedLeft: Double?
+    /// Held by a pause: the count is gray, as Skip rest's fill is. Held by End, it stays white.
+    let isPaused: Bool
 
     @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var size = CurrentFigure.size
     @Environment(\.locale) private var locale
@@ -32,16 +35,24 @@ public struct RestBlock: View {
         length: Int,
         ends: Date = .distantPast,
         pausedLeft: Double? = nil,
+        isPaused: Bool = false,
     ) {
         self.stage = stage
         self.length = length
         self.ends = ends
         self.pausedLeft = pausedLeft
+        self.isPaused = isPaused
     }
 
     /// The block held at what it showed at `date`.
     func holding(at date: Date) -> Self {
-        Self(stage: stage, length: length, ends: ends, pausedLeft: left(at: date))
+        Self(
+            stage: stage,
+            length: length,
+            ends: ends,
+            pausedLeft: left(at: date),
+            isPaused: isPaused,
+        )
     }
 
     /// The seconds the countdown shows at `date`, kept within `shown`. Closing with a time
@@ -114,15 +125,6 @@ public struct RestBlock: View {
                 .accessibilityLabel("Rest")
                 .accessibilityValue(Self.spoken(seconds, locale: locale))
         }
-    }
-
-    /// How far through the rest it is, as a bar under the countdown (`RestProgress`).
-    var progress: some View {
-        RestProgress(
-            starts: ends.timeIntervalSinceReferenceDate - Double(length),
-            length: Double(length),
-            pausedLeft: pausedLeft ?? (stage == .open ? nil : Double(length)),
-        )
     }
 
     /// "0:35", the seconds rounded up: a rest's time as the countdown and a caption show it.
@@ -262,7 +264,6 @@ private struct RestRoom: View, Animatable {
     private struct Bottoms: Equatable {
         var word: CGFloat = 0
         var countdown: CGFloat = 0
-        var bar: CGFloat = 0
         var room: CGFloat = 0
 
         /// The share of the room open from which a part ending at `bottom` shows whole, or
@@ -284,7 +285,6 @@ private struct RestRoom: View, Animatable {
             from: bottoms.start(bottoms.countdown, or: 0.7),
             width: 0.15,
         )
-        let bar = RestRoomFade.fade(open, from: bottoms.start(bottoms.bar, or: 0.85), width: 0.1)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("Rest")
@@ -303,15 +303,15 @@ private struct RestRoom: View, Animatable {
             .padding(.top, Spacing.sm)
             .modifier(BottomIn(Self.space) { bottoms.word = $0 })
             .opacity(word)
-            block.countdown(size: size, locale: locale)
-                .figureBox(size: size)
-                .padding(.top, Spacing.md)
-                .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
-                .coming(countdown)
-            block.progress
-                .padding(.top, Spacing.md)
-                .modifier(BottomIn(Self.space) { bottoms.bar = $0 + SetMotion.arriveRise })
-                .coming(bar)
+            block.countdown(
+                size: size,
+                locale: locale,
+                color: block.isPaused ? .textSecondary : .textPrimary,
+            )
+            .figureBox(size: size)
+            .padding(.top, Spacing.md)
+            .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
+            .coming(countdown)
         }
         .padding(.bottom, Spacing.lg)
         .coordinateSpace(.named(Self.space))
