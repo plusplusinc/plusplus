@@ -8,11 +8,14 @@ import SwiftUI
 ///
 /// Both sizes hold the same words on each line, the lines the large name breaks into at the row's
 /// width (`LineBreaks`): a hidden copy of the large name is laid out at that width, the system
-/// wraps it, and the name is drawn at both sizes with a line break where each of its lines
-/// starts. Each line fits the row at the large size, so at the small size, a few percent wider
-/// per point at most, it fits too, and neither size has a break of its own to make. Laid out
-/// apart, the two broke at other words where a long name fit one line small and two large, and
-/// the row's height had to change by a line partway (rounds 15 to 19).
+/// wraps it, and the small name is drawn with a line break where each of its lines starts. Each
+/// line fits the row at the large size, so at the small size, a few percent wider per point at
+/// most, it fits too, and has no break of its own to make. Laid out apart, the two broke at other
+/// words where a long name fit one line small and two large, and the row's height had to change
+/// by a line partway (rounds 15 to 19). The large name is drawn whole, so the system breaks it
+/// into those lines itself, at whatever width the row has: drawn with breaks read at the window's
+/// narrow first width, it stood that many lines tall at the next width for a pass, and the list
+/// reported two heights in one frame at launch.
 ///
 /// The small name is drawn at rest and the large throughout the growth, scaled down, and across
 /// from the small name's measured width at 0, so each is sharp at its own size: the system font
@@ -44,7 +47,8 @@ struct GrowingName: View, Animatable {
                 .onGeometryChange(for: CGSize.self, of: \.size) { sizes.small = $0 }
                 .scaleEffect(drawing.smallScale, anchor: .topLeading)
                 .opacity(1 - drawing.largeOpacity)
-            name(lines, .ppCurrentTitle)
+            // Whole, so at a new width it is never laid out with the last width's breaks.
+            name(title, .ppCurrentTitle)
                 .overlay(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
                     Color.clear
                         .frame(width: 0, height: capHeight)
