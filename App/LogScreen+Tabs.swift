@@ -140,6 +140,7 @@ extension LogScreen {
                 .accessibilityLabel(
                     "Sets since \(period.spokenFirstDay(locale: locale, calendar: calendar))",
                 )
+                .padding(.bottom, Spacing.sm)
             // No line between the groups: their bars part them.
             ForEach(gaps.groups) { group in
                 CountRow(
