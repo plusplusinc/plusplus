@@ -25,6 +25,14 @@ extension WorkoutPhase {
             /// Within one exercise, the rest over: the next set swapping back into the
             /// numbers' place.
             case returning
+
+            /// Whether a rest between sets turns its count's figure: once it is up, and as it
+            /// goes back. Turning as it came in, its end set at the log, the figure rolled from
+            /// its length to itself; not turning as it went, Skip rest's cut to 0:00, in the same
+            /// change, rolled on the swap's animation rather than coming at once.
+            public var turnsCount: Bool {
+                self >= .settled
+            }
         }
     }
 

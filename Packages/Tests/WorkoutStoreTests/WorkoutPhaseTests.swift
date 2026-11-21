@@ -242,4 +242,14 @@ struct WorkoutPhaseTests {
             }
         }
     }
+
+    @Test("A rest's count turns once it is up and as it goes back, never as it comes in")
+    func restCountTurns() {
+        typealias Beat = WorkoutPhase.Resting.Beat
+        #expect(!Beat.logged.turnsCount)
+        #expect(!Beat.shown.turnsCount)
+        #expect(Beat.settled.turnsCount)
+        // Skip rest cuts the count to 0:00 in the change that sends it back.
+        #expect(Beat.returning.turnsCount)
+    }
 }
