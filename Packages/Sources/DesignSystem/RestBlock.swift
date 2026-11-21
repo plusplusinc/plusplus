@@ -77,13 +77,15 @@ public struct RestBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The time left, its changing digits rolling each second and on +15 s (`rolls(on:to:turns:)`);
-    /// with `turns` off, as with Reduce Motion, it changes at once. Always within `shown`:
-    /// "Starts in" reads 0:10 as it comes in and 0:01 until it goes, never 0:00.
+    /// The time left, its changing digits rolling as `rolls(on:to:)` says. With `turns` off, as
+    /// with Reduce Motion, nothing rolls and the figure takes the update's own animation, so
+    /// `turns` never goes off in the change that moves the figure (`SetRest.turnsFigure`).
+    /// Always within `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes,
+    /// never 0:00.
     func countdown(
         size: CGFloat,
         locale: Locale,
-        turns: Bool = true,
+        turns: Bool,
         color: ColorToken = .textPrimary,
         shown: ClosedRange<Double> = 0 ... .infinity,
     ) -> some View {
@@ -108,16 +110,15 @@ public struct RestBlock: View {
                 .contentTransition(turns ? .numericText(value: seconds.rounded(.up)) : .identity)
                 // Inside the tick's below: on +15 s both run, and the move's says last.
                 .transaction(value: ends) {
-                    if rolls(on: .moved, to: seconds, turns: turns) {
-                        $0.animation = Self.roll
+                    if turns, rolls(on: .moved, to: seconds) {
+                        $0.animation = SetMotion.restRoll
                     }
                 }
-                // A figure that turns only: one that never rolls, as a held count, changes at
-                // once anyway, and taking the animation, a count at its run-out jumped to where
-                // its leaving exercise drops it.
+                // Rolled, or at once. Only a figure that turns: taking a held one's animation, a
+                // count at its run-out jumped to where its leaving exercise drops it.
                 .transaction(value: text) {
                     if turns {
-                        $0.animation = rolls(on: .tick, to: seconds, turns: turns) ? Self.roll : nil
+                        $0.animation = rolls(on: .tick, to: seconds) ? SetMotion.restRoll : nil
                     }
                 }
                 .accessibilityElement(children: .ignore)
@@ -139,21 +140,18 @@ public struct RestBlock: View {
         case moved
     }
 
-    /// Whether the figure rolls to `seconds` on `change`, with `turns` on (off, as with Reduce
-    /// Motion, nothing rolls): a second going by while the count runs, and +15 s while it is
-    /// open, paused included. A held count, paused, ended, or leaving, never ticks. A change to
-    /// 0:00, at the run-out or on Skip rest, is at once: rolling, 0:00 came in half a second
-    /// after the dot had left, and a cut to 0:00 rolled down as it shrank away.
-    func rolls(on change: Change, to seconds: Double, turns: Bool) -> Bool {
-        guard turns, seconds > 0 else { return false }
+    /// Whether the figure rolls to `seconds` on `change`: a second going by while the count
+    /// runs, and +15 s while it is open, paused included. A held count, paused, ended, or
+    /// leaving, never ticks. A change to 0:00, at the run-out or on Skip rest, is at once:
+    /// rolling, 0:00 came in half a second after the dot had left, and a cut to 0:00 rolled down
+    /// as it shrank away.
+    func rolls(on change: Change, to seconds: Double) -> Bool {
+        guard seconds > 0 else { return false }
         return switch change {
         case .tick: ticks
         case .moved: stage == .open
         }
     }
-
-    /// The roll a changing figure takes: +15 s's, and each second's.
-    private static let roll = Animation.snappy(duration: SetMotion.restGlide)
 
     /// "0:35", the seconds rounded up: a rest's time as the countdown and a caption show it.
     public static func text(_ seconds: Double, locale: Locale) -> String {

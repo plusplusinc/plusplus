@@ -312,7 +312,7 @@ extension RoutineScreen {
                 ends: ends,
                 pausedLeft: pausedLeft,
                 isOver: isOver,
-                turns: within.beat.turnsCount,
+                turns: within.beat == .settled,
                 isPaused: workout.isPaused,
             )
         }

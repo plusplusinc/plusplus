@@ -16,14 +16,21 @@ public struct SetRest {
     /// Over, and swapping back: the countdown reads 0:00 and holds still as it goes, never
     /// rolling its last figure.
     let isOver: Bool
-    /// Whether each second and +15 s turn the countdown's figure: for a rest, once it is up and
-    /// as it goes (`WorkoutPhase.Resting.Beat.turnsCount`).
+    /// Whether each second and +15 s turn the countdown's figure: once it is up. Turning as it
+    /// came in, its end set at the log, it rolled from its length to itself.
     let turns: Bool
     /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
     public let kind: Kind
     /// Held by a pause: the count takes the gray the workout's paused time does, and its white
     /// back on resume. A count held by its log, as between a side plank's sides, stays white.
     let isPaused: Bool
+
+    /// Whether the countdown's figure turns: once it is up (`turns`), and over, as it goes. Not
+    /// turning in the change that cuts it to 0:00, as Skip rest's, the figure took the swap's
+    /// animation and rolled down to 0:00 as it went, where its last change is at once.
+    var turnsFigure: Bool {
+        turns || isOver
+    }
 
     /// Whether a rest runs in the slot: "then rest 1:00" goes for a rest only, and stays through
     /// "Starts in" and a set's count, as through a reps set.
@@ -163,7 +170,7 @@ struct SetRoom: View, Animatable {
                         WaitCountdown(
                             block: block,
                             size: size,
-                            turns: rest.turns && !reduceMotion,
+                            turns: rest.turnsFigure && !reduceMotion,
                             color: rest.isPaused ? .textSecondary : .textPrimary,
                             shown: rest.kind.shown(length: rest.length),
                         )

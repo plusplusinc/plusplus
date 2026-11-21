@@ -90,7 +90,7 @@ extension RoutineScreen {
     /// +15 s on the rest running: the key's fill steps back at once and the countdown turns; the
     /// dot stays put. Only when `WorkoutKey.extendRest(by:)` says so.
     private func extendRest(by seconds: Int) {
-        withAnimation(.snappy(duration: SetMotion.restGlide)) {
+        withAnimation(SetMotion.restRoll) {
             session.extendRest(by: seconds, override: restOverride)
         }
     }
