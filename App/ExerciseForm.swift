@@ -180,7 +180,7 @@ struct ExerciseForm: View {
     private var usedInSection: some View {
         Section {
             if usedIn.isEmpty {
-                LabeledContent("Used in", value: "No routines")
+                LabeledContent("Used in", value: "No workouts")
             } else {
                 NavigationLink {
                     UsedInList(names: usedIn)
@@ -234,7 +234,7 @@ struct ExerciseForm: View {
     ) -> String {
         let changes = stored.changes(from: original).joined(separator: ", ")
         return String(localized: "Changed from the original: \(changes).") + " "
-            + String(localized: "Sets, reps, and weights in your routines stay.")
+            + String(localized: "Sets, reps, and weights in your workouts stay.")
     }
 
     private func deleteSection(
@@ -272,7 +272,7 @@ struct ExerciseForm: View {
     }
 
     static func routineCount(_ count: Int) -> String {
-        count == 1 ? String(localized: "1 routine") : String(localized: "\(count) routines")
+        count == 1 ? String(localized: "1 workout") : String(localized: "\(count) workouts")
     }
 
     /// One line, trailing, at the usual sizes. At the accessibility sizes the label sits above

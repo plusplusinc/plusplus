@@ -33,12 +33,12 @@ struct EditableTitleCaretTests {
         init(_ draft: String, width: CGFloat, at category: UIContentSizeCategory) throws {
             let host = UIHostingController(rootView: EditableTitleContent(
                 draft: .constant(draft),
-                placeholder: "New routine",
-                shownPlaceholder: "New routine",
+                placeholder: "New workout",
+                shownPlaceholder: "New workout",
                 isEditing: true,
                 blinks: false,
-                accessibilityLabel: "Routine name",
-                accessibilityHint: "Renames the routine.",
+                accessibilityLabel: "Workout name",
+                accessibilityHint: "Renames the workout.",
             )
             .fixedSize(horizontal: false, vertical: true)
             .frame(width: width))

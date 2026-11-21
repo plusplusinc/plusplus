@@ -70,7 +70,7 @@ feature, and change them with it.
   "Starts in" and count: `RoutineScreen+Timing.swift`, `TimedSet`; keys, `CountKeys`.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
-- Drawer, Routines: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
+- Drawer, Workouts: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
   `NameRow`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
   `ExerciseForm`, `BarSearchField`.
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,

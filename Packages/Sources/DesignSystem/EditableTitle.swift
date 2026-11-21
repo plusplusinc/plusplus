@@ -296,9 +296,9 @@ public struct EditableTitle: View {
     EditableTitle(
         text: $name,
         isEditing: $isEditing,
-        placeholder: "New routine",
-        accessibilityLabel: "Routine name",
-        accessibilityHint: "Renames the routine.",
+        placeholder: "New workout",
+        accessibilityLabel: "Workout name",
+        accessibilityHint: "Renames the workout.",
     )
     .padding()
     .background(Color.pp(.background))

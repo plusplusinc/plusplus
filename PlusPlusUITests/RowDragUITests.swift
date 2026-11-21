@@ -74,7 +74,7 @@ final nonisolated class RowDragUITests: XCTestCase {
             delete.tap()
             let message = app.answerAlert("Delete Zq?", with: "Delete exercise")
             XCTAssertTrue(
-                message.hasPrefix("It will be removed from this routine."),
+                message.hasPrefix("It will be removed from this workout."),
                 "The question doesn't name the routine behind the sheet: \(message)",
             )
             XCTAssertTrue(row.disappears(), "The deleted exercise is still listed")

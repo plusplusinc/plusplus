@@ -29,7 +29,7 @@ struct DrawerSnapshotTests {
                 .foregroundStyle(.pp(.textPrimary))
                 .padding(.horizontal, Spacing.sm)
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                Button("Routines", systemImage: "checklist") { }
+                Button("Workouts", systemImage: "checklist") { }
                     .buttonStyle(.drawer(isSelected: showing == .routines))
             }
         }
@@ -52,9 +52,9 @@ struct DrawerSnapshotTests {
             EditableTitle(
                 text: .constant("Leg day"),
                 isEditing: .constant(false),
-                placeholder: "New routine",
-                accessibilityLabel: "Routine name",
-                accessibilityHint: "Renames the routine.",
+                placeholder: "New workout",
+                accessibilityLabel: "Workout name",
+                accessibilityHint: "Renames the workout.",
             )
             Rail(Self.rows) { row in
                 RowLabel(title: row.name, detail: ["3 × 10 reps", "35 lb"])
@@ -90,7 +90,7 @@ struct DrawerSnapshotTests {
     /// The Routines screen's content as `RoutinesScreen` lays it out, under its bar.
     private func routinesList(_ names: [String]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Routines")
+            Text("Workouts")
                 .ppFixedTitleFont()
                 .foregroundStyle(.pp(.textPrimary))
                 .padding(.horizontal, Spacing.md)

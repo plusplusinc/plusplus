@@ -161,7 +161,7 @@ follow the routine's fresh id; and `-seedExercises <id,id,…>` with `-seedName 
 from a routine of those built-in exercises, `-seedSets <n>` giving each that many sets and
 `-seedWorkout <n>` opening a workout on it with its first `n` sets logged (all `LaunchOptions`,
 Debug only). A test that needs both a seeded routine and a new one launches into the seeded
-one and pushes the new one from Routines (`openNewRoutine()`), not a second launch.
+one and pushes the new one from Workouts (`openNewRoutine()`), not a second launch.
 With UIKit's animations off, the keyboard and sheets appear at once, and XCTest's wait for
 animations can't stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
 test that reads what one moves waits for its end state; an added row is in the accessibility

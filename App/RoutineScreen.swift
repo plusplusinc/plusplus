@@ -126,7 +126,7 @@ struct RoutineScreen: View {
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    static let defaultName = String(localized: "New routine")
+    static let defaultName = String(localized: "New workout")
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
@@ -215,8 +215,8 @@ struct RoutineScreen: View {
                         isEditing: $isEditingTitle,
                         placeholder: Self.defaultName,
                         suggestion: generatedName,
-                        accessibilityLabel: "Routine name",
-                        accessibilityHint: "Renames the routine.",
+                        accessibilityLabel: "Workout name",
+                        accessibilityHint: "Renames the workout.",
                     )
                     .onScrollVisibilityChange(threshold: 0.01) { isVisible in
                         // A short fade, so the small title has gone by the time the large one

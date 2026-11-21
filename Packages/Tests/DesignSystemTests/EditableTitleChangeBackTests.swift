@@ -31,10 +31,10 @@ struct EditableTitleChangeBackTests {
             EditableTitle(
                 text: $name,
                 isEditing: $isEditing,
-                placeholder: "New routine",
+                placeholder: "New workout",
                 suggestion: model.suggestion,
-                accessibilityLabel: "Routine name",
-                accessibilityHint: "Renames the routine.",
+                accessibilityLabel: "Workout name",
+                accessibilityHint: "Renames the workout.",
             )
             .frame(width: 370)
             .fixedSize(horizontal: false, vertical: true)
@@ -67,7 +67,7 @@ struct EditableTitleChangeBackTests {
             view as? TitleFieldView ?? view.subviews.lazy.compactMap(field(in:)).first
         }
         let drawn = try #require(field(in: host.view)).placeholderView
-        let resting = first ?? "New routine"
+        let resting = first ?? "New workout"
         try #require(drawn.text == resting && drawn.alpha == 1)
         // A title at rest is left alone: showing it starts no fade.
         #expect(drawn.layer.animationKeys() ?? [] == [])

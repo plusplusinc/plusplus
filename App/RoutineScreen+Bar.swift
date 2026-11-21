@@ -97,7 +97,7 @@ extension RoutineScreen {
                 scrollPosition.scrollTo(edge: .top)
             }
         } label: {
-            // Gray only for New routine, as in the title.
+            // Gray only for New workout, as in the title.
             Text(shownName ?? Self.defaultName)
                 .font(.ppInlineTitle)
                 .foregroundStyle(.pp(shownName == nil ? .textSecondary : .textPrimary))

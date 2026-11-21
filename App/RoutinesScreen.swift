@@ -34,7 +34,7 @@ struct RoutinesScreen: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Routines")
+                    Text("Workouts")
                         .ppFixedTitleFont()
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
@@ -72,7 +72,7 @@ struct RoutinesScreen: View {
                     Button {
                         withAnimation(.snappy) { scrollPosition.scrollTo(edge: .top) }
                     } label: {
-                        Text("Routines")
+                        Text("Workouts")
                             .font(.ppBarTitle)
                             .foregroundStyle(.pp(.textPrimary))
                             .lineLimit(1)
@@ -89,7 +89,7 @@ struct RoutinesScreen: View {
                     MenuButton(session: session)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("New routine", systemImage: "plus") {
+                    Button("New workout", systemImage: "plus") {
                         Task { await session.startNew() }
                     }
                     .makesSomething()
@@ -207,7 +207,7 @@ struct RoutinesScreen: View {
 }
 
 extension RoutineNamer {
-    /// A routine's name where routines are listed: the name it shows, else New routine.
+    /// A routine's name where routines are listed: the name it shows, else New workout.
     func listedName(of routine: Routine) -> String {
         shownName(of: routine) ?? RoutineScreen.defaultName
     }

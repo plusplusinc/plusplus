@@ -5,7 +5,7 @@ import XCTest
 extension XCUIApplication {
     /// The routine's title, a text view, since a name wraps.
     var routineTitle: XCUIElement {
-        textViews["Routine name"]
+        textViews["Workout name"]
     }
 
     /// The ++ drawer's title, a button that closes it, there only while the drawer shows.
@@ -66,16 +66,16 @@ extension XCUIApplication {
     /// that one and comes here, a few taps where a second launch costs 5 to 7 s on Xcode Cloud.
     /// Its back chevron leads to the Routines screen.
     func openNewRoutine() {
-        openDrawer(andTap: "Routines")
+        openDrawer(andTap: "Workouts")
         pushNewRoutine()
     }
 
     /// Pushes a new, empty routine with the + of the Routines screen showing.
     func pushNewRoutine() {
-        let new = buttons["New routine"]
+        let new = buttons["New workout"]
         XCTAssertTrue(new.appears(), "Routines showed no +")
         new.tap()
-        XCTAssertEqual(routineTitle.value(becoming: "New routine"), "New routine")
+        XCTAssertEqual(routineTitle.value(becoming: "New workout"), "New workout")
         XCTAssertEqual(exerciseRows.count, 0, "+ opened a routine with rows")
         // The routine slides in as it is pushed.
         XCTAssertTrue(routineTitle.settles(), "The title kept moving after the push")

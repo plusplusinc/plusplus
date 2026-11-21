@@ -96,7 +96,7 @@ extension RoutineAutosaveUITests {
             delete.tap()
             let message = app.answerAlert("Delete Zq?", with: "Delete exercise")
             XCTAssertTrue(
-                message.hasPrefix("It will be removed from this routine."),
+                message.hasPrefix("It will be removed from this workout."),
                 "The question doesn't name the open routine: \(message)",
             )
             XCTAssertTrue(name.disappears(), "Delete left the sheet up")

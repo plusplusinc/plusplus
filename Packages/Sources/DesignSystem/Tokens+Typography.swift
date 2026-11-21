@@ -46,7 +46,7 @@ extension Font {
     )
     /// A workout's time on its key in the bar: SF Mono, so the digits hold still as they tick.
     public static let ppWorkoutTime = ppRowTitleNumber
-    /// A place in the drawer, Routines or a routine under it: one font for all, so none reads as
+    /// A place in the drawer, Workouts or a routine under it: one font for all, so none reads as
     /// a heading over the others.
     public static let ppDrawerItem = Font.system(.body, weight: .medium)
     /// A routine's name in a list of routines: SF Pro, as the name can't be edited there, the
