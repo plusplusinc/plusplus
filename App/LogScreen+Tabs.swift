@@ -24,7 +24,7 @@ extension LogScreen {
                 loggedWorkoutCount(period)
             }
             .accessibilityElement(children: .combine)
-            .padding(.bottom, Spacing.sm)
+            .padding(.bottom, Spacing.md)
             DayGrid(
                 initials: LogPeriod.weekdayInitials(calendar: calendar),
                 weeks: period.weeks.map { week in

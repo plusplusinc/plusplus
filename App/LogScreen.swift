@@ -45,14 +45,14 @@ struct LogScreen: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .padding(.bottom, Spacing.md)
+                    .padding(.bottom, Spacing.lg)
                     if let log = session.log {
                         tabContent(log)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Spacing.md)
-                .padding(.top, Spacing.sm)
+                .padding(.top, Spacing.md)
                 .padding(.bottom, Spacing.md)
                 // With nothing logged, History's line and Go to Workouts center in the room
                 // under the calendar.
