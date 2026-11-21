@@ -49,7 +49,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
                 "VoiceOver reaches Add exercise behind it",
             )
             // A routine showing isn't Routines.
-            XCTAssertFalse(app.buttons["Workouts"].isSelected, "Routines is marked on a routine")
+            XCTAssertFalse(app.buttons["Workouts"].isSelected, "Workouts is marked on a routine")
             attach(named: "drawer-routine")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
@@ -72,7 +72,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             app.openDrawer(andTap: "Workouts")
             XCTAssertEqual(reading(app.routineRowLabels, becoming: ["Chest"], within: 2), ["Chest"])
             openDrawer(in: app)
-            XCTAssertTrue(app.buttons["Workouts"].isSelected, "Routines isn't marked")
+            XCTAssertTrue(app.buttons["Workouts"].isSelected, "Workouts isn't marked")
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
             app.buttons["New workout"].tap()

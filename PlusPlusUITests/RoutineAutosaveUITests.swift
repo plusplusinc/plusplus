@@ -7,7 +7,7 @@ import XCTest
 /// shared rounds, an exercise created from the picker, and a name typed with no Return). Names come
 /// from the muscle
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The
-/// title's color, white for a name whether typed or generated and gray for New routine, is read
+/// title's color, white for a name whether typed or generated and gray for New workout, is read
 /// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
 /// `RoutineDrawerUITests`'; this test, which ends with none saved, checks Routines empty.
 ///
@@ -196,9 +196,9 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
     }
 
-    /// Every row deleted and the name cleared is nothing, the gray New routine. That the store
+    /// Every row deleted and the name cleared is nothing, the gray New workout. That the store
     /// deletes it is `RoutineStoreTests`': a relaunch can't show it, since a routine cleared and
-    /// kept would open as the same empty New routine.
+    /// kept would open as the same empty New workout.
     @MainActor
     private func clearedRoutineIsNewRoutine(
         in app: XCUIApplication,
@@ -221,7 +221,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             try title.typeOver("Push pull", with: "\n", keyboard: keyboard)
             XCTAssertTrue(keyboard.disappears())
             XCTAssertEqual(title.value(becoming: "New workout"), "New workout")
-            XCTAssertTrue(title.inkIsGray(against: gray), "New routine is not gray")
+            XCTAssertTrue(title.inkIsGray(against: gray), "New workout is not gray")
             attach(named: "cleared")
         }
     }

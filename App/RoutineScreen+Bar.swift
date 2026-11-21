@@ -64,7 +64,7 @@ extension RoutineScreen {
 
     /// •••, the routine's own actions: Delete, red, dimmed while the routine has nothing saved.
     /// It asks first in a centered alert, "Delete <name>?", the name as the title shows it;
-    /// confirmed, the session shows Workouts on a new routine (`RoutineSession.delete(_:)`).
+    /// confirmed, the session shows Routines on a new routine (`RoutineSession.delete(_:)`).
     private var moreMenu: some View {
         Menu("More", systemImage: "ellipsis") {
             Button("Delete", systemImage: "trash", role: .destructive) {
