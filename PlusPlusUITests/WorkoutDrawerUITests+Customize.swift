@@ -1,7 +1,7 @@
 import XCTest
 
 @MainActor
-extension RoutineDrawerUITests {
+extension WorkoutDrawerUITests {
     /// A routine row's More menu offers Customize…, which pushes the exercise's Customize form
     /// inside the sheet: a built-in's opens with its name and ends in Clear customizations, not
     /// Delete, disabled while nothing is changed. Arms checked, Clear asks first in a centered
@@ -102,7 +102,7 @@ extension RoutineDrawerUITests {
     /// inside Add exercise: the form goes back to the list, still searched, and only then does
     /// the row leave it, the name free to create again, and its row leave the routine. Only the
     /// running app shows the sheet's own navigation popping under an alert's answer; the hold
-    /// menu's Delete (`RowDragUITests`) and the row's sheet (`deleteCreatedEmptiesRoutine`)
+    /// menu's Delete (`RowDragUITests`) and the row's sheet (`deleteCreatedEmptiesWorkout`)
     /// close nothing or a whole sheet.
     func customizeInPickerDeletes(in app: XCUIApplication) {
         let count = app.exerciseRows.count

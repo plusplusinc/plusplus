@@ -25,17 +25,17 @@ extension XCUIApplication {
     }
 
     /// The Routines screen's rows.
-    var routineRows: XCUIElementQuery {
+    var workoutRows: XCUIElementQuery {
         buttons.matching(identifier: "workouts.row")
     }
 
     /// The Routines screen's row labeled `name`.
-    func routineRow(named name: String) -> XCUIElement {
-        routineRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
+    func workoutRow(named name: String) -> XCUIElement {
+        workoutRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
     }
 
     /// The Routines screen's rows' labels, top to bottom.
-    var routineRowLabels: [String] {
+    var workoutRowLabels: [String] {
         snapshots { $0.elementType == .button && $0.identifier == "workouts.row" }.map(\.label)
     }
 
@@ -251,7 +251,7 @@ extension XCUIApplication {
         XCTAssertTrue(smallTitle.appears(), "No small title in the bar")
         smallTitle.tap()
         XCTAssertTrue(
-            reading(routineTitle.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
+            reading(workoutTitle.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
             "The title did not come back below the bar",
         )
     }

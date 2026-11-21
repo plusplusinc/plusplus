@@ -23,8 +23,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         // audited on the way to the new routine.
         try liveWorkoutAtAX5(in: app)
         try drawerAtAX5(in: app)
-        app.pushNewRoutine()
-        let title = app.routineTitle
+        app.pushNewWorkout()
+        let title = app.workoutTitle
         let keyboard = app.keyboards.element
 
         try XCTContext.runActivity(named: "The field covers the wrapped default") { _ in
@@ -112,7 +112,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
                 attach(named: "drawer-ax5")
                 try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             }
-            let row = app.routineRows.firstMatch
+            let row = app.workoutRows.firstMatch
             XCTAssertTrue(row.appears(), "The routine isn't listed")
             attach(named: "routines-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
@@ -133,7 +133,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertEqual(app.supersets(becoming: ".AA"), ".AA")
             // Back at the top, as the rows' audit above was: the bar's small title, shown only
             // scrolled, doesn't scale, which the audit reports.
-            app.scrollToTop(titled: app.routineTitle.value as? String ?? "")
+            app.scrollToTop(titled: app.workoutTitle.value as? String ?? "")
             attach(named: "superset-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         }

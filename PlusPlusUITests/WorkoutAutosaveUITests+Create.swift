@@ -1,6 +1,6 @@
 import XCTest
 
-extension RoutineAutosaveUITests {
+extension WorkoutAutosaveUITests {
     /// The created exercise's row, as the routine reads it.
     static let ringRow = "Ring row with rotation, 3 sets of 10 reps"
 
@@ -74,7 +74,7 @@ extension RoutineAutosaveUITests {
     /// rows, and the question's wording, are the package's (`StoreCustomizeTests`,
     /// `DeleteQuestionTests`).
     @MainActor
-    func deleteCreatedEmptiesRoutine(in app: XCUIApplication) {
+    func deleteCreatedEmptiesWorkout(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Deleting a created exercise that empties the routine") { _ in
             let plus = app.buttons["Add exercise"]
             XCTAssertEqual(app.exerciseRows.count, 0, "The routine isn't empty to start")

@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 extension XCUIApplication {
     /// The routine's title, a text view, since a name wraps.
-    var routineTitle: XCUIElement {
+    var workoutTitle: XCUIElement {
         textViews["Workout name"]
     }
 
@@ -17,19 +17,19 @@ extension XCUIApplication {
     /// `category`, since the simulator keeps the last size it was set to, and with `arguments`
     /// besides. Returns the title once it is up. UIKit's animations are off
     /// (`LaunchOptions.turnsOffUIKitAnimations`).
-    func launchNewRoutine(
+    func launchNewWorkout(
         textSize category: String = "UICTContentSizeCategoryL",
         arguments: [String] = [],
     ) -> XCUIElement {
         launchArguments = ["-UIPreferredContentSizeCategoryName", category]
             + ["-resetStore", "YES", "-noUIKitAnimations", "YES", "-seedRest", "0"] + arguments
         launch()
-        XCTAssertTrue(routineTitle.appears(within: 10), "No title after launch")
-        return routineTitle
+        XCTAssertTrue(workoutTitle.appears(within: 10), "No title after launch")
+        return workoutTitle
     }
 
     /// Launches into a routine of the built-in exercises `ids`, in order, named `name` or left
-    /// for the namer, as `launchNewRoutine` does at `textSize` with `arguments`, and waits for
+    /// for the namer, as `launchNewWorkout` does at `textSize` with `arguments`, and waits for
     /// every row.
     /// Seeding (`-seedExercises`) skips the picker, for a test that doesn't check adding.
     @discardableResult
@@ -40,7 +40,7 @@ extension XCUIApplication {
         arguments: [String] = [],
     ) -> XCUIElement {
         let named = name.map { ["-seedName", $0] } ?? []
-        let title = launchNewRoutine(
+        let title = launchNewWorkout(
             textSize: category,
             arguments: ["-seedExercises", ids.joined(separator: ",")] + named + arguments,
         )
@@ -58,27 +58,27 @@ extension XCUIApplication {
             launchArguments.removeSubrange(reset ... reset + 1)
         }
         launch()
-        XCTAssertTrue(routineTitle.appears(within: 10), "No title after relaunch")
+        XCTAssertTrue(workoutTitle.appears(within: 10), "No title after relaunch")
     }
 
     /// Pushes a new, empty routine with the Routines screen's +, reached through the drawer, as a
     /// launch with `-resetStore` starts on: a test that also needs a seeded routine launches into
     /// that one and comes here, a few taps where a second launch costs 5 to 7 s on Xcode Cloud.
     /// Its back chevron leads to the Routines screen.
-    func openNewRoutine() {
+    func openNewWorkout() {
         openDrawer(andTap: "Workouts")
-        pushNewRoutine()
+        pushNewWorkout()
     }
 
     /// Pushes a new, empty routine with the + of the Routines screen showing.
-    func pushNewRoutine() {
+    func pushNewWorkout() {
         let new = buttons["New workout"]
         XCTAssertTrue(new.appears(), "Routines showed no +")
         new.tap()
-        XCTAssertEqual(routineTitle.value(becoming: "New workout"), "New workout")
+        XCTAssertEqual(workoutTitle.value(becoming: "New workout"), "New workout")
         XCTAssertEqual(exerciseRows.count, 0, "+ opened a routine with rows")
         // The routine slides in as it is pushed.
-        XCTAssertTrue(routineTitle.settles(), "The title kept moving after the push")
+        XCTAssertTrue(workoutTitle.settles(), "The title kept moving after the push")
     }
 
     /// Opens the drawer with ++ and taps the place labeled `label` in it.

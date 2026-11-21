@@ -9,18 +9,18 @@ import XCTest
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The
 /// title's color, white for a name whether typed or generated and gray for New workout, is read
 /// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
-/// `RoutineDrawerUITests`'; this test, which ends with none saved, checks Routines empty.
+/// `WorkoutDrawerUITests`'; this test, which ends with none saved, checks Routines empty.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
-final nonisolated class RoutineAutosaveUITests: XCTestCase {
+final nonisolated class WorkoutAutosaveUITests: XCTestCase {
     private static let bench = "Barbell bench press, Barbell, bench"
     private static let pullUp = "Pull-up, Pull-up bar"
     private static let gobletSquat = "Goblet squat, Kettlebell"
 
     @MainActor
-    func testRoutineSurvivesRelaunch() throws {
+    func testWorkoutSurvivesRelaunch() throws {
         let app = XCUIApplication()
-        let title = app.launchNewRoutine(arguments: ["-fallbackNames", "YES"])
+        let title = app.launchNewWorkout(arguments: ["-fallbackNames", "YES"])
         XCTAssertEqual(title.value as? String, "New workout")
         let field = title.frame
         let gray = try Ink.ofTitle(in: field).contrast
@@ -53,16 +53,16 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertTrue(title.inkIsWhite(against: gray), "The typed name is not white")
             attach(named: "typed-name")
         }
-        try clearedRoutineIsNewRoutine(in: app, title: title, gray: gray)
-        deleteCreatedEmptiesRoutine(in: app)
-        emptyRoutinesFillsTheWidth(in: app, margin: field.minX)
+        try clearedWorkoutIsNewWorkout(in: app, title: title, gray: gray)
+        deleteCreatedEmptiesWorkout(in: app)
+        emptyWorkoutsFillsTheWidth(in: app, margin: field.minX)
     }
 
     /// With the routine cleared to nothing, no routine is saved, and Routines has no row to
     /// stretch its scroll view: its background still reaches both edges, and its title sits at
     /// the routine screen's `margin`.
     @MainActor
-    private func emptyRoutinesFillsTheWidth(in app: XCUIApplication, margin: CGFloat) {
+    private func emptyWorkoutsFillsTheWidth(in app: XCUIApplication, margin: CGFloat) {
         XCTContext.runActivity(named: "Routines with none saved fills the width") { _ in
             app.openDrawer(andTap: "Workouts")
             let heading = app.staticTexts["Workouts"]
@@ -70,7 +70,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             // reaches the margin, or for long enough that it would have.
             let left = reading(heading.frame.minX, until: { abs($0 - margin) <= 1 }, within: 2)
             XCTAssertEqual(left, margin, accuracy: 1, "The title is off the margin")
-            XCTAssertEqual(app.routineRows.count, 0, "Routines lists a routine")
+            XCTAssertEqual(app.workoutRows.count, 0, "Routines lists a routine")
             XCTAssertEqual(
                 app.scrollViews.containing(.staticText, identifier: "Workouts").firstMatch.frame
                     .width,
@@ -177,7 +177,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
 
     /// Editing opens on the generated name; replaced, the typed name is kept without Return
     /// through Home and back, and the edit is left open for the next tap on a row to end. That
-    /// each key reaches the routine with no edit ended is `RoutineDrawerUITests`' chevron check
+    /// each key reaches the routine with no edit ended is `WorkoutDrawerUITests`' chevron check
     /// and `EditableTitleTypingTests`'; a generated name is made again from the exercises, never
     /// stored (`WorkoutNamerTests`).
     @MainActor
@@ -200,7 +200,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     /// deletes it is `StoreTests`': a relaunch can't show it, since a routine cleared and
     /// kept would open as the same empty New workout.
     @MainActor
-    private func clearedRoutineIsNewRoutine(
+    private func clearedWorkoutIsNewWorkout(
         in app: XCUIApplication,
         title: XCUIElement,
         gray: Int,

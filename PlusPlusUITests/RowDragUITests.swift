@@ -17,16 +17,16 @@ final nonisolated class RowDragUITests: XCTestCase {
         reorderExercises(in: app)
         supersetExercises(in: app)
         deleteExercises(in: app)
-        createOnALongRoutine(in: app)
+        createOnALongWorkout(in: app)
         createdHoldMenuDeletes(in: app)
     }
 
     /// From the top of a routine longer than the screen, Create scrolls the list to its end and
     /// the row lands there in view, clear of Add exercise's +, before its own sheet opens on
     /// Customize; a swipe down closes the sheet and keeps the row. The empty routine's is
-    /// `RoutineAutosaveUITests`'.
+    /// `WorkoutAutosaveUITests`'.
     @MainActor
-    private func createOnALongRoutine(in app: XCUIApplication) {
+    private func createOnALongWorkout(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Create on a long routine lands in view") { _ in
             let count = app.exerciseRows.count
             app.exerciseRows.firstMatch.swipeDown()
@@ -47,11 +47,11 @@ final nonisolated class RowDragUITests: XCTestCase {
         }
     }
 
-    /// Back in Add exercise, the search lists the exercise `createOnALongRoutine` made, which
+    /// Back in Add exercise, the search lists the exercise `createOnALongWorkout` made, which
     /// this needs run first; held, its menu offers
     /// Customize… and Delete, which asks in a centered alert, naming the routine behind the
     /// sheet, and then takes it from the list and its row from the routine, its name free to
-    /// create again. A built-in's menu is `RoutineDrawerUITests`'. That a delete removes its rows,
+    /// create again. A built-in's menu is `WorkoutDrawerUITests`'. That a delete removes its rows,
     /// and the question's wording, are the package's (`StoreCustomizeTests`,
     /// `AppSessionExerciseTests`, `DeleteQuestionTests`).
     @MainActor
@@ -98,7 +98,7 @@ final nonisolated class RowDragUITests: XCTestCase {
 extension RowDragUITests {
     /// The system's swipe actions: a swipe opens a row's Remove, a tap on Start closes it, and
     /// a full swipe deletes outright. What a delete does to a superset is
-    /// `WorkoutSupersetTests`', and Start going with the last row `RoutineAutosaveUITests`'.
+    /// `WorkoutSupersetTests`', and Start going with the last row `WorkoutAutosaveUITests`'.
     func deleteExercises(in app: XCUIApplication) {
         let delete = app.buttons["Remove"]
         XCTContext.runActivity(named: "A swipe opens a row, and Remove removes it") { _ in

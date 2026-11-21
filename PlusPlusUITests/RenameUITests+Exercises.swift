@@ -41,8 +41,8 @@ extension RenameUITests {
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
             // Back to the Routines screen the new routine was pushed from.
             app.tapBack()
-            app.routineRow(named: Self.seededName).tap()
-            XCTAssertEqual(app.routineTitle.value(becoming: Self.seededName), Self.seededName)
+            app.workoutRow(named: Self.seededName).tap()
+            XCTAssertEqual(app.workoutTitle.value(becoming: Self.seededName), Self.seededName)
             XCTAssertEqual(app.exerciseCount(becoming: seeded.count), seeded.count)
             app.addExercise(added.label, searching: added.query)
             attach(named: "nine-exercises")
@@ -79,7 +79,7 @@ extension RenameUITests {
             XCTAssertTrue(app.noExercises.exists, "An empty routine shows no No exercises")
             XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
             // Past the title's 44pt target, where SwiftUI still hands the target a tap.
-            app.routineTitle.coordinate(withNormalizedOffset: .zero)
+            app.workoutTitle.coordinate(withNormalizedOffset: .zero)
                 .withOffset(CGVector(dx: 60, dy: 50)).tap()
             XCTAssertTrue(search.appears(within: 1), "The tap under the title opened no picker")
             XCTAssertTrue(keyboard.staysAway(), "The tap under the title also started an edit")
@@ -87,7 +87,7 @@ extension RenameUITests {
             XCTAssertTrue(search.disappears(), "Close left the picker up")
         }
         XCTContext.runActivity(named: "A tap that ends the title's edit opens the picker") { _ in
-            app.routineTitle.tap()
+            app.workoutTitle.tap()
             XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
             // The line takes no touches, so a tap on it lands on the screen's empty space.
             app.noExercises.center.tap()
@@ -101,7 +101,7 @@ extension RenameUITests {
     /// riding up on it. A long press on the title shows the edit menu, and a long name shortened
     /// goes back to one line.
     func keyboardCoversStart(in app: XCUIApplication, keyboard: XCUIElement) throws {
-        let title = app.routineTitle
+        let title = app.workoutTitle
         let start = app.buttons["Start"]
         let atRest = start.frame
         let name = try XCTUnwrap(title.value as? String)

@@ -31,8 +31,8 @@ final nonisolated class RenameUITests: XCTestCase {
         // The rows the later checks need are seeded at this launch, and the rename runs on a new
         // routine opened after it, so the test launches once.
         app.launchSeeding(XCUIApplication.renameRows.seeded.map(\.id), named: Self.seededName)
-        app.openNewRoutine()
-        let title = app.routineTitle
+        app.openNewWorkout()
+        let title = app.workoutTitle
         let keyboard = app.keyboards.element
         let field = title.frame
 
