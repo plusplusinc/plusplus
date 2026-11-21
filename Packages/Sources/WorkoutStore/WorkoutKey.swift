@@ -174,8 +174,7 @@ extension WorkoutKey {
         case back(name: String, isAbove: Bool)
         case finish
         /// During a rest, Skip rest and +15 s in the log key's place: another key, so they swap
-        /// with
-        /// it as any two keys do, never crossfading through it in its place.
+        /// with it as any two keys do, never crossfading through it in its place.
         case rest
         /// During a timed set's "Starts in", the key that starts it now.
         case startNow

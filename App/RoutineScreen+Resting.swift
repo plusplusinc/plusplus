@@ -11,15 +11,16 @@ import WorkoutStore
 /// shows its equipment (`nextUp`), all still by the time the pulse, shooting down, reaches the
 /// word "Rest", where it plops and wiggles (`SetMotion.aroundRest(_:)`), short of the next
 /// exercise's node. Through the rest the dot waits there, the current node's size and steady
-/// green, with nothing on the rail to mark the place (`restDotRow`). As the countdown reaches 0 the
-/// same move plays
-/// from the rest to the next exercise's node, the rest closing and the exercise opening at once.
+/// green, with nothing on the rail to mark the place (`restDotRow`). As the countdown reaches 0
+/// the same move plays from the rest to the next exercise's node, the rest closing and the
+/// exercise opening at once.
 ///
 /// In a superset only a round's last member rests. With a round left, the rest opens above the
 /// first member (`restRow(of:in:)`): the pulse runs up the loop and on up the rail to the word,
 /// the list scrolling it under the bar, the row left closing, and the rest opening, all from the
-/// tap, and at 0 the dot moves down to the first member. After the last round it opens under the
-/// last member.
+/// tap, and at 0 the dot moves down to the first member; its count stands as far above that
+/// member's name as a rest between exercises stands above the next one's (`LabelWithRest`).
+/// After the last round it opens under the last member.
 ///
 /// Through any rest the key at the bottom swaps, as keys swap, for Skip rest, wide, gray, filling
 /// with the done purple from its leading edge as the rest runs (`restKeyFill`), and +15 s beside
@@ -30,19 +31,17 @@ import WorkoutStore
 /// Reduce Motion, each move is one crossfade, the dot at the word through the rest.
 ///
 /// Between two sets of one plain exercise, the rest takes the figures' slot (`SetRest`); done one
-/// side at a time, after a set's second side, never between its sides. With the same bar, from
-/// the tap, everything the log changes on one curve (`SetMotion.restSwap`), and the exercise's
-/// node stays steady green; with Reduce Motion it crossfades in and out.
+/// side at a time, after a set's second side, never between its sides. From the tap, everything
+/// the log changes moves on one curve (`SetMotion.restSwap`), and the exercise's node stays
+/// steady green; with Reduce Motion it crossfades in and out.
 ///
 /// A rest runs on the workout's clock from its log, its taps kept with the set logged
-/// (`LiveWorkout.extendingRest(by:override:at:)`, `skippingRest(override:at:)`), so a pause stops
-/// it, and a relaunch or a return
-/// from the background opens in it, drawn and settled, at the time left, or past its end on the
-/// next set (`WorkoutPhase(resuming:restOverride:at:)`). VoiceOver hears "Rest" and its length as
-/// it starts (`announceRest()`), reads the countdown as its own element, with the time left, and
-/// the keys as "Skip rest", its value the time left, and "Plus 15 seconds". At its end the phone
-/// taps once, heavy
-/// (`restEnds`).
+/// (`LiveWorkout.extendingRest(by:override:at:)`, `skippingRest(override:at:)`), so a pause
+/// stops it, and a relaunch or a return from the background opens in it, drawn and settled, at
+/// the time left, or past its end on the next set (`WorkoutPhase(resuming:restOverride:at:)`).
+/// VoiceOver hears "Rest" and its length as it starts (`announceRest()`), reads the countdown as
+/// its own element, with the time left, and the keys as "Skip rest", its value the time left,
+/// and "Plus 15 seconds". At its end the phone taps once, heavy (`restEnds`).
 extension RoutineScreen {
     /// For the UI tests, every rest's length (`-seedRest`); nil in a release build.
     var restOverride: Int? {

@@ -50,7 +50,7 @@ public struct SetRest {
 
     /// What a wait in the figures' slot is.
     public enum Kind: Equatable, Sendable {
-        /// "Rest" over the countdown, over its bar.
+        /// "Rest" over the countdown.
         case rest
         /// "Starts in" over the short count, nothing under it: the set's time in words ("30
         /// seconds") is at the caption line's end. `time` is for VoiceOver.
@@ -89,8 +89,8 @@ public struct SetRest {
             .accessibilityHidden(!isRunning || isOver)
     }
 
-    /// The rest as a block, for its countdown and bar: unseen before it runs, its length on the
-    /// countdown and the bar empty, so it comes in on its time.
+    /// The rest as a block, for its countdown: unseen before it runs, its length on the
+    /// countdown, so it comes in on its time.
     var block: RestBlock {
         RestBlock(
             stage: isRunning ? .open : .none,
@@ -105,11 +105,9 @@ public struct SetRest {
 /// sets: during a set, the figures and their captions; during a rest, "Rest" over the countdown,
 /// its line in place of the captions', over an unseen caption's line, as under every wait's
 /// countdown. There is no bar: Skip rest fills instead. "Rest" starts where the figures do, its
-/// capitals'
-/// tops at theirs, and the countdown stands a line lower than the figures, which the swap's fade
-/// and rise carry, the figures gone before it shows. The number row is as tall as the taller of
-/// its two states, so nothing below moves as they swap. An exercise with no rest between its sets
-/// has no bar's place.
+/// capitals' tops at theirs, and the countdown stands a line lower than the figures, which the
+/// swap's fade and rise carry, the figures gone before it shows. The number row is as tall as the
+/// taller of its two states, so nothing below moves as they swap.
 ///
 /// `swap` runs from 0, the set up, to 1, the rest up, on the row's animation, and each part's fade
 /// and rise is worked out from it, so the two swap as one move on its curve, the one going gone

@@ -67,7 +67,7 @@ feature, and change them with it.
   showing a log `WorkoutPhase`'s, both in `WorkoutStore`; its timed beats run on the screen's
   one `SequenceTask` (`RoutineScreen+Sequence.swift`).
 - Rests: `RoutineScreen+Resting.swift`, `RestBlock`, `SetRest`, `WorkoutRest`. A timed set's
-  "Starts in" and count: `RoutineScreen+Timing.swift`, `TimedSet`. Both counts' keys: `CountKeys`.
+  "Starts in" and count: `RoutineScreen+Timing.swift`, `TimedSet`; keys, `CountKeys`.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - Drawer, Routines: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
