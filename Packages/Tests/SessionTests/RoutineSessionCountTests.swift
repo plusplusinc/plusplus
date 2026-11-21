@@ -88,6 +88,22 @@ struct RoutineSessionCountTests {
         #expect(stored.count?.startClock == 30)
     }
 
+    @Test("Finish mid-count stores the set at the time done, as Log early would have")
+    func finishMidCount() async throws {
+        let routine = try Self.planks()
+        let session = RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
+        session.save(routine)
+        session.start(on: routine.id, at: Self.at(0))
+        session.beginCount(at: Self.at(0))
+        session.extendCount(by: 15, at: Self.at(12))
+        // Counting from 10: 18 s done at 28.
+        session.finish(at: Self.at(28))
+        await session.writesLanded()
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+            .map(\.workout)
+        #expect(stored.first?.sets.map(\.target) == [.time(seconds: 18)])
+    }
+
     @Test("Reopened after the count would have ended, the set is logged at its full time")
     func catchUpAtLaunch() async throws {
         let routine = try Self.planks()

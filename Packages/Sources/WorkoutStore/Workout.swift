@@ -126,9 +126,11 @@ public struct Workout: Identifiable, Equatable, Sendable {
         return logged
     }
 
-    /// Finished at `now`, a pause in progress counting as paused, with no count kept: a set
-    /// counting is left unlogged. Unchanged if already finished.
-    public func finishing(at now: Date) -> Self {
+    /// Finished at `now`, a pause in progress counting as paused, with no count kept. A set
+    /// counting is logged first by `LiveWorkout.finishing(at:)`, which knows its row, and is the
+    /// one way to finish from outside the package; here it is dropped. Unchanged if already
+    /// finished.
+    func finishing(at now: Date) -> Self {
         guard isInProgress else { return self }
         var finished = resuming(at: now)
         finished.endedAt = now

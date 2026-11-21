@@ -179,10 +179,11 @@ public final class RoutineSession {
         changeLive { $0.skippingRest(override: override, at: now) }
     }
 
-    /// Finishes the workout, keeping it with the name the routine shows now.
+    /// Finishes the workout, keeping it with the name the routine shows now, and a timed set
+    /// counting logged at the time done (`LiveWorkout.finishing(at:)`).
     public func finish(at now: Date = .now) {
         guard let workout else { return }
-        var finished = workout.finishing(at: now)
+        var finished = LiveWorkout(routine: current, workout: workout).finishing(at: now)
         finished.routineName = shownName
         change(.save(finished))
         deleteIfCleared()
