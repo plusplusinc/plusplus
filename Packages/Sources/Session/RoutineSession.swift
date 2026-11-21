@@ -167,12 +167,16 @@ public final class RoutineSession {
         change(.save(live.logging(planned, of: row, at: now)))
     }
 
-    /// Shortens or extends the rest running after the last set by `seconds`, unless it is over.
-    /// `override`, for the UI tests, is every rest's length (`LiveWorkout.rest(override:)`).
-    public func adjustRest(by seconds: Int, override: Int? = nil, at now: Date = .now) {
-        guard let workout else { return }
-        let live = LiveWorkout(routine: current, workout: workout)
-        change(.save(live.adjustingRest(by: seconds, override: override, at: now)))
+    /// Extends the rest running after the last set by `seconds`, unless it is over. `override`,
+    /// for the UI tests, is every rest's length (`LiveWorkout.rest(override:)`).
+    public func extendRest(by seconds: Int, override: Int? = nil, at now: Date = .now) {
+        changeLive { $0.extendingRest(by: seconds, override: override, at: now) }
+    }
+
+    /// Ends the rest running after the last set now, unless it is over
+    /// (`LiveWorkout.skippingRest(override:at:)`).
+    public func skipRest(override: Int? = nil, at now: Date = .now) {
+        changeLive { $0.skippingRest(override: override, at: now) }
     }
 
     /// Finishes the workout, keeping it with the name the routine shows now.

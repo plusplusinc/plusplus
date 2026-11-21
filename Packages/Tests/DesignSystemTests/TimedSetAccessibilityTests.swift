@@ -69,10 +69,10 @@ struct TimedSetAccessibilityTests {
 
     @Test("The keys are Log early, its value the seconds done, and Plus 15 seconds")
     func keys() throws {
-        let keys = TimedSetKeys(
-            logText: "Log early",
+        let keys = CountKeys(
+            text: "Log early",
             filling: KeyFill(length: 30, ends: .now, pausedLeft: 18),
-            onLog: { },
+            onKey: { },
             onExtend: { },
         )
         let buttons = try AccessibilityTree.nodes(of: keys.frame(width: 402))

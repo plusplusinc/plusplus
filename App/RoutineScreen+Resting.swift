@@ -11,34 +11,37 @@ import WorkoutStore
 /// shows its equipment (`nextUp`), all still by the time the pulse, shooting down, reaches the
 /// word "Rest", where it plops and wiggles (`SetMotion.aroundRest(_:)`), short of the next
 /// exercise's node. Through the rest the dot waits there, the current node's size and steady
-/// green, with nothing on the rail to mark the place (`restDotRow`); the bar under the countdown
-/// shows how far through it is (`RestProgress`). As the countdown reaches 0 the same move plays
-/// from the rest to the next exercise's node, the rest closing and the exercise opening at once.
+/// green, with nothing on the rail to mark the place (`restDotRow`). As the countdown reaches 0
+/// the same move plays from the rest to the next exercise's node, the rest closing and the
+/// exercise opening at once.
 ///
 /// In a superset only a round's last member rests. With a round left, the rest opens above the
 /// first member (`restRow(of:in:)`): the pulse runs up the loop and on up the rail to the word,
 /// the list scrolling it under the bar, the row left closing, and the rest opening, all from the
-/// tap, and at 0 the dot moves down to the first member. After the last round it opens under the
-/// last member.
+/// tap, and at 0 the dot moves down to the first member; its count stands as far above that
+/// member's name as a rest between exercises stands above the next one's (`LabelWithRest`).
+/// After the last round it opens under the last member.
 ///
-/// Through any rest the key at the bottom swaps, as keys swap, for −15 s and +15 s (`RestKeys`),
-/// the + above it staying put. −15 s with less than 15 s left ends the rest; + and − glide the bar
-/// and turn the countdown, the dot staying put. Taps on them while the rest is still coming in,
-/// as a double tap's second on Log set, do nothing. There is no Skip. With Reduce Motion, each
-/// move is one crossfade, the dot at the word through the rest.
+/// Through any rest the key at the bottom swaps, as keys swap, for Skip rest, wide, gray, filling
+/// with the done purple from its leading edge as the rest runs (`restKeyFill`), and +15 s beside
+/// it (`CountKeys`), the + above it staying put. There is no bar under the countdown. Skip rest
+/// ends the rest at the tap as running out does (`skipRest()`); +15 s steps the fill back and
+/// turns the countdown, the dot staying put. A pause grays the countdown and the fill. Taps on
+/// them while the rest is still coming in, as a double tap's second on Log set, do nothing. With
+/// Reduce Motion, each move is one crossfade, the dot at the word through the rest.
 ///
 /// Between two sets of one plain exercise, the rest takes the figures' slot (`SetRest`); done one
-/// side at a time, after a set's second side, never between its sides. With the same bar, from
-/// the tap, everything the log changes on one curve (`SetMotion.restSwap`), and the exercise's
-/// node stays steady green; with Reduce Motion it crossfades in and out.
+/// side at a time, after a set's second side, never between its sides. From the tap, everything
+/// the log changes moves on one curve (`SetMotion.restSwap`), and the exercise's node stays
+/// steady green; with Reduce Motion it crossfades in and out.
 ///
 /// A rest runs on the workout's clock from its log, its taps kept with the set logged
-/// (`LiveWorkout.adjustingRest(by:override:at:)`), so a pause stops it, and a relaunch or a return
-/// from the background opens in it, drawn and settled, at the time left, or past its end on the
-/// next set (`WorkoutPhase(resuming:restOverride:at:)`). VoiceOver hears "Rest" and its length as
-/// it starts (`announceRest()`), reads the countdown as its own element, with the time left, and
-/// the keys as "Minus 15 seconds" and "Plus 15 seconds". At its end the phone taps once, heavy
-/// (`restEnds`).
+/// (`LiveWorkout.extendingRest(by:override:at:)`, `skippingRest(override:at:)`), so a pause
+/// stops it, and a relaunch or a return from the background opens in it, drawn and settled, at
+/// the time left, or past its end on the next set (`WorkoutPhase(resuming:restOverride:at:)`).
+/// VoiceOver hears "Rest" and its length as it starts (`announceRest()`), reads the countdown as
+/// its own element, with the time left, and the keys as "Skip rest", its value the time left,
+/// and "Plus 15 seconds". At its end the phone taps once, heavy (`restEnds`).
 extension RoutineScreen {
     /// For the UI tests, every rest's length (`-seedRest`); nil in a release build.
     var restOverride: Int? {
@@ -157,7 +160,7 @@ extension RoutineScreen {
     }
 
     /// Tells VoiceOver a rest has started, and how long it is, "Rest, 1 minute": its focus stays
-    /// on the key, which swaps for −15 s and +15 s.
+    /// on the key, which swaps for Skip rest and +15 s.
     private func announceRest() {
         guard let resting else { return }
         let length = RestBlock.spoken(Double(resting.length), locale: locale)
@@ -237,14 +240,6 @@ extension RoutineScreen {
         scrollPosition.scrollTo(y: target)
     }
 
-    /// −15 s or +15 s on the rest running, the bar gliding to its new fill; the dot stays put.
-    /// Only when `WorkoutKey.restTap(by:)` says so.
-    func adjustRest(by seconds: Int) {
-        withAnimation(.snappy(duration: SetMotion.restGlide)) {
-            session.adjustRest(by: seconds, override: restOverride)
-        }
-    }
-
     /// The row a rest between exercises is drawn in, `workout` holding the set it follows: the
     /// row left, under its label; before a superset's next round, the first member's, above it.
     func restRow(of rest: WorkoutPhase.Resting, in workout: Workout) -> RoutineExercise.ID? {
@@ -263,6 +258,7 @@ extension RoutineScreen {
                 length: resting.length,
                 ends: ends,
                 pausedLeft: pausedLeft,
+                isPaused: workout.isPaused,
             )
             return DrawnRestBlock(row: row, above: rest.isBack, block: block)
         }
@@ -285,7 +281,7 @@ extension RoutineScreen {
 
     /// When `rest` ends, on `workout`'s clock running on from now, and the seconds it has left
     /// where that clock stands still: paused, ended, or `stopped`, so the countdown holds.
-    private static func times(
+    static func times(
         of rest: WorkoutRest,
         on workout: Workout,
         stopped: Bool = false,
@@ -317,6 +313,7 @@ extension RoutineScreen {
                 pausedLeft: pausedLeft,
                 isOver: isOver,
                 turns: within.beat == .settled,
+                isPaused: workout.isPaused,
             )
         }
         return SetRest(isRunning: false, length: restOverride ?? gap)
@@ -350,7 +347,7 @@ extension RoutineScreen {
         )
     }
 
-    /// What the rest's watch waits on: a + or −, a pause, or a resume starts it again.
+    /// What the rest's watch waits on: +15 s, a skip, a pause, or a resume starts it again.
     var restWatch: RestWatch? {
         guard let resting, let workout = session.workout else { return nil }
         return RestWatch(endClock: resting.endClock, isPaused: workout.isPaused)

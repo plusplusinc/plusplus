@@ -8,10 +8,10 @@ import WorkoutStore
 /// is "Start now": the exercise opens on it at 0:10, held, and its ten seconds start as the
 /// screen comes to rest on the set (`arrivingCount()`); as that count reaches 0 the phone taps
 /// lightly. When a rest comes first, the set's count starts as the rest ends (`endRest()`), or
-/// at the tap that cuts it short. The set's count then runs in the figures' slot, with no word
-/// over it and no bar under it, "then rest 0:30" at the caption line's end, the set's segment
-/// green, and the key is "Log early", gray, filling with the done purple from its leading edge,
-/// with +15 s beside it (`TimedSetKeys`). At 0 the set logs itself at its full time, with the
+/// at the tap on Skip rest. The set's count then runs in the figures' slot, with no word over
+/// it, "then rest 0:30" at the caption line's end, the set's segment green, and the key is
+/// "Log early", gray, filling with the done purple from its leading edge,
+/// with +15 s beside it (`CountKeys`). At 0 the set logs itself at its full time, with the
 /// heavy tap and the +1, and whatever follows begins: a rest, or the next set's "Starts in". A
 /// tap on "Log early" mid-count logs the time done, the fill running on to full and the count
 /// holding where it stopped; +15 s adds to this set only. Where the set is, at rest on it, is
@@ -44,7 +44,7 @@ extension RoutineScreen {
               liveKey.drawnCount == .counting,
               let timed = live?.timedSet,
               let workout = session.workout
-        else { return .logged }
+        else { return .over }
         let clock = workout.clock(at: .now)
         return KeyFill(
             length: Double(timed.length),
@@ -100,11 +100,11 @@ extension RoutineScreen {
 
     /// The keys while the set counts: "Log early", filling, and +15 s.
     func countKeys(_ text: String, isOut: Bool) -> some View {
-        TimedSetKeys(
-            logText: text,
+        CountKeys(
+            text: text,
             filling: keyFill,
             isOut: isOut,
-            onLog: { tapKey() },
+            onKey: { tapKey() },
             // Nothing once "Log early" has stopped the set, as with a tap on the log key.
             onExtend: {
                 if countBeats.earlyLog == nil {
@@ -283,11 +283,6 @@ extension WorkoutPhase {
         guard case let .ending(ending) = self else { return nil }
         return ending.hidden
     }
-}
-
-extension KeyFill {
-    /// A set's fill once it is logged, early or run out: full, held for its beat.
-    static let logged = KeyFill(length: 1, ends: .distantPast, isLogged: true)
 }
 
 extension View {

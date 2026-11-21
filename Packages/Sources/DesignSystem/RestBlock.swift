@@ -4,8 +4,9 @@ import SwiftUI
 /// row's own animation, so its height and the rows below move with the row. Open, under the
 /// exercise just finished, as the exercise closes to its row: "Rest" in a row's name style, as
 /// an exercise's name, then the time left in a large figure's style and size (`CurrentFigure`),
-/// then the bar of its progress (`RestProgress`), each coming in as the room has grown to hold it
-/// (`RestRoom`). −15 s and +15 s are at the bottom, in the key's place.
+/// each coming in as the room has grown to hold it (`RestRoom`). There is no bar under it: Skip
+/// rest, at the bottom in the key's place, fills as the rest runs, with +15 s beside it
+/// (`CountKeys`). Paused, the count is gray.
 ///
 /// Nothing in it is green: a rest looks like an active exercise. The time ticks on whole seconds
 /// before `ends` on a timeline, drawing once while paused (`pausedLeft`), so nothing is written
@@ -23,6 +24,8 @@ public struct RestBlock: View {
     let ends: Date
     /// While paused, or closing as the workout ends, the seconds left; nil while running.
     let pausedLeft: Double?
+    /// Held by a pause: the count is gray, as Skip rest's fill is. Held by End, it stays white.
+    let isPaused: Bool
 
     @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var size = CurrentFigure.size
     @Environment(\.locale) private var locale
@@ -32,16 +35,24 @@ public struct RestBlock: View {
         length: Int,
         ends: Date = .distantPast,
         pausedLeft: Double? = nil,
+        isPaused: Bool = false,
     ) {
         self.stage = stage
         self.length = length
         self.ends = ends
         self.pausedLeft = pausedLeft
+        self.isPaused = isPaused
     }
 
     /// The block held at what it showed at `date`.
     func holding(at date: Date) -> Self {
-        Self(stage: stage, length: length, ends: ends, pausedLeft: left(at: date))
+        Self(
+            stage: stage,
+            length: length,
+            ends: ends,
+            pausedLeft: left(at: date),
+            isPaused: isPaused,
+        )
     }
 
     /// The seconds the countdown shows at `date`, kept within `shown`. Closing with a time
@@ -84,16 +95,16 @@ public struct RestBlock: View {
             Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
                 .foregroundStyle(.pp(color))
-                // Gray at a pause and white at a resume at once, with the bar's time and the
+                // Gray at a pause and white at a resume at once, with the workout's time and the
                 // key's fill: a resume moves `ends`, and the figure's glide below grayed it out
                 // over half a second.
                 .animation(nil, value: color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                // A + or − turns the figure; a second going by, or the rest's end on the move's
+                // +15 s turns the figure; a second going by, or the rest's end on the move's
                 // delayed shift, changes it at once: on that shift, 0:00 came in half a second
-                // after the dot had left. So does a − that ends the rest: turning, the figure
-                // rolled down to 0:00 as it shrank away. Only a change of its own: taking every
+                // after the dot had left. So does Skip rest: turning, a cut to 0:00 rolled down
+                // as it shrank away. Only a change of its own: taking every
                 // update's animation away, the figure jumped to where a part going drops it
                 // while the part faded on its curve.
                 .contentTransition(turns ? .numericText(countsDown: true) : .identity)
@@ -116,15 +127,6 @@ public struct RestBlock: View {
         }
     }
 
-    /// How far through the rest it is, as a bar under the countdown (`RestProgress`).
-    var progress: some View {
-        RestProgress(
-            starts: ends.timeIntervalSinceReferenceDate - Double(length),
-            length: Double(length),
-            pausedLeft: pausedLeft ?? (stage == .open ? nil : Double(length)),
-        )
-    }
-
     /// "0:35", the seconds rounded up: a rest's time as the countdown and a caption show it.
     public static func text(_ seconds: Double, locale: Locale) -> String {
         Duration.seconds(seconds.rounded(.up))
@@ -135,89 +137,6 @@ public struct RestBlock: View {
     public static func spoken(_ seconds: Double, locale: Locale) -> String {
         Duration.seconds(seconds.rounded(.up))
             .formatted(.units(allowed: [.minutes, .seconds], width: .wide).locale(locale))
-    }
-}
-
-/// A row's label with its rest under it (`RestBlock`), stacked as the rail stacks its rows, so
-/// the rest moves with the label's height on every frame. The label stands at least as tall as a
-/// resting row's floor (`restingLabelFloor`), the height a shrinking label stands at until its
-/// shrink ends: shorter at rest, a one-line detail's label let the rest under it jump up 8 pt as
-/// the shrink ended. `onRestHeight` hears the rest's height as it lays out: all the row gives back
-/// as the rest closes. Before a superset's next round its rest opens above its first member's
-/// label instead (`restAbove`), the row's node staying on the label's first line, so the rest
-/// sits on the rail's line into the node, between the row above and the label.
-public struct LabelWithRest<Label: View>: View {
-    let label: Label
-    let rest: RestBlock
-    let restAbove: RestBlock
-    let onRestHeight: (CGFloat) -> Void
-    @Environment(\.restingLabelFloor) private var floor
-
-    public init(
-        label: Label,
-        rest: RestBlock,
-        restAbove: RestBlock = RestBlock(stage: .none, length: 0),
-        onRestHeight: @escaping (CGFloat) -> Void = { _ in },
-    ) {
-        self.label = label
-        self.rest = rest
-        self.restAbove = restAbove
-        self.onRestHeight = onRestHeight
-    }
-
-    public var body: some View {
-        RestsAroundLabel {
-            restAbove
-            label.frame(minHeight: floor, alignment: .top)
-            rest
-                .onGeometryChange(for: CGFloat.self, of: \.size.height, action: onRestHeight)
-        }
-    }
-}
-
-/// A rest above, a label, and a rest below, stacked as `RailStack` stacks them, its text
-/// baselines the label's: the rest above, laid out even while closed, would otherwise lend the
-/// row its "Rest", and the row's node would sit on it.
-private struct RestsAroundLabel: Layout {
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let sizes = sizes(subviews, width: proposal.width)
-        return CGSize(
-            width: sizes.map(\.width).max() ?? 0,
-            height: sizes.map(\.height).reduce(0, +),
-        )
-    }
-
-    func placeSubviews(
-        in bounds: CGRect,
-        proposal _: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) {
-        let offer = ProposedViewSize(width: bounds.width, height: nil)
-        var top = bounds.minY
-        for (subview, size) in zip(subviews, sizes(subviews, width: bounds.width)) {
-            subview.place(at: CGPoint(x: bounds.minX, y: top), proposal: offer)
-            top += size.height
-        }
-    }
-
-    func explicitAlignment(
-        of guide: VerticalAlignment,
-        in bounds: CGRect,
-        proposal _: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) -> CGFloat? {
-        guard subviews.count == 3,
-              guide == .firstTextBaseline || guide == .railNodeBaseline
-        else { return nil }
-        let offer = ProposedViewSize(width: bounds.width, height: nil)
-        return subviews[0].sizeThatFits(offer).height + subviews[1].dimensions(in: offer)[guide]
-    }
-
-    private func sizes(_ subviews: Subviews, width: CGFloat?) -> [CGSize] {
-        let offer = ProposedViewSize(width: width, height: nil)
-        return subviews.map { $0.sizeThatFits(offer) }
     }
 }
 
@@ -235,6 +154,7 @@ private struct RestRoom: View, Animatable {
     /// The cap height of "Rest"'s font (`Font.ppRowTitle`), SF Pro semibold at body's size at the
     /// default text size, scaled with it.
     @ScaledMetric(relativeTo: .body) private var capHeight = Self.defaultCapHeight
+    @Environment(\.restIsAboveLabel) private var isAboveLabel
 
     private static let defaultCapHeight: CGFloat = {
         #if canImport(UIKit)
@@ -262,7 +182,6 @@ private struct RestRoom: View, Animatable {
     private struct Bottoms: Equatable {
         var word: CGFloat = 0
         var countdown: CGFloat = 0
-        var bar: CGFloat = 0
         var room: CGFloat = 0
 
         /// The share of the room open from which a part ending at `bottom` shows whole, or
@@ -274,17 +193,27 @@ private struct RestRoom: View, Animatable {
 
     private static let space = "restRoom"
 
+    /// The room under the count, so the next exercise's name stands `Spacing.lg` and a row's
+    /// insets under it wherever the rest is: under a label, the row's bottom inset and the next
+    /// row's top inset follow it; above a superset's first member, nothing does, and there the
+    /// name sat 16 pt closer than after a rest between exercises.
+    private var below: CGFloat {
+        Spacing.lg + (isAboveLabel ? 2 * RailRowMetrics.verticalInset : 0)
+    }
+
     var body: some View {
         // From the share of the room that holds each part whole, so nothing is drawn cut off at
         // the room's bottom against the row under it: from fixed shares, the countdown came in
         // with the room a third open, half of it drawn against the first member's name.
         let word = RestRoomFade.fade(open, from: bottoms.start(bottoms.word, or: 0.2), width: 0.15)
+        // The room's last part: whole by the time the room is open, however near the room's
+        // bottom its own bottom sits (`RestRoomFade`). Left to its bottom alone, it stood at two
+        // thirds through the rest, gray.
         let countdown = RestRoomFade.fade(
             open,
             from: bottoms.start(bottoms.countdown, or: 0.7),
             width: 0.15,
         )
-        let bar = RestRoomFade.fade(open, from: bottoms.start(bottoms.bar, or: 0.85), width: 0.1)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("Rest")
@@ -303,17 +232,17 @@ private struct RestRoom: View, Animatable {
             .padding(.top, Spacing.sm)
             .modifier(BottomIn(Self.space) { bottoms.word = $0 })
             .opacity(word)
-            block.countdown(size: size, locale: locale)
-                .figureBox(size: size)
-                .padding(.top, Spacing.md)
-                .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
-                .coming(countdown)
-            block.progress
-                .padding(.top, Spacing.md)
-                .modifier(BottomIn(Self.space) { bottoms.bar = $0 + SetMotion.arriveRise })
-                .coming(bar)
+            block.countdown(
+                size: size,
+                locale: locale,
+                color: block.isPaused ? .textSecondary : .textPrimary,
+            )
+            .figureBox(size: size)
+            .padding(.top, Spacing.md)
+            .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
+            .coming(countdown)
         }
-        .padding(.bottom, Spacing.lg)
+        .padding(.bottom, below)
         .coordinateSpace(.named(Self.space))
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { bottoms.room = $0 }
         .accessibilityHidden(block.stage != .open)
@@ -342,13 +271,23 @@ private struct BottomIn: ViewModifier {
 
 /// The open rest's room, `open` of its height: run from 0 to 1 on the row's animation, so the
 /// room grows and closes on its curve, every row below moving with it. Mid-change, what is coming
-/// in or going is cut off at the room's bottom, never drawn over the next row.
+/// in or going is cut off at the room's bottom, never drawn over the next row; nothing is cut at
+/// its sides, where the count's first figure stands a few points left of the column
+/// (`figureBox`): clipped to the room's own width, a leading "0" or "1" was sliced flat there.
 private struct RestRoomHeight: ViewModifier {
     let open: CGFloat
 
     func body(content: Content) -> some View {
         RestRoomLayout(open: open) { content }
-            .clipped()
+            .clipShape(TopAndBottom())
+    }
+}
+
+/// A rectangle as tall as its bounds and reaching a width past them on each side: a clip that cuts
+/// only at the top and bottom.
+private struct TopAndBottom: Shape {
+    nonisolated func path(in rect: CGRect) -> Path {
+        Path(rect.insetBy(dx: -rect.width, dy: 0))
     }
 }
 

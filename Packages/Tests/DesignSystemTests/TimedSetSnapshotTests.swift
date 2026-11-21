@@ -72,10 +72,10 @@ struct TimedSetSnapshotTests {
     }
 
     private func countKeys(left: Double, isPaused: Bool = false) -> some View {
-        TimedSetKeys(
-            logText: "Log early",
+        CountKeys(
+            text: "Log early",
             filling: KeyFill(length: 30, ends: .now, pausedLeft: left, isPaused: isPaused),
-            onLog: { },
+            onKey: { },
             onExtend: { },
         )
     }
