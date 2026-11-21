@@ -32,10 +32,10 @@ struct ComponentSnapshotTests {
             EditableTitle(
                 text: .constant(name),
                 isEditing: .constant(false),
-                placeholder: "New routine",
+                placeholder: "New workout",
                 suggestion: suggestion,
-                accessibilityLabel: "Routine name",
-                accessibilityHint: "Renames the routine.",
+                accessibilityLabel: "Workout name",
+                accessibilityHint: "Renames the workout.",
             )
             if !equipment.isEmpty {
                 Capsules(equipment)
@@ -87,7 +87,7 @@ struct ComponentSnapshotTests {
         )
     }
 
-    /// A generated name rests in white, as a chosen one does; only New routine is gray.
+    /// A generated name rests in white, as a chosen one does; only New workout is gray.
     @Test("An unnamed routine with exercises shows its generated name")
     func generatedName() {
         let rows: [Row] = [
@@ -112,10 +112,10 @@ struct ComponentSnapshotTests {
                 EditableTitle(
                     text: .constant(name),
                     isEditing: .constant(false),
-                    placeholder: "New routine",
+                    placeholder: "New workout",
                     suggestion: suggestion,
-                    accessibilityLabel: "Routine name",
-                    accessibilityHint: "Renames the routine.",
+                    accessibilityLabel: "Workout name",
+                    accessibilityHint: "Renames the workout.",
                 )
             }
         }
@@ -125,7 +125,7 @@ struct ComponentSnapshotTests {
         assertThemedSnapshots(of: titles, width: Self.screenWidth)
     }
 
-    /// Add exercise's Create row, a label, and New routine's +, a button, as the app draws them:
+    /// Add exercise's Create row, a label, and New workout's +, a button, as the app draws them:
     /// both green. The list, its search, and the bar are the system's, seen on the simulator.
     @Test("A control that makes something draws its + and title in green")
     func makesSomething() {
@@ -134,7 +134,7 @@ struct ComponentSnapshotTests {
                 .font(.ppRowTitle)
                 .makesSomething()
             Spacer()
-            Button("New routine", systemImage: "plus") { }
+            Button("New workout", systemImage: "plus") { }
                 .labelStyle(.iconOnly)
                 .makesSomething()
         }

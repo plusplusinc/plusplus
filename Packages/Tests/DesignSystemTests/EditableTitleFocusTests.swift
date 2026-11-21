@@ -40,10 +40,10 @@ struct EditableTitleFocusTests {
                 EditableTitle(
                     text: $name,
                     isEditing: $isEditing,
-                    placeholder: "New routine",
+                    placeholder: "New workout",
                     suggestion: suggestion,
-                    accessibilityLabel: "Routine name",
-                    accessibilityHint: "Renames the routine.",
+                    accessibilityLabel: "Workout name",
+                    accessibilityHint: "Renames the workout.",
                 )
                 Color.clear
                     .frame(height: 44)

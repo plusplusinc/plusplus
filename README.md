@@ -54,7 +54,7 @@ Early: the app launches into the routine you last opened or edited, or an empty 
 can name and add built-in exercises to, each with its own sets, reps or time, weight, and rest,
 set in a sheet, and put in order by holding and dragging them. Every change saves on the phone, an
 unnamed routine is named for its exercises, and nothing syncs yet. The ++ drawer switches
-between your latest routines, starts a new one, and opens the Routines screen, which lists them
+between your latest routines, starts a new one, and opens the Workouts screen, which lists them
 all by name and opens one with a tap. Start runs a workout on a routine, logged set by set
 with a tap, moving on through its exercises in order. Status, architecture, and the branching rules are in
 [CLAUDE.md](CLAUDE.md); the PR check in

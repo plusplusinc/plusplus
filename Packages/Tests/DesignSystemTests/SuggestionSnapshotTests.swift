@@ -32,8 +32,8 @@ struct SuggestionSnapshotTests {
             cursorTint: frame?.cursorTint ?? 1,
             isEditing: false,
             blinks: false,
-            accessibilityLabel: "Routine name",
-            accessibilityHint: "Renames the routine.",
+            accessibilityLabel: "Workout name",
+            accessibilityHint: "Renames the workout.",
         )
         .padding(Spacing.md)
         .background(Color.pp(.background))

@@ -70,10 +70,10 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             // selected nothing.
             let delete = XCUIKeyboardKey.delete.rawValue
             title.typeText(String(repeating: delete, count: Self.threeLines.count))
-            XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
+            XCTAssertEqual(title.value(becoming: "New workout"), "New workout")
             try assertLinesInsideField(title, lines: 2, "cleared, editing")
             returnLeavesEverythingInPlace(title, keyboard: keyboard)
-            XCTAssertEqual(title.value as? String, "New routine")
+            XCTAssertEqual(title.value as? String, "New workout")
             try assertLinesInsideField(title, lines: 2, "cleared, at rest")
         }
 
@@ -108,7 +108,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     @MainActor
     private func drawerAtAX5(in app: XCUIApplication) throws {
         try XCTContext.runActivity(named: "The drawer and the Routines screen at AX5") { _ in
-            try app.openDrawer(andTap: "Routines") {
+            try app.openDrawer(andTap: "Workouts") {
                 attach(named: "drawer-ax5")
                 try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             }

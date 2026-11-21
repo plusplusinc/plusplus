@@ -10,9 +10,9 @@ struct DeleteQuestionTests {
     @Test(
         "The open routine is named first when it uses the exercise",
         arguments: [
-            (1, "It will be removed from this routine."),
-            (2, "It will be removed from this routine and 1 other."),
-            (4, "It will be removed from this routine and 3 others."),
+            (1, "It will be removed from this workout."),
+            (2, "It will be removed from this workout and 1 other."),
+            (4, "It will be removed from this workout and 3 others."),
         ],
     )
     func namesOpenRoutine(routineCount: Int, routines: String) {
@@ -25,9 +25,9 @@ struct DeleteQuestionTests {
     @Test(
         "Routines are counted when the open one doesn't use the exercise",
         arguments: [
-            (0, "No routine uses it."),
-            (1, "It will be removed from the routine that uses it."),
-            (3, "It will be removed from the 3 routines that use it."),
+            (0, "No workout uses it."),
+            (1, "It will be removed from the workout that uses it."),
+            (3, "It will be removed from the 3 workouts that use it."),
         ],
     )
     func countsOtherRoutines(routineCount: Int, routines: String) {

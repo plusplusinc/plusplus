@@ -151,7 +151,7 @@ public final class RoutineSession {
         workout == nil && !isSwitching && routine == current.id && !current.exercises.isEmpty
     }
 
-    /// The name the open routine shows, which a workout on it keeps: empty for New routine.
+    /// The name the open routine shows, which a workout on it keeps: empty for New workout.
     private var shownName: String {
         namer.shownName(of: current) ?? ""
     }

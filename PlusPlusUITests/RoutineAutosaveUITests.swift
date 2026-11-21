@@ -7,7 +7,7 @@ import XCTest
 /// shared rounds, an exercise created from the picker, and a name typed with no Return). Names come
 /// from the muscle
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The
-/// title's color, white for a name whether typed or generated and gray for New routine, is read
+/// title's color, white for a name whether typed or generated and gray for New workout, is read
 /// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
 /// `RoutineDrawerUITests`'; this test, which ends with none saved, checks Routines empty.
 ///
@@ -21,7 +21,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     func testRoutineSurvivesRelaunch() throws {
         let app = XCUIApplication()
         let title = app.launchNewRoutine(arguments: ["-fallbackNames", "YES"])
-        XCTAssertEqual(title.value as? String, "New routine")
+        XCTAssertEqual(title.value as? String, "New workout")
         let field = title.frame
         let gray = try Ink.ofTitle(in: field).contrast
 
@@ -64,15 +64,15 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     @MainActor
     private func emptyRoutinesFillsTheWidth(in app: XCUIApplication, margin: CGFloat) {
         XCTContext.runActivity(named: "Routines with none saved fills the width") { _ in
-            app.openDrawer(andTap: "Routines")
-            let heading = app.staticTexts["Routines"]
+            app.openDrawer(andTap: "Workouts")
+            let heading = app.staticTexts["Workouts"]
             // The screen slides back in as the drawer closes, so the title is read until it
             // reaches the margin, or for long enough that it would have.
             let left = reading(heading.frame.minX, until: { abs($0 - margin) <= 1 }, within: 2)
             XCTAssertEqual(left, margin, accuracy: 1, "The title is off the margin")
             XCTAssertEqual(app.routineRows.count, 0, "Routines lists a routine")
             XCTAssertEqual(
-                app.scrollViews.containing(.staticText, identifier: "Routines").firstMatch.frame
+                app.scrollViews.containing(.staticText, identifier: "Workouts").firstMatch.frame
                     .width,
                 app.frame.width,
                 accuracy: 1,
@@ -196,9 +196,9 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
     }
 
-    /// Every row deleted and the name cleared is nothing, the gray New routine. That the store
+    /// Every row deleted and the name cleared is nothing, the gray New workout. That the store
     /// deletes it is `RoutineStoreTests`': a relaunch can't show it, since a routine cleared and
-    /// kept would open as the same empty New routine.
+    /// kept would open as the same empty New workout.
     @MainActor
     private func clearedRoutineIsNewRoutine(
         in app: XCUIApplication,
@@ -220,8 +220,8 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             let keyboard = app.keyboards.element
             try title.typeOver("Push pull", with: "\n", keyboard: keyboard)
             XCTAssertTrue(keyboard.disappears())
-            XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-            XCTAssertTrue(title.inkIsGray(against: gray), "New routine is not gray")
+            XCTAssertEqual(title.value(becoming: "New workout"), "New workout")
+            XCTAssertTrue(title.inkIsGray(against: gray), "New workout is not gray")
             attach(named: "cleared")
         }
     }

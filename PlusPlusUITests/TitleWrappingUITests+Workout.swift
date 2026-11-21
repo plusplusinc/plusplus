@@ -23,7 +23,7 @@ extension TitleWrappingUITests {
                     arguments: ["-seedSuperset", "0,1"],
                 )
                 // Pushed from the Routines screen, with a back chevron in the bar for ++.
-                app.openDrawer(andTap: "Routines")
+                app.openDrawer(andTap: "Workouts")
                 app.routineRows.firstMatch.tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "The routine opened no Start")
                 app.buttons["Start"].tap()

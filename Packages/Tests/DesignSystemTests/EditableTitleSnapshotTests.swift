@@ -24,12 +24,12 @@ struct EditableTitleSnapshotTests {
         EditableTitleContent(
             draft: .constant(draft),
             selection: selection,
-            placeholder: "New routine",
-            shownPlaceholder: "New routine",
+            placeholder: "New workout",
+            shownPlaceholder: "New workout",
             isEditing: true,
             blinks: false,
-            accessibilityLabel: "Routine name",
-            accessibilityHint: "Renames the routine.",
+            accessibilityLabel: "Workout name",
+            accessibilityHint: "Renames the workout.",
         )
         .padding(Spacing.md)
         .background(Color.pp(.background))

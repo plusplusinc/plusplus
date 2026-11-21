@@ -27,10 +27,10 @@ struct EditableTitleTypingTests {
             EditableTitle(
                 text: $name,
                 isEditing: $isEditing,
-                placeholder: "New routine",
+                placeholder: "New workout",
                 suggestion: suggestion,
-                accessibilityLabel: "Routine name",
-                accessibilityHint: "Renames the routine.",
+                accessibilityLabel: "Workout name",
+                accessibilityHint: "Renames the workout.",
             )
             .onChange(of: name) { _, name in log.names.append(name) }
             .frame(width: 370)

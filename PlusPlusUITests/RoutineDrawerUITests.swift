@@ -49,7 +49,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
                 "VoiceOver reaches Add exercise behind it",
             )
             // A routine showing isn't Routines.
-            XCTAssertFalse(app.buttons["Routines"].isSelected, "Routines is marked on a routine")
+            XCTAssertFalse(app.buttons["Workouts"].isSelected, "Workouts is marked on a routine")
             attach(named: "drawer-routine")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
@@ -69,20 +69,20 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     @MainActor
     private func routinesScreenDrillsIn(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "Routines lists every routine, and + pushes a new one") { _ in
-            app.openDrawer(andTap: "Routines")
+            app.openDrawer(andTap: "Workouts")
             XCTAssertEqual(reading(app.routineRowLabels, becoming: ["Chest"], within: 2), ["Chest"])
             openDrawer(in: app)
-            XCTAssertTrue(app.buttons["Routines"].isSelected, "Routines isn't marked")
+            XCTAssertTrue(app.buttons["Workouts"].isSelected, "Workouts isn't marked")
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
-            app.buttons["New routine"].tap()
-            XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
+            app.buttons["New workout"].tap()
+            XCTAssertEqual(title.value(becoming: "New workout"), "New workout")
             newRoutineDimsDelete(in: app)
             app.tapBack()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
             XCTAssertEqual(app.routineRowLabels, ["Chest"], "The untouched new one was listed")
-            app.buttons["New routine"].tap()
-            XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
+            app.buttons["New workout"].tap()
+            XCTAssertEqual(title.value(becoming: "New workout"), "New workout")
             app.addExercise("Pull-up, Pull-up bar", searching: "pullup")
             XCTAssertEqual(title.value(becoming: "Back"), "Back")
             XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed routine")
