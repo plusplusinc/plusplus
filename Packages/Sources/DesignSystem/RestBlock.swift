@@ -280,9 +280,12 @@ private struct RestRoom: View, Animatable {
         // the room's bottom against the row under it: from fixed shares, the countdown came in
         // with the room a third open, half of it drawn against the first member's name.
         let word = RestRoomFade.fade(open, from: bottoms.start(bottoms.word, or: 0.2), width: 0.15)
+        // The room's last part: whole by the time the room is open, however near the room's
+        // bottom its own bottom sits. Left to its bottom alone, it stood at two thirds through
+        // the rest, gray.
         let countdown = RestRoomFade.fade(
             open,
-            from: bottoms.start(bottoms.countdown, or: 0.7),
+            from: min(bottoms.start(bottoms.countdown, or: 0.7), 1 - 0.15),
             width: 0.15,
         )
         VStack(alignment: .leading, spacing: 0) {
