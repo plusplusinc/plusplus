@@ -24,7 +24,7 @@ public final class RoutineSession {
     /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public internal(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
-    public private(set) var workout: LoggedWorkout?
+    public private(set) var loggedWorkout: LoggedWorkout?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
     /// The exercises whose delete is confirmed and not yet stored
@@ -49,11 +49,12 @@ public final class RoutineSession {
     /// Where every change to a workout goes, saved in the order they happened. Every one waits
     /// its turn: one workout's end and the next one's start can both be waiting, and keeping
     /// only the newest would drop the end, leaving the first in progress in the store.
-    @ObservationIgnored private let workoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
+    @ObservationIgnored
+    private let loggedWorkoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
 
     public init(
         routine: Routine,
-        workout: LoggedWorkout? = nil,
+        loggedWorkout: LoggedWorkout? = nil,
         exercises: ExerciseList = .builtIn,
         store: RoutineStore?,
         namer: RoutineNamer,
@@ -61,11 +62,11 @@ public final class RoutineSession {
         self.namer = namer
         opened = routine
         current = routine
-        self.workout = workout
+        self.loggedWorkout = loggedWorkout
         self.exercises = exercises
         self.store = store
         (saves, saving) = Self.startSaving(to: store)
-        workoutWrites = Self.startWritingWorkouts(to: store)
+        loggedWorkoutWrites = Self.startWritingLoggedWorkouts(to: store)
     }
 
     /// Every saved routine, latest first, with the open one first as it is now.
@@ -76,12 +77,12 @@ public final class RoutineSession {
     /// Saves a change to the open routine.
     public func save(_ routine: Routine) {
         current = routine
-        saves.yield(RoutineSave(routine: routine, keepsEmpty: workout != nil))
+        saves.yield(RoutineSave(routine: routine, keepsEmpty: loggedWorkout != nil))
     }
 
     /// While a workout runs, the drawer stays shut: neither ++ nor the edge swipe opens it.
     public var isDrawerLocked: Bool {
-        workout != nil
+        loggedWorkout != nil
     }
 
     /// Opens the drawer, unless a workout keeps it shut or a row's sheet has been asked for.
@@ -145,7 +146,7 @@ public final class RoutineSession {
     /// has an exercise, with no workout running and no switch under way. A routine switched away
     /// from, or being switched away from, starts nothing: the switch stops Start.
     public func canStart(on routine: Routine.ID) -> Bool {
-        workout == nil && !isSwitching && routine == current.id && !current.exercises.isEmpty
+        loggedWorkout == nil && !isSwitching && routine == current.id && !current.exercises.isEmpty
     }
 
     /// The name the open routine shows, which a workout on it keeps: empty for New workout.
@@ -155,15 +156,19 @@ public final class RoutineSession {
 
     /// Pauses the workout, or resumes it if paused.
     public func togglePause(at now: Date = .now) {
-        guard let workout else { return }
-        change(.save(workout.isPaused ? workout.resuming(at: now) : workout.pausing(at: now)))
+        guard let loggedWorkout else { return }
+        change(.save(
+            loggedWorkout.isPaused
+                ? loggedWorkout.resuming(at: now)
+                : loggedWorkout.pausing(at: now),
+        ))
     }
 
     /// Logs `planned`, a set of `row`, at the numbers `row` plans now, or a timed set at the time
     /// its count has run (`LiveWorkout.logging`).
     public func log(_ planned: PlannedSet, of row: RoutineExercise, at now: Date = .now) {
-        guard let workout else { return }
-        let live = LiveWorkout(routine: current, workout: workout)
+        guard let loggedWorkout else { return }
+        let live = LiveWorkout(routine: current, loggedWorkout: loggedWorkout)
         change(.save(live.logging(planned, of: row, at: now)))
     }
 
@@ -182,8 +187,9 @@ public final class RoutineSession {
     /// Finishes the workout, keeping it with the name the routine shows now, and a timed set
     /// counting logged at the time done (`LiveWorkout.finishing(at:)`).
     public func finish(at now: Date = .now) {
-        guard let workout else { return }
-        var finished = LiveWorkout(routine: current, workout: workout).finishing(at: now)
+        guard let loggedWorkout else { return }
+        var finished = LiveWorkout(routine: current, loggedWorkout: loggedWorkout)
+            .finishing(at: now)
         finished.routineName = shownName
         change(.save(finished))
         deleteIfCleared()
@@ -191,8 +197,8 @@ public final class RoutineSession {
 
     /// Ends the workout keeping nothing of it, as if Start never ran.
     public func discard() {
-        guard let workout else { return }
-        change(.discard(workout.id))
+        guard let loggedWorkout else { return }
+        change(.discard(loggedWorkout.id))
         deleteIfCleared()
     }
 
@@ -201,10 +207,10 @@ public final class RoutineSession {
     /// one running; one saved ended, or discarded, leaves none.
     func change(_ write: LoggedWorkoutWrite) {
         switch write {
-        case let .save(changed): workout = changed.isInProgress ? changed : nil
-        case .discard: workout = nil
+        case let .save(changed): loggedWorkout = changed.isInProgress ? changed : nil
+        case .discard: loggedWorkout = nil
         }
-        workoutWrites.yield(.write(write))
+        loggedWorkoutWrites.yield(.write(write))
     }
 
     /// A routine cleared to nothing while its workout ran was kept for it; once the workout
@@ -292,7 +298,7 @@ public final class RoutineSession {
         while current != landed {
             landed = current
             do {
-                try await store?.save(landed, keepsEmpty: workout != nil)
+                try await store?.save(landed, keepsEmpty: loggedWorkout != nil)
             } catch {
                 Logger.session.error("The routine didn't save: \(error)")
             }
@@ -305,7 +311,7 @@ public final class RoutineSession {
     /// it rather than on time.
     func writesLanded() async {
         await finishSaving()
-        await withCheckedContinuation { done in workoutWrites.yield(.landed(done)) }
+        await withCheckedContinuation { done in loggedWorkoutWrites.yield(.landed(done)) }
     }
 }
 
@@ -342,7 +348,7 @@ extension RoutineSession {
     /// Whether the open routine has anything to delete: one with nothing saved has none, and
     /// the one a workout runs on is not deleted.
     public var canDeleteOpen: Bool {
-        !current.isEmpty && workout == nil
+        !current.isEmpty && loggedWorkout == nil
     }
 
     /// Deletes a saved routine, its finished workouts staying stored. For the open one, its last
@@ -351,7 +357,7 @@ extension RoutineSession {
     /// it back. Refused for the routine a workout runs on, and while a switch is under way. A
     /// delete that fails leaves the routine listed.
     public func delete(_ id: Routine.ID) async {
-        guard !isSwitching, workout?.routineID != id else { return }
+        guard !isSwitching, loggedWorkout?.routineID != id else { return }
         isSwitching = true
         defer { isSwitching = false }
         if id == current.id {

@@ -68,10 +68,10 @@ extension RoutineScreen {
 
     /// The rest as drawn, with the workout it runs on: the one running, or the one End came in
     /// until the list leaves it (`WorkoutPhase.drawnRest`).
-    var drawnResting: (rest: WorkoutRest, workout: LoggedWorkout)? {
+    var drawnResting: (rest: WorkoutRest, loggedWorkout: LoggedWorkout)? {
         guard phase.drawnRest != nil, let shown, let rest = shown.rest(override: restOverride)
         else { return nil }
-        return (rest, shown.workout)
+        return (rest, shown.loggedWorkout)
     }
 
     /// The rest's opening, from the log: the dot leaves now, and as it does the row closes and
@@ -82,7 +82,8 @@ extension RoutineScreen {
         if phase.resting?.isWithinExercise == true {
             return startRestBetweenSets()
         }
-        guard let rest = phase.resting, let live, let row = restRow(of: rest, in: live.workout)
+        guard let rest = phase.resting, let live,
+              let row = restRow(of: rest, in: live.loggedWorkout)
         else { return }
         // Back up a superset's loop, the round's rest opens above its first member, maybe out of
         // sight: the list scrolls it under the bar from the tap, on the dot's way there. Its pitch
@@ -173,14 +174,15 @@ extension RoutineScreen {
         guard let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .landed,
               let shown
         else { return nil }
-        return restRow(of: rest, in: shown.workout)
+        return restRow(of: rest, in: shown.loggedWorkout)
     }
 
     /// The rest is over: the move to the next exercise plays as one with no rest from its log,
     /// its pulse setting off from the dot.
     func endRest() {
-        guard let rest = phase.resting, let workout = session.workout, let next = live?.currentSet,
-              resting?.isOver(atClock: workout.clock(at: .now)) ?? true
+        guard let rest = phase.resting, let loggedWorkout = session.loggedWorkout,
+              let next = live?.currentSet,
+              resting?.isOver(atClock: loggedWorkout.clock(at: .now)) ?? true
         else { return }
         // A timed set next counts from the rest's end, in the same update as the rest ends.
         session.beginCount(override: restOverride)
@@ -225,7 +227,7 @@ extension RoutineScreen {
         withAnimation(SetMotion.aroundRest(.down)) { phase.endRest() }
         withAnimation(SetMotion.moving(.down)) { growthLift = 0 }
         railPulse = RailPulse(
-            from: .rest(in: restRow(of: rest, in: workout) ?? rest.set.row),
+            from: .rest(in: restRow(of: rest, in: loggedWorkout) ?? rest.set.row),
             to: .node(next.row),
             way: .down,
             run: (railPulse?.run ?? 0) + 1,
@@ -240,34 +242,40 @@ extension RoutineScreen {
         scrollPosition.scrollTo(y: target)
     }
 
-    /// The row a rest between exercises is drawn in, `workout` holding the set it follows: the
-    /// row left, under its label; before a superset's next round, the first member's, above it.
-    func restRow(of rest: WorkoutPhase.Resting, in workout: LoggedWorkout) -> RoutineExercise.ID? {
-        rest.isBack ? LiveWorkout(routine: routine, workout: workout).currentSet?.row : rest.set.row
+    /// The row a rest between exercises is drawn in, `loggedWorkout` holding the set it follows:
+    /// the row left, under its label; before a superset's next round, the first member's, above it.
+    func restRow(of rest: WorkoutPhase.Resting, in loggedWorkout: LoggedWorkout)
+        -> RoutineExercise.ID?
+    {
+        rest.isBack
+            ? LiveWorkout(routine: routine, loggedWorkout: loggedWorkout).currentSet?.row
+            : rest.set.row
     }
 
     /// The rest between exercises as drawn: the row it is in, whether `above` the row's label, and
     /// the block, open once it shows; worked out once for all the rows. Nil with none drawn.
     func drawnRestBlock() -> DrawnRestBlock? {
         if let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .shown,
-           let (resting, workout) = drawnResting, let row = restRow(of: rest, in: workout)
+           let (resting, loggedWorkout) = drawnResting,
+           let row = restRow(of: rest, in: loggedWorkout)
         {
-            let (ends, pausedLeft) = Self.times(of: resting, on: workout, end: phase.drawnEnd)
+            let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
             let block = RestBlock(
                 stage: .open,
                 length: resting.length,
                 ends: ends,
                 pausedLeft: pausedLeft,
-                isPaused: workout.isPaused,
+                isPaused: loggedWorkout.isPaused,
             )
             return DrawnRestBlock(row: row, above: rest.isBack, block: block)
         }
         // Ended mid-rest, its room closes with the list showing the time it had.
-        if let (rest, workout) = phase.restLeft, !rest.isWithinExercise,
-           let row = restRow(of: rest, in: workout),
-           let left = LiveWorkout(routine: routine, workout: workout).rest(override: restOverride)
+        if let (rest, loggedWorkout) = phase.restLeft, !rest.isWithinExercise,
+           let row = restRow(of: rest, in: loggedWorkout),
+           let left = LiveWorkout(routine: routine, loggedWorkout: loggedWorkout)
+               .rest(override: restOverride)
         {
-            let (ends, pausedLeft) = Self.times(of: left, on: workout, stopped: true)
+            let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)
             let block = RestBlock(
                 stage: .none,
                 length: left.length,
@@ -286,14 +294,14 @@ extension RoutineScreen {
     /// second's roll as it went.
     static func times(
         of rest: WorkoutRest,
-        on workout: LoggedWorkout,
+        on loggedWorkout: LoggedWorkout,
         stopped: Bool = false,
         end: Date? = nil,
     ) -> (ends: Date, pausedLeft: Double?) {
-        let holds = stopped || end != nil || workout.isPaused || !workout.isInProgress
+        let holds = stopped || end != nil || loggedWorkout.isPaused || !loggedWorkout.isInProgress
         return (
-            workout.date(ofClock: rest.endClock),
-            holds ? rest.remaining(atClock: workout.clock(at: end ?? .now)) : nil,
+            loggedWorkout.date(ofClock: rest.endClock),
+            holds ? rest.remaining(atClock: loggedWorkout.clock(at: end ?? .now)) : nil,
         )
     }
 
@@ -306,10 +314,10 @@ extension RoutineScreen {
               (restOverride ?? gap) > 0
         else { return nil }
         if let within = phase.drawnRest, within.isWithinExercise, within.beat >= .shown,
-           let (resting, workout) = drawnResting
+           let (resting, loggedWorkout) = drawnResting
         {
             let isOver = within.beat == .returning
-            let (ends, pausedLeft) = Self.times(of: resting, on: workout, end: phase.drawnEnd)
+            let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
             return SetRest(
                 isRunning: !isOver,
                 length: resting.length,
@@ -317,7 +325,7 @@ extension RoutineScreen {
                 pausedLeft: pausedLeft,
                 isOver: isOver,
                 turns: within.beat == .settled,
-                isPaused: workout.isPaused,
+                isPaused: loggedWorkout.isPaused,
             )
         }
         return SetRest(isRunning: false, length: restOverride ?? gap)
@@ -353,8 +361,8 @@ extension RoutineScreen {
 
     /// What the rest's watch waits on: +15 s, a skip, a pause, or a resume starts it again.
     var restWatch: RestWatch? {
-        guard let resting, let workout = session.workout else { return nil }
-        return RestWatch(endClock: resting.endClock, isPaused: workout.isPaused)
+        guard let resting, let loggedWorkout = session.loggedWorkout else { return nil }
+        return RestWatch(endClock: resting.endClock, isPaused: loggedWorkout.isPaused)
     }
 
     /// Sleeps to the rest's end, then ends it; never while paused. A rest gone while the screen
@@ -364,8 +372,8 @@ extension RoutineScreen {
     func watchRest() async {
         guard isResting else { return }
         while let resting {
-            guard let workout = session.workout, !workout.isPaused else { return }
-            let left = resting.remaining(atClock: workout.clock(at: .now))
+            guard let loggedWorkout = session.loggedWorkout, !loggedWorkout.isPaused else { return }
+            let left = resting.remaining(atClock: loggedWorkout.clock(at: .now))
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }

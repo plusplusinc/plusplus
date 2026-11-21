@@ -11,7 +11,11 @@ struct LiveWorkoutTests {
     private func live(_ routine: Routine) -> LiveWorkout {
         LiveWorkout(
             routine: routine,
-            workout: LoggedWorkout(routineID: routine.id, routineName: "Upper", startedAt: start),
+            loggedWorkout: LoggedWorkout(
+                routineID: routine.id,
+                routineName: "Upper",
+                startedAt: start,
+            ),
         )
     }
 
@@ -20,7 +24,7 @@ struct LiveWorkoutTests {
         var logged = live
         for set in sets {
             let row = try #require(live.routine.exercises.first { $0.id == set.row })
-            logged.workout = logged.workout.logging(set, of: row, at: start)
+            logged.loggedWorkout = logged.loggedWorkout.logging(set, of: row, at: start)
         }
         return logged
     }

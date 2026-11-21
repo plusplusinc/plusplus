@@ -23,7 +23,7 @@ public actor RoutineStore {
     /// an untouched one is never saved and a cleared one is deleted. A weight never saved reads
     /// as its exercise's default in `weightUnit`.
     public func launch(weightUnit: WeightUnit) throws
-        -> (routine: Routine?, workout: LoggedWorkout?)
+        -> (routine: Routine?, loggedWorkout: LoggedWorkout?)
     {
         var inProgress = FetchDescriptor<StoredWorkout>(
             predicate: #Predicate { $0.endedAt == nil },
@@ -31,12 +31,12 @@ public actor RoutineStore {
         )
         inProgress.fetchLimit = 1
         if let current = try modelContext.fetch(inProgress).first {
-            let workout = current.workout
+            let loggedWorkout = current.loggedWorkout
             let exercises = try exercises()
-            let routine = try stored(id: workout.routineID)
+            let routine = try stored(id: loggedWorkout.routineID)
                 .map { Self.routine(from: $0, exercises: exercises, weightUnit: weightUnit) }
-                ?? Routine(id: workout.routineID, name: workout.routineName)
-            return (routine, workout)
+                ?? Routine(id: loggedWorkout.routineID, name: loggedWorkout.routineName)
+            return (routine, loggedWorkout)
         }
         // Picked here, as the list sorts, so launch opens the routine the list puts first.
         guard let latest = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
@@ -54,16 +54,16 @@ public actor RoutineStore {
 
     /// Saves the workout as it is now, every field. Once it has ended, its routine, if cleared
     /// to nothing while it ran, goes in the same save.
-    public func save(_ workout: LoggedWorkout) throws {
-        let target = try storedWorkout(id: workout.id) ?? {
-            let new = StoredWorkout(id: workout.id)
+    public func save(_ loggedWorkout: LoggedWorkout) throws {
+        let target = try storedWorkout(id: loggedWorkout.id) ?? {
+            let new = StoredWorkout(id: loggedWorkout.id)
             modelContext.insert(new)
             return new
         }()
-        target.write(workout)
-        writeSets(workout.sets, of: target)
-        if !workout.isInProgress {
-            try deleteIfCleared(routineID: workout.routineID)
+        target.write(loggedWorkout)
+        writeSets(loggedWorkout.sets, of: target)
+        if !loggedWorkout.isInProgress {
+            try deleteIfCleared(routineID: loggedWorkout.routineID)
         }
         try modelContext.save()
     }
@@ -71,8 +71,8 @@ public actor RoutineStore {
     /// Diffs the workout's stored sets against `sets` by id: a set gone is deleted, a new one
     /// inserted, and each written at its place in the order logged. A stored set this build
     /// can't read, never in `sets`, is kept rather than taken for one gone.
-    private func writeSets(_ sets: [LoggedSet], of workout: StoredWorkout) {
-        let old = workout.sets ?? []
+    private func writeSets(_ sets: [LoggedSet], of loggedWorkout: StoredWorkout) {
+        let old = loggedWorkout.sets ?? []
         let kept = Set(sets.map(\.id))
         for set in old where !kept.contains(set.id) && set.isReadable {
             modelContext.delete(set)
@@ -83,7 +83,7 @@ public actor RoutineStore {
             let stored = byID[set.id] ?? {
                 let new = StoredSet(id: set.id)
                 modelContext.insert(new)
-                new.workout = workout
+                new.workout = loggedWorkout
                 return new
             }()
             stored.write(set, position: position)
@@ -92,7 +92,7 @@ public actor RoutineStore {
 
     /// Deletes the workout, keeping nothing of it, its sets with it, and its routine if cleared to
     /// nothing while it ran, in one save; nothing if there is none.
-    public func discardWorkout(_ id: LoggedWorkout.ID) throws {
+    public func discardLoggedWorkout(_ id: LoggedWorkout.ID) throws {
         guard let stored = try storedWorkout(id: id) else { return }
         if let routineID = stored.routineID {
             try deleteIfCleared(routineID: routineID)
@@ -236,8 +236,8 @@ public actor RoutineStore {
         for routine in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
             modelContext.delete(routine)
         }
-        for workout in try modelContext.fetch(FetchDescriptor<StoredWorkout>()) {
-            modelContext.delete(workout)
+        for loggedWorkout in try modelContext.fetch(FetchDescriptor<StoredWorkout>()) {
+            modelContext.delete(loggedWorkout)
         }
         try modelContext.save()
     }

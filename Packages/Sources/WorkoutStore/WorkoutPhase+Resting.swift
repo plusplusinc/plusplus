@@ -49,7 +49,7 @@ extension WorkoutPhase {
         }
         self = .atRest(on: live.countStage(at: now))
         guard let rest = live.rest(override: restOverride),
-              !rest.isOver(atClock: live.workout.clock(at: now))
+              !rest.isOver(atClock: live.loggedWorkout.clock(at: now))
         else { return }
         let step = live.hiding([rest.after]).step(logging: rest.after)
         guard live.rests(after: rest.after, leadingTo: step, override: restOverride) else {
@@ -141,9 +141,9 @@ extension WorkoutPhase {
 
     /// As a workout ends, it as it was, until its time has faded: the time key's glass stays in
     /// the bar while the time fades out of it.
-    public var endingWorkout: LoggedWorkout? {
+    public var endingLoggedWorkout: LoggedWorkout? {
         guard case let .ending(ending) = self, ending.beat < .timeGone else { return nil }
-        return ending.workout
+        return ending.loggedWorkout
     }
 
     /// The rest under way, if one is.

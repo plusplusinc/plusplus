@@ -62,7 +62,7 @@ struct WorkoutKeyTests {
             let start = Date(timeIntervalSinceReferenceDate: 1000)
             var live = LiveWorkout(
                 routine: routine,
-                workout: LoggedWorkout(
+                loggedWorkout: LoggedWorkout(
                     routineID: routine.id,
                     routineName: "Upper",
                     startedAt: start,
@@ -70,7 +70,7 @@ struct WorkoutKeyTests {
             )
             for _ in 0 ..< count {
                 guard let set = live.currentSet, let row = live.currentExercise else { break }
-                live.workout = live.workout.logging(set, of: row, at: start)
+                live.loggedWorkout = live.loggedWorkout.logging(set, of: row, at: start)
             }
             return live
         }
@@ -194,7 +194,7 @@ struct WorkoutKeyTests {
     /// As a workout ends: the stored workout gone, the key keeps the words drawn.
     private static func ending(_ on: Seed) -> [Row] {
         var phase = WorkoutPhase.running
-        phase.end(on.live(logged: 1).workout)
+        phase.end(on.live(logged: 1).loggedWorkout)
         return [
             Row(
                 "Ending: the words drawn, a tap Start's",

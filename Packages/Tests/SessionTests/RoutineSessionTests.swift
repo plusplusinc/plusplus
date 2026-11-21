@@ -133,14 +133,14 @@ struct RoutineSessionTests {
         let routine = try Self.upper()
         let session = session(routine)
         session.start(on: routine.id, at: Self.at(10))
-        let first = try #require(session.workout)
+        let first = try #require(session.loggedWorkout)
         await session.writesLanded()
         session.finish(at: Self.at(20))
         session.start(on: routine.id, at: Self.at(30))
-        let second = try #require(session.workout)
+        let second = try #require(session.loggedWorkout)
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
-            .map(\.workout)
+            .map(\.loggedWorkout)
         #expect(stored.first { $0.id == first.id }?.endedAt == Self.at(20))
         #expect(stored.first { $0.id == second.id }?.isInProgress == true)
     }
@@ -152,17 +152,17 @@ struct RoutineSessionTests {
         let session = session(routine)
         session.start(on: routine.id)
         let generated = try #require(RoutineNamer.muscleGroupsOnly.shownName(of: routine))
-        #expect(session.workout?.routineName == generated)
+        #expect(session.loggedWorkout?.routineName == generated)
         routine.name = "Push day"
         session.save(routine)
         session.finish()
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
-        #expect(stored.map(\.workout.routineName) == ["Push day"])
+        #expect(stored.map(\.loggedWorkout.routineName) == ["Push day"])
     }
 
     @Test("A routine emptied during a workout is kept until the workout ends, then deleted")
-    func emptiedDuringWorkout() async throws {
+    func emptiedDuringLiveWorkout() async throws {
         let routine = try Self.upper()
         let session = session(routine)
         session.save(routine)
@@ -194,13 +194,13 @@ struct RoutineSessionTests {
         for step in steps {
             step.change()
             await session.writesLanded()
-            let relaunched = try await relaunch().launch(weightUnit: .pounds).workout
-            #expect(relaunched == session.workout, "after \(step.name)")
+            let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
+            #expect(relaunched == session.loggedWorkout, "after \(step.name)")
         }
-        #expect(session.workout == nil)
+        #expect(session.loggedWorkout == nil)
         // Of the two workouts, only the finished one is kept.
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
-        #expect(stored.map(\.workout.startedAt) == [Self.at(10)])
+        #expect(stored.map(\.loggedWorkout.startedAt) == [Self.at(10)])
     }
 
     @Test("Start pressed on a routine with no exercises starts nothing")
@@ -209,18 +209,18 @@ struct RoutineSessionTests {
         let session = session(routine)
         #expect(!session.canStart(on: routine.id))
         session.start(on: routine.id)
-        #expect(session.workout == nil)
+        #expect(session.loggedWorkout == nil)
         await session.writesLanded()
-        #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
+        #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == nil)
     }
 
     @Test("Start pressed on a routine since switched away from starts nothing")
     func startOnAnotherRoutine() async throws {
         let session = try session(Self.upper())
         session.start(on: Routine().id)
-        #expect(session.workout == nil)
+        #expect(session.loggedWorkout == nil)
         await session.writesLanded()
-        #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
+        #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == nil)
     }
 
     @Test("Start pressed on a routine while a switch away from it is under way starts nothing")
@@ -244,15 +244,15 @@ struct RoutineSessionTests {
         }
         #expect(!session.canStart(on: routine.id))
         session.start(on: routine.id)
-        #expect(session.workout == nil)
+        #expect(session.loggedWorkout == nil)
         releaseRead.yield()
         await switching.value
         #expect(session.current == other)
-        #expect(session.workout == nil)
+        #expect(session.loggedWorkout == nil)
     }
 
     @Test("The drawer opens with no workout, and stays shut while one runs, whoever opens it")
-    func drawerLockedInWorkout() throws {
+    func drawerLockedInLiveWorkout() throws {
         let routine = try Self.upper()
         let session = session(routine)
         session.openDrawer()
@@ -273,7 +273,7 @@ struct RoutineSessionTests {
         let set = PlannedSet(row: row.id, round: 1)
         session.log(set, of: row)
         await session.writesLanded()
-        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
         #expect(stored.sets.map(\.planned) == [set])
         #expect(stored.sets.first?.target == row.plan.target)
         #expect(stored.sets.first?.weight == row.shownWeight)

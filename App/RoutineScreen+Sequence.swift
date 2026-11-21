@@ -52,7 +52,7 @@ extension RoutineScreen {
             startDrop = 0
             growthLift = 0
             underBarCut = 0
-            if session.workout == nil {
+            if session.loggedWorkout == nil {
                 // Start pressed and stopped before the workout began: nothing has changed.
                 isMakingRoom = false
             }

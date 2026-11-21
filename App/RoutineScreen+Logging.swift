@@ -7,15 +7,16 @@ import WorkoutStore
 extension RoutineScreen {
     /// The workout on the routine as stored, every log in it: what the key's taps read.
     var live: LiveWorkout? {
-        session.workout.map { LiveWorkout(routine: routine, workout: $0) }
+        session.loggedWorkout.map { LiveWorkout(routine: routine, loggedWorkout: $0) }
     }
 
     /// The workout as the screen draws it: `live`, or as End took it from the store until the
-    /// list leaves it (`WorkoutPhase.drawnWorkout`), less the sets logged and not yet shown
+    /// list leaves it (`WorkoutPhase.drawnLoggedWorkout`), less the sets logged and not yet shown
     /// (`WorkoutPhase.hidden`). Everything drawn reads it.
     var shown: LiveWorkout? {
-        let workout = session.workout ?? phase.drawnWorkout
-        return workout.map { LiveWorkout(routine: routine, workout: $0) }?.hiding(phase.hidden)
+        let loggedWorkout = session.loggedWorkout ?? phase.drawnLoggedWorkout
+        return loggedWorkout
+            .map { LiveWorkout(routine: routine, loggedWorkout: $0).hiding(phase.hidden) }
     }
 
     /// While a step to another exercise, or past the last set, plays: rows' heights are

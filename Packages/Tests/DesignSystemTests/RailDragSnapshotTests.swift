@@ -211,7 +211,7 @@ struct RailDragSnapshotTests {
 
     /// A workout's rows, the first the current exercise, its node centered on its large name, well
     /// down the row.
-    private static let workoutRows = [
+    private static let liveWorkoutRows = [
         Row(
             title: "Forward arm circles",
             detail: ["3 × 30s"],
@@ -228,7 +228,7 @@ struct RailDragSnapshotTests {
     /// (`liftedInPlace`), inside the screen, and starts above its name, not at the row's top.
     @Test("The current exercise held lifts into a plain row's card, inside the screen")
     func currentLifted() {
-        let rows = Self.workoutRows
+        let rows = Self.liveWorkoutRows
         let own = RailSlot.before(rows[1].id)
         assertThemedSnapshots(
             of: rail(rows, lifting: 0, origin: own, over: own, offset: 8, current: rows[0].id),
@@ -239,7 +239,7 @@ struct RailDragSnapshotTests {
     /// With no plain row on the rail to read a plain row's node from, the card is shaped as one.
     @Test("The current exercise alone in its routine lifts into a plain row's card")
     func currentAloneLifted() {
-        let one = [Self.workoutRows[0]]
+        let one = [Self.liveWorkoutRows[0]]
         assertThemedSnapshots(
             of: rail(one, lifting: 0, origin: .end, over: .end, offset: 6, current: one[0].id),
             width: Self.screenWidth,
@@ -249,7 +249,7 @@ struct RailDragSnapshotTests {
     /// In a superset, the card's corners and sides sit inside its well as a plain row's do.
     @Test("The current exercise held in a superset, its card inside the well")
     func currentLiftedInSuperset() {
-        let rows = Self.workoutRows
+        let rows = Self.liveWorkoutRows
         let own = RailSlot.before(rows[1].id, joining: .below)
         assertThemedSnapshots(
             of: rail(

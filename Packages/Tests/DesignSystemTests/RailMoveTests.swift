@@ -15,7 +15,7 @@ import UIKit
 @Suite("Rail moves on")
 struct RailMoveTests {
     @Observable
-    final class LoggedWorkout {
+    final class LiveWorkout {
         var current = 0
         var isMoving = false
     }
@@ -26,7 +26,7 @@ struct RailMoveTests {
     }
 
     private struct Host: View {
-        let workout: LoggedWorkout
+        let liveWorkout: LiveWorkout
         private let rows = [
             Row(id: 0, title: "Goblet squat"),
             Row(id: 1, title: "Reverse lunge"),
@@ -34,10 +34,15 @@ struct RailMoveTests {
         ]
 
         var body: some View {
-            Rail(rows, links: [0], current: workout.current, isMoving: workout.isMoving) { row in
+            Rail(
+                rows,
+                links: [0],
+                current: liveWorkout.current,
+                isMoving: liveWorkout.isMoving,
+            ) { row in
                 RowLabel(title: row.title, detail: ["3 × 10 reps"])
                     // As the routine screen gives the current exercise (`currentTopSpace`).
-                    .padding(.top, row.id == workout.current ? 24 : 0)
+                    .padding(.top, row.id == liveWorkout.current ? 24 : 0)
                     .railRow()
             } end: {
                 EmptyView()
@@ -134,10 +139,10 @@ struct RailMoveTests {
         arguments: [(from: 0, to: 1), (from: 1, to: 0)],
     )
     func unbroken(way: (from: Int, to: Int)) throws {
-        let workout = LoggedWorkout()
-        workout.current = way.from
+        let liveWorkout = LiveWorkout()
+        liveWorkout.current = way.from
         let window = UIWindow.sceneless(
-            hosting: UIHostingController(rootView: Host(workout: workout)),
+            hosting: UIHostingController(rootView: Host(liveWorkout: liveWorkout)),
             at: .large,
         )
         window.overrideUserInterfaceStyle = .dark
@@ -146,10 +151,10 @@ struct RailMoveTests {
 
         let frames = Frames(window: window)
         let link = CADisplayLink(target: frames, selector: #selector(Frames.frame(_:)))
-        workout.isMoving = true
+        liveWorkout.isMoving = true
         window.settle()
         withAnimation(.linear(duration: 0.4)) {
-            workout.current = way.to
+            liveWorkout.current = way.to
         }
         link.add(to: .main, forMode: .common)
         defer { link.invalidate() }

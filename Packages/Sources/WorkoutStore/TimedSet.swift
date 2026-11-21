@@ -83,7 +83,7 @@ extension LiveWorkout {
     /// The count begun for the current set: nil for a reps set, with none begun, or one begun
     /// for another set.
     public var timedSet: TimedSet? {
-        guard let count = workout.count, count.set == currentSet,
+        guard let count = loggedWorkout.count, count.set == currentSet,
               let row = currentExercise, case let .time(seconds) = row.plan.target
         else { return nil }
         return TimedSet(
@@ -97,12 +97,12 @@ extension LiveWorkout {
     /// Where the current set's count stands at `now`: nil with none.
     public func countStage(at now: Date) -> CountStage? {
         guard let timed = timedSet else { return nil }
-        return timed.startsIn(atClock: workout.clock(at: now)) > 0 ? .startsIn : .counting
+        return timed.startsIn(atClock: loggedWorkout.clock(at: now)) > 0 ? .startsIn : .counting
     }
 
     /// The count `set` stopped at as it was logged: nil for a set not logged, or not timed.
     public func loggedCount(of set: PlannedSet) -> LoggedCount? {
-        guard let logged = workout.sets.last(where: { $0.planned == set }),
+        guard let logged = loggedWorkout.sets.last(where: { $0.planned == set }),
               case let .time(done) = logged.target,
               case let .time(planned) = logged.plannedTarget
         else { return nil }
@@ -121,11 +121,11 @@ extension LiveWorkout {
     /// never comes back with its old start; the rest of the workout is unchanged while the rest
     /// before the set runs.
     public func beginningCount(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
-        guard workout.isInProgress, timedSet == nil else { return workout }
-        var begun = workout
+        guard loggedWorkout.isInProgress, timedSet == nil else { return loggedWorkout }
+        var begun = loggedWorkout
         begun.count = nil
         guard let set = currentSet, isOnTimedSet else { return begun }
-        let clock = workout.clock(at: now)
+        let clock = loggedWorkout.clock(at: now)
         var start = clock + Double(Self.startsIn)
         if let rest = rest(override: restOverride) {
             guard rest.isOver(atClock: clock) else { return begun }
@@ -147,15 +147,15 @@ extension LiveWorkout {
     /// set's count is not begun here: with no rest before it, its "Starts in" begins as the
     /// screen lands on it, so its ten seconds are all seen (`beginningCount(at:restOverride:)`).
     public func logging(_ set: PlannedSet, of row: RoutineExercise, at now: Date) -> LoggedWorkout {
-        let clock = workout.clock(at: now)
+        let clock = loggedWorkout.clock(at: now)
         let timed = timedSet.flatMap { $0.set == set ? $0 : nil }
         let endClock = timed.flatMap { $0.isOver(atClock: clock) ? $0.endClock : nil }
-        var logged = workout.logging(
+        var logged = loggedWorkout.logging(
             set,
             of: row,
-            at: endClock.map(workout.date(ofClock:)) ?? now,
+            at: endClock.map(loggedWorkout.date(ofClock:)) ?? now,
         )
-        guard logged.sets.count > workout.sets.count else { return workout }
+        guard logged.sets.count > loggedWorkout.sets.count else { return loggedWorkout }
         if let timed {
             let last = logged.sets.count - 1
             logged.sets[last].target = .time(seconds: timed.done(atClock: clock))
@@ -175,17 +175,17 @@ extension LiveWorkout {
     /// as the pause began, where its count stopped, so its time of day and its clock agree.
     public func finishing(at now: Date) -> LoggedWorkout {
         guard countStage(at: now) == .counting, let timed = timedSet, let row = currentExercise
-        else { return workout.finishing(at: now) }
-        return logging(timed.set, of: row, at: workout.pausedAt ?? now).finishing(at: now)
+        else { return loggedWorkout.finishing(at: now) }
+        return logging(timed.set, of: row, at: loggedWorkout.pausedAt ?? now).finishing(at: now)
     }
 
     /// The workout with "Starts in" cut short at `now`: the set counts from now. Unchanged
     /// outside "Starts in".
     public func startingCountNow(at now: Date) -> LoggedWorkout {
-        let clock = workout.clock(at: now)
-        guard workout.isInProgress, let timed = timedSet, timed.startsIn(atClock: clock) > 0
-        else { return workout }
-        var started = workout
+        let clock = loggedWorkout.clock(at: now)
+        guard loggedWorkout.isInProgress, let timed = timedSet, timed.startsIn(atClock: clock) > 0
+        else { return loggedWorkout }
+        var started = loggedWorkout
         started.count?.startClock = clock
         return started
     }
@@ -193,11 +193,11 @@ extension LiveWorkout {
     /// The workout with `seconds` added to the set counting, as a +15 s tap does. Unchanged
     /// during "Starts in" or once over, so a tap landing as it ends brings nothing back.
     public func extendingCount(by seconds: Int, at now: Date) -> LoggedWorkout {
-        let clock = workout.clock(at: now)
-        guard workout.isInProgress, let timed = timedSet, timed.startsIn(atClock: clock) == 0,
+        let clock = loggedWorkout.clock(at: now)
+        guard loggedWorkout.isInProgress, let timed = timedSet, timed.startsIn(atClock: clock) == 0,
               !timed.isOver(atClock: clock)
-        else { return workout }
-        var extended = workout
+        else { return loggedWorkout }
+        var extended = loggedWorkout
         extended.count?.added += seconds
         return extended
     }
@@ -206,10 +206,13 @@ extension LiveWorkout {
     /// logged at its full time, then the next set's count begun. One set, never a chain.
     public func caughtUp(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
         var live = self
-        if let timed = timedSet, timed.isOver(atClock: workout.clock(at: now)),
+        if let timed = timedSet, timed.isOver(atClock: loggedWorkout.clock(at: now)),
            let row = currentExercise
         {
-            live = LiveWorkout(routine: routine, workout: logging(timed.set, of: row, at: now))
+            live = LiveWorkout(
+                routine: routine,
+                loggedWorkout: logging(timed.set, of: row, at: now),
+            )
         }
         return live.beginningCount(at: now, restOverride: restOverride)
     }

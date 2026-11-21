@@ -69,7 +69,7 @@ extension LiveWorkout {
     /// caller's, at its moment. `override`, for the UI tests, replaces every rest's length where
     /// the routine has one, never where it has none, as between a set's sides.
     public func rest(override: Int? = nil) -> WorkoutRest? {
-        guard let last = workout.sets.last, let start = last.clockWhenLogged,
+        guard let last = loggedWorkout.sets.last, let start = last.clockWhenLogged,
               let next = currentSet
         else { return nil }
         let stored = routine.rest(after: last.planned, before: next)
@@ -91,10 +91,10 @@ extension LiveWorkout {
         override: Int? = nil,
         at now: Date,
     ) -> LoggedWorkout {
-        guard workout.isInProgress, let rest = rest(override: override),
-              !rest.isOver(atClock: workout.clock(at: now))
-        else { return workout }
-        var extended = workout
+        guard loggedWorkout.isInProgress, let rest = rest(override: override),
+              !rest.isOver(atClock: loggedWorkout.clock(at: now))
+        else { return loggedWorkout }
+        var extended = loggedWorkout
         extended.sets[extended.sets.count - 1].restAdjustment += seconds
         return extended
     }
@@ -104,14 +104,14 @@ extension LiveWorkout {
     /// stored adjustment holds the rest taken; a timed set next counts from the tap. Unchanged
     /// with no rest running, or once it is over.
     public func skippingRest(override: Int? = nil, at now: Date) -> LoggedWorkout {
-        let clock = workout.clock(at: now)
-        guard workout.isInProgress, let rest = rest(override: override),
+        let clock = loggedWorkout.clock(at: now)
+        guard loggedWorkout.isInProgress, let rest = rest(override: override),
               !rest.isOver(atClock: clock)
-        else { return workout }
-        var skipped = workout
+        else { return loggedWorkout }
+        var skipped = loggedWorkout
         let rested = Int((clock - rest.startClock).rounded(.down))
         skipped.sets[skipped.sets.count - 1].restAdjustment += rested - rest.length
-        let next = LiveWorkout(routine: routine, workout: skipped)
+        let next = LiveWorkout(routine: routine, loggedWorkout: skipped)
         if next.isOnTimedSet, let set = next.currentSet {
             skipped.count = SetCount(set: set, startClock: clock)
         }

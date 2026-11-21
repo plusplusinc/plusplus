@@ -45,12 +45,16 @@ struct WorkoutRestTests {
         logged count: Int,
         every: Double = 10,
     ) throws -> LiveWorkout {
-        var workout = LoggedWorkout(routineID: routine.id, routineName: "Test", startedAt: start)
+        var loggedWorkout = LoggedWorkout(
+            routineID: routine.id,
+            routineName: "Test",
+            startedAt: start,
+        )
         for (index, set) in routine.setOrder.prefix(count).enumerated() {
             let row = try #require(routine.exercises.first { $0.id == set.row })
-            workout = workout.logging(set, of: row, at: at(Double(index + 1) * every))
+            loggedWorkout = loggedWorkout.logging(set, of: row, at: at(Double(index + 1) * every))
         }
-        return LiveWorkout(routine: routine, workout: workout)
+        return LiveWorkout(routine: routine, loggedWorkout: loggedWorkout)
     }
 
     /// The rest between each set of `routine` and the next, in order, as the routine stores it.
@@ -84,18 +88,18 @@ struct WorkoutRestTests {
         #expect(routine.restBetweenSets(of: routine.exercises[0].id) == nil)
         let live = try Self.live(routine, logged: 1)
         #expect(live.rest() == nil)
-        #expect(!live.rests(after: live.workout.sets[0].planned, leadingTo: .nextSet))
+        #expect(!live.rests(after: live.loggedWorkout.sets[0].planned, leadingTo: .nextSet))
         let round = try Self.live(Self.superset(round: 0), logged: 2)
-        let step = round.hiding([round.workout.sets[1].planned])
-            .step(logging: round.workout.sets[1].planned)
+        let step = round.hiding([round.loggedWorkout.sets[1].planned])
+            .step(logging: round.loggedWorkout.sets[1].planned)
         #expect(round.rest() == nil)
-        #expect(!round.rests(after: round.workout.sets[1].planned, leadingTo: step))
+        #expect(!round.rests(after: round.loggedWorkout.sets[1].planned, leadingTo: step))
     }
 
     @Test("A log rests where a rest follows it: between sets, down the rail, back up a round")
     func logRests() throws {
         func rests(_ live: LiveWorkout) -> Bool {
-            let last = live.workout.sets[live.workout.sets.count - 1].planned
+            let last = live.loggedWorkout.sets[live.loggedWorkout.sets.count - 1].planned
             return live.rests(after: last, leadingTo: live.hiding([last]).step(logging: last))
         }
         let plain = try Self.plain()
@@ -116,37 +120,37 @@ struct WorkoutRestTests {
         let rest = try #require(live.rest())
         #expect(rest.length == 90)
         // Logged 10 s in: 85 s left at 15 s, as a return from the background reads it.
-        #expect(rest.remaining(atClock: live.workout.clock(at: Self.at(15))) == 85)
-        #expect(!rest.isOver(atClock: live.workout.clock(at: Self.at(99))))
-        #expect(rest.isOver(atClock: live.workout.clock(at: Self.at(100))))
-        #expect(rest.remaining(atClock: live.workout.clock(at: Self.at(500))) == 0)
+        #expect(rest.remaining(atClock: live.loggedWorkout.clock(at: Self.at(15))) == 85)
+        #expect(!rest.isOver(atClock: live.loggedWorkout.clock(at: Self.at(99))))
+        #expect(rest.isOver(atClock: live.loggedWorkout.clock(at: Self.at(100))))
+        #expect(rest.remaining(atClock: live.loggedWorkout.clock(at: Self.at(500))) == 0)
     }
 
     @Test("A pause stops the rest's time; a resume carries on from where it stopped")
     func pauseAndResume() throws {
         var live = try Self.live(Self.plain(), logged: 1)
         let rest = try #require(live.rest())
-        live.workout = live.workout.pausing(at: Self.at(40))
-        #expect(rest.remaining(atClock: live.workout.clock(at: Self.at(40))) == 60)
-        #expect(rest.remaining(atClock: live.workout.clock(at: Self.at(400))) == 60)
-        live.workout = live.workout.resuming(at: Self.at(400))
-        #expect(rest.remaining(atClock: live.workout.clock(at: Self.at(410))) == 50)
+        live.loggedWorkout = live.loggedWorkout.pausing(at: Self.at(40))
+        #expect(rest.remaining(atClock: live.loggedWorkout.clock(at: Self.at(40))) == 60)
+        #expect(rest.remaining(atClock: live.loggedWorkout.clock(at: Self.at(400))) == 60)
+        live.loggedWorkout = live.loggedWorkout.resuming(at: Self.at(400))
+        #expect(rest.remaining(atClock: live.loggedWorkout.clock(at: Self.at(410))) == 50)
     }
 
     @Test("+15 s adds 15 seconds, twice 30; Skip rest ends the rest at the tap, its whole seconds")
     func plusAndSkip() throws {
         var live = try Self.live(Self.plain(), logged: 1)
-        live.workout = live.extendingRest(by: 15, at: Self.at(20))
+        live.loggedWorkout = live.extendingRest(by: 15, at: Self.at(20))
         #expect(live.rest()?.length == 105)
-        live.workout = live.extendingRest(by: 15, at: Self.at(25))
+        live.loggedWorkout = live.extendingRest(by: 15, at: Self.at(25))
         #expect(live.rest()?.length == 120)
         // Logged at 10 s, skipped 70.6 s into its rest: its length the 70 whole seconds rested.
-        live.workout = live.skippingRest(at: Self.at(80.6))
+        live.loggedWorkout = live.skippingRest(at: Self.at(80.6))
         let ended = try #require(live.rest())
         #expect(ended.length == 70)
-        #expect(ended.isOver(atClock: live.workout.clock(at: Self.at(80.6))))
+        #expect(ended.isOver(atClock: live.loggedWorkout.clock(at: Self.at(80.6))))
         // Once it is over, +15 s or Skip rest changes nothing.
-        let over = live.workout
+        let over = live.loggedWorkout
         #expect(live.extendingRest(by: 15, at: Self.at(80.6)) == over)
         #expect(live.skippingRest(at: Self.at(81)) == over)
     }
@@ -158,12 +162,12 @@ struct WorkoutRestTests {
         // Bench press's 3 sets, then the split squat's first side: none between its sides.
         let sides = try Self.live(Self.plain(), logged: 4)
         #expect(sides.rest() == nil)
-        #expect(sides.extendingRest(by: 15, at: Self.at(45)) == sides.workout)
-        #expect(sides.skippingRest(at: Self.at(45)) == sides.workout)
+        #expect(sides.extendingRest(by: 15, at: Self.at(45)) == sides.loggedWorkout)
+        #expect(sides.skippingRest(at: Self.at(45)) == sides.loggedWorkout)
         var ended = try Self.live(Self.plain(), logged: 1)
-        ended.workout = ended.workout.finishing(at: Self.at(12))
-        #expect(ended.extendingRest(by: 15, at: Self.at(13)) == ended.workout)
-        #expect(ended.skippingRest(at: Self.at(13)) == ended.workout)
+        ended.loggedWorkout = ended.loggedWorkout.finishing(at: Self.at(12))
+        #expect(ended.extendingRest(by: 15, at: Self.at(13)) == ended.loggedWorkout)
+        #expect(ended.skippingRest(at: Self.at(13)) == ended.loggedWorkout)
     }
 
     @Test("A screen opens in the rest running, settled: between sets, or between exercises")
@@ -189,11 +193,11 @@ struct WorkoutRestTests {
         #expect(WorkoutPhase(resuming: live, at: Self.at(100)) == .running)
         // Skipped, it opens on the next set at once, not in the rest's 60 s left.
         var skipped = live
-        skipped.workout = live.skippingRest(at: Self.at(40))
+        skipped.loggedWorkout = live.skippingRest(at: Self.at(40))
         #expect(WorkoutPhase(resuming: skipped, at: Self.at(40.5)) == .running)
         // Paused past its end on the wall clock, the rest still runs.
         var paused = live
-        paused.workout = paused.workout.pausing(at: Self.at(20))
+        paused.loggedWorkout = paused.loggedWorkout.pausing(at: Self.at(20))
         #expect(WorkoutPhase(resuming: paused, at: Self.at(500)).resting != nil)
         // After a log with no rest after it, as a set's first side.
         #expect(try WorkoutPhase(resuming: Self.live(Self.plain(), logged: 4), at: Self.at(41))
@@ -204,7 +208,7 @@ struct WorkoutRestTests {
     @Test("A set logged before its clock was kept rests for none")
     func noClockNoRest() throws {
         var live = try Self.live(Self.plain(), logged: 1)
-        live.workout.sets[0].clockWhenLogged = nil
+        live.loggedWorkout.sets[0].clockWhenLogged = nil
         #expect(live.rest() == nil)
         #expect(WorkoutPhase(resuming: live, at: Self.at(11)) == .running)
     }

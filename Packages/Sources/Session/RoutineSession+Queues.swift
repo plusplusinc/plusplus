@@ -40,7 +40,7 @@ extension RoutineSession {
         return (continuation, task)
     }
 
-    static func startWritingWorkouts(
+    static func startWritingLoggedWorkouts(
         to store: RoutineStore?,
     ) -> AsyncStream<LoggedWorkoutQueueEntry>.Continuation {
         let (stream, continuation) = AsyncStream.makeStream(
@@ -51,12 +51,12 @@ extension RoutineSession {
             for await entry in stream {
                 do {
                     switch entry {
-                    case let .write(.save(workout)): try await store?.save(workout)
-                    case let .write(.discard(id)): try await store?.discardWorkout(id)
+                    case let .write(.save(loggedWorkout)): try await store?.save(loggedWorkout)
+                    case let .write(.discard(id)): try await store?.discardLoggedWorkout(id)
                     case let .landed(done): done.resume()
                     }
                 } catch {
-                    Logger.session.error("The workout didn't save: \(error)")
+                    Logger.session.error("The logged workout didn't save: \(error)")
                 }
             }
         }

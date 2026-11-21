@@ -18,10 +18,10 @@ extension RoutineScreen {
         }
         // One item, its key changing in a crossfade: the bar put one in or took one out on
         // the frame.
-        if session.workout != nil || !isPushed {
+        if session.loggedWorkout != nil || !isPushed {
             ToolbarItem(placement: .topBarLeading) {
                 ZStack {
-                    if session.workout != nil {
+                    if session.loggedWorkout != nil {
                         EndButton { isConfirmingEnd = true }
                             .transition(.opacity)
                     } else {
@@ -29,7 +29,7 @@ extension RoutineScreen {
                             .transition(.opacity)
                     }
                 }
-                .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
+                .animation(.easeOut(duration: Self.barFade), value: session.loggedWorkout == nil)
             }
         }
         // One item, as leading's: ••• outside a workout and its time during one, crossfading
@@ -37,7 +37,7 @@ extension RoutineScreen {
         // and only faded its glass. The glass changes size on the frame: it grows at Start
         // before the crossfade, and shrinks at End once the time has faded out.
         ToolbarItem(placement: .topBarTrailing) {
-            let timed = session.workout ?? phase.endingWorkout
+            let timed = session.loggedWorkout ?? phase.endingLoggedWorkout
             // Trailing, where ••• sits in its own glass, so it holds still as the glass changes.
             ZStack(alignment: .trailing) {
                 // Always there, faded rather than put in or taken out. While the item holds only
@@ -48,16 +48,16 @@ extension RoutineScreen {
                 // where it sat before the glass grew.
                 moreMenu
                     .fixedSize()
-                    .opacity(session.workout == nil ? 1 : 0)
+                    .opacity(session.loggedWorkout == nil ? 1 : 0)
                     .allowsHitTesting(timed == nil)
                     .accessibilityShown(timed == nil)
                 if let timed {
-                    WorkoutTimeKey(session: session, workout: timed)
-                        .opacity(session.workout == nil ? 0 : 1)
+                    WorkoutTimeKey(session: session, loggedWorkout: timed)
+                        .opacity(session.loggedWorkout == nil ? 0 : 1)
                         .transition(.opacity)
                 }
             }
-            .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
+            .animation(.easeOut(duration: Self.barFade), value: session.loggedWorkout == nil)
             .animation(.easeOut(duration: Self.barFade), value: timed == nil)
         }
     }

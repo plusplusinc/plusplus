@@ -8,18 +8,18 @@ typealias StoredSet = RoutineSchemaV12.StoredSet
 extension StoredWorkout {
     /// Writes every field, setting only those that differ, so an unchanged workout stays clean.
     /// Its sets are written by the store, which diffs them by id.
-    func write(_ workout: LoggedWorkout) {
-        update(\.routineID, to: workout.routineID)
-        update(\.routineName, to: workout.routineName)
-        update(\.startedAt, to: workout.startedAt)
-        update(\.pausedAt, to: workout.pausedAt)
-        update(\.pausedSeconds, to: workout.pausedSeconds)
-        update(\.endedAt, to: workout.endedAt)
-        update(\.countRowID, to: workout.count?.set.row)
-        update(\.countRound, to: workout.count?.set.round)
-        update(\.countSide, to: workout.count?.set.side?.rawValue)
-        update(\.countStartClock, to: workout.count?.startClock)
-        update(\.countAdded, to: workout.count?.added ?? 0)
+    func write(_ loggedWorkout: LoggedWorkout) {
+        update(\.routineID, to: loggedWorkout.routineID)
+        update(\.routineName, to: loggedWorkout.routineName)
+        update(\.startedAt, to: loggedWorkout.startedAt)
+        update(\.pausedAt, to: loggedWorkout.pausedAt)
+        update(\.pausedSeconds, to: loggedWorkout.pausedSeconds)
+        update(\.endedAt, to: loggedWorkout.endedAt)
+        update(\.countRowID, to: loggedWorkout.count?.set.row)
+        update(\.countRound, to: loggedWorkout.count?.set.round)
+        update(\.countSide, to: loggedWorkout.count?.set.side?.rawValue)
+        update(\.countStartClock, to: loggedWorkout.count?.startClock)
+        update(\.countAdded, to: loggedWorkout.count?.added ?? 0)
     }
 
     /// The count under way, when its row, round, and start clock are all stored.
@@ -34,7 +34,7 @@ extension StoredWorkout {
     }
 
     /// The workout, its sets in the order logged; a set it can't read is left out.
-    var workout: LoggedWorkout {
+    var loggedWorkout: LoggedWorkout {
         LoggedWorkout(
             id: id,
             routineID: routineID ?? UUID(),
