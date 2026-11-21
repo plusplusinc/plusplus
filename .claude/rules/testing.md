@@ -148,20 +148,20 @@ There is one UI test per launch configuration, split by feature where one test w
 UI test budget, each a series of named `XCTContext.runActivity` checks:
 `RenameUITests/testRenameAtDefaultSize`, `RowDragUITests/testDragAndDeleteRows` (the rows
 seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
-`RoutineAutosaveUITests/testRoutineSurvivesRelaunch`,
-`RoutineDrawerUITests/testDrawerSwitchesRoutines` (a routine seeded),
+`WorkoutAutosaveUITests/testWorkoutSurvivesRelaunch`,
+`WorkoutDrawerUITests/testDrawerSwitchesWorkouts` (a workout seeded),
 `LiveWorkoutUITests/testLiveWorkoutSurvivesRelaunch`, and
 `WorkoutFinishUITests/testFinishKeyKeepsTheWorkout` (one exercise of one set seeded). A new check joins the test for its launch only
 when it names what only the running app shows (G) and the lower test that holds the rest, sets
 its state up by launch argument, and keeps its test within the UI budget; otherwise it goes in
-a cheaper tier. Every test launches with `-resetStore YES`, so it starts from a new routine and
+a cheaper tier. Every test launches with `-resetStore YES`, so it starts from a new workout and
 not the one the last test saved, and with `-noUIKitAnimations YES`; the relaunch tests add
 `-fallbackNames YES`, muscle-group names, which a test can predict where the standard names
-follow the routine's fresh id; and `-seedExercises <id,id,…>` with `-seedName <name>` starts
-from a routine of those built-in exercises, `-seedSets <n>` giving each that many sets and
-`-seedWorkout <n>` opening a workout on it with its first `n` sets logged (all `LaunchOptions`,
-Debug only). A test that needs both a seeded routine and a new one launches into the seeded
-one and pushes the new one from Workouts (`openNewRoutine()`), not a second launch.
+follow the workout's fresh id; and `-seedExercises <id,id,…>` with `-seedName <name>` starts
+from a workout of those built-in exercises, `-seedSets <n>` giving each that many sets and
+`-seedWorkout <n>` starting it with its first `n` sets logged (all `LaunchOptions`,
+Debug only). A test that needs both a seeded workout and a new one launches into the seeded
+one and pushes the new one from Workouts (`openNewWorkout()`), not a second launch.
 With UIKit's animations off, the keyboard and sheets appear at once, and XCTest's wait for
 animations can't stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
 test that reads what one moves waits for its end state; an added row is in the accessibility

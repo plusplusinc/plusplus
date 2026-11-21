@@ -6,11 +6,11 @@ import XCTest
 /// below it, and Start's scroll to the top runs far.
 @MainActor
 extension TitleWrappingUITests {
-    /// Launches at this size into a routine of two rows joined, with four more for their
-    /// equipment, seeded, since adding is the later checks', and pushes it from the Routines
+    /// Launches at this size into a workout of two rows joined, with four more for their
+    /// equipment, seeded, since adding is the later checks', and pushes it from the Workouts
     /// screen: Start and a relaunch land on the current exercise, and a workout's bar, paused,
     /// and End's dialog pass the audit. Running, the bar differs only in its key's shorter
-    /// Pause. Leaves the routine showing, the workout discarded.
+    /// Pause. Leaves the workout showing, the logged workout discarded.
     func liveWorkoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
             .runActivity(named: "A workout at AX5 lands, and its bar passes the audit") { _ in
@@ -22,10 +22,10 @@ extension TitleWrappingUITests {
                     textSize: Self.largestTextSize,
                     arguments: ["-seedSuperset", "0,1"],
                 )
-                // Pushed from the Routines screen, with a back chevron in the bar for ++.
+                // Pushed from the Workouts screen, with a back chevron in the bar for ++.
                 app.openDrawer(andTap: "Workouts")
-                app.routineRows.firstMatch.tap()
-                XCTAssertTrue(app.buttons["Start"].appears(), "The routine opened no Start")
+                app.workoutRows.firstMatch.tap()
+                XCTAssertTrue(app.buttons["Start"].appears(), "The workout opened no Start")
                 app.buttons["Start"].tap()
                 let time = app.workoutTime
                 XCTAssertTrue(time.appears(within: 3), "Start began no workout")

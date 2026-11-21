@@ -10,7 +10,7 @@ import UIKit
 /// at a time on a frame clock, which is read once a frame. Read again by the update a step
 /// starts, it could give the next frame's date in the same frame, and the list stepped twice,
 /// which SwiftUI logs as an `onChange(of: Date)` fault. The fault only shows when that update
-/// runs long, as on the routine screen, so this counts the reads.
+/// runs long, as on the workout screen, so this counts the reads.
 ///
 /// The clock also has to keep going. One inserted as the list started stepping could stop after
 /// its first date, most often when the hold began about half a frame after the last, and the

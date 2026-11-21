@@ -5,12 +5,12 @@ import DesignSystem
 import SwiftUI
 import Testing
 
-/// A workout's rests on the rail, as the routine screen composes them, each held still
+/// A workout's rests on the rail, as the workout screen composes them, each held still
 /// (`pausedLeft`): before one, the current exercise saying the rest to follow; between two sets,
 /// the rest in the figures' place, nothing under its count, over Skip rest part filled with
 /// purple beside +15 s; between exercises, under the one done, the dot at its word, held at 0:18
 /// so the round "0" leads and shows whole; paused there, the count and Skip rest's fill gray;
-/// and in a superset with a round left, above its first member. With the routine list, a long
+/// and in a superset with a round left, above its first member. With the workout list, a long
 /// name on the lines it grows into.
 @Suite("Rests")
 struct RestSnapshotTests {
@@ -190,7 +190,7 @@ struct RestSnapshotTests {
         )
     }
 
-    @Test("A routine's list: a long name on the lines the current exercise's name breaks at")
+    @Test("A workout's list: a long name on the lines the current exercise's name breaks at")
     func wrappedNames() {
         let rows = [
             Row(title: "Cross-body shoulder stretch", detail: ["30s per side"]),

@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A superset's rest after each round, read and stepped through the routine, since every member
+/// A superset's rest after each round, read and stepped through the workout, since every member
 /// holds it.
 struct RoundSteps {
     let value: () -> (text: String, spoken: String)
@@ -19,17 +19,17 @@ struct RoundSteps {
     let change: String
 }
 
-/// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
+/// A workout row's values, a `ValueRow` for each part its exercise has, under the exercise's
 /// equipment. A row's stepper opens one at a time. Changes apply as they're made. The More menu
 /// holds Customize…, which pushes the exercise's Customize form inside the sheet (its back
 /// chevron returns to the sheet, the change showing), and Remove. Each opening starts afresh,
 /// on the row's values, even one asked for as the last sheet goes down; after Create, the new
 /// row's sheet opens with that form already pushed.
 struct ExerciseSheet<Customize: View>: View {
-    @Binding var item: RoutineExercise
+    @Binding var item: WorkoutExercise
     /// The names of the exercises in a superset with it, which share its round count, or nil.
     let partners: String?
-    /// The values it steps, in order (`Routine.sheetParts(of:)`).
+    /// The values it steps, in order (`Workout.sheetParts(of:)`).
     let parts: [SheetPart]
     /// Its superset's rest; nil for a plain row.
     var rounds: RoundSteps?
@@ -158,12 +158,12 @@ struct ExerciseSheet<Customize: View>: View {
             )
         case .plan(.target):
             guard case let .time(seconds) = item.plan.target else { return nil }
-            return timeRuler(seconds, range: RoutineExercise.timeRange) { item.setTime($0) }
+            return timeRuler(seconds, range: WorkoutExercise.timeRange) { item.setTime($0) }
         case .plan(.rest):
-            return timeRuler(item.rest, range: RoutineExercise.restRange) { item.setRest($0) }
+            return timeRuler(item.rest, range: WorkoutExercise.restRange) { item.setRest($0) }
         case .restAfterRound:
             return rounds.map { rounds in
-                timeRuler(Int(rounds.seconds()), range: RoutineExercise.restRange, set: rounds.set)
+                timeRuler(Int(rounds.seconds()), range: WorkoutExercise.restRange, set: rounds.set)
             }
         case .plan(.sets):
             return nil
@@ -187,11 +187,11 @@ struct ExerciseSheet<Customize: View>: View {
         return ValueRuler(
             value: Double(seconds),
             range: Double(range.lowerBound) ... Double(range.upperBound),
-            tick: Double(RoutineExercise.timeStep),
+            tick: Double(WorkoutExercise.timeStep),
             medium: 15,
             major: 30,
             spacing: Self.timeSpacing,
-            label: { RoutineExercise.rulerTime(Int($0), locale: locale) },
+            label: { WorkoutExercise.rulerTime(Int($0), locale: locale) },
             onChange: { set(Int($0.rounded())) },
         )
     }
@@ -219,7 +219,7 @@ struct ExerciseSheet<Customize: View>: View {
         case let .plan(plan) where dialed: return item.dialedValue(of: plan, locale: locale)
         case let .plan(plan): return item.value(of: plan, locale: locale)
         case .restAfterRound where dialed:
-            return RoutineExercise.dialedTime(Int(rounds?.seconds() ?? 0), locale: locale)
+            return WorkoutExercise.dialedTime(Int(rounds?.seconds() ?? 0), locale: locale)
         case .restAfterRound: return rounds?.value().text ?? ""
         }
     }
@@ -283,8 +283,8 @@ struct ExerciseSheet<Customize: View>: View {
         let change = rounds?.change ?? [item].restChange
         // A sentence, so its time reads condensed ("1 min 35 sec"), open or closed.
         let seconds = Int(number(of: part))
-        let time = RoutineExercise.restInSentence(seconds, locale: locale)
-        let spokenTime = RoutineExercise.restInSentence(seconds, spoken: true, locale: locale)
+        let time = WorkoutExercise.restInSentence(seconds, locale: locale)
+        let spokenTime = WorkoutExercise.restInSentence(seconds, spoken: true, locale: locale)
         let held = "Stays at \(time) when you change \(change)."
         let spokenHeld = "Stays at \(spokenTime) when you change \(change)."
         return ZStack(alignment: .topLeading) {

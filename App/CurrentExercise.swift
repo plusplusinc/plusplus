@@ -42,9 +42,9 @@ nonisolated struct CurrentPlace: Equatable {
 }
 
 extension CoordinateSpaceProtocol where Self == NamedCoordinateSpace {
-    /// The routine screen's list content, from its top, as a scroll position counts.
+    /// The workout screen's list content, from its top, as a scroll position counts.
     nonisolated static var list: NamedCoordinateSpace {
-        .named("RoutineScreen.list")
+        .named("WorkoutScreen.list")
     }
 }
 
@@ -84,7 +84,7 @@ extension View {
     }
 }
 
-extension RoutineExercise {
+extension WorkoutExercise {
     /// The row grown into the current exercise, on `set`.
     func focus(on set: PlannedSet, inSuperset: Bool, locale: Locale) -> RowFocus {
         RowFocus(

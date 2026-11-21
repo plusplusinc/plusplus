@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-/// Where a workout on the routine screen is in its sequence, and what a log shows in turn.
+/// Where a workout on the workout screen is in its sequence, and what a log shows in turn.
 @Suite("Workout phase")
 struct WorkoutPhaseTests {
     private static let row = UUID()
@@ -228,7 +228,7 @@ struct WorkoutPhaseTests {
         for phase in Self.everyPhase + Self.startAndEnd {
             for hasLiveWorkout in [false, true] {
                 var stopped = phase
-                let live = LiveWorkout(routine: Routine(), loggedWorkout: Self.loggedWorkout)
+                let live = LiveWorkout(workout: Workout(), loggedWorkout: Self.loggedWorkout)
                 stopped.settleAtOnce(
                     resuming: hasLiveWorkout ? live : nil,
                     restOverride: nil,

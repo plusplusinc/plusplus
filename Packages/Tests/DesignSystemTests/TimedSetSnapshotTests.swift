@@ -5,7 +5,7 @@ import DesignSystem
 import SwiftUI
 import Testing
 
-/// A timed set in a workout, the current exercise over the keys at the bottom, as the routine
+/// A timed set in a workout, the current exercise over the keys at the bottom, as the workout
 /// screen composes them, each held still (`pausedLeft`): "Starts in" over its count, the set's
 /// time at the caption line's end, over "Start now"; the set's own count where the figures stand,
 /// "then rest" at the line's end, over "Log early", gray, filling with purple from its leading

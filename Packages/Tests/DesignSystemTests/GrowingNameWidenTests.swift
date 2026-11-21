@@ -10,7 +10,7 @@ import UIKit
 /// at launch: a row's name, its lines last read at the narrow width (`GrowingName.LineBreaks`),
 /// is laid out at the new width at the height it keeps, so the list's scroll geometry reports
 /// one content height there, not a stale one and then the right one in the same frame. Two in a
-/// frame, the routine screen's reactions to its `ScrollExtent` were called twice and SwiftUI
+/// frame, the workout screen's reactions to its `ScrollExtent` were called twice and SwiftUI
 /// logged an `OnScrollGeometryChange` fault; hosted here, it reports the two heights but logs no
 /// fault, so the heights are what this checks.
 @MainActor

@@ -58,16 +58,16 @@ every heading present even when its answer is one line:
   and `docs/`.
 - **Tense** follows CLAUDE.md: a card is read before the work, during it, and after it, and
   every sentence has to be true whenever it is read.
-  - Problem describes today in the present tense: "Today a routine is a list of names." Any
+  - Problem describes today in the present tense: "Today a workout is a list of names." Any
     other present-tense sentence has to be just as true today.
-  - Plan is instructions: "Save a routine once anything in it changes."
+  - Plan is instructions: "Save a workout once anything in it changes."
   - Anything else the card will change says "will".
   - Acceptance criteria and Success are checks to run once the work is done, written as
     what someone does and what they should see: "Launch and leave without changing
     anything: nothing is saved."
   - Decisions say they were decided: "Decided: time will be a measure alongside reps."
 
-  "A routine autosaves to Routines only once something changed" reads as a fact about the app
+  "A workout autosaves to Workouts only once something changed" reads as a fact about the app
   today. On a card that hasn't been built, it is false.
 
 Pass the body on stdin, as a quoted heredoc: `scripts/board.sh add "<title>" <<'CARD'`. The card

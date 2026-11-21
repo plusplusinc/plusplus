@@ -144,7 +144,7 @@ public struct EditableTitle: View {
             } else {
                 // Only a tap that lands on the target starts the edit. SwiftUI hands the target
                 // a tap a few points below it too, which the screen takes as outside the title
-                // and acts on: on an empty routine Add exercise opened, and the deferred focus
+                // and acts on: on an empty workout Add exercise opened, and the deferred focus
                 // then raised the keyboard over it. The same rectangle, in window space, is
                 // `TitleFieldView.touchTargetInWindow`, which tells the screen a touch is on it.
                 touchTarget

@@ -113,7 +113,7 @@ struct CustomizationTests {
         #expect(exercise.defaultPlan(in: .pounds) == bench.defaultPlan(in: .pounds))
     }
 
-    @Test("A customized built-in keeps its tags, so a routine still names it for its movement")
+    @Test("A customized built-in keeps its tags, so a workout still names it for its movement")
     func keepsTags() throws {
         let bench = try Self.bench()
         let exercise = try Self.customized {

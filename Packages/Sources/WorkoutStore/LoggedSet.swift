@@ -5,8 +5,8 @@ import Foundation
 /// done.
 public struct LoggedSet: Identifiable, Equatable, Sendable {
     public let id: UUID
-    /// The routine row it was a set of.
-    public let row: RoutineExercise.ID
+    /// The workout row it was a set of.
+    public let row: WorkoutExercise.ID
     /// The exercise's `Exercise.id`, so the set still reads once its row is deleted.
     public let exerciseID: String
     /// The exercise's name when the set was logged, kept through a rename or a delete; nil for
@@ -25,7 +25,7 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
     /// where the rest after it starts. Nil for a set logged before V11 kept it, which rests for
     /// none.
     public var clockWhenLogged: Double?
-    /// The rest after this set against the routine's, in seconds: its +15 s taps, and a skip's cut
+    /// The rest after this set against the workout's, in seconds: its +15 s taps, and a skip's cut
     /// to the seconds rested (`LiveWorkout.skippingRest(override:at:)`).
     public var restAdjustment = 0
     /// The +15 s taps on this set's own count, a timed set's, in seconds.
@@ -33,7 +33,7 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
 
     public init(
         id: UUID = UUID(),
-        row: RoutineExercise.ID,
+        row: WorkoutExercise.ID,
         exerciseID: String,
         exerciseName: String?,
         round: Int,
@@ -57,7 +57,7 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
         self.loggedAt = loggedAt
     }
 
-    /// The set of the routine it was.
+    /// The set of the workout it was.
     public var planned: PlannedSet {
         PlannedSet(row: row, round: round, side: side)
     }

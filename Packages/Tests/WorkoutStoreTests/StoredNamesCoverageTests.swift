@@ -9,7 +9,7 @@ import Testing
 struct StoredNamesCoverageTests {
     @Test("Every schema version the migration plan opens is one the stored-names pin covers")
     func planMatchesPin() {
-        let opened = RoutineMigrationPlan.schemas.map { $0.versionIdentifier }
+        let opened = StoreMigrationPlan.schemas.map { $0.versionIdentifier }
         #expect(
             opened == (1 ... 12).map { Schema.Version($0, 0, 0) },
             "Pin the new version's names in StoredNamesTests, then add it here",

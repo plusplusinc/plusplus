@@ -36,7 +36,7 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   later; `scripts/sim.sh list` shows who holds them.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
 - Before an `axe` command, read `/run`'s notes on AXe (`.claude/skills/run/SKILL.md`): which
-  taps, swipes, and drags land and which don't (`axe tap` does nothing on the routine screen or
+  taps, swipes, and drags land and which don't (`axe tap` does nothing on the workout screen or
   its sheets). A gesture that did nothing is the tool's until those notes rule it out.
 - Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
   touches, never the full simulator suite. That suite runs on Xcode Cloud when you push a

@@ -135,7 +135,7 @@ extension Equipment {
 }
 
 extension ExerciseTags {
-    /// For an exercise known only by its muscle groups: no movement and no muscles, so a routine
+    /// For an exercise known only by its muscle groups: no movement and no muscles, so a workout
     /// is named for its groups, never a push or pull day on a claim nobody made.
     static let groupOnly = ExerciseTags(nil, [])
 }

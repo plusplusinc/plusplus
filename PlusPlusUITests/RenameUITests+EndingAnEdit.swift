@@ -37,8 +37,8 @@ extension RenameUITests {
         let row = { rows.element(boundBy: $0) }
         let height = row(1).frame.minY - row(0).frame.minY
         let startEdit = {
-            XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
-            app.routineTitle.tap()
+            XCTAssertTrue(app.workoutTitle.settles(), "The title kept moving before the edit")
+            app.workoutTitle.tap()
             XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
         }
         XCTContext.runActivity(named: "A scroll ends the edit and scrolls the list") { _ in
@@ -79,14 +79,14 @@ extension RenameUITests {
         end: () -> Void,
     ) {
         let elements = [
-            app.routineTitle,
+            app.workoutTitle,
             app.equipment,
             app.exerciseRows.firstMatch,
         ]
         // A scroll back to the top can still be easing in.
-        XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
+        XCTAssertTrue(app.workoutTitle.settles(), "The title kept moving before the edit")
         let atRest = elements.map(\.frame)
-        app.routineTitle.tap()
+        app.workoutTitle.tap()
         XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
         end()
         XCTAssertTrue(keyboard.disappears(), "The edit did not end")

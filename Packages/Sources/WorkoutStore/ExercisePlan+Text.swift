@@ -6,7 +6,7 @@ import Foundation
 
 private let noBreakSpace = "\u{00A0}"
 
-extension RoutineExercise {
+extension WorkoutExercise {
     /// The row's detail line in parts: the plan, then the weight if it holds one.
     /// "3 × 10 reps per side", "50 lb".
     public func detailParts(locale: Locale = .current) -> [String] {

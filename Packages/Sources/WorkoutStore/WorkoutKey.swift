@@ -1,6 +1,6 @@
 import Foundation
 
-/// The routine screen's key at the bottom, from the workout, the phase, and where the current
+/// The workout screen's key at the bottom, from the workout, the phase, and where the current
 /// exercise is: what it says (`role`) and what a tap on it does (`tap`), worked out in one place
 /// so the two agree, except where they differ on purpose. A key that still says "Log set" while
 /// the current exercise is scrolled away under a finger goes back to it, since the words change
@@ -10,8 +10,8 @@ import Foundation
 /// During a rest the key is Skip rest and +15 s (`Role.rest`), whose taps are `skipRest`'s and
 /// `extendRest(by:)`'s.
 public struct WorkoutKey: Sendable {
-    /// The workout as stored, every log in it: what a tap reads. Nil out of a workout, and from
-    /// End's choice.
+    /// The workout in progress as stored, every log in it: what a tap reads. Nil out of one, and
+    /// from End's choice.
     public let stored: LiveWorkout?
     /// The workout as the screen draws it, less the sets logged and not yet shown: what the
     /// words read. Nil out of a workout.
@@ -216,7 +216,7 @@ extension WorkoutKey {
         case start
         /// Logs `set` of its exercise, with the haptic `impact`, leading to the step shown next,
         /// from the workout before it.
-        case log(PlannedSet, of: RoutineExercise, impact: Impact, leadingTo: LiveWorkout.Step)
+        case log(PlannedSet, of: WorkoutExercise, impact: Impact, leadingTo: LiveWorkout.Step)
         /// Goes back to the current exercise, logging nothing.
         case back
         case finish

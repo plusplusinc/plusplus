@@ -69,7 +69,7 @@ fi
 # their work. Adherence falls as instructions grow, so adding a line means cutting one. Lower a
 # number when a cut leaves room; raise one only in a PR that says what the added words earn.
 CLAUDE_MD_WORDS=1700
-AGENT_DOCS_WORDS=27643
+AGENT_DOCS_WORDS=27640
 budget=$whole_tree
 for path in "$@"; do
     case "$path" in */CLAUDE.md | CLAUDE.md | *.claude/agents/* | *.claude/skills/* | *.claude/rules/* | *docs/agent-tooling.md) budget=true ;; esac

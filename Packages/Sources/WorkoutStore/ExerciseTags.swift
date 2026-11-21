@@ -1,4 +1,4 @@
-/// What an exercise does, in a small fixed vocabulary, finer than its muscle group, so a routine
+/// What an exercise does, in a small fixed vocabulary, finer than its muscle group, so a workout
 /// can be named for what it is. Internal words: a name never uses them as they are ("hinge").
 struct ExerciseTags: Equatable, Sendable {
     /// Nil for a stretch, and for anything none of the patterns fits (a calf raise).
@@ -73,7 +73,7 @@ struct ExerciseTags: Equatable, Sendable {
 }
 
 extension Exercise {
-    /// A stretch or mobility drill rather than strength work, so a routine of them is named for
+    /// A stretch or mobility drill rather than strength work, so a workout of them is named for
     /// what it is.
     var isStretch: Bool {
         tags.kind == .stretch

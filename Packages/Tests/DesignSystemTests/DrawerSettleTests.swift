@@ -2,7 +2,7 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// Where a drawer comes to rest when what keeps `isOpen` may refuse an open, as the routine's
+/// Where a drawer comes to rest when what keeps `isOpen` may refuse an open, as the workout's
 /// session does once a row's sheet has been asked for.
 @Suite("Drawer settle")
 @MainActor

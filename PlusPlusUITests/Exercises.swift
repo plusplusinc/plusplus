@@ -1,12 +1,12 @@
 import XCTest
 
-/// The routine's exercise rows and the picker's, found by the identifiers the app sets.
+/// The workout's exercise rows and the picker's, found by the identifiers the app sets.
 @MainActor
 extension XCUIApplication {
-    private static let exerciseRowID = "routine.exercise"
+    private static let exerciseRowID = "workout.exercise"
 
     /// How far under the bar the current exercise's label rests once the list lands on its row:
-    /// the room above the current exercise (`RoutineScreen.currentTopSpace`) and the row's inset.
+    /// the room above the current exercise (`WorkoutScreen.currentTopSpace`) and the row's inset.
     /// A row's element is its label, not the whole row, so a rest drawn in the row is no button.
     static let currentLabelDrop: CGFloat = 32
 
@@ -24,24 +24,24 @@ extension XCUIApplication {
         exerciseRowSnapshots.map(\.label)
     }
 
-    /// The Routines screen's rows.
-    var routineRows: XCUIElementQuery {
-        buttons.matching(identifier: "routines.row")
+    /// The Workouts screen's rows.
+    var workoutRows: XCUIElementQuery {
+        buttons.matching(identifier: "workouts.row")
     }
 
-    /// The Routines screen's row labeled `name`.
-    func routineRow(named name: String) -> XCUIElement {
-        routineRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
+    /// The Workouts screen's row labeled `name`.
+    func listedWorkout(named name: String) -> XCUIElement {
+        workoutRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
     }
 
-    /// The Routines screen's rows' labels, top to bottom.
-    var routineRowLabels: [String] {
-        snapshots { $0.elementType == .button && $0.identifier == "routines.row" }.map(\.label)
+    /// The Workouts screen's rows' labels, top to bottom.
+    var workoutRowLabels: [String] {
+        snapshots { $0.elementType == .button && $0.identifier == "workouts.row" }.map(\.label)
     }
 
-    /// The routine's equipment, the capsules under its title.
+    /// The workout's equipment, the capsules under its title.
     var equipment: XCUIElement {
-        descendants(matching: .any).matching(identifier: "routine.equipment").firstMatch
+        descendants(matching: .any).matching(identifier: "workout.equipment").firstMatch
     }
 
     /// The bottom row. Deleting it moves no other row, so the rows above are where their frames
@@ -56,7 +56,7 @@ extension XCUIApplication {
         buttons.matching(identifier: "exercises.row")
     }
 
-    /// The line an empty routine shows mid-screen.
+    /// The line an empty workout shows mid-screen.
     var noExercises: XCUIElement {
         staticTexts["No exercises"]
     }
@@ -186,7 +186,7 @@ extension XCUIApplication {
 
 /// An add's beats, from the app's constants, so a wait for what an add brings covers them.
 enum AddTiming {
-    /// From a pick or Create to its row landing, at the most: `RoutineScreen.pickerGone`,
+    /// From a pick or Create to its row landing, at the most: `WorkoutScreen.pickerGone`,
     /// `scrollLanding`, and `addPause`, then `RailArrival.entry`.
     static let landed: TimeInterval = 0.5 + 0.35 + 0.25 + 0.35
     /// From Create to its row's sheet on Customize: the landing, then `createdHold`.
@@ -205,7 +205,7 @@ extension XCUIElement {
     }
 
     /// Drags left from near the screen's trailing edge, at the element's height, `distance`
-    /// points at `velocity`, and lifts. From the screen's edge, not the element's: a routine
+    /// points at `velocity`, and lifts. From the screen's edge, not the element's: a workout
     /// row's element is its label, as wide as its words.
     private func dragLeft(by distance: CGFloat, velocity: XCUIGestureVelocity) {
         let edge = XCUIApplication().frame.width * 0.9 - frame.minX
@@ -251,7 +251,7 @@ extension XCUIApplication {
         XCTAssertTrue(smallTitle.appears(), "No small title in the bar")
         smallTitle.tap()
         XCTAssertTrue(
-            reading(routineTitle.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
+            reading(workoutTitle.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
             "The title did not come back below the bar",
         )
     }

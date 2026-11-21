@@ -13,16 +13,16 @@ struct PlanTextTests {
         sets: Int? = nil,
         target: SetTarget? = nil,
         weight: Weight? = nil,
-    ) throws -> RoutineExercise {
+    ) throws -> WorkoutExercise {
         let exercise = try Exercise.builtIn(named: name)
         var plan = exercise.defaultPlan(in: .pounds)
         plan.sets = sets ?? plan.sets
         plan.target = target ?? plan.target
         plan.weight = weight ?? plan.weight
-        return RoutineExercise(exercise: exercise, plan: plan)
+        return WorkoutExercise(exercise: exercise, plan: plan)
     }
 
-    private static func detail(_ row: RoutineExercise) -> String {
+    private static func detail(_ row: WorkoutExercise) -> String {
         row.detailParts(locale: locale).joined(separator: " · ")
             .replacingOccurrences(of: "\u{00A0}", with: " ")
     }
@@ -51,7 +51,7 @@ struct PlanTextTests {
             isPerSide: true,
         )
         let exercise = Exercise(created: created)
-        let row = RoutineExercise(exercise: exercise, plan: exercise.defaultPlan(in: .pounds))
+        let row = WorkoutExercise(exercise: exercise, plan: exercise.defaultPlan(in: .pounds))
         #expect(Self.detail(row) == "3 × 10 reps per side · 10 lb")
     }
 

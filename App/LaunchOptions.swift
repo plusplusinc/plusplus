@@ -10,9 +10,9 @@ enum LaunchOptions {
         UserDefaults.standard.bool(forKey: "resetStore")
     }
 
-    /// Name routines from their muscle groups alone. A routine's style follows its id, so a test
-    /// can't predict the standard name of a routine it just made; the muscle-group names are the
-    /// same for every routine.
+    /// Name workouts from their muscle groups alone. A workout's style follows its id, so a test
+    /// can't predict the standard name of a workout it just made; the muscle-group names are the
+    /// same for every workout.
     static var usesFallbackNames: Bool {
         UserDefaults.standard.bool(forKey: "fallbackNames")
     }
@@ -26,7 +26,7 @@ enum LaunchOptions {
         UserDefaults.standard.bool(forKey: "noUIKitAnimations")
     }
 
-    /// `-seedRest <seconds>`: every rest after a set lasts this long, in place of the routine's,
+    /// `-seedRest <seconds>`: every rest after a set lasts this long, in place of the workout's,
     /// so the UI tests, launched with 0, log on with no rest between exercises.
     static var restOverride: Int? {
         UserDefaults.standard.object(forKey: "seedRest").flatMap { _ in
@@ -34,22 +34,22 @@ enum LaunchOptions {
         }
     }
 
-    /// With `resetsStore`, a routine to launch into in place of a new one: `-seedExercises`
+    /// With `resetsStore`, a workout to launch into in place of a new one: `-seedExercises`
     /// lists built-in exercise ids, comma-separated, and `-seedName` names it. A test that needs
     /// rows but doesn't check adding them starts with them, rather than spending seconds an add
     /// in the picker.
     /// `-seedSuperset` joins the seeded rows from one index to another, from 0, into a
     /// superset ("1,2"), for a workout to step through one.
     /// `-seedSets` gives every seeded row that many sets, for a test that needs fewer logs to
-    /// reach a workout's end. `-seedWorkout <n>` also starts a workout on the routine, with its
+    /// reach a workout's end. `-seedWorkout <n>` also starts the seeded workout, with its
     /// first `n` sets logged as taps would, so the app opens mid-workout through the relaunch
     /// path, on the next set: none of them starts a rest.
-    static var seededRoutine: SeededRoutine? {
+    static var seededWorkout: SeededWorkout? {
         let defaults = UserDefaults.standard
         guard let ids = defaults.string(forKey: "seedExercises") else { return nil }
         let ends = defaults.string(forKey: "seedSuperset")?
             .split(separator: ",").compactMap { Int($0) } ?? []
-        return SeededRoutine(
+        return SeededWorkout(
             name: defaults.string(forKey: "seedName") ?? "",
             exercises: ids.split(separator: ",").compactMap { Exercise.builtIn(id: String($0)) },
             superset: ends.count == 2 && ends[0] < ends[1] ? ends[0] ... ends[1] : nil,
@@ -61,24 +61,25 @@ enum LaunchOptions {
         )
     }
 
-    /// Empties the store, then saves the routine, and the workout, the launch arguments ask for.
+    /// Empties the store, then saves the workout and the logged workout the launch arguments ask
+    /// for.
     static func resetStore(
-        _ store: RoutineStore,
+        _ store: Store,
         weightUnit: WeightUnit,
-        namer: RoutineNamer,
+        namer: WorkoutNamer,
     ) async throws {
         try await store.deleteAll()
-        guard let seed = seededRoutine else { return }
-        let routine = seed.routine(weightUnit: weightUnit)
-        try await store.save(routine)
+        guard let seed = seededWorkout else { return }
+        let workout = seed.workout(weightUnit: weightUnit)
+        try await store.save(workout)
         guard let logged = seed.loggedSets else { return }
         var loggedWorkout = LoggedWorkout(
-            routineID: routine.id,
-            routineName: namer.shownName(of: routine) ?? "",
+            workoutID: workout.id,
+            workoutName: namer.shownName(of: workout) ?? "",
             startedAt: .now,
         )
-        for set in routine.setOrder.prefix(logged) {
-            if let row = routine.exercises.first(where: { $0.id == set.row }) {
+        for set in workout.setOrder.prefix(logged) {
+            if let row = workout.exercises.first(where: { $0.id == set.row }) {
                 loggedWorkout = loggedWorkout.logging(set, of: row, at: .now)
             }
         }
@@ -91,9 +92,9 @@ enum LaunchOptions {
     }
 }
 
-/// The routine, and the workout on it, that `-seedExercises`, `-seedName`, `-seedSuperset`,
-/// `-seedSets`, and `-seedWorkout` ask for.
-struct SeededRoutine {
+/// The workout, and the logged workout on it, that `-seedExercises`, `-seedName`,
+/// `-seedSuperset`, `-seedSets`, and `-seedWorkout` ask for.
+struct SeededWorkout {
     let name: String
     let exercises: [Exercise]
     /// The rows joined into a superset, by index from 0.
@@ -105,11 +106,11 @@ struct SeededRoutine {
     /// `-seedTime <seconds>`: every timed row's time, so a timed set runs out in seconds.
     let time: Int?
 
-    func routine(weightUnit: WeightUnit) -> Routine {
-        var routine = Routine(
+    func workout(weightUnit: WeightUnit) -> Workout {
+        var workout = Workout(
             name: name,
             exercises: exercises.map { exercise in
-                var row = RoutineExercise(exercise: exercise, weightUnit: weightUnit)
+                var row = WorkoutExercise(exercise: exercise, weightUnit: weightUnit)
                 if let sets {
                     row.plan.sets = sets
                 }
@@ -120,11 +121,11 @@ struct SeededRoutine {
             },
         )
         if let superset {
-            for index in superset.dropLast() where routine.exercises.indices.contains(index + 1) {
-                routine.join(routine.exercises[index].id, .below)
+            for index in superset.dropLast() where workout.exercises.indices.contains(index + 1) {
+                workout.join(workout.exercises[index].id, .below)
             }
         }
-        return routine
+        return workout
     }
 }
 #endif

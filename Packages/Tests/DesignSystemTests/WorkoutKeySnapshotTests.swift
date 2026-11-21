@@ -5,7 +5,7 @@ import DesignSystem
 import SwiftUI
 import Testing
 
-/// The key at the bottom of a workout in each of its roles, as the routine screen labels it:
+/// The key at the bottom of a workout in each of its roles, as the workout screen labels it:
 /// a capsule in the primary key's colors, its label semibold, and at AX5 a long name wrapping
 /// inside the round ends rather than cut short. Where the bar puts it is
 /// `ComponentSnapshotTests.oneExercise`'s, with Start.

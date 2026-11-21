@@ -1,0 +1,69 @@
+import Foundation
+import SwiftData
+import Testing
+@testable import WorkoutStore
+
+/// Deleting a workout by id: it is gone after a relaunch, its rows with it, and its logged workouts
+/// stay. A relaunch is a second store over the same container.
+@Suite("Workout store delete")
+struct StoreDeleteTests {
+    private let container: ModelContainer
+
+    init() throws {
+        container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
+    }
+
+    private func relaunch() -> Store {
+        Store(modelContainer: container)
+    }
+
+    private static func at(_ seconds: TimeInterval) -> Date {
+        Date(timeIntervalSinceReferenceDate: seconds)
+    }
+
+    @Test("A deleted workout is gone after a relaunch, its rows with it, the others kept")
+    func deletedIsGone() async throws {
+        let upper = try Workout(name: "Upper", exercises: [.builtIn("Barbell bench press")])
+        let lower = Workout(name: "Lower")
+        try await relaunch().save(lower, at: Self.at(1))
+        try await relaunch().save(upper, at: Self.at(2))
+        try await relaunch().deleteWorkout(upper.id)
+        #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [lower])
+        let rows = try ModelContext(container).fetch(FetchDescriptor<StoredRoutineExercise>())
+        #expect(rows.isEmpty)
+    }
+
+    @Test("A finished logged workout of a deleted workout is still stored")
+    func loggedWorkoutsStay() async throws {
+        let upper = Workout(name: "Upper")
+        try await relaunch().save(upper, at: Self.at(1))
+        let loggedWorkout = LoggedWorkout(
+            workoutID: upper.id,
+            workoutName: upper.name,
+            startedAt: Self.at(10),
+        )
+        .finishing(at: Self.at(20))
+        try await relaunch().save(loggedWorkout)
+        try await relaunch().deleteWorkout(upper.id)
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        #expect(stored.map(\.loggedWorkout) == [loggedWorkout])
+    }
+
+    @Test("Launch after the last-opened workout is deleted opens the next most recent")
+    func launchAfterDelete() async throws {
+        let lower = Workout(name: "Lower")
+        let upper = Workout(name: "Upper")
+        try await relaunch().save(lower, at: Self.at(1))
+        try await relaunch().save(upper, at: Self.at(2))
+        try await relaunch().deleteWorkout(upper.id)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == lower)
+    }
+
+    @Test("Deleting a workout that isn't stored changes nothing")
+    func deleteMissing() async throws {
+        let lower = Workout(name: "Lower")
+        try await relaunch().save(lower, at: Self.at(1))
+        try await relaunch().deleteWorkout(UUID())
+        #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [lower])
+    }
+}

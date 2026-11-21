@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A row in a list of names, such as the Routines screen's: the name in SF Pro, as it can't be
+/// A row in a list of names, such as the Workouts screen's: the name in SF Pro, as it can't be
 /// edited there, across the list's width, at a comfortable tap height. The whole row takes taps.
 public struct NameRow: View {
     private let name: String
@@ -10,9 +10,9 @@ public struct NameRow: View {
     }
 
     public var body: some View {
-        // A later card will put the routine's schedule trailing, beside the name.
+        // A later card will put the workout's schedule trailing, beside the name.
         Text(name)
-            .font(.ppRoutineName)
+            .font(.ppWorkoutName)
             .foregroundStyle(.pp(.textPrimary))
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)

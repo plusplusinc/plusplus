@@ -1,9 +1,9 @@
 import Foundation
 
 /// What an exercise is: its name, the muscle groups it works, and the equipment it uses.
-/// A routine holds instances of it, as `RoutineExercise`.
+/// A workout holds instances of it, as `WorkoutExercise`.
 public struct Exercise: Identifiable, Equatable, Sendable {
-    /// Stable, so a routine refers to the exercise by something its name can change without
+    /// Stable, so a workout refers to the exercise by something its name can change without
     /// breaking: a built-in's slug, or a created exercise's `created:` id
     /// (`CreatedExercise.newID()`).
     public let id: String
@@ -23,7 +23,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     let startsAt: StartingWeight?
     /// Whether each side is its own set. A move that alternates within a set is not per side.
     public let isPerSide: Bool
-    /// What it does, finer than its group, for naming a routine.
+    /// What it does, finer than its group, for naming a workout.
     let tags: ExerciseTags
     /// How it rests: from its tags for a built-in, from its group for one known only by that.
     let restKind: RestKind
@@ -95,7 +95,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
 
 extension Exercise {
     /// A built-in as someone customized it: each setting theirs where they changed it, else as
-    /// shipped. It keeps the shipped tags and rest kind, so a routine still names it for its
+    /// shipped. It keeps the shipped tags and rest kind, so a workout still names it for its
     /// movement and its automatic rest stays by its kind of lift whatever its groups (equipment
     /// changed to none still rests one step shorter, as any bodyweight built-in does). Its load
     /// and start are the shipped ones until Per side or the piece that holds the weight changes

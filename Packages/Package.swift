@@ -32,8 +32,8 @@ let package = Package(
     ],
     targets: [
         .target(name: "WorkoutStore", swiftSettings: strict),
-        // Observable state over the store, with no UI framework: the routine open and its
-        // workout. Main-actor, as the screens that read it are.
+        // Observable state over the store, with no UI framework: the workout open and its
+        // logged sets. Main-actor, as the screens that read it are.
         .target(name: "Session", dependencies: ["WorkoutStore"], swiftSettings: mainActorByDefault),
         .target(
             name: "DesignSystem",
