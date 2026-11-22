@@ -3,12 +3,16 @@ import XCTest
 extension WorkoutAutosaveUITests {
     /// The created exercise's row, as the workout reads it.
     static let ringRow = "Ring row with rotation, 3 sets of 10 reps"
+    /// Its Equipment row on Customize, Rings carried from the filter and Bench checked there.
+    static let ringEquipment = "Equipment, Bench, rings"
 
     /// A search with no exact name offers Create as the list's last row, and one with no match
-    /// narrows the list down to it; Create stores the exercise under the search text, closes
+    /// narrows the list down to it; with Back and Rings chosen in the filters' sheets, the row
+    /// reads what it carries; Create stores the exercise under the search text, closes
     /// Add exercise, and adds its row; then the row's own sheet opens by itself on the
-    /// exercise's Customize form, with no Save and no Done; the two checklists mark what is
-    /// checked for VoiceOver and the form reads it back; back goes to the row's values, and
+    /// exercise's Customize form, with no Save and no Done, Back and Rings already checked; the
+    /// checklist marks what is checked for VoiceOver and the form reads it back; back goes to
+    /// the row's values, and
     /// Close leaves the workout with the row in. The relaunch after it lists the exercise with
     /// the equipment checked here, so each change was stored as made. The rule for Create, the
     /// derived plan, and the store's round trip are the package's (`CreatedExerciseTests`,
@@ -36,6 +40,11 @@ extension WorkoutAutosaveUITests {
                 XCTAssertEqual(create.label(becoming: created), created)
                 XCTAssertEqual(app.pickerRows.count, 0, "Rows other than Create match")
                 attach(named: "picker-create-only")
+                // Rings hold no weight, so the row still reads no load.
+                choose("Back", under: "Muscle", in: app)
+                choose("Rings", under: "Equipment", in: app)
+                let carried = created + ", Back, Rings"
+                XCTAssertEqual(create.label(becoming: carried), carried, "Create shows no carry")
                 let count = app.exerciseRows.count
                 create.tap()
                 XCTAssertTrue(search.disappears(), "Create left Add exercise up")
@@ -49,11 +58,11 @@ extension WorkoutAutosaveUITests {
                 XCTAssertEqual(name.value as? String, "Ring row with rotation")
                 XCTAssertFalse(app.buttons["Save"].exists, "Customize has a Save")
                 XCTAssertFalse(app.buttons["Done"].exists, "Create's Customize has a Done")
-                check("Back", in: app, from: "Muscle groups, None")
+                // Carried from the filters, with no tap here.
+                XCTAssertTrue(app.buttons["Muscle groups, Back"].exists, "Back wasn't carried")
                 // In view in the half sheet, and holds no weight, so the row reads no load.
-                check("Bench", in: app, from: "Equipment, Bodyweight")
-                XCTAssertTrue(app.buttons["Muscle groups, Back"].exists)
-                XCTAssertTrue(app.buttons["Equipment, Bench"].exists)
+                check("Bench", in: app, from: "Equipment, Rings")
+                XCTAssertTrue(app.buttons[Self.ringEquipment].exists)
                 XCTAssertTrue(app.buttons["Measure, Reps"].exists, "Measure reads no value")
                 XCTAssertEqual(app.switches["Per side"].value as? String, "0")
                 attach(named: "customize-form")
@@ -110,6 +119,18 @@ extension WorkoutAutosaveUITests {
             XCTAssertEqual(plus.frame.minY, low.minY, accuracy: 1, "The + stayed up with no Start")
             attach(named: "deleted-in-picker")
         }
+    }
+
+    /// Opens the filter `filter`'s sheet of chips, chooses `chip`, and closes it with Done.
+    @MainActor
+    private func choose(_ chip: String, under filter: String, in app: XCUIApplication) {
+        app.buttons[filter].tap()
+        let button = app.buttons[chip]
+        XCTAssertTrue(button.appears(), "\(filter) opened no chips")
+        button.tap()
+        XCTAssertTrue(reading(button.isSelected, becoming: true, within: 2), "\(chip) isn't on")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(button.disappears(), "Done left \(filter)'s chips up")
     }
 
     /// Opens the row labeled `row`, checks `item` there, and comes back to the form.

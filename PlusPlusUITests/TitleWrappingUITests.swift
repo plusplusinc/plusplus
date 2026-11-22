@@ -184,6 +184,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(time.disappears(), "Close left the sheet up")
             _ = app.openPicker()
             attach(named: "picker-ax5")
+            try filterAtAX5(in: app)
             app.search(for: "curl")
             XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
