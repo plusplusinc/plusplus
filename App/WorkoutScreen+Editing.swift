@@ -118,7 +118,10 @@ extension WorkoutScreen {
             onCreate: { made, needsName in
                 let wasIdle = phase == .idle
                 let exercise = await session.create(made)
-                session.closeAddExercise()
+                // Only this opening: swiped down and opened again meanwhile, the new one stays.
+                if session.addExercise?.id == opening.id {
+                    session.closeAddExercise()
+                }
                 add(exercise) {
                     createdWait = CreatedWait(row: $0, wasIdle: wasIdle, needsName: needsName)
                 }

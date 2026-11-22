@@ -145,12 +145,19 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     /// instead. In a workout the list lands with the title under the bar, where its small copy
     /// shows cut short.
     /// Passed over as well, any text labeled one of `systemTexts`, such as a dialog's title,
-    /// which the system caps the same way.
+    /// which the system caps the same way, and with `unnamedChrome`, the fixed size the audit
+    /// flags with no element named, which Add exercise's glass buttons draw once its bar shows.
     @MainActor
-    func auditBelowTheBar(in app: XCUIApplication, systemTexts: [String] = []) throws {
+    func auditBelowTheBar(
+        in app: XCUIApplication,
+        systemTexts: [String] = [],
+        unnamedChrome: Bool = false,
+    ) throws {
         let bar = app.navigationBars.firstMatch.frame
         try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
-            guard let element = issue.element else { return false }
+            guard let element = issue.element else {
+                return unnamedChrome && issue.auditType == .dynamicType
+            }
             return bar.contains(element.frame) || systemTexts.contains(element.label)
         }
     }

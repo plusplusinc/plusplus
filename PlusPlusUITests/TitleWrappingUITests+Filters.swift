@@ -18,12 +18,12 @@ extension TitleWrappingUITests {
         XCTAssertTrue(back.appears(), "Muscle opened no sheet of chips")
         // The system draws the floating sheet at about 96% of the size it lays out, so the
         // audit reads its widest words, the title and Shoulders, as clipped where they show
-        // whole; what it finds outside the sheet stands.
+        // whole; anything else it finds stands.
         let sheet = app.scrollViews.containing(NSPredicate(format: "label == 'Done'")).firstMatch
         let chips = sheet.frame
         try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
             guard issue.auditType == .textClipped, let element = issue.element else { return false }
-            return chips.contains(element.frame)
+            return ["Muscle", "Shoulders"].contains(element.label) && chips.contains(element.frame)
         }
         back.tap()
         XCTAssertTrue(reading(back.isSelected, becoming: true, within: 2), "Back isn't selected")
@@ -34,20 +34,10 @@ extension TitleWrappingUITests {
         let clear = app.buttons["Clear filters"]
         XCTAssertTrue(clear.exists, "No Clear under the filter")
         attach(named: "picker-filtered-ax5")
-        try auditBelowTheBarChrome(in: app)
+        // With the bar in view, as a sheet of chips left it at full height; flagged before any
+        // filter too, and with a sheet over the bar, nothing is flagged unnamed.
+        try auditBelowTheBar(in: app, unnamedChrome: true)
         clear.tap()
         XCTAssertTrue(clear.disappears(), "Clear left a filter on")
-    }
-
-    /// The audit with Add exercise's bar in view, as it is once a sheet of chips has raised it
-    /// to full height: passed over, the bar's title (`auditBelowTheBar` says why) and the bar's
-    /// glass buttons, which the audit flags as fixed size without naming an element. With a
-    /// sheet over the bar, nothing is flagged unnamed.
-    private func auditBelowTheBarChrome(in app: XCUIApplication) throws {
-        let bar = app.navigationBars.firstMatch.frame
-        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
-            guard let element = issue.element else { return issue.auditType == .dynamicType }
-            return bar.contains(element.frame)
-        }
     }
 }

@@ -166,13 +166,12 @@ extension ExerciseFilter {
     }
 
     /// What Create carries, as its row's detail line reads it: the chosen groups in body order,
-    /// then the chosen equipment in display order, No equipment as "Bodyweight"
-    /// ("Chest, Dumbbells"). Kind is never carried, so nil when only Kind is on.
+    /// then the pieces it carries in display order ("Chest, Dumbbells"), or "Bodyweight" where
+    /// No equipment is the only one chosen. Kind is never carried, so nil when only Kind is on.
     public var carriedLine: String? {
         let groups = MuscleGroup.allCases.filter(muscleGroups.contains).map(\.name)
-        let kit = EquipmentChoice.allCases.filter(equipment.contains).map { choice in
-            choice == .none ? "Bodyweight" : choice.name
-        }
+        let pieces = Equipment.allCases.filter(carriedEquipment.contains).map(\.name)
+        let kit = pieces.isEmpty && equipment.contains(.none) ? ["Bodyweight"] : pieces
         let names = groups + kit
         return names.isEmpty ? nil : names.joined(separator: ", ")
     }

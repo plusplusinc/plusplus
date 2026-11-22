@@ -152,7 +152,7 @@ struct ExerciseFilterTests {
         #expect(filtered.alsoNeeds.isEmpty)
     }
 
-    @Test("Create carries the groups, then the equipment, bodyweight by name, never the kind")
+    @Test("Create carries the groups, then the equipment, bodyweight alone by name, never the kind")
     func carriedLine() {
         #expect(ExerciseFilter(
             muscleGroups: [.back, .chest],
@@ -162,7 +162,10 @@ struct ExerciseFilterTests {
         #expect(ExerciseFilter(muscleGroups: [.chest], equipment: [.none])
             .carriedLine == "Chest, Bodyweight")
         #expect(ExerciseFilter(kind: .stretch).carriedLine == nil)
-        #expect(ExerciseFilter(equipment: [.none, .piece(.band)]).carriedEquipment == [.band])
+        // No equipment beside a piece carries only the piece, so the line names only the piece.
+        let both = ExerciseFilter(equipment: [.none, .piece(.band)])
+        #expect(both.carriedEquipment == [.band])
+        #expect(both.carriedLine == "Band")
     }
 
     @Test("An unnamed exercise takes the first name no exercise has")

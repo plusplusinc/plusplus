@@ -153,7 +153,9 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                             edges: .top,
                         )
                 }
-                if query.isEmpty || exercises.offersCreate(for: query) {
+                if ExerciseList.createdName(from: query).isEmpty || exercises
+                    .offersCreate(for: query)
+                {
                     createRow(isFirst: filtered.matches.isEmpty)
                 }
                 ForEach(filtered.alsoNeeds) { section in
@@ -170,7 +172,8 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                     }
                 }
             } else {
-                ForEach(exercises.matching(query).lettered()) { section in
+                // With no filter on, the matches are the search's alone.
+                ForEach(filtered.matches.lettered()) { section in
                     Section {
                         ForEach(section.exercises, content: row)
                     } header: {
@@ -183,7 +186,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                     .indexLabel(section.letter, isShown: showsIndex)
                 }
                 if exercises.offersCreate(for: query) {
-                    createRow(isFirst: exercises.matching(query).isEmpty)
+                    createRow(isFirst: filtered.matches.isEmpty)
                 }
             }
         }
@@ -249,15 +252,14 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// Either way it starts with the filter's groups and equipment (`ExerciseFilter.carried…`),
     /// which the row's detail line shows.
     private func createRow(isFirst: Bool) -> some View {
-        let needsName = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let typed = ExerciseList.createdName(from: query)
+        let needsName = typed.isEmpty
         return Button {
             guard !isCreating else { return }
             dropKeyboard()
             isCreating = true
             let created = CreatedExercise(
-                name: needsName
-                    ? exercises.unusedName(ExerciseList.unnamedExerciseName)
-                    : ExerciseList.createdName(from: query),
+                name: needsName ? exercises.unusedName(ExerciseList.unnamedExerciseName) : typed,
                 muscleGroups: filter.carriedGroups,
                 equipment: filter.carriedEquipment,
             )
@@ -267,9 +269,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
             }
         } label: {
             CreateLabel(
-                title: needsName
-                    ? "Create exercise"
-                    : "Create \u{201C}\(ExerciseList.createdName(from: query))\u{201D}",
+                title: needsName ? "Create exercise" : "Create \u{201C}\(typed)\u{201D}",
                 detail: filter.carriedLine,
             )
             .font(.ppRowTitle)

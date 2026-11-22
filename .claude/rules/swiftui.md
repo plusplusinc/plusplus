@@ -154,9 +154,9 @@ Each of these cost a round; the code at the named spot works around it.
   the growth is reported before the scroll view takes it. Following only growths, the list
   rested short of its end; follow every change short of the end
   once the following has begun (`keepEndInView`, `EndFollow`).
-- A sheet's `.height` detent measures inside its safe area, and a scroll view's container there
-  already excludes the bar and the home indicator: grow it by the content's overflow alone
-  (`ExerciseSheet.fit(_:)`).
+- A sheet's `.height` detent measures inside its safe area: grow it by the content's overflow
+  alone (`ExerciseSheet.fit(_:)`). One floating clear of the home indicator still gets that
+  room, unreported (`ChipSheet.detentRoom`).
 - `ViewThatFits` on the workout screen hung the app as the title took focus; use a small
   `Layout` (`FigureLayout`).
 - A hold on a row in a scroll view is a UIKit long press (`RailLiftGesture`) outside the row's

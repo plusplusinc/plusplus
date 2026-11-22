@@ -21,27 +21,15 @@ struct FilterBar: View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView(.horizontal) {
                 HStack(spacing: Spacing.sm) {
-                    Button {
-                        onOpen(.muscle)
-                    } label: {
-                        FilterLabel(
-                            filter.muscleLabel ?? "Muscle",
-                            isOn: !filter.muscleGroups.isEmpty,
-                        )
+                    Button { onOpen(.muscle) } label: {
+                        label("Muscle", choice: filter.muscleLabel)
                     }
                     .buttonStyle(.plain)
-                    .filterReading("Muscle", value: filter.muscleLabel)
                     kindMenu
-                    Button {
-                        onOpen(.equipment)
-                    } label: {
-                        FilterLabel(
-                            filter.equipmentLabel ?? "Equipment",
-                            isOn: !filter.equipment.isEmpty,
-                        )
+                    Button { onOpen(.equipment) } label: {
+                        label("Equipment", choice: filter.equipmentLabel)
                     }
                     .buttonStyle(.plain)
-                    .filterReading("Equipment", value: filter.equipmentLabel)
                 }
                 // Inside the scroll's content, so the first button lines up with the rows and
                 // the last scrolls clear of the edge.
@@ -75,11 +63,19 @@ struct FilterBar: View {
                 })
             }
         } label: {
-            FilterLabel(filter.kindLabel ?? "Kind", isOn: filter.kind != nil)
-                .filterReading("Kind", value: filter.kindLabel)
+            label("Kind", choice: filter.kindLabel)
         }
         .menuOrder(.fixed)
         .buttonStyle(.plain)
+    }
+
+    /// A filter's button: its choice, or its name while none is chosen, lit while on. VoiceOver
+    /// reads its name, then the choice, and selected while on.
+    private func label(_ name: String, choice: String?) -> some View {
+        FilterLabel(choice ?? name, isOn: choice != nil)
+            .accessibilityLabel(name)
+            .accessibilityValue(choice ?? "")
+            .accessibilityAddTraits(choice != nil ? .isSelected : [])
     }
 
     /// The count line's words: "12 exercises", "1 exercise", "0 exercises".
@@ -95,14 +91,5 @@ enum FilterSheet: Identifiable {
 
     var id: Self {
         self
-    }
-}
-
-extension View {
-    /// A filter's button as VoiceOver reads it: its name, what is chosen, and selected while on.
-    fileprivate func filterReading(_ name: String, value: String?) -> some View {
-        accessibilityLabel(name)
-            .accessibilityValue(value ?? "")
-            .accessibilityAddTraits(value != nil ? .isSelected : [])
     }
 }

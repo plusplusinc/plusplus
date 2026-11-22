@@ -188,7 +188,8 @@ struct ExerciseForm: View {
         // Going back, or pushing a list, ends the edit too, focus or not.
         .onDisappear { endNameEdit() }
         .onAppear {
-            if focusesName {
+            // Once: back from a checklist, the name stays as it was left.
+            if focusesName, !hasSelectedName {
                 isNameFocused = true
             }
         }

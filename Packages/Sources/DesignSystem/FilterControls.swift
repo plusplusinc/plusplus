@@ -64,7 +64,7 @@ struct ChipButtonStyle: ButtonStyle {
         configuration.label
             .fontWeight(.medium)
             .modifier(FilterCapsule(isOn: isOn))
-            .opacity(configuration.isPressed ? 0.7 : 1)
+            .keyPress(isPressed: configuration.isPressed)
             .padding(Spacing.xs)
             .contentShape(.rect)
     }
@@ -105,7 +105,8 @@ public struct ChipSheet<Item: Hashable>: View {
     }
 
     public var body: some View {
-        ScrollView {
+        let room = detentRoom
+        return ScrollView {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 header
                 // Touching: each chip carries half the gap around its capsule
@@ -122,7 +123,7 @@ public struct ChipSheet<Item: Hashable>: View {
             .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
         }
         // Scrolled to its end, the last chips stand clear of the home indicator.
-        .contentMargins(.bottom, overflows ? detentRoom : 0, for: .scrollContent)
+        .contentMargins(.bottom, overflows ? room : 0, for: .scrollContent)
         .onScrollGeometryChange(for: Bool.self) { geometry in
             geometry.contentSize.height > geometry.containerSize.height + 1
         } action: { _, overflowing in
@@ -130,7 +131,7 @@ public struct ChipSheet<Item: Hashable>: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .sensoryFeedback(.selection, trigger: chosen)
-        .presentationDetents(height > 0 ? [.height(max(height - detentRoom, 0))] : [.medium])
+        .presentationDetents(height > 0 ? [.height(max(height - room, 0))] : [.medium])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.surface))
     }
