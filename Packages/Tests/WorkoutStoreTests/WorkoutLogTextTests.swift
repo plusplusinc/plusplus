@@ -56,6 +56,27 @@ struct WorkoutLogTextTests {
             == "left 48 seconds, right 1 minute")
     }
 
+    @Test("Each row reads to VoiceOver as one sentence")
+    func spokenRows() {
+        let calendar = Fixture.calendar
+        let loggedWorkout = Fixture.loggedWorkout(daysAgo: 2, [
+            Fixture.set("pull-up", round: 1, .reps(8)),
+            Fixture.set("pull-up", round: 2, .reps(6)),
+        ])
+        #expect(loggedWorkout.spokenLogLine(locale: locale, calendar: calendar)
+            == "Thursday, November 19, 51 minutes")
+        #expect(loggedWorkout.spokenLogLine(sets: 2, locale: locale, calendar: calendar)
+            == "Thursday, November 19, 51 minutes, 2 sets")
+        let pullUp = loggedWorkout.loggedExercises(in: .builtIn)[0]
+        #expect(pullUp.spoken(change: .up(.reps(2, withWeight: false)), locale: locale)
+            == "Name. Up 2 reps. 2 sets: 8 reps, 6 reps")
+        #expect(Change.same.spokenText(locale: locale) == "Same as last time")
+        let core = GroupRecency(group: .core, daysAgo: nil, sets: 0)
+        #expect(core.spokenText(locale: locale) == "Core, 0 sets")
+        let period = LogPeriod(loggedWorkouts: [], calendar: calendar, now: Fixture.now)
+        #expect(period.spokenFirstDay(locale: locale, calendar: calendar) == "October 25")
+    }
+
     @Test("A workout's line: its day and length, and its sets")
     func loggedWorkoutLine() {
         let loggedWorkout = Fixture.loggedWorkout(daysAgo: 2, [])

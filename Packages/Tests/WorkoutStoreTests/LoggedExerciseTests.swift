@@ -19,6 +19,21 @@ struct LoggedExerciseTests {
         #expect(exercises.map(\.rounds.count) == [2, 2])
     }
 
+    @Test("An opened workout's change is from the newest workout finished before it began")
+    func changeFromTimeBefore() {
+        let oldest = Fixture.loggedWorkout(daysAgo: 6, [Fixture.set("pull-up", .reps(4))])
+        let before = Fixture.loggedWorkout(daysAgo: 4, [Fixture.set("pull-up", .reps(6))])
+        let opened = Fixture.loggedWorkout(daysAgo: 2, [
+            Fixture.set("pull-up", .reps(8)),
+            Fixture.set("plank", .time(seconds: 30)),
+        ])
+        let after = Fixture.loggedWorkout(daysAgo: 0, [Fixture.set("pull-up", .reps(10))])
+        let log = WorkoutLog(loggedWorkouts: [oldest, after, opened, before])
+        let rows = log.exercises(of: opened, in: .builtIn)
+        #expect(rows.map(\.exercise.id) == ["pull-up", "plank"])
+        #expect(rows.map(\.change) == [.up(.reps(2, withWeight: false)), .first])
+    }
+
     @Test("One exercise in two rows reads once, with both rows' rounds")
     func twoRowsReadOnce() {
         let loggedWorkout = Fixture.loggedWorkout(daysAgo: 0, [
