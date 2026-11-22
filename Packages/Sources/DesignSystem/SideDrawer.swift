@@ -325,10 +325,10 @@ public enum DrawerWay {
     /// the mark at full speed, and eased evenly in and out it felt soft. Nil with Reduce Motion:
     /// it changes rows at once.
     public static func markSlide(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .timingCurve(0.8, 0, 0.25, 1, duration: markSlideDuration)
+        reduceMotion ? nil : .timingCurve(0.5, 0, 0.2, 1, duration: markSlideDuration)
     }
 
-    private static let markSlideDuration = 0.3
+    private static let markSlideDuration = 0.25
     /// With Reduce Motion, the new mark held in view before the drawer closes.
     private static let markPause = 0.2
 }
