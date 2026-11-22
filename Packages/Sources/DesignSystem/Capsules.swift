@@ -45,25 +45,17 @@ public struct Capsules: View {
 }
 
 /// Lays its subviews out in rows, starting a new row when the next one won't fit.
-public struct FlowLayout: Layout {
+struct FlowLayout: Layout {
     var spacing: CGFloat
 
-    public init(spacing: CGFloat) {
-        self.spacing = spacing
-    }
-
-    public func sizeThatFits(
-        proposal: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         let frames = frames(for: subviews, width: proposal.width ?? .infinity)
         let width = frames.map(\.maxX).max() ?? 0
         let height = frames.map(\.maxY).max() ?? 0
         return CGSize(width: width, height: height)
     }
 
-    public func placeSubviews(
+    func placeSubviews(
         in bounds: CGRect,
         proposal _: ProposedViewSize,
         subviews: Subviews,
