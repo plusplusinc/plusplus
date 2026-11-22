@@ -320,10 +320,12 @@ public enum DrawerWay {
         .seconds(reduceMotion ? markPause : markSlideDuration)
     }
 
-    /// The mark sliding from one place to the next, on the app's quick curve: off the mark at
-    /// once and landing softly, with no bounce. Nil with Reduce Motion: it changes rows at once.
+    /// The mark sliding from one place to the next: easing in, so it is seen to leave its row,
+    /// then quick through the middle and landing softly, stopping dead. On `.snappy` it was off
+    /// the mark at full speed, and eased evenly in and out it felt soft. Nil with Reduce Motion:
+    /// it changes rows at once.
     public static func markSlide(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .snappy(duration: markSlideDuration)
+        reduceMotion ? nil : .timingCurve(0.5, 0, 0.2, 1, duration: markSlideDuration)
     }
 
     private static let markSlideDuration = 0.25
