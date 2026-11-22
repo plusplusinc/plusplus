@@ -21,6 +21,7 @@ struct LogSnapshotTests {
                 let index = week * 7 + day
                 return DayGrid.Square(
                     id: start.addingTimeInterval(Double(index) * 86400),
+                    number: "\((index + 24) % 31 + 1)",
                     isDone: done.contains(index),
                     isToday: index == 26,
                     isShown: index <= 26,

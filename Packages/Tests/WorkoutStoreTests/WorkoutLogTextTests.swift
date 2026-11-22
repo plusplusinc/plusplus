@@ -74,7 +74,8 @@ struct WorkoutLogTextTests {
         let core = GroupRecency(group: .core, daysAgo: nil, sets: 0)
         #expect(core.spokenText(locale: locale) == "Core, 0 sets")
         let period = LogPeriod(loggedWorkouts: [], calendar: calendar, now: Fixture.now)
-        #expect(period.spokenFirstDay(locale: locale, calendar: calendar) == "October 25")
+        #expect(period.spokenRange(locale: locale, calendar: calendar)
+            == "October 25 to November 21")
     }
 
     @Test("A workout's line: its day and length, and its sets")

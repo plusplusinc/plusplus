@@ -5,9 +5,11 @@ import WorkoutStore
 
 /// The record of finished workouts, read three ways in the system's segmented control under the
 /// bar: History, a calendar of the period and the workouts themselves, newest first; Diff, what
-/// changed since the period's first day; and Gaps, each muscle group's sets. "Log" is the bar's
-/// own inline title, centered, with ++ leading. It opens on History each time the drawer shows
-/// it. The period is `LogPeriod`'s four calendar weeks, and the three tabs name its first day.
+/// changed since the period's first day; and Balance, each muscle group's sets. "Log" is the
+/// bar's own inline title, centered, with ++ leading and the period trailing, once for all
+/// three tabs: "Oct 25 – Nov 21", plain secondary text, its numbers in SF Mono, not a control.
+/// It opens on History each time the drawer shows it. The period is `LogPeriod`'s four
+/// calendar weeks.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
 /// logged workout's row pushes it, read-only, with the system push, as a saved workout is
 /// pushed on Workouts.
@@ -17,13 +19,13 @@ struct LogScreen: View {
     enum Tab: Hashable, CaseIterable {
         case history
         case diff
-        case gaps
+        case balance
 
         var title: String {
             switch self {
             case .history: "History"
             case .diff: "Diff"
-            case .gaps: "Gaps"
+            case .balance: "Balance"
             }
         }
     }
@@ -34,7 +36,6 @@ struct LogScreen: View {
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
-    @Environment(\.dynamicTypeSize) var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
@@ -84,9 +85,28 @@ struct LogScreen: View {
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    periodText
+                }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .task { await session.refreshLog() }
+    }
+
+    /// The period, trailing in the bar. Always there, empty until the log is read, so the bar
+    /// never puts the item in or takes it out.
+    private var periodText: some View {
+        let period = session.log?.period(now: now, calendar: calendar)
+        let text = period?.rangeText(locale: locale, calendar: calendar) ?? ""
+        return Text(AttributedString.monoNumbers(text, font: .ppRowDetailNumber))
+            .font(.ppRowDetail)
+            .foregroundStyle(.pp(.textSecondary))
+            .lineLimit(1)
+            .fixedSize()
+            .accessibilityLabel(period?.spokenRange(locale: locale, calendar: calendar) ?? "")
+            .accessibilityShown(period != nil)
+            .hiddenBehindDrawer()
     }
 
     @ViewBuilder
@@ -94,7 +114,7 @@ struct LogScreen: View {
         switch tab {
         case .history: historyTab(log)
         case .diff: diffTab(log)
-        case .gaps: gapsTab(log)
+        case .balance: balanceTab(log)
         }
     }
 

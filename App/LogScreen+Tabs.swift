@@ -2,8 +2,8 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-// Log's three tabs: History's period line, calendar, and list; Diff's date line, rows, and rule;
-// Gaps' caption and groups.
+// Log's three tabs: History's count, calendar, and list; Diff's rows and rule; Balance's caption
+// and groups. The period they read over is named once, in the bar (`LogScreen.periodText`).
 
 extension LogScreen {
     /// History with nothing logged, under the empty calendar.
@@ -14,28 +14,16 @@ extension LogScreen {
 
     func historyTab(_ log: WorkoutLog) -> some View {
         let period = log.period(now: now, calendar: calendar)
-        // At the accessibility sizes the count goes under the line, as a row's tag does.
-        let top = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.xxs))
-            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Spacing.sm))
         return VStack(alignment: .leading, spacing: 0) {
-            top {
-                periodLine("Since \(period.firstDayText(locale: locale, calendar: calendar))")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityLabel(
-                        "Since \(period.spokenFirstDay(locale: locale, calendar: calendar))",
-                    )
-                loggedWorkoutCount(period)
-                    .layoutPriority(1)
-            }
-            .accessibilityElement(children: .combine)
-            .padding(.bottom, Spacing.md)
+            loggedWorkoutCount(period)
+                .padding(.bottom, Spacing.md)
             DayGrid(
                 initials: LogPeriod.weekdayInitials(calendar: calendar),
                 weeks: period.weeks.map { week in
                     week.map { day in
                         DayGrid.Square(
                             id: day.date,
+                            number: LogPeriod.dayNumber(day, locale: locale, calendar: calendar),
                             isDone: day.hasLoggedWorkout,
                             isToday: day.isToday,
                             isShown: !day.isAfterToday,
@@ -103,12 +91,7 @@ extension LogScreen {
     }
 
     func diffTab(_ log: WorkoutLog) -> some View {
-        let period = log.period(now: now, calendar: calendar)
-        return VStack(alignment: .leading, spacing: 0) {
-            periodLine("\(period.firstDayText(locale: locale, calendar: calendar)) → today")
-                .accessibilityLabel(
-                    "\(period.spokenFirstDay(locale: locale, calendar: calendar)) to today",
-                )
+        VStack(alignment: .leading, spacing: 0) {
             ForEach(log.diff(in: session.exercises, now: now, calendar: calendar)) { item in
                 diffRow(item)
             }
@@ -139,19 +122,17 @@ extension LogScreen {
     }
 
     @ViewBuilder
-    func gapsTab(_ log: WorkoutLog) -> some View {
-        let period = log.period(now: now, calendar: calendar)
-        let gaps = log.gaps(in: session.exercises, now: now, calendar: calendar)
-        let most = gaps.mostSets
+    func balanceTab(_ log: WorkoutLog) -> some View {
+        let balance = log.balance(in: session.exercises, now: now, calendar: calendar)
+        let most = balance.mostSets
         VStack(alignment: .leading, spacing: 0) {
-            periodLine("Sets since \(period.firstDayText(locale: locale, calendar: calendar))")
-                .accessibilityLabel(
-                    "Sets since \(period.spokenFirstDay(locale: locale, calendar: calendar))",
-                )
+            Text("Sets")
+                .font(.ppRowDetail)
+                .foregroundStyle(.pp(.textSecondary))
                 .padding(.bottom, Spacing.md)
             // No line between the groups: their bars part them, a section's room apart.
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                ForEach(gaps.groups) { group in
+                ForEach(balance.groups) { group in
                     CountRow(
                         group.group.name,
                         count: group.sets.formatted(.number.locale(locale)),
@@ -162,13 +143,6 @@ extension LogScreen {
                 }
             }
         }
-    }
-
-    /// A tab's first line, naming the period's first day, its numbers in SF Mono.
-    private func periodLine(_ text: String) -> some View {
-        Text(AttributedString.monoNumbers(text, font: .ppRowDetailNumber))
-            .font(.ppRowDetail)
-            .foregroundStyle(.pp(.textSecondary))
     }
 
     /// A logged workout's name as it was, New workout for an empty one.

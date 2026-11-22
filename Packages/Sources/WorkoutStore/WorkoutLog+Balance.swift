@@ -18,8 +18,8 @@ public struct GroupRecency: Identifiable, Equatable, Sendable {
     }
 }
 
-/// What has been left alone: the muscle groups by their sets, and which were not worked lately.
-public struct Gaps: Equatable, Sendable {
+/// How the work is spread: the muscle groups by their sets, and which were not worked lately.
+public struct Balance: Equatable, Sendable {
     /// All six groups, fewest sets first, ties in declaration order.
     public let groups: [GroupRecency]
 
@@ -33,10 +33,10 @@ extension WorkoutLog {
     /// A group unworked for this many days is missed, drawn stressed.
     public static let missedDays = 14
 
-    /// Gaps at `now`. A set counts toward each group its exercise works now, through `list`: a
+    /// Balance at `now`. A set counts toward each group its exercise works now, through `list`: a
     /// created exercise toward every group it checks, and one that no longer resolves toward
     /// none.
-    public func gaps(in list: ExerciseList, now: Date, calendar: Calendar) -> Gaps {
+    public func balance(in list: ExerciseList, now: Date, calendar: Calendar) -> Balance {
         let recent = inPeriod(now: now, calendar: calendar)
         let recentExercises = recent.flatMap { $0.loggedExercises(in: list) }
         let groups = MuscleGroup.allCases.enumerated().map { index, group in
@@ -56,6 +56,6 @@ extension WorkoutLog {
         }
         .sorted { ($0.1.sets, $0.0) < ($1.1.sets, $1.0) }
         .map(\.1)
-        return Gaps(groups: groups)
+        return Balance(groups: groups)
     }
 }

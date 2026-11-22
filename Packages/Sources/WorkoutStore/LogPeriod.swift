@@ -2,9 +2,9 @@ import Foundation
 
 /// The days Log reads over: four full calendar weeks ending with this week, each starting on the
 /// calendar's first weekday, so the period's first day is the first day of the week three weeks
-/// before this one. History, Diff, and Gaps all read from that day. A logged workout belongs to
-/// the day it started, in the calendar's time zone, as its row's date reads: one that runs past
-/// midnight marks the day it began.
+/// before this one, and its last day is today. History, Diff, and Balance all read from the
+/// first day. A logged workout belongs to the day it started, in the calendar's time zone, as
+/// its row's date reads: one that runs past midnight marks the day it began.
 public struct LogPeriod: Equatable, Sendable {
     /// The weeks the period spans, this week's included.
     public static let weekCount = 4
@@ -26,6 +26,8 @@ public struct LogPeriod: Equatable, Sendable {
 
     /// The start of the period's first day.
     public let firstDay: Date
+    /// The start of today, the period's last day.
+    public let today: Date
     /// `weekCount` weeks of seven days, oldest first, each starting on the calendar's first
     /// weekday.
     public let weeks: [[Day]]
@@ -53,6 +55,7 @@ public struct LogPeriod: Equatable, Sendable {
             )
         }
         self.firstDay = firstDay
+        self.today = today
         weeks = stride(from: 0, to: days.count, by: 7).map { start in
             Array(days[start ..< min(start + 7, days.count)])
         }

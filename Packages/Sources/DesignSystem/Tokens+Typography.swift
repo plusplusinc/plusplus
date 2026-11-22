@@ -10,6 +10,8 @@ import UIKit
 /// silently opt the whole app out of accessibility sizing.
 extension Font {
     public static let ppCaption = Font.system(.caption)
+    /// A day's number in a calendar square: SF Mono at the caption's size.
+    public static let ppCaptionNumber = Font.system(.caption, design: .monospaced)
     public static let ppButton = Font.system(.body, weight: .semibold)
     /// The primary key's label, such as Start's.
     public static let ppPrimaryKey = Font.system(.title3, weight: .semibold)

@@ -207,21 +207,39 @@ extension LoggedWorkout {
 }
 
 extension GroupRecency {
-    /// "Core, 0 sets", read after the caption that names the period's first day.
+    /// "Core, 0 sets", read after Balance's "Sets" caption.
     public func spokenText(locale: Locale = .current) -> String {
         "\(group.name), \(counted(sets, "set", "sets", locale: locale))"
     }
 }
 
 extension LogPeriod {
-    /// The first day, "Oct 25", as the period's lines name it.
-    public func firstDayText(locale: Locale = .current, calendar: Calendar = .current) -> String {
-        firstDay.formatted(dateStyle(locale: locale, calendar: calendar).month(.abbreviated).day())
+    /// The period from its first day to today, as the system writes a range of days: "Oct 25 –
+    /// Nov 21", "Nov 1 – 21" within one month, a year on each side across one.
+    public func rangeText(locale: Locale = .current, calendar: Calendar = .current) -> String {
+        (firstDay ..< today).formatted(
+            Date.IntervalFormatStyle(
+                locale: locale,
+                calendar: calendar,
+                timeZone: calendar.timeZone,
+            )
+            .month(.abbreviated).day(),
+        )
     }
 
-    /// "October 25", for VoiceOver.
-    public func spokenFirstDay(locale: Locale = .current, calendar: Calendar = .current) -> String {
-        firstDay.formatted(dateStyle(locale: locale, calendar: calendar).month(.wide).day())
+    /// "October 25 to November 21", for VoiceOver: the range in words, not a dash.
+    public func spokenRange(locale: Locale = .current, calendar: Calendar = .current) -> String {
+        let style = dateStyle(locale: locale, calendar: calendar).month(.wide).day()
+        return "\(firstDay.formatted(style)) to \(today.formatted(style))"
+    }
+
+    /// The day of the month, "25", as its calendar square shows it.
+    public static func dayNumber(
+        _ day: Day,
+        locale: Locale = .current,
+        calendar: Calendar = .current,
+    ) -> String {
+        day.date.formatted(dateStyle(locale: locale, calendar: calendar).day())
     }
 
     /// "9 workouts", "1 workout".

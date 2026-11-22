@@ -3,21 +3,34 @@ import SwiftUI
 /// A calendar of whole weeks: a row of weekday initials in secondary text, then a row of seven
 /// rounded squares a week. A day marked done is filled purple (`done`), the others a quiet gray
 /// fill (`selectionFill`); today is outlined, in primary text over purple and in the rail's gray
-/// over the gray; a day after today keeps its room and draws nothing. The squares share the
-/// row's width, and their height follows it, whatever height the grid is offered. VoiceOver reads
-/// the initials not at all and each drawn day as one element,
-/// `spoken`, row by row.
+/// over the gray; a day after today keeps its room and draws nothing. Each square shows its day
+/// of the month, small and centered, in SF Mono: secondary text on the gray, the background's
+/// dark on purple, so the fill stays what the eye finds first. It grows with the text size up
+/// to the first accessibility size, and shrinks rather than reach the square's edge. The squares
+/// share the row's width, and
+/// their height follows it, whatever height the grid is offered. VoiceOver reads the initials
+/// and numbers not at all and each drawn day as one element, `spoken`, row by row.
 public struct DayGrid: View {
     /// One day's square.
     public struct Square: Identifiable, Sendable {
         public let id: Date
+        /// The day of the month, "25".
+        public let number: String
         public let isDone: Bool
         public let isToday: Bool
         public let isShown: Bool
         public let spoken: String
 
-        public init(id: Date, isDone: Bool, isToday: Bool, isShown: Bool, spoken: String) {
+        public init(
+            id: Date,
+            number: String,
+            isDone: Bool,
+            isToday: Bool,
+            isShown: Bool,
+            spoken: String,
+        ) {
             self.id = id
+            self.number = number
             self.isDone = isDone
             self.isToday = isToday
             self.isShown = isShown
@@ -29,6 +42,9 @@ public struct DayGrid: View {
     private let weeks: [[Square]]
 
     private static let outline: CGFloat = 1.5
+    /// The least a number shrinks to, where a narrow screen's squares are smaller than its two
+    /// digits.
+    private static let numberShrink: CGFloat = 0.4
 
     public init(initials: [String], weeks: [[Square]]) {
         self.initials = initials
@@ -71,6 +87,17 @@ public struct DayGrid: View {
                     )
                 }
             }
+            .overlay {
+                Text(square.number)
+                    .font(.ppCaptionNumber)
+                    .foregroundStyle(.pp(square.isDone ? .background : .textSecondary))
+                    .lineLimit(1)
+                    .minimumScaleFactor(Self.numberShrink)
+                    // Past the first accessibility size the square's width stays put, and a
+                    // number grown further filled it, louder than the purple.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .padding(Spacing.xs)
+            }
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .opacity(square.isShown ? 1 : 0)
@@ -87,6 +114,7 @@ public struct DayGrid: View {
             let index = week * 7 + day
             return DayGrid.Square(
                 id: start.addingTimeInterval(Double(index) * 86400),
+                number: "\(index + 1)",
                 isDone: index.isMultiple(of: 3),
                 isToday: index == 26,
                 isShown: index <= 26,

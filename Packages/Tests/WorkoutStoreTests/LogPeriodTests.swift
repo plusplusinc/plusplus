@@ -26,8 +26,10 @@ struct LogPeriodTests {
     @Test("A week that starts on Sunday: Sun Oct 25 to Sat Nov 21, today the last square")
     func sundayWeeks() throws {
         let period = period()
-        #expect(period.firstDayText(locale: Fixture.locale, calendar: Self.sundayFirst)
-            == "Oct 25")
+        #expect(period.rangeText(locale: Fixture.locale, calendar: Self.sundayFirst)
+            == "Oct 25\u{2009}\u{2013}\u{2009}Nov 21")
+        #expect(period.spokenRange(locale: Fixture.locale, calendar: Self.sundayFirst)
+            == "October 25 to November 21")
         #expect(period.weeks.count == 4)
         #expect(period.weeks.allSatisfy { $0.count == 7 })
         let last = try #require(period.weeks.last?.last)
@@ -40,8 +42,8 @@ struct LogPeriodTests {
     @Test("A week that starts on Monday: Mon Oct 26 to Sun Nov 22, Sunday after today")
     func mondayWeeks() {
         let period = period(calendar: Self.mondayFirst)
-        #expect(period.firstDayText(locale: Fixture.locale, calendar: Self.mondayFirst)
-            == "Oct 26")
+        #expect(period.rangeText(locale: Fixture.locale, calendar: Self.mondayFirst)
+            == "Oct 26\u{2009}\u{2013}\u{2009}Nov 21")
         let lastWeek = period.weeks.last ?? []
         #expect(lastWeek.map(\.isToday) == [false, false, false, false, false, true, false])
         #expect(lastWeek.map(\.isAfterToday) == [false, false, false, false, false, false, true])
