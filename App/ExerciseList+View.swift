@@ -41,17 +41,63 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// Stores the exercise and shows it.
     let onCreate: (CreatedExercise) async -> Void
 
+    /// What the list is narrowed by, started from the opening's.
+    @State private var filter: ExerciseFilter
+    /// The filter whose sheet of chips is up.
+    @State private var choosing: FilterSheet?
     @State private var query = ""
     /// While a Create's store lands: a second tap meanwhile would make a second exercise.
     @State private var isCreating = false
     @State private var isKeyboardUp = false
-    /// Where the list's room starts, at the bar's bottom edge, in global coordinates: where a
+    /// Where the list's room starts, at the filter row's bottom edge, in global coordinates: where
+    /// a
     /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
     @State private var listTop: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    init(
+        exercises: ExerciseList,
+        filter: ExerciseFilter = ExerciseFilter(),
+        onTap: @escaping (Exercise) -> Void,
+        rowActions: @escaping (Exercise) -> RowActions,
+        barTitle: LocalizedStringKey,
+        barLeading: BarLeading,
+        onSearchOpen: @escaping () -> Void = { },
+        onCreate: @escaping (CreatedExercise) async -> Void,
+    ) {
+        self.exercises = exercises
+        _filter = State(initialValue: filter)
+        self.onTap = onTap
+        self.rowActions = rowActions
+        self.barTitle = barTitle
+        self.barLeading = barLeading
+        self.onSearchOpen = onSearchOpen
+        self.onCreate = onCreate
+    }
+
     var body: some View {
         list
+            .safeAreaBar(edge: .top) { filterBar }
+            .sheet(item: $choosing) { sheet in
+                switch sheet {
+                case .muscle:
+                    ChipSheet(
+                        title: "Muscle",
+                        items: MuscleGroup.allCases,
+                        chosen: $filter.muscleGroups,
+                        name: \.name,
+                        onDone: { choosing = nil },
+                    )
+                case .equipment:
+                    ChipSheet(
+                        title: "Equipment",
+                        items: EquipmentChoice.allCases,
+                        chosen: $filter.equipment,
+                        name: \.name,
+                        onDone: { choosing = nil },
+                    )
+                }
+            }
             .modifier(SearchField(
                 text: $query,
                 title: barTitle,
@@ -60,29 +106,93 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
             ))
     }
 
-    private var list: some View {
-        let sections = exercises.matching(query).lettered()
-        return List {
-            ForEach(sections) { section in
-                Section {
-                    ForEach(section.exercises, content: row)
-                } header: {
-                    Text(section.letter)
-                        .font(.ppRowDetail)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .modifier(LeavesUnderBar(listTop: listTop))
+    /// The three filters' buttons, alike whatever they open, wrapping when their words don't
+    /// fit one line; under them, while one is on, the count and Clear.
+    private var filterBar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            FlowLayout(spacing: Spacing.sm) {
+                Button {
+                    dropKeyboard()
+                    choosing = .muscle
+                } label: {
+                    FilterLabel(
+                        filter.muscleLabel ?? "Muscle",
+                        isOn: !filter.muscleGroups.isEmpty,
+                    )
                 }
-                .indexLabel(section.letter, isShown: showsIndex)
+                .buttonStyle(.plain)
+                kindMenu
+                Button {
+                    dropKeyboard()
+                    choosing = .equipment
+                } label: {
+                    FilterLabel(
+                        filter.equipmentLabel ?? "Equipment",
+                        isOn: !filter.equipment.isEmpty,
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            if filter.isOn {
+                FilterCount(countText) {
+                    filter = ExerciseFilter()
+                }
+                .padding(.bottom, Spacing.xs)
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
+            listTop = $0
+        }
+    }
+
+    /// Kind takes one at a time, so it is the system's menu: a toggle per kind, the chosen one
+    /// checked; picking it again clears it.
+    private var kindMenu: some View {
+        Menu {
+            ForEach(ExerciseKind.allCases, id: \.self) { kind in
+                Toggle(kind.name, isOn: Binding {
+                    filter.kind == kind
+                } set: { _ in
+                    filter.toggle(kind)
+                })
+            }
+        } label: {
+            FilterLabel(filter.kindLabel ?? "Kind", isOn: filter.kind != nil)
+        }
+        .menuOrder(.fixed)
+        .buttonStyle(.plain)
+    }
+
+    private var countText: String {
+        let count = exercises.filtered(by: filter, matching: query).matches.count
+        return count == 1 ? "1 exercise" : "\(count) exercises"
+    }
+
+    private var list: some View {
+        List {
+            if filter.isOn {
+                ForEach(exercises.filtered(by: filter, matching: query).matches, content: row)
+            } else {
+                ForEach(exercises.matching(query).lettered()) { section in
+                    Section {
+                        ForEach(section.exercises, content: row)
+                    } header: {
+                        Text(section.letter)
+                            .font(.ppRowDetail)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.pp(.textSecondary))
+                            .modifier(LeavesUnderBar(listTop: listTop))
+                    }
+                    .indexLabel(section.letter, isShown: showsIndex)
+                }
             }
             if exercises.offersCreate(for: query) {
                 createRow
             }
         }
         .listStyle(.plain)
-        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: {
-            listTop = $0
-        }
         // From the keyboard's start up to the end of its way down: the index fits itself to the
         // list's room, which follows the keyboard, and shown meanwhile it squashed to a third of
         // its height and grew back.
@@ -178,6 +288,16 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         } else {
             Label { title } icon: { Image(systemName: "plus") }
         }
+    }
+}
+
+/// A filter that takes several choices, and so opens a sheet of chips.
+private enum FilterSheet: Identifiable {
+    case muscle
+    case equipment
+
+    var id: Self {
+        self
     }
 }
 
