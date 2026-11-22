@@ -23,12 +23,11 @@ extension AppSession {
 
     /// Deletes a finished logged workout and its sets, from Log's History, then reads the log
     /// again, so its count, calendar, Diff, and Balance follow. Queued behind the logged
-    /// workout's writes, so an End still landing can't bring it back. Refused for the one in
-    /// progress. A delete that fails is logged, and the read leaves the workout listed.
+    /// workout's writes, so an End still landing can't bring it back. The store refuses the one
+    /// in progress. A delete that fails is logged, and the read leaves the workout listed.
     public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) async {
-        guard loggedWorkout?.id != id else { return }
         loggedWorkoutWrites.yield(.delete(id))
-        await withCheckedContinuation { done in loggedWorkoutWrites.yield(.landed(done)) }
+        await loggedWorkoutWritesLanded()
         await refreshLog()
     }
 

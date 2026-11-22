@@ -88,4 +88,18 @@ struct StoreDeleteTests {
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [upper])
         try await relaunch().deleteLoggedWorkout(deleted.id)
     }
+
+    @Test("A logged workout still in progress is never deleted from Log; only Discard ends it")
+    func loggedWorkoutInProgressKept() async throws {
+        let upper = Workout(name: "Upper")
+        try await relaunch().save(upper, at: Self.at(1))
+        let running = LoggedWorkout(
+            workoutID: upper.id,
+            workoutName: "Upper",
+            startedAt: Self.at(10),
+        )
+        try await relaunch().save(running)
+        try await relaunch().deleteLoggedWorkout(running.id)
+        #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == running)
+    }
 }

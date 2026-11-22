@@ -59,10 +59,15 @@ extension AppSession {
                     case let .landed(done): done.resume()
                     }
                 } catch {
-                    Logger.session.error("The logged workout didn't save: \(error)")
+                    Logger.session.error("A logged workout's write didn't land: \(error)")
                 }
             }
         }
         return continuation
+    }
+
+    /// Returns once every logged workout write sent so far has landed, or failed.
+    func loggedWorkoutWritesLanded() async {
+        await withCheckedContinuation { done in loggedWorkoutWrites.yield(.landed(done)) }
     }
 }

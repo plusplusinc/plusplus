@@ -5,7 +5,8 @@ import Testing
 @testable import WorkoutStore
 
 /// Deleting a finished logged workout from Log through the session: it leaves the log and the
-/// store, after any write of it still queued, never the one in progress, and a delete the store
+/// store, after any write of it still queued, never the one in progress (the store refuses it,
+/// `StoreDeleteTests`), and a delete the store
 /// refuses leaves it in the log. A relaunch is a second store over the same container.
 @Suite("Workout session Log delete")
 struct AppSessionLogDeleteTests {
@@ -74,8 +75,11 @@ struct AppSessionLogDeleteTests {
 
     @Test("A delete the store refuses leaves the workout in the log")
     func failedDeleteListed() async throws {
-        let url = URL.temporaryDirectory.appending(path: "\(UUID().uuidString).store")
-        defer { try? FileManager.default.removeItem(at: url) }
+        // A folder of its own, so its removal takes SQLite's files beside the store too.
+        let folder = URL.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "PlusPlus.store")
         let loggedWorkout = finished(at: 10)
         try await Store(modelContainer: ModelContainer(
             for: Store.schema,

@@ -12,7 +12,7 @@ import WorkoutStore
 /// calendar weeks.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
 /// logged workout's row pushes it, read-only, with the system push, as a saved workout is
-/// pushed on Workouts.
+/// pushed on Workouts, and swiped left offers Delete, as a saved workout's row does there.
 struct LogScreen: View {
     @Bindable var session: AppSession
 
@@ -33,8 +33,8 @@ struct LogScreen: View {
     /// View state: it starts on History each time Log opens from the drawer, and holds across a
     /// push and pop, since the stack keeps its root.
     @State var tab = Tab.history
-    /// The logged workout Delete last asked about, kept as the alert goes, so its title keeps
-    /// the name.
+    /// The logged workout Delete last asked about, kept as the alert goes, so its line keeps the
+    /// name and day.
     @State var deleting: LoggedWorkout?
     @State var isAskingToDelete = false
     /// Logged workouts whose delete is confirmed, left out of History from the confirming tap,

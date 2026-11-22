@@ -333,7 +333,7 @@ public final class AppSession {
     /// wait on it rather than on time.
     func writesLanded() async {
         await finishSaving()
-        await withCheckedContinuation { done in loggedWorkoutWrites.yield(.landed(done)) }
+        await loggedWorkoutWritesLanded()
     }
 }
 
