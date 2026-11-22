@@ -36,11 +36,16 @@ public struct FilterLabel: View {
     }
 }
 
-/// A chip in a filter's sheet: off on the raised surface, on in the light style, as
-/// `FilterLabel` is.
+/// A chip in a filter's sheet: the capsule a filter's button is, its type and its insets, off
+/// on the raised surface and on in the light style, so the sheet reads as more of the row that
+/// opened it. One weight on and off: a chip that grew bolder grew wider, and pushed the chips
+/// after it along the line.
+///
+/// The touch is the capsule and half the gap to its neighbors on every side, so chips a gap
+/// apart leave no dead strip between them and each is a thumb's height; `ChipSheet` lays them
+/// out touching.
 public struct ChipButtonStyle: ButtonStyle {
     let isOn: Bool
-    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 44
 
     public init(isOn: Bool) {
         self.isOn = isOn
@@ -48,14 +53,16 @@ public struct ChipButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.ppButton)
+            .font(.ppRowDetail)
+            .fontWeight(.medium)
             .foregroundStyle(Color.pp(isOn ? .onPrimaryKey : .textPrimary))
-            .padding(.horizontal, Spacing.md)
-            .frame(minHeight: minHeight)
+            .padding(.horizontal, Spacing.md - Spacing.xs)
+            .padding(.vertical, Spacing.sm)
             .background(Color.pp(isOn ? .primaryKey : .surfaceRaised), in: .capsule)
             .opacity(configuration.isPressed ? 0.7 : 1)
             .animation(.tapChange, value: isOn)
-            .contentShape(.capsule)
+            .padding(Spacing.xs)
+            .contentShape(.rect)
     }
 }
 
@@ -88,7 +95,7 @@ public struct ChipSheet<Item: Hashable>: View {
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.md) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack {
                     Text(title)
                         .font(.ppBarTitle)
@@ -100,15 +107,19 @@ public struct ChipSheet<Item: Hashable>: View {
                         .foregroundStyle(Color.pp(.textPrimary))
                         .frame(minHeight: 44)
                 }
-                FlowLayout(spacing: Spacing.sm) {
+                // Touching: each chip carries half the gap around its capsule
+                // (`ChipButtonStyle`), which the negative inset takes back at the edges, so
+                // the capsules line up with the title.
+                FlowLayout(spacing: 0) {
                     ForEach(items, id: \.self) { item in
                         chip(item)
                     }
                 }
+                .padding(-Spacing.xs)
             }
             .padding(.horizontal, Spacing.md)
             .padding(.top, Spacing.md)
-            .padding(.bottom, Spacing.lg)
+            .padding(.bottom, Spacing.md)
             .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
         }
         .scrollBounceBehavior(.basedOnSize)
