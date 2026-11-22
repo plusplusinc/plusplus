@@ -28,11 +28,11 @@ PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR
 
 # Budgets in seconds on Xcode Cloud. A local run's are these divided by LOCAL_RATIO, the ratio
 # of CI to local times measured in 2026-10 with one test at a time on both, or by the target's
-# own in UI_RATIOS. The UI tests ran 1.34 times as long on Xcode Cloud as on a Mac (run 539,
+# own in LOCAL_RATIOS. The UI tests ran 1.34 times as long on Xcode Cloud as on a Mac (run 539,
 # 421.5 s, against 315.0 s locally on the same code, 2026-11-22; #222's relaunch test 93.8 s
 # against 69.3 s), so at 1.25 a run within its local budget was over on Xcode Cloud.
 LOCAL_RATIO = 1.25
-UI_RATIOS = {"PlusPlusUITests": 1.35}
+LOCAL_RATIOS = {"PlusPlusUITests": 1.35}
 # Per test target: (all its tests, any one of them or None, whether every test is listed).
 TARGETS = {
     "WorkoutStoreTests": (10, None, False),
@@ -67,6 +67,10 @@ def when(stamp):
     """
     stamp = re.sub(r"\.(\d+)", lambda m: "." + m[1][:6].ljust(6, "0"), stamp)
     return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+
+
+def local_ratio(target):
+    return LOCAL_RATIOS.get(target, LOCAL_RATIO)
 
 
 def over(seconds, budget, overage=None):
@@ -109,7 +113,7 @@ def overage(target, per_test, on_ci):
     decides (.claude/rules/testing.md, Budgets)."""
     if on_ci and target in READ_LOCALLY:
         return (", over on Xcode Cloud: slow if it logs fopen, or reads over "
-                f"{per_test / LOCAL_RATIO:.3g} s in the whole target locally (.claude/rules/testing.md)")
+                f"{per_test / local_ratio(target):.3g} s in the whole target locally (.claude/rules/testing.md)")
     return None
 
 
@@ -140,7 +144,7 @@ def budget_lines(tests, parallel, on_ci):
     order = list(TARGETS)
     for target in sorted(by_target, key=lambda t: order.index(t) if t in order else len(order)):
         total, per_test, lists_all = TARGETS.get(target, (None, None, False))
-        scale = 1 if on_ci else 1 / UI_RATIOS.get(target, LOCAL_RATIO)
+        scale = 1 if on_ci else 1 / local_ratio(target)
         seconds = by_target[target]
         lines.append(f"{target} {over(seconds, total * scale) if total else f'{seconds:.1f} s'}")
         if not per_test or target in parallel:

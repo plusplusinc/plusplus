@@ -107,7 +107,7 @@ tests, the ratios with one test at a time on both.
 | `SessionTests` | 5 s | 4 s |
 | `DesignSystemTests` | 30 s | 24 s |
 | a `DesignSystemTests` test | 2 s | 1.6 s |
-| each UI test | 90 s | 67 s |
+| each UI test | 90 s | 66.7 s |
 | the UI tests together | 360 s | 267 s |
 
 A PR run's start-to-finish time is printed with no budget: about 250 s of it is Xcode Cloud's

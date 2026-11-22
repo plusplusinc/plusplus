@@ -1,7 +1,8 @@
 import XCTest
 
 /// Log at the largest text size, run within `testWrappedTitleAtLargestTextSize` on its way from
-/// the Workouts screen to a new workout. Nothing is finished at this launch, so History shows
+/// the workout the relaunch reopened to a new workout. Nothing is finished at this launch, so
+/// History shows
 /// its empty calendar, its line, and Go to Workouts, which the audit covers with the system's
 /// segmented control and bar. How the tabs' rows look at this size is `LogSnapshotTests`'.
 @MainActor

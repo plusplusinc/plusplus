@@ -51,6 +51,21 @@ extension TitleWrappingUITests {
             }
     }
 
+    /// The drawer, its places kept whole, and the Workouts screen pass the audit at this size,
+    /// opened with ++ over the workout the launch seeded. Ends on Workouts.
+    private func drawerAtAX5(in app: XCUIApplication) throws {
+        try XCTContext.runActivity(named: "The drawer and the Workouts screen at AX5") { _ in
+            try app.openDrawer(andTap: "Workouts") {
+                attach(named: "drawer-ax5")
+                try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            }
+            let row = app.workoutRows.firstMatch
+            XCTAssertTrue(row.appears(), "The workout isn't listed")
+            attach(named: "workouts-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        }
+    }
+
     /// The current exercise's row just under the bar, the key not going back to it.
     private func assertLandedOnTheCurrentExercise(in app: XCUIApplication, after step: String) {
         let current = app.exerciseRows.firstMatch

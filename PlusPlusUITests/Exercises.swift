@@ -228,6 +228,12 @@ extension XCUIElement {
         center.tap()
     }
 
+    /// Holds the element until its system context menu opens, which comes at about half a
+    /// second.
+    func holdForMenu() {
+        press(forDuration: 0.8)
+    }
+
     /// The middle of the element. On a row, that is on its name and detail line, where a hold
     /// lifts it.
     var center: XCUICoordinate {
@@ -311,7 +317,7 @@ extension XCUIElement {
 }
 
 extension XCUICoordinate {
-    /// Holds here long enough for a row to lift, half again `RailDrag.hold`'s 0.4 s, drags to
+    /// Holds here long enough for a row to lift, half again `RailDrag.hold`, drags to
     /// `target` at an unhurried hand's speed, holds there for `hold` seconds, and lets go.
     /// XCTest's `.slow`, about 200 pt/s, took most of a second a drag.
     @MainActor
@@ -323,10 +329,6 @@ extension XCUICoordinate {
             thenHoldForDuration: hold,
         )
     }
-
-    /// How long a press is held to open a row's system context menu, which comes at about half a
-    /// second.
-    static let contextMenuHold: TimeInterval = 0.7
 
     /// `points` further down, or up when negative.
     func down(_ points: CGFloat) -> XCUICoordinate {

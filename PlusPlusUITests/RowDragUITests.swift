@@ -65,7 +65,7 @@ final nonisolated class RowDragUITests: XCTestCase {
             let row = app.pickerRows["Zq"]
             XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
             XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
-            row.press(forDuration: XCUICoordinate.contextMenuHold)
+            row.holdForMenu()
             XCTAssertTrue(delete.appears(), "A created one's hold menu offers no Delete")
             XCTAssertTrue(
                 app.buttons["Customize…"].exists,

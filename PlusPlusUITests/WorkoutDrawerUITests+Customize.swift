@@ -78,7 +78,7 @@ extension WorkoutDrawerUITests {
             XCTAssertTrue(first.appears(), "Add exercise lists nothing")
             XCTAssertTrue(first.settles(), "The row kept moving")
             let label = first.label
-            first.press(forDuration: XCUICoordinate.contextMenuHold)
+            first.holdForMenu()
             XCTAssertTrue(customize.appears(), "Holding a row opened no menu")
             XCTAssertFalse(
                 app.buttons["picker.menu.delete"].exists,
@@ -114,7 +114,7 @@ extension WorkoutDrawerUITests {
             let row = app.pickerRows["Zq"]
             XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
             XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
-            row.press(forDuration: XCUICoordinate.contextMenuHold)
+            row.holdForMenu()
             let customize = app.buttons["Customize…"]
             XCTAssertTrue(customize.appears(), "Holding the row opened no menu")
             customize.tap()
