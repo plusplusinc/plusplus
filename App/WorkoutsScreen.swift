@@ -23,6 +23,10 @@ struct WorkoutsScreen: View {
     @State private var scrollPosition = ScrollPosition()
     /// Whether the title has scrolled out of sight under the bar, for its small copy to show.
     @State private var isTitleUnderBar = false
+    /// Whether the title has been reported in sight. The first report, as the screen first lays
+    /// out, says the title is out of sight, and the next, 15 to 55 ms on, that it is in sight;
+    /// taken, the first showed the small title at launch, fading as the next came.
+    @State private var hasSeenTitle = false
     /// The workout Delete last asked about, kept as the alert goes, so its title keeps the name.
     @State private var deleting: Workout?
     @State private var isAskingToDelete = false
@@ -42,6 +46,10 @@ struct WorkoutsScreen: View {
                         .padding(.horizontal, Spacing.md)
                         .padding(.bottom, Spacing.md)
                         .onScrollVisibilityChange(threshold: 0.01) { isVisible in
+                            if isVisible {
+                                hasSeenTitle = true
+                            }
+                            guard hasSeenTitle else { return }
                             withAnimation(.easeOut(duration: WorkoutScreen.barFade)) {
                                 isTitleUnderBar = !isVisible
                             }
