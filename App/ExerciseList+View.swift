@@ -110,9 +110,10 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
 
     /// The three filters' buttons, alike whatever they open, on one line that scrolls sideways
     /// when their words don't fit (decided 2026-11-22: the row never wraps); under them, while
-    /// one is on, the count and Clear. A tap on any of them takes Add exercise to full height,
-    /// as search does (decided 2026-11-22), so a sheet of chips sits over the list, which shows
-    /// above it narrowing with each tap.
+    /// one is on, the count and Clear. A tap on one that opens a sheet of chips, Muscle or
+    /// Equipment, takes Add exercise to full height, as search does (decided 2026-11-22), so
+    /// the chips sit over the list, which shows above them narrowing with each tap. Kind's
+    /// menu needs no room and leaves the sheet at the height it has.
     private func filterBar(count: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView(.horizontal) {
@@ -182,11 +183,6 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         }
         .menuOrder(.fixed)
         .buttonStyle(.plain)
-        // A menu reports no opening of its own; this tap is the one that opens it.
-        .simultaneousGesture(TapGesture().onEnded {
-            dropKeyboard()
-            onExpand()
-        })
     }
 
     private func list(_ filtered: FilteredExercises) -> some View {
