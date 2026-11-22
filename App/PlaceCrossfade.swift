@@ -15,8 +15,10 @@ import SwiftUI
 /// These transitions run only inside an animated place change, and only Log's pill animates
 /// one: a place changed from the drawer swaps at once, under the drawer as it closes.
 enum PlaceCrossfade {
-    static let duration = 0.3
-    static let animation = Animation.timingCurve(0.2, 0.7, 0.3, 1, duration: duration)
+    /// Eased in and out so the fade spreads over the whole time: at 0.3 s easing out alone, most
+    /// of it was over in an eighth of a second and read as way too fast.
+    static let duration = 0.55
+    static let animation = Animation.timingCurve(0.4, 0, 0.3, 1, duration: duration)
 
     /// How far each screen moves.
     static let distance: CGFloat = 24
