@@ -101,13 +101,19 @@ struct LogScreen: View {
             }
         }
         // Outside the stack, as Workouts': centered, with the system's colors.
+        // "Delete <name>?", Workouts' words, read here as deleting the workout itself: the title
+        // names Log, and the line under it the one time through.
         .alert(
-            "Delete \(deleting.map(Self.name(of:)) ?? "")?",
+            "Delete from Log?",
             isPresented: $isAskingToDelete,
             presenting: deleting,
         ) { loggedWorkout in
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) { delete(loggedWorkout.id) }
+        } message: { loggedWorkout in
+            Text(
+                "\(Self.name(of: loggedWorkout)), \(loggedWorkout.dayText(locale: locale, calendar: calendar))",
+            )
         }
         .task { await session.refreshLog() }
     }
