@@ -274,7 +274,7 @@ struct WorkoutScreen: View {
                             // folded into the row's accessibility element, where VoiceOver and
                             // the UI tests never find it. The row's tap stays on where the swipe
                             // is off.
-                            .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
+                            .swipeToDelete(item.id, isOn: item.id != currentID) { delete($0) }
                     } end: {
                         FloatingButtonRoom()
                             .onGeometryChange(for: CGFloat.self) {
