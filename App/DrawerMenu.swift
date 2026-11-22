@@ -45,7 +45,8 @@ struct DrawerMenu: View {
                     Button("Workouts", systemImage: "checklist") {
                         go(to: .workouts, from: showing)
                     }
-                    .buttonStyle(.drawer(isSelected: showing == .workouts))
+                    // An open workout is one of the Workouts, so it marks their row too.
+                    .buttonStyle(.drawer(isSelected: showing != .log))
                     Button("Log", systemImage: "book.closed") {
                         go(to: .log, from: showing)
                     }
@@ -74,7 +75,9 @@ struct DrawerMenu: View {
     private func go(to place: AppSession.Showing, from showing: AppSession.Showing) {
         if place == showing {
             session.closeDrawer()
-        } else if voiceOver {
+        } else if voiceOver || (showing == .workout && place == .workouts) {
+            // From an open workout the mark is on Workouts already, so there is no slide to
+            // wait for: the list shows under the closing drawer at once.
             switch place {
             case .workouts: session.showWorkouts()
             case .log: session.showLog()

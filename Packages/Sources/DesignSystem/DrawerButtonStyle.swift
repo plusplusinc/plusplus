@@ -2,9 +2,9 @@ import SwiftUI
 
 /// A place the drawer goes: its icon and name, with no outline, taking taps across the drawer's
 /// width. The place showing sits on a rounded fill, icon and name, with as much space to the
-/// icon's left as above and below it. Pressing another place lights a faint fill of the same
-/// shape behind it, as a list's row highlights under a finger, where the mark then arrives; its
-/// icon and name don't dim, which read as a second, weaker sign beside the sliding mark.
+/// icon's left as above and below it. A press shows nothing of its own: the mark sliding to
+/// the place tapped is the answer, and a dim or a fill under the finger read as a second,
+/// weaker sign beside it.
 public struct DrawerButtonStyle: ButtonStyle {
     private let isSelected: Bool
 
@@ -14,10 +14,7 @@ public struct DrawerButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .labelStyle(DrawerLabelStyle(
-                isSelected: isSelected,
-                isPressed: configuration.isPressed,
-            ))
+            .labelStyle(DrawerLabelStyle(isSelected: isSelected))
             .font(.ppDrawerItem)
             .foregroundStyle(.pp(.textPrimary))
             .multilineTextAlignment(.leading)
@@ -28,15 +25,9 @@ public struct DrawerButtonStyle: ButtonStyle {
 
 private struct DrawerLabelStyle: LabelStyle {
     let isSelected: Bool
-    let isPressed: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        DrawerLabel(
-            icon: configuration.icon,
-            title: configuration.title,
-            isSelected: isSelected,
-            isPressed: isPressed,
-        )
+        DrawerLabel(icon: configuration.icon, title: configuration.title, isSelected: isSelected)
     }
 }
 
@@ -45,12 +36,6 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     let icon: Icon
     let title: Title
     let isSelected: Bool
-    let isPressed: Bool
-
-    /// How strong the fill under a pressed place is, against the mark's own.
-    private static var pressedStrength: Double {
-        0.5
-    }
 
     /// The minimum touch target, for every place alike.
     private let minHeight: CGFloat = 44
@@ -78,17 +63,6 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
             if isSelected, let anchor {
                 GeometryReader { proxy in
                     fill(around: proxy[anchor], in: proxy.size)
-                }
-            }
-        }
-        // A background of its own, behind the mark's: drawn inside the mark's reader, always
-        // there, the mark stopped sliding between rows and changed rows at once.
-        .backgroundPreferenceValue(DrawerIconBounds.self) { anchor in
-            if let anchor {
-                GeometryReader { proxy in
-                    fillShape(around: proxy[anchor], in: proxy.size)
-                        .opacity(isPressed && !isSelected ? Self.pressedStrength : 0)
-                        .keyPressAnimation(isPressed: isPressed)
                 }
             }
         }

@@ -112,8 +112,8 @@ extension AppSession {
         }
     }
 
-    /// What the drawer marks as showing: the Workouts screen, Log, or a workout, which marks
-    /// nothing.
+    /// The place showing: the Workouts screen, Log, or a workout, which the drawer marks as
+    /// Workouts while its row still goes to the list.
     public var showing: Showing {
         switch screen {
         case .workouts: .workouts
