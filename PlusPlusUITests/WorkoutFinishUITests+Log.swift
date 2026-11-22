@@ -11,11 +11,8 @@ import XCTest
 extension WorkoutFinishUITests {
     func relaunchKeepsIt(named name: String, title: XCUIElement, in app: XCUIApplication) {
         XCTContext.runActivity(named: "The logged one was kept: launch opens Workouts") { _ in
-            app.relaunch()
-            XCTAssertTrue(
-                app.listedWorkout(named: name).appears(),
-                "Launch after a finish did not open Workouts listing the workout",
-            )
+            // Fails on a relaunch that doesn't list the workout on Workouts.
+            app.relaunch(landingOn: app.listedWorkout(named: name))
             XCTAssertFalse(app.workoutTime.exists, "The finished workout came back running")
             XCTAssertFalse(title.exists, "Launch opened a workout, not the list")
         }
