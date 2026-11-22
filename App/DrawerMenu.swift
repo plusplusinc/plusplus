@@ -9,7 +9,8 @@ import WorkoutStore
 /// The mark is taken as the drawer starts to show. A tap on another place slides the mark to it
 /// (`DrawerWay.markSlide`), one mark moving, and the drawer closes as it lands, the place
 /// swapping under the closing drawer (`AppSession.show(_:throughDrawer:markWait:)`); Log's Go to
-/// Workouts plays the same slide in a drawer it opens. A tap on the place showing closes the
+/// Workouts plays the same slide in a drawer it opens, held open a moment before and after the
+/// slide (`DrawerWay.holdBefore`, `holdAfter`). A tap on the place showing closes the
 /// drawer at once. The mark is then held until the drawer has fully closed. With Reduce Motion
 /// the mark changes rows at once and the drawer waits a moment before closing; with VoiceOver a
 /// tap goes straight to the place, as the drawer has always done.
@@ -80,12 +81,23 @@ struct DrawerMenu: View {
             case .workout: session.closeDrawer()
             }
         } else {
-            session.show(
-                place,
-                throughDrawer: DrawerWay.arrival(reduceMotion: reduceMotion),
-                markWait: DrawerWay.markWait(reduceMotion: reduceMotion),
-            )
+            session.showThroughDrawer(place, reduceMotion: reduceMotion)
         }
+    }
+}
+
+extension AppSession {
+    /// `show(_:throughDrawer:markWait:)` on the drawer's own beats (`DrawerWay`).
+    func showThroughDrawer(_ place: Showing, reduceMotion: Bool) {
+        show(
+            place,
+            throughDrawer: DrawerOpening(
+                arrival: DrawerWay.arrival(reduceMotion: reduceMotion),
+                holdBefore: DrawerWay.holdBefore,
+                holdAfter: DrawerWay.holdAfter,
+            ),
+            markWait: DrawerWay.markWait(reduceMotion: reduceMotion),
+        )
     }
 }
 

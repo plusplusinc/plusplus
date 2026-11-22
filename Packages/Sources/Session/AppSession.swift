@@ -132,8 +132,8 @@ public final class AppSession {
         rowSheet = nil
     }
 
-    /// Closes the drawer. Mid-way through `show(_:throughDrawer:markWait:)`, as at its end or as
-    /// a tap beside the drawer or a swipe closes it, the place it was going to swaps in first.
+    /// Closes the drawer. Mid-way through `show(_:throughDrawer:markWait:)`, as at its end or
+    /// as a tap beside the drawer or a swipe closes it, the place it was going to swaps in first.
     public func closeDrawer() {
         if let place = throughDrawerPlace {
             endThroughDrawer()

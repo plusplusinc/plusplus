@@ -33,40 +33,44 @@ extension AppSession {
 
     /// Shows `place` by way of the drawer, so the eye sees where it went. From a closed drawer,
     /// as Log's Go to Workouts goes, the drawer first opens with its own motion, marking the
-    /// place showing, and the rest waits until its slide has visibly arrived (`arrival`); from
-    /// an open one, as a drawer row is tapped, the rest starts at once. Then the drawer's mark
-    /// moves to `place` (`drawerMark`), and once it has landed (`markWait` later) the place swaps
-    /// and the drawer closes over it. Each beat sleeps to a deadline from the start.
+    /// place showing, and is held open longer: the mark waits until the slide has visibly
+    /// arrived plus a hold (`opening.arrival` + `opening.holdBefore`), and stays on `place`
+    /// for `opening.holdAfter` once it has landed. From an open one, as a drawer row is tapped,
+    /// the mark sets off at once and nothing is held. The mark moves to `place` (`drawerMark`);
+    /// once it has landed (`markWait` later, plus any hold) the place swaps and the drawer
+    /// closes over it. Each beat sleeps to a deadline from the start.
     ///
     /// One plays at a time; another asked for meanwhile is ignored. Anything that closes the
     /// drawer mid-way, a tap beside it or a swipe, ends it on `place` (`closeDrawer()`). Where
     /// the drawer is kept shut it goes straight there.
-    public func show(_ place: Showing, throughDrawer arrival: Duration, markWait: Duration) {
-        guard throughDrawer == nil else { return }
+    public func show(
+        _ place: Showing,
+        throughDrawer opening: DrawerOpening,
+        markWait: Duration,
+    ) {
+        guard throughDrawerPlace == nil else { return }
+        let start = ContinuousClock.now
+        throughDrawerPlace = place
         var markAt = Duration.zero
+        var closeAt = markWait
+        // From an open drawer the mark moves on the Task's first turn, a frame after the tap: set
+        // in the tap's own update, the row's press animation took the slide over, and the mark
+        // crawled and was still short of its row as the drawer closed.
         if !isDrawerOpen {
             openDrawer()
             guard isDrawerOpen else {
-                land(on: place)
                 closeDrawer()
                 return
             }
-            markAt = arrival
+            markAt = opening.arrival + opening.holdBefore
+            closeAt = markAt + markWait + opening.holdAfter
         }
-        throughDrawerPlace = place
-        let start = ContinuousClock.now
         throughDrawer = Task { [weak self] in
             do {
-                if markAt > .zero {
-                    try await Task.sleep(
-                        until: start + markAt, tolerance: .zero, clock: .continuous,
-                    )
-                    try Task.checkCancellation()
-                }
+                try await Task.sleep(until: start + markAt, tolerance: .zero, clock: .continuous)
+                try Task.checkCancellation()
                 self?.drawerMark = place
-                try await Task.sleep(
-                    until: start + markAt + markWait, tolerance: .zero, clock: .continuous,
-                )
+                try await Task.sleep(until: start + closeAt, tolerance: .zero, clock: .continuous)
                 try Task.checkCancellation()
                 self?.closeDrawer()
             } catch {
@@ -78,7 +82,7 @@ extension AppSession {
     /// Ends a way through the drawer that hasn't finished, as the app leaves the foreground: it
     /// lands where it was going with the drawer closed. Does nothing when none is under way.
     public func finishThroughDrawer() {
-        guard throughDrawer != nil else { return }
+        guard throughDrawerPlace != nil else { return }
         closeDrawer()
     }
 
@@ -115,6 +119,21 @@ extension AppSession {
         case .workouts: .workouts
         case .log, .loggedWorkout: .log
         case .workout, .pushedWorkout: .workout
+        }
+    }
+
+    /// The beats of a drawer opened for a way through it (`show(_:throughDrawer:markWait:)`):
+    /// when its slide has visibly arrived, and how long it is held open before the mark moves
+    /// and after it lands.
+    public struct DrawerOpening: Sendable {
+        let arrival: Duration
+        let holdBefore: Duration
+        let holdAfter: Duration
+
+        public init(arrival: Duration, holdBefore: Duration, holdAfter: Duration) {
+            self.arrival = arrival
+            self.holdBefore = holdBefore
+            self.holdAfter = holdAfter
         }
     }
 

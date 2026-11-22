@@ -304,18 +304,26 @@ public enum DrawerWay {
         .seconds(reduceMotion ? DrawerMetrics.fadeDuration : DrawerMetrics.slide.duration)
     }
 
-    /// How long the mark takes to slide to its new place, which the drawer waits for before
-    /// closing; with Reduce Motion the mark changes rows at once and the drawer waits a moment
-    /// so the change is seen.
+    /// A drawer opened for the person, not by them, is held open longer, at the ++ button's
+    /// pace both ways, long enough to read where the mark was and where it went: `holdBefore`
+    /// with the mark still on the place showing once the opening has arrived, and `holdAfter`
+    /// with it on the new place once it has landed, before the close. A drawer row tapped holds
+    /// neither: the person chose, and the drawer closes as the mark arrives.
+    public static let holdBefore = Duration.milliseconds(200)
+    public static let holdAfter = Duration.milliseconds(300)
+
+    /// How long the mark takes to visibly arrive at its new place, which the drawer waits for
+    /// before closing: the slide's duration, not its settle, whose tail is too small to see.
+    /// With Reduce Motion the mark changes rows at once and the drawer waits a moment so the
+    /// change is seen.
     public static func markWait(reduceMotion: Bool) -> Duration {
         .seconds(reduceMotion ? markPause : markSlideDuration)
     }
 
-    /// The mark sliding from one place to the next: eased in and out so the travel spreads over
-    /// the whole time and stops dead; an ease-out alone front-loads it and reads as a jump.
-    /// Snappy, yet slow enough to follow. Nil with Reduce Motion: it changes rows at once.
+    /// The mark sliding from one place to the next, on the app's quick curve: off the mark at
+    /// once and landing softly, with no bounce. Nil with Reduce Motion: it changes rows at once.
     public static func markSlide(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .easeInOut(duration: markSlideDuration)
+        reduceMotion ? nil : .snappy(duration: markSlideDuration)
     }
 
     private static let markSlideDuration = 0.25
