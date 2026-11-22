@@ -3,7 +3,7 @@ import SwiftUI
 /// A flat gray capsule sized to its label, its label in primary text in the body style, at least
 /// a tap target tall. It has no ledge: a key does something to the workout, and this only goes
 /// somewhere, from a screen with nothing to show, as Log's Go to Workouts. Pressing dims it, as
-/// the drawer's rows do.
+/// a key does (`keyPress(isPressed:)`); with Reduce Motion too, since a dim is no motion.
 public struct PillButtonStyle: ButtonStyle {
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 44
     @ScaledMetric(relativeTo: .body) private var labelInset: CGFloat = 10

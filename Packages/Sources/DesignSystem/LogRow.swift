@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// What a Log row says after its title: a gain in green, or a quiet word in gray ("Same",
-/// "First time", a drop, "16 days ago", "3 workouts").
+/// "First time", a drop).
 public enum LogTag: Equatable, Sendable {
     case gain(String)
     case quiet(String)
@@ -103,7 +103,12 @@ public struct LogRow: View {
                 detail: "Last set planned at 1:00.",
                 spoken: "Plank",
             )
-            LogRow("Core", tag: .quiet("16 days ago"), spoken: "Core")
+            LogRow(
+                "Barbell row",
+                tag: .quiet("\u{2212}10 lb"),
+                figures: "8 × 135 lb",
+                spoken: "Row",
+            )
         }
         .padding(.horizontal, Spacing.md)
     }
