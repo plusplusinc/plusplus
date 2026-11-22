@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Log's Go to Workouts as two screens trading places softly: Workouts fades in on top of Log
-/// while moving `distance` sideways into its place from `arrivingFrom`, and Log, opaque
-/// underneath, moves `distance` to the left as it gives way, gone once Workouts is opaque over
-/// it. One motion, easing out to a dead stop.
+/// while moving `distance` into its place from the right, and Log, opaque underneath, moves
+/// `distance` to the right as it gives way, gone once Workouts is opaque over it. One motion,
+/// easing in and out to a dead stop.
 ///
 /// Nothing gets darker: Log stays opaque under the fade, the backdrop behind both is the screen's
 /// color, and each screen's stack has a container background of that color, so a fading stack
@@ -20,21 +20,19 @@ enum PlaceCrossfade {
     static let duration = 0.55
     static let animation = Animation.timingCurve(0.4, 0, 0.3, 1, duration: duration)
 
-    /// How far each screen moves.
+    /// How far each screen moves, both on the right: Log goes to it and Workouts comes from it,
+    /// so they travel opposite ways.
     static let distance: CGFloat = 24
-    /// The side Workouts comes in from: from the leading side it travels the opposite way to Log,
-    /// as the old screen going left and the new one going right.
-    static let arrivingFrom = HorizontalEdge.leading
 
-    /// Log going, under Workouts' fade: opaque, moving to the left.
+    /// Log going, under Workouts' fade: opaque, moving to the right.
     static func leaving(reduceMotion: Bool) -> AnyTransition {
-        reduceMotion ? held : AnyTransition(Shift(x: -distance, fades: false))
+        reduceMotion ? held : AnyTransition(Shift(x: distance, fades: false))
     }
 
-    /// Workouts arriving on top: fading in as it moves into place.
+    /// Workouts arriving on top: fading in as it moves left into place from the right.
     static func arriving(reduceMotion: Bool) -> AnyTransition {
         guard !reduceMotion else { return .opacity }
-        return AnyTransition(Shift(x: arrivingFrom == .leading ? -distance : distance, fades: true))
+        return AnyTransition(Shift(x: distance, fades: true))
     }
 
     /// Log kept drawn, unmoved, until Workouts has faded in over it: its own fade waits for the
