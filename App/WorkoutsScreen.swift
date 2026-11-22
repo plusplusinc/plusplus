@@ -3,7 +3,8 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// Every saved workout, most recently opened or edited first, each by its name.
+/// Every saved workout, most recently opened or edited first, each by its name. The app launches
+/// here when a finish was the last thing done (`Store.Launch.workouts`).
 /// Tapping one pushes it on the workout screen; + pushes a new one. A line runs under each row,
 /// the last included, as under each row in Add exercise.
 ///

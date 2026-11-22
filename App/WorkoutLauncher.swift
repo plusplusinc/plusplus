@@ -4,8 +4,9 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// Opens the workout the app launches into before showing it, so the title never shows New
-/// workout and then the saved name.
+/// Opens where the app launches (`Store.Launch`) before showing it: the workout, so the title
+/// never shows New workout and then the saved name, or, after a finish, the Workouts list with
+/// its rows already read.
 struct WorkoutLauncher: View {
     let store: Store?
     let namer: WorkoutNamer
