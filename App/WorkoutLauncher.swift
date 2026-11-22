@@ -58,7 +58,7 @@ struct WorkoutLauncher: View {
                 .task {
                     let launch = await launch()
                     let session = await AppSession(
-                        workout: launch.workout,
+                        workout: launch.workout ?? Workout(),
                         loggedWorkout: launch.loggedWorkout,
                         exercises: exercises(),
                         store: store,
@@ -67,9 +67,19 @@ struct WorkoutLauncher: View {
                     // A timed set that ran out while the app was away is logged, before the
                     // screen opens on the workout.
                     session.catchUp(override: WorkoutScreen.restOverride)
-                    self.session = session
-                    // Read ahead, so the Workouts screen's first showing has its list.
-                    await session.refreshRecent(weightUnit: WeightUnit(region: locale))
+                    let weightUnit = WeightUnit(region: locale)
+                    // After a finish the app opens on the Workouts list, over a new workout,
+                    // the list read before its first frame, so it never shows empty and then
+                    // fills; the drawer, never opened, doesn't pass by.
+                    if launch == .workouts {
+                        session.showWorkouts()
+                        await session.refreshRecent(weightUnit: weightUnit)
+                        self.session = session
+                    } else {
+                        self.session = session
+                        // Read ahead, so the Workouts screen's first showing has its list.
+                        await session.refreshRecent(weightUnit: weightUnit)
+                    }
                     await session.refreshLog()
                 }
         }
@@ -86,8 +96,8 @@ struct WorkoutLauncher: View {
         }
     }
 
-    private func launch() async -> (workout: Workout, loggedWorkout: LoggedWorkout?) {
-        guard let store else { return (Workout(), nil) }
+    private func launch() async -> Store.Launch {
+        guard let store else { return .newWorkout }
         do {
             #if DEBUG
             if resetsStore {
@@ -98,11 +108,10 @@ struct WorkoutLauncher: View {
                 )
             }
             #endif
-            let launch = try await store.launch(weightUnit: WeightUnit(region: locale))
-            return (launch.workout ?? Workout(), launch.loggedWorkout)
+            return try await store.launch(weightUnit: WeightUnit(region: locale))
         } catch {
             Logger.app.error("Opening a new workout: the saved one didn't load: \(error)")
-            return (Workout(), nil)
+            return .newWorkout
         }
     }
 }
