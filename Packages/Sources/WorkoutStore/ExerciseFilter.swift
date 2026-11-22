@@ -63,7 +63,7 @@ extension ExerciseTags.Muscle {
 /// - Kind, one at a time.
 /// - Equipment: everything an exercise uses is among the chosen pieces; a bodyweight exercise
 ///   shows only with No equipment chosen.
-public struct ExerciseFilter: Equatable, Sendable {
+public struct ExerciseFilter: Hashable, Sendable {
     public var muscleGroups: Set<MuscleGroup>
     public var kind: ExerciseKind?
     public var equipment: Set<EquipmentChoice>

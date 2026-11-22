@@ -17,6 +17,8 @@ struct CustomizeScreen: View {
     var onStored: () -> Void = { }
     /// Deletes the created exercise, from the confirming tap.
     let onDelete: () async -> Void
+    /// Opens with the name selected to type over, as after a Create with nothing typed.
+    var focusesName = false
 
     @Environment(\.locale) private var locale
 
@@ -34,6 +36,7 @@ struct CustomizeScreen: View {
                     onStored()
                 },
                 ending: ending(weightUnit: weightUnit),
+                focusesName: focusesName,
             )
             // The workouts Used in and Delete's question count, as stored now.
             .task { await session.refreshRecent(weightUnit: weightUnit) }

@@ -92,6 +92,7 @@ extension WorkoutScreen {
                         namer: namer,
                         onStored: { showStoredWorkout() },
                         onDelete: { await deleteExercise(exercise, closing: .rowSheet) },
+                        focusesName: opened.namesIt,
                     )
                 },
                 onDelete: { delete(id, footDelay: Self.exerciseSheetGone) },
@@ -108,13 +109,17 @@ extension WorkoutScreen {
         ExercisePicker(
             exercises: leavingExercise.map(session.exercises.removing) ?? session.exercises,
             onPick: addPicked,
-            // Full height with search, in the field's own transaction (decided 2026-11-17).
-            onSearchOpen: { pickerDetent = .large },
-            onCreate: { made in
+            // Full height with search (decided 2026-11-17) and with a filter's tap (decided
+            // 2026-11-22), in the tap's own transaction: at medium height the sheet went out of
+            // sight under a filter's sheet of chips.
+            onExpand: { pickerDetent = .large },
+            onCreate: { made, needsName in
                 let wasIdle = phase == .idle
                 let exercise = await session.create(made)
                 isPicking = false
-                add(exercise) { createdWait = CreatedWait(row: $0, wasIdle: wasIdle) }
+                add(exercise) {
+                    createdWait = CreatedWait(row: $0, wasIdle: wasIdle, needsName: needsName)
+                }
             },
             deleteMessage: { id in
                 DeleteQuestion.message(
@@ -196,7 +201,7 @@ extension WorkoutScreen {
         guard let wait = createdWait else { return }
         let id = wait.row
         await session.openRowSheet(
-            RowSheet(id: id, opensCustomizing: true),
+            RowSheet(id: id, opensCustomizing: true, namesIt: wait.needsName),
             after: Self.createdHold,
         ) {
             editing == nil && !isPicking && entering == nil && row(id) != nil
@@ -321,4 +326,6 @@ extension WorkoutScreen {
 struct CreatedWait: Equatable {
     let row: WorkoutExercise.ID
     let wasIdle: Bool
+    /// Made with nothing typed, so Customize opens with its name to type over.
+    var needsName = false
 }

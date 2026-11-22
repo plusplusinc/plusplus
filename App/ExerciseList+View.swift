@@ -35,11 +35,13 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// The host's leading bar button, drawn by the bar's search in its own item so its field
     /// takes the button's place as it opens; the host puts none in its toolbar.
     let barLeading: BarLeading
-    /// Runs as search opens, in the tap's own transaction, so what it changes moves with the
-    /// field: Add exercise's sheet goes to full height.
-    var onSearchOpen: () -> Void = { }
-    /// Stores the exercise and shows it.
-    let onCreate: (CreatedExercise) async -> Void
+    /// Runs as search opens, or a filter's button is tapped, in the tap's own transaction, so
+    /// what it changes moves with the field or the filter: Add exercise's sheet goes to full
+    /// height.
+    var onExpand: () -> Void = { }
+    /// Stores the exercise and shows it; the flag says whether it still needs its name, made
+    /// with nothing typed.
+    let onCreate: (CreatedExercise, _ needsName: Bool) async -> Void
 
     /// What the list is narrowed by, started from the opening's.
     @State private var filter: ExerciseFilter
@@ -53,7 +55,6 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// a
     /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
     @State private var listTop: CGFloat = 0
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
         exercises: ExerciseList,
@@ -62,8 +63,8 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         rowActions: @escaping (Exercise) -> RowActions,
         barTitle: LocalizedStringKey,
         barLeading: BarLeading,
-        onSearchOpen: @escaping () -> Void = { },
-        onCreate: @escaping (CreatedExercise) async -> Void,
+        onExpand: @escaping () -> Void = { },
+        onCreate: @escaping (CreatedExercise, _ needsName: Bool) async -> Void,
     ) {
         self.exercises = exercises
         _filter = State(initialValue: filter)
@@ -71,13 +72,14 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         self.rowActions = rowActions
         self.barTitle = barTitle
         self.barLeading = barLeading
-        self.onSearchOpen = onSearchOpen
+        self.onExpand = onExpand
         self.onCreate = onCreate
     }
 
     var body: some View {
-        list
-            .safeAreaBar(edge: .top) { filterBar }
+        let filtered = exercises.filtered(by: filter, matching: query)
+        list(filtered)
+            .safeAreaBar(edge: .top) { filterBar(count: filtered.matches.count) }
             .sheet(item: $choosing) { sheet in
                 switch sheet {
                 case .muscle:
@@ -102,49 +104,63 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                 text: $query,
                 title: barTitle,
                 leading: barLeading,
-                onOpen: onSearchOpen,
+                onOpen: onExpand,
             ))
     }
 
-    /// The three filters' buttons, alike whatever they open, wrapping when their words don't
-    /// fit one line; under them, while one is on, the count and Clear.
-    private var filterBar: some View {
+    /// The three filters' buttons, alike whatever they open, on one line that scrolls sideways
+    /// when their words don't fit (decided 2026-11-22: the row never wraps); under them, while
+    /// one is on, the count and Clear. A tap on any of them takes Add exercise to full height,
+    /// as search does (decided 2026-11-22), so a sheet of chips sits over the list, which shows
+    /// above it narrowing with each tap.
+    private func filterBar(count: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            FlowLayout(spacing: Spacing.sm) {
-                Button {
-                    dropKeyboard()
-                    choosing = .muscle
-                } label: {
-                    FilterLabel(
-                        filter.muscleLabel ?? "Muscle",
-                        isOn: !filter.muscleGroups.isEmpty,
-                    )
+            ScrollView(.horizontal) {
+                HStack(spacing: Spacing.sm) {
+                    Button {
+                        open(.muscle)
+                    } label: {
+                        FilterLabel(
+                            filter.muscleLabel ?? "Muscle",
+                            isOn: !filter.muscleGroups.isEmpty,
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    kindMenu
+                    Button {
+                        open(.equipment)
+                    } label: {
+                        FilterLabel(
+                            filter.equipmentLabel ?? "Equipment",
+                            isOn: !filter.equipment.isEmpty,
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                kindMenu
-                Button {
-                    dropKeyboard()
-                    choosing = .equipment
-                } label: {
-                    FilterLabel(
-                        filter.equipmentLabel ?? "Equipment",
-                        isOn: !filter.equipment.isEmpty,
-                    )
-                }
-                .buttonStyle(.plain)
+                // Inside the scroll's content, so the first button lines up with the rows and
+                // the last scrolls clear of the edge.
+                .padding(.horizontal, Spacing.md)
             }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             if filter.isOn {
-                FilterCount(countText) {
+                FilterCount(count == 1 ? "1 exercise" : "\(count) exercises") {
                     filter = ExerciseFilter()
                 }
-                .padding(.bottom, Spacing.xs)
+                .padding(.horizontal, Spacing.md)
+                .padding(.bottom, Spacing.sm)
             }
         }
-        .padding(.horizontal, Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
             listTop = $0
         }
+    }
+
+    private func open(_ sheet: FilterSheet) {
+        dropKeyboard()
+        onExpand()
+        choosing = sheet
     }
 
     /// Kind takes one at a time, so it is the system's menu: a toggle per kind, the chosen one
@@ -163,17 +179,33 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         }
         .menuOrder(.fixed)
         .buttonStyle(.plain)
+        // A menu reports no opening of its own; this tap is the one that opens it.
+        .simultaneousGesture(TapGesture().onEnded {
+            dropKeyboard()
+            onExpand()
+        })
     }
 
-    private var countText: String {
-        let count = exercises.filtered(by: filter, matching: query).matches.count
-        return count == 1 ? "1 exercise" : "\(count) exercises"
-    }
-
-    private var list: some View {
+    private func list(_ filtered: FilteredExercises) -> some View {
         List {
             if filter.isOn {
-                ForEach(exercises.filtered(by: filter, matching: query).matches, content: row)
+                ForEach(filtered.matches, content: row)
+                if query.isEmpty || exercises.offersCreate(for: query) {
+                    createRow
+                }
+                ForEach(filtered.alsoNeeds) { section in
+                    Section {
+                        ForEach(section.exercises, content: row)
+                    } header: {
+                        NeedsHeader(
+                            title: "Also needs \(section.piece.needed)",
+                            addTitle: section.piece.name,
+                        ) {
+                            filter.equipment.insert(.piece(section.piece))
+                        }
+                        .modifier(LeavesUnderBar(listTop: listTop))
+                    }
+                }
             } else {
                 ForEach(exercises.matching(query).lettered()) { section in
                     Section {
@@ -187,12 +219,15 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                     }
                     .indexLabel(section.letter, isShown: showsIndex)
                 }
-            }
-            if exercises.offersCreate(for: query) {
-                createRow
+                if exercises.offersCreate(for: query) {
+                    createRow
+                }
             }
         }
         .listStyle(.plain)
+        // A new filter is a new list, from its top, with no scroll to watch: the results are
+        // new. The filter is the list's identity, not a scroll asked from a change.
+        .id(filter)
         // From the keyboard's start up to the end of its way down: the index fits itself to the
         // list's room, which follows the keyboard, and shown meanwhile it squashed to a third of
         // its height and grew back.
@@ -245,49 +280,44 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         )
     }
 
-    /// The name Create makes, as its row shows it.
-    private var createdName: String {
-        ExerciseList.createdName(from: query)
-    }
-
+    /// Create: with something typed, Create "…" makes an exercise of that name; with nothing
+    /// typed, under a filter, "Create exercise" makes one named
+    /// `ExerciseList.unnamedExerciseName`, whose Customize opens with the name to type over.
+    /// Either way it starts with the filter's groups and equipment (`ExerciseFilter.carried…`),
+    /// which the row's detail line shows.
     private var createRow: some View {
-        Button {
+        let needsName = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return Button {
             guard !isCreating else { return }
             dropKeyboard()
             isCreating = true
-            let created = CreatedExercise(name: createdName, muscleGroups: [])
+            let created = CreatedExercise(
+                name: needsName
+                    ? exercises.unusedName(ExerciseList.unnamedExerciseName)
+                    : ExerciseList.createdName(from: query),
+                muscleGroups: filter.carriedGroups,
+                equipment: filter.carriedEquipment,
+            )
             Task {
-                await onCreate(created)
+                await onCreate(created, needsName)
                 isCreating = false
             }
         } label: {
-            createLabel
-                .font(.ppRowTitle)
-                .makesSomething()
-                // A label's separator starts at its title, past the icon; this one starts at
-                // the row's edge, where a result row's does.
-                .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+            CreateLabel(
+                title: needsName
+                    ? "Create exercise"
+                    : "Create \u{201C}\(ExerciseList.createdName(from: query))\u{201D}",
+                detail: filter.carriedLine,
+            )
+            .font(.ppRowTitle)
+            .makesSomething()
+            // A label's separator starts at its title, past the icon; this one starts at
+            // the row's edge, where a result row's does.
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
         .listRowBackground(Color.pp(.background))
         .listRowSeparator(.hidden, edges: .bottom)
         .accessibilityIdentifier("picker.create")
-    }
-
-    /// At the accessibility sizes the title wraps beside the +, in a column of its own: a list's
-    /// label there ran its second line back under the +, past its own frame, and the audit
-    /// read it as clipped.
-    @ViewBuilder
-    private var createLabel: some View {
-        let title = Text("Create \u{201C}\(createdName)\u{201D}")
-        if typeSize.isAccessibilitySize {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
-                Image(systemName: "plus")
-                    .accessibilityHidden(true)
-                title
-            }
-        } else {
-            Label { title } icon: { Image(systemName: "plus") }
-        }
     }
 }
 
@@ -330,59 +360,6 @@ private struct LeavesUnderBar: ViewModifier {
     }
 }
 
-/// Search as `BarSearchField`, one bar item holding the host's leading button and the round
-/// search button, spanning the bar between its margins. A bar item hugs its content, so the item
-/// gets its width from the screen's. The bar's own inline title is removed and `BarSearchField`
-/// draws the title, centered on the screen, for its field to cover; the screen keeps it as its
-/// navigation title.
-private struct SearchField<Leading: View>: ViewModifier {
-    @Binding var text: String
-    let title: LocalizedStringKey
-    let leading: Leading
-    let onOpen: () -> Void
-
-    /// The screen's width, which the item spans but for the bar's margins.
-    @State private var width: CGFloat = 0
-    /// The screen's middle in global coordinates, where a drawn title centers.
-    @State private var midX: CGFloat = 0
-    /// Held here, not in the item: the bar reads its item's elements again only as the host's
-    /// state changes (`BarSearchField`).
-    @State private var isOpen = false
-
-    func body(content: Content) -> some View {
-        content
-            .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
-            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).midX } action: {
-                midX = $0
-            }
-            .toolbar(removing: .title)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    BarSearchField(
-                        text: $text,
-                        // `BarSearchField` turns it inside the open's animation, so `onOpen`
-                        // runs in that transaction, not after it, as an `onChange` would.
-                        isOpen: Binding {
-                            isOpen
-                        } set: { open in
-                            isOpen = open
-                            if open {
-                                onOpen()
-                            }
-                        },
-                        prompt: "Search",
-                        width: width - 2 * Spacing.md,
-                        title: title,
-                        titleCenterX: midX,
-                    ) { leading }
-                }
-                .sharedBackgroundVisibility(.hidden)
-            }
-            // As the system's search does: a drag down the list drops the keyboard.
-            .scrollDismissesKeyboard(.immediately)
-    }
-}
-
 #Preview {
     NavigationStack {
         ExerciseListView(
@@ -391,7 +368,7 @@ private struct SearchField<Leading: View>: ViewModifier {
             rowActions: { _ in EmptyModifier() },
             barTitle: "Add exercise",
             barLeading: EmptyView(),
-            onCreate: { _ in },
+            onCreate: { _, _ in },
         )
         .navigationTitle("Add exercise")
     }

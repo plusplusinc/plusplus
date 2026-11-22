@@ -21,10 +21,12 @@ import WorkoutStore
 struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
-    /// Runs as search opens, in the field's own transaction (`ExerciseListView.onSearchOpen`).
-    var onSearchOpen: () -> Void = { }
-    /// Stores the exercise, closes the sheet, and adds its row.
-    let onCreate: (CreatedExercise) async -> Void
+    /// Runs as search opens or a filter's button is tapped, in the tap's own transaction
+    /// (`ExerciseListView.onExpand`).
+    var onExpand: () -> Void = { }
+    /// Stores the exercise, closes the sheet, and adds its row; the flag says whether it still
+    /// needs its name.
+    let onCreate: (CreatedExercise, _ needsName: Bool) async -> Void
     /// Delete's question for the exercise, below its title (`DeleteQuestion`).
     let deleteMessage: (Exercise.ID) -> String
     /// Deletes the created exercise and its rows, from the confirming tap, showing its row
@@ -48,7 +50,7 @@ struct ExercisePicker<Customize: View>: View {
                 rowActions: holdMenu,
                 barTitle: "Add exercise",
                 barLeading: closeButton,
-                onSearchOpen: onSearchOpen,
+                onExpand: onExpand,
                 onCreate: onCreate,
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
@@ -131,8 +133,7 @@ private struct HoldMenu: ViewModifier {
 }
 
 #Preview {
-    ExercisePicker(exercises: .builtIn) { _ in } onCreate: {
-        Exercise(created: $0)
+    ExercisePicker(exercises: .builtIn) { _ in } onCreate: { _, _ in
     } deleteMessage: { _ in
         ""
     } onDelete: { _ in
