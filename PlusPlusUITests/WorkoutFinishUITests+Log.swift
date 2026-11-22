@@ -1,22 +1,20 @@
 import XCTest
 
 /// The finished workout after a relaunch, run last within `testFinishKeyKeepsTheWorkout`:
-/// launch opens a new workout, and Log lists the finished one. What Log reads from the store
-/// and how each row reads are the package's (`StoreLoggedWorkoutTests`, `WorkoutLogTextTests`);
+/// launch opens the Workouts list, and Log lists the finished one. Which launch the store finds
+/// is `StoreLaunchTests`'; what Log reads from the store and how each row reads are the
+/// package's (`StoreLoggedWorkoutTests`, `WorkoutLogTextTests`);
 /// this is what a relaunch brings back to Log, the system push and back of an opened
 /// workout, the segmented control's wire from each tab to what it shows, and a row's swipe to
 /// Delete, which ends it on an empty History.
 @MainActor
 extension WorkoutFinishUITests {
     func relaunchKeepsIt(named name: String, title: XCUIElement, in app: XCUIApplication) {
-        XCTContext.runActivity(named: "The logged one was kept: launch opens a new workout") { _ in
-            app.relaunch()
+        XCTContext.runActivity(named: "The logged one was kept: launch opens Workouts") { _ in
+            // Fails on a relaunch that doesn't list the workout on Workouts.
+            app.relaunch(landingOn: app.listedWorkout(named: name))
             XCTAssertFalse(app.workoutTime.exists, "The finished workout came back running")
-            XCTAssertNotEqual(
-                title.value as? String,
-                name,
-                "Launch reopened the workout, as after a discard",
-            )
+            XCTAssertFalse(title.exists, "Launch opened a workout, not the list")
         }
         XCTContext.runActivity(named: "Log lists it after the relaunch, and opens it") { _ in
             app.openDrawer(andTap: "Log")

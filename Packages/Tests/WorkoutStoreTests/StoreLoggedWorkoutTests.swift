@@ -142,24 +142,6 @@ struct StoreLoggedWorkoutTests {
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredSet>()) == 0)
     }
 
-    @Test("After Finish, launch opens a new workout, until a saved one is opened or edited")
-    func afterFinish() async throws {
-        var workout = Workout(name: "Upper")
-        let store = relaunch()
-        try await store.save(workout, at: Self.at(1))
-        try await store.save(Self.started(workout, at: 10).finishing(at: Self.at(20)))
-        let launch = try await relaunch().launch(weightUnit: .pounds)
-        #expect(launch.workout == nil)
-        #expect(launch.loggedWorkout == nil)
-        _ = try await store.openWorkout(workout.id, weightUnit: .pounds, at: Self.at(30))
-        #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
-        try await store.save(Self.started(workout, at: 40).finishing(at: Self.at(50)))
-        #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
-        workout.name = "Upper again"
-        try await store.save(workout, at: Self.at(60))
-        #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
-    }
-
     @Test("After Discard, launch reopens the workout and the store holds no logged workout")
     func afterDiscard() async throws {
         let workout = Workout(name: "Upper")

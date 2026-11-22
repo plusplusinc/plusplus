@@ -3,7 +3,7 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// The screen the app launches into: the workout being edited, or a new one.
+/// The workout being edited, or a new one; the app launches here, except after a finish.
 ///
 /// Every change saves on its own, with no drafts. A new workout is saved once something is put
 /// in it, and deleted once it is cleared back to nothing.

@@ -61,7 +61,7 @@ Since V12 it keeps the timed set counting (`SetCount`), so a relaunch opens on t
 Discard and Log's Delete delete it, its sets with it. `launch(weightUnit:)` opens a logged
 workout in progress with its workout (an empty one under its id and name if the workout is gone; of two in progress, as
 sync could leave, the one started later), else the workout last opened or edited, unless one
-finished after that, which opens a new workout.
+finished after that, which opens the Workouts list.
 
 A row's `exerciseID` resolves through `ExerciseList`, the customized built-ins (V10) and V8's `StoredExercise`s (five settings each); a row
 it can't resolve is left out. `deleteExercise` removes its rows too.

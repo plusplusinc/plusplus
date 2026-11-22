@@ -16,15 +16,14 @@ public actor Store {
         ))
     }
 
-    /// What the app opens with. A logged workout in progress opens with its workout, or, if
-    /// that is gone, an empty one under its id and name; with more than one, as sync could leave,
-    /// the latest started. Otherwise the workout last opened or edited, unless a logged workout
-    /// finished after that, which opens a new workout (nil). Every stored workout has been
-    /// edited, since an untouched one is never saved and a cleared one is deleted. A weight never
-    /// saved reads as its exercise's default in `weightUnit`.
-    public func launch(weightUnit: WeightUnit) throws
-        -> (workout: Workout?, loggedWorkout: LoggedWorkout?)
-    {
+    /// What the app opens with (`Launch`). A logged workout in progress opens with its workout,
+    /// or, if that is gone, an empty one under its id and name; with more than one, as sync could
+    /// leave, the latest started. Otherwise the workout last opened or edited, unless a logged
+    /// workout finished after that, which opens the Workouts list; with no saved workout, a new
+    /// one. Every stored workout has been edited, since an untouched one is never saved and a
+    /// cleared one is deleted. A weight never saved reads as its exercise's default in
+    /// `weightUnit`.
+    public func launch(weightUnit: WeightUnit) throws -> Launch {
         var inProgress = FetchDescriptor<StoredWorkout>(
             predicate: #Predicate { $0.endedAt == nil },
             sortBy: [SortDescriptor(\.startedAt, order: .reverse), SortDescriptor(\.id)],
@@ -36,20 +35,24 @@ public actor Store {
             let workout = try stored(id: loggedWorkout.workoutID)
                 .map { Self.workout(from: $0, exercises: exercises, weightUnit: weightUnit) }
                 ?? Workout(id: loggedWorkout.workoutID, name: loggedWorkout.workoutName)
-            return (workout, loggedWorkout)
+            return .inProgress(workout, loggedWorkout)
         }
         // Picked here, as the list sorts, so launch opens the workout the list puts first.
         guard let latest = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
             .min(by: Self.isMoreRecent(_:than:))
-        else { return (nil, nil) }
+        else { return .newWorkout }
         var finished = FetchDescriptor<StoredWorkout>(
             predicate: #Predicate { $0.endedAt != nil },
             sortBy: [SortDescriptor(\.endedAt, order: .reverse)],
         )
         finished.fetchLimit = 1
         let lastFinish = try modelContext.fetch(finished).first?.endedAt ?? .distantPast
-        guard lastFinish <= latest.recency else { return (nil, nil) }
-        return try (Self.workout(from: latest, exercises: exercises(), weightUnit: weightUnit), nil)
+        guard lastFinish <= latest.recency else { return .workouts }
+        return try .workout(Self.workout(
+            from: latest,
+            exercises: exercises(),
+            weightUnit: weightUnit,
+        ))
     }
 
     /// Saves the logged workout as it is now, every field. Once it has ended, its workout, if

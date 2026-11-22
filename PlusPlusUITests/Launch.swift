@@ -50,15 +50,16 @@ extension XCUIApplication {
     }
 
     /// Quits the way a person does, home then gone, and launches again with the same
-    /// arguments, this time into whatever the last launch saved.
-    func relaunch() {
+    /// arguments, this time into whatever the last launch saved, and waits for `landing`: the
+    /// workout's title, or, after a finish, a row of the Workouts list.
+    func relaunch(landingOn landing: XCUIElement? = nil) {
         XCUIDevice.shared.press(.home)
         terminate()
         if let reset = launchArguments.firstIndex(of: "-resetStore") {
             launchArguments.removeSubrange(reset ... reset + 1)
         }
         launch()
-        XCTAssertTrue(workoutTitle.appears(within: 10), "No title after relaunch")
+        XCTAssertTrue((landing ?? workoutTitle).appears(within: 10), "Relaunch landed elsewhere")
     }
 
     /// Pushes a new, empty workout with the Workouts screen's +, reached through the drawer, as a
