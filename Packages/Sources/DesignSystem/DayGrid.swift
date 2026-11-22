@@ -4,7 +4,8 @@ import SwiftUI
 /// rounded squares a week. A day marked done is filled purple (`done`), the others a quiet gray
 /// fill (`selectionFill`); today is outlined, in primary text over purple and in the rail's gray
 /// over the gray; a day after today keeps its room and draws nothing. The squares share the
-/// row's width. VoiceOver reads the initials not at all and each drawn day as one element,
+/// row's width, and their height follows it, whatever height the grid is offered. VoiceOver reads
+/// the initials not at all and each drawn day as one element,
 /// `spoken`, row by row.
 public struct DayGrid: View {
     /// One day's square.
@@ -53,6 +54,9 @@ public struct DayGrid: View {
                 }
             }
         }
+        // The squares' size comes from the width alone: offered less height, as by a screen
+        // filling its room below, they drew smaller.
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func squareView(_ square: Square) -> some View {
