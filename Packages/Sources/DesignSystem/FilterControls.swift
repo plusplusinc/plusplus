@@ -177,12 +177,22 @@ public struct NeedsHeader: View {
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             Button(action: onAdd) {
-                Text("+ \(addTitle)")
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.pp(.textPrimary))
-                    .padding(.horizontal, Spacing.sm + Spacing.xs)
-                    .padding(.vertical, Spacing.xs)
-                    .background(Color.pp(.surfaceRaised), in: .capsule)
+                // The + is a symbol, not a character, so it centers on the name's line; a
+                // typed "+" sits on the baseline, low beside capitals. Its leading inset is
+                // the one the capsule's height leaves above and below it, so it sits in the
+                // middle of the capsule's round end.
+                HStack(alignment: .center, spacing: Spacing.xs) {
+                    Image(systemName: "plus")
+                        .imageScale(.small)
+                        .accessibilityHidden(true)
+                    Text(addTitle)
+                }
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.pp(.textPrimary))
+                .padding(.leading, Spacing.sm)
+                .padding(.trailing, Spacing.sm + Spacing.xs)
+                .padding(.vertical, Spacing.xs)
+                .background(Color.pp(.surfaceRaised), in: .capsule)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add \(addTitle.lowercased()) to Equipment")
