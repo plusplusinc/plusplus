@@ -1,83 +1,29 @@
-// Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
-#if canImport(UIKit) && !os(watchOS)
-
 import SwiftUI
 import Testing
-import UIKit
 @testable import DesignSystem
 
-/// A row's swipe actions are built again only when what they show or act on changes. Built again
-/// on every run of the body holding them, as `swipeActions` written in place are, they reached
-/// the swipe container twice in the frame a screen's rows were first laid out in, when the
-/// screen took a size it had measured there, which SwiftUI logs as a fault. The fault never shows
-/// in a hosted window, so the builds are counted.
-@MainActor
+/// A row's swipe actions compare equal while what they show and act on is, whatever closure
+/// made them, so SwiftUI keeps the ones it built rather than building them again on each run of
+/// the screen's body (`rowSwipe(_:value:action:)`). That SwiftUI skips an equal modifier's body
+/// in the frame a screen's rows first lay out was read on the simulator, from the fault log and
+/// the body's runs; a hosted window ran the body again in some runs and not in others.
 @Suite("Row swipes")
 struct RowSwipeTests {
-    final class Log {
-        var builds = 0
-        var hostRuns = 0
+    /// Made anew on each call, as a screen's body makes it on each run.
+    private func swipe(_ title: LocalizedStringKey = "Remove", value: Int) -> RowSwipe<Int> {
         var removed: Int?
+        return RowSwipe(title: title, value: value) { removed = $0 }
     }
 
-    /// A row whose screen takes a width it measures in the row's first layout, as the rail takes
-    /// its column's. Its swipe acts on 1, or, given `measuredValue`, on that once measured.
-    private struct Host: View {
-        let log: Log
-        let measuredValue: Int?
-        @State private var width: CGFloat = 0
-
-        var body: some View {
-            log.hostRuns += 1
-            return ScrollView {
-                Text(width > 0 ? "Measured" : "Unmeasured")
-                    .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
-                    .modifier(RowSwipe(
-                        title: "Remove",
-                        value: width > 0 ? measuredValue ?? 1 : 1,
-                        // A new closure on every run, as the screens' are.
-                        action: { log.removed = $0 },
-                        onBuild: { log.builds += 1 },
-                    ))
-            }
-            .swipeActionsContainer()
-        }
+    @Test("Swipe actions made by new closures for the same row are equal")
+    func equalAcrossClosures() {
+        let (first, again) = (swipe(value: 1), swipe(value: 1))
+        #expect(first == again)
     }
 
-    /// How many times the row's swipe actions were built as the host settled. The first row
-    /// swipe hosted in a test process was built on every run of its host, with or without
-    /// `RowSwipe`'s `Equatable` conformance, and every one after it once, so one is hosted first
-    /// and not counted.
-    private func builds(measuredValue: Int? = nil) throws -> Int {
-        var counts: [Int] = []
-        for _ in 0 ..< 2 {
-            let log = Log()
-            let window = UIWindow.sceneless(
-                hosting: UIHostingController(rootView: Host(
-                    log: log,
-                    measuredValue: measuredValue,
-                )),
-                at: .large,
-            )
-            window.settle()
-            window.isHidden = true
-            try #require(log.hostRuns > 1, "The measured width never ran the screen's body again")
-            counts.append(log.builds)
-        }
-        return counts[1]
-    }
-
-    @Test("A screen's body running again over the same row leaves its swipe actions as built")
-    func builtOnceForTheSameValue() throws {
-        let count = try builds()
-        #expect(count == 1)
-    }
-
-    @Test("A row's swipe actions are built again for a new value")
-    func builtAgainForANewValue() throws {
-        let count = try builds(measuredValue: 2)
-        #expect(count == 2)
+    @Test("Swipe actions for a new value or title are not equal")
+    func unequalForNewValueOrTitle() {
+        #expect(swipe(value: 1) != swipe(value: 2))
+        #expect(swipe("Remove", value: 1) != swipe("Delete", value: 1))
     }
 }
-
-#endif

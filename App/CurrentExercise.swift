@@ -51,7 +51,8 @@ extension CoordinateSpaceProtocol where Self == NamedCoordinateSpace {
 extension View {
     /// Row `id`'s Remove, revealed by a swipe, while `isOn`. Off, on the current exercise, which
     /// fills the screen and whose sheet deletes it, there is no swipe at all: with no actions the
-    /// row still slid aside.
+    /// row still slid aside. `delete` is kept from the last build for the same `id`
+    /// (`rowSwipe(_:value:action:)`).
     func swipeToDelete(
         _ id: WorkoutExercise.ID,
         isOn: Bool,
