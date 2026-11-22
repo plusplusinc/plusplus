@@ -54,6 +54,7 @@ struct ExerciseForm: View {
     @FocusState private var isNameFocused: Bool
     /// The name's selection, set only to select the whole name as the form opens to be named.
     @State private var nameSelection: TextSelection?
+    @State private var hasSelectedName = false
     /// Opens with the name focused and selected, so typing replaces it.
     private let focusesName: Bool
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -177,14 +178,19 @@ struct ExerciseForm: View {
         .onChange(of: isNameFocused) { _, isFocused in
             if !isFocused {
                 endNameEdit()
+            } else if focusesName, !hasSelectedName {
+                // Once the field has focus: a selection set before it took focus gave way to
+                // the caret at the end.
+                hasSelectedName = true
+                nameSelection = TextSelection(range: name.startIndex ..< name.endIndex)
             }
         }
         // Going back, or pushing a list, ends the edit too, focus or not.
         .onDisappear { endNameEdit() }
         .onAppear {
-            guard focusesName else { return }
-            nameSelection = TextSelection(range: name.startIndex ..< name.endIndex)
-            isNameFocused = true
+            if focusesName {
+                isNameFocused = true
+            }
         }
     }
 
