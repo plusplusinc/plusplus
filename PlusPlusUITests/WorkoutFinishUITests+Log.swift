@@ -32,37 +32,42 @@ extension WorkoutFinishUITests {
             XCTAssertTrue(logged.appears(), "Back did not return to History")
         }
         // The system's segmented control is composed in the app, and only there does a tab
-        // reach what the store holds: `WorkoutDiffTests` and `WorkoutGapsTests` hold what each
-        // tab works out, `LogSnapshotTests` how its rows look.
-        XCTContext.runActivity(named: "History, Diff, Gaps: each tab shows the one workout") { _ in
-            let tabs = app.segmentedControls.firstMatch.buttons
-            XCTAssertEqual(
-                tabs.allElementsBoundByIndex.map(\.label),
-                ["History", "Diff", "Gaps"],
-            )
-            XCTAssertTrue(tabs["History"].isSelected, "Log is not on History")
-            // Log slides back in under the popped workout.
-            XCTAssertTrue(tabs["Diff"].settles(), "Diff kept moving")
-            tabs["Diff"].tap()
-            // One workout is no change yet: Diff is its one line.
-            let line = app
-                .staticTexts["An exercise shows here once it has been done in two workouts."]
-            XCTAssertTrue(line.appears(), "Diff shows no line about two workouts")
-            XCTAssertFalse(
-                app.buttons["log.workout"].exists,
-                "Diff still lists History's workouts",
-            )
-            tabs["Gaps"].tap()
-            // The plank's one set is the only one: Core has it, the other five have none.
-            let groups = app.descendants(matching: .any)
-                .matching(NSPredicate(
-                    format: "label ENDSWITH %@ OR label ENDSWITH %@",
-                    " sets",
-                    " set",
-                ))
-            XCTAssertTrue(groups["Core, 1 set"].appears(), "Gaps counts no set for Core")
-            XCTAssertEqual(groups.count, 6, "Gaps shows \(groups.count) muscle groups")
-            XCTAssertFalse(line.exists, "Gaps still shows Diff's line")
-        }
+        // reach what the store holds: `WorkoutDiffTests` and `WorkoutBalanceTests` hold what each
+        // tab works out, `LogSnapshotTests` how its rows look, and `LogPeriodTests` the period.
+        XCTContext
+            .runActivity(named: "History, Diff, Balance: each tab shows the one workout") { _ in
+                let tabs = app.segmentedControls.firstMatch.buttons
+                XCTAssertEqual(
+                    tabs.allElementsBoundByIndex.map(\.label),
+                    ["History", "Diff", "Balance"],
+                )
+                XCTAssertTrue(tabs["History"].isSelected, "Log is not on History")
+                // The period shows once, in the bar, read as words.
+                let period = app.navigationBars.staticTexts
+                    .matching(NSPredicate(format: "label CONTAINS %@", " to "))
+                XCTAssertEqual(period.count, 1, "The bar reads no period, or more than one")
+                // Log slides back in under the popped workout.
+                XCTAssertTrue(tabs["Diff"].settles(), "Diff kept moving")
+                tabs["Diff"].tap()
+                // One workout is no change yet: Diff is its one line.
+                let line = app
+                    .staticTexts["An exercise shows here once it has been done in two workouts."]
+                XCTAssertTrue(line.appears(), "Diff shows no line about two workouts")
+                XCTAssertFalse(
+                    app.buttons["log.workout"].exists,
+                    "Diff still lists History's workouts",
+                )
+                tabs["Balance"].tap()
+                // The plank's one set is the only one: Core has it, the other five have none.
+                let groups = app.descendants(matching: .any)
+                    .matching(NSPredicate(
+                        format: "label ENDSWITH %@ OR label ENDSWITH %@",
+                        " sets",
+                        " set",
+                    ))
+                XCTAssertTrue(groups["Core, 1 set"].appears(), "Balance counts no set for Core")
+                XCTAssertEqual(groups.count, 6, "Balance shows \(groups.count) muscle groups")
+                XCTAssertFalse(line.exists, "Balance still shows Diff's line")
+            }
     }
 }
