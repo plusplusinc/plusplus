@@ -293,6 +293,46 @@ extension EnvironmentValues {
     @Entry var isBehindOpenDrawer = false
 }
 
+/// Going to a place by way of the drawer: the mark of the place showing slides to the place
+/// chosen, and the drawer closes as it lands, so the change is seen before the drawer goes. A
+/// drawer row tapped starts at the slide; Log's Go to Workouts first opens the drawer with its
+/// own motion. The beats a keeper of the drawer sleeps to, from the start.
+public enum DrawerWay {
+    /// When the drawer's opening has visibly arrived: its slide's duration, after which the
+    /// spring's tail is too small to see, or with Reduce Motion its fade's.
+    public static func arrival(reduceMotion: Bool) -> Duration {
+        .seconds(reduceMotion ? DrawerMetrics.fadeDuration : DrawerMetrics.slide.duration)
+    }
+
+    /// A drawer opened for the person, not by them, is held open longer, at the ++ button's
+    /// pace both ways, long enough to read where the mark was and where it went: `holdBefore`
+    /// with the mark still on the place showing once the opening has arrived, and `holdAfter`
+    /// with it on the new place once it has landed, before the close. A drawer row tapped holds
+    /// neither: the person chose, and the drawer closes as the mark arrives.
+    public static let holdBefore = Duration.milliseconds(200)
+    public static let holdAfter = Duration.milliseconds(300)
+
+    /// How long the mark takes to visibly arrive at its new place, which the drawer waits for
+    /// before closing: the slide's duration, not its settle, whose tail is too small to see.
+    /// With Reduce Motion the mark changes rows at once and the drawer waits a moment so the
+    /// change is seen.
+    public static func markWait(reduceMotion: Bool) -> Duration {
+        .seconds(reduceMotion ? markPause : markSlideDuration)
+    }
+
+    /// The mark sliding from one place to the next: easing in, so it is seen to leave its row,
+    /// then quick through the middle and landing softly, stopping dead. On `.snappy` it was off
+    /// the mark at full speed, and eased evenly in and out it felt soft. Nil with Reduce Motion:
+    /// it changes rows at once.
+    public static func markSlide(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .timingCurve(0.5, 0, 0.2, 1, duration: markSlideDuration)
+    }
+
+    private static let markSlideDuration = 0.25
+    /// With Reduce Motion, the new mark held in view before the drawer closes.
+    private static let markPause = 0.2
+}
+
 enum DrawerMetrics {
     /// How much of the screen stays in view beside the open drawer.
     static let sliver: CGFloat = 78
@@ -302,7 +342,8 @@ enum DrawerMetrics {
     /// Opening and closing: quick and without bounce, as a key answers a tap.
     static let slide = Spring(duration: 0.25, bounce: 0)
     /// The drawer fading in or out, with Reduce Motion.
-    static let fade = Animation.easeInOut(duration: 0.2)
+    static let fade = Animation.easeInOut(duration: fadeDuration)
+    static let fadeDuration = 0.2
     /// Starting to open: solid, between soft (muddy) and rigid, and lighter than shutting.
     static let opened = SensoryFeedback.impact(flexibility: .solid, intensity: 0.5)
     /// Starting to shut: solid, as opening is, and firmer, so it's felt as the drawer closes.

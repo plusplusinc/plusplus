@@ -69,6 +69,9 @@ enum LaunchOptions {
         namer: WorkoutNamer,
     ) async throws {
         try await store.deleteAll()
+        if seedsLog {
+            try await seedLog(store)
+        }
         guard let seed = seededWorkout else { return }
         let workout = seed.workout(weightUnit: weightUnit)
         try await store.save(workout)

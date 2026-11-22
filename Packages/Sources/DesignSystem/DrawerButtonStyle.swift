@@ -1,8 +1,11 @@
 import SwiftUI
 
 /// A place the drawer goes: its icon and name, with no outline, taking taps across the drawer's
-/// width. The place showing sits on a rounded fill, icon and name, with as much space to the
-/// icon's left as above and below it. Pressing dims it, as a key does.
+/// width. The place showing sits on a rounded fill, icon and name, the icon column's center as
+/// far from the fill's left edge as from its top, one left edge for every place. A press shows
+/// nothing of its own: the mark sliding to
+/// the place tapped is the answer, and a dim or a fill under the finger read as a second,
+/// weaker sign beside it.
 public struct DrawerButtonStyle: ButtonStyle {
     private let isSelected: Bool
 
@@ -17,7 +20,6 @@ public struct DrawerButtonStyle: ButtonStyle {
             .foregroundStyle(.pp(.textPrimary))
             .multilineTextAlignment(.leading)
             .contentShape(.rect)
-            .keyPress(isPressed: configuration.isPressed)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -45,7 +47,6 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     var body: some View {
         HStack(spacing: 0) {
             icon
-                .anchorPreference(key: DrawerIconBounds.self, value: .bounds) { $0 }
                 .frame(width: iconColumn)
             // A place is one word, which at the largest sizes would break mid-word beside its
             // icon; it shrinks a little to stay whole instead.
@@ -58,33 +59,63 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
         .padding(.trailing, fillTrailingInset + drawerInset)
         .padding(.vertical, Spacing.xs)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
-        .backgroundPreferenceValue(DrawerIconBounds.self) { anchor in
-            if isSelected, let anchor {
+        .background {
+            if isSelected {
                 GeometryReader { proxy in
-                    fill(around: proxy[anchor], in: proxy.size)
+                    fill(in: proxy.size)
                 }
             }
         }
     }
 
-    /// The fill of the place showing: as much space to the icon's left as above and below it,
-    /// so the icon sits evenly inside its corner, and inset from the drawer's trailing edge.
-    private func fill(around icon: CGRect, in size: CGSize) -> some View {
-        let leading = max(0, icon.minX - icon.minY)
+    /// The fill of the place showing: its left edge as far from the icon column's center as
+    /// the row's top is, so the icon sits evenly inside its corner, and inset from the drawer's
+    /// trailing edge. Measured from the column, not the symbol, so every place's fill starts at
+    /// one left edge whatever its symbol's width. Within `drawerMarks()` it is one mark that
+    /// slides from row to row as the place changes inside an animation; the row it leaves
+    /// drops its own at once, so no second fill fades.
+    private func fill(in size: CGSize) -> some View {
+        let leading = max(0, iconLead + iconColumn / 2 - size.height / 2)
         return RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
             .fill(.pp(.selectionFill))
             .frame(width: max(0, size.width - fillTrailingInset - leading), height: size.height)
-            .offset(x: leading)
+            .padding(.leading, leading)
+            .modifier(DrawerMarkMatch())
+            .transition(.identity)
     }
 }
 
-/// The bounds of a place's icon as drawn, which its fill keeps an even space around.
-private struct DrawerIconBounds: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
+/// One mark across a drawer's places, where `drawerMarks()` gives them a namespace.
+private struct DrawerMarkMatch: ViewModifier {
+    @Environment(\.drawerMarkSpace) private var space
 
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = value ?? nextValue()
+    func body(content: Content) -> some View {
+        if let space {
+            content.matchedGeometryEffect(id: "mark", in: space)
+        } else {
+            content
+        }
     }
+}
+
+extension View {
+    /// Makes the mark of the place showing, across the drawer places inside, one mark that
+    /// slides from the old place to the new as the place changes inside an animation.
+    public func drawerMarks() -> some View {
+        modifier(DrawerMarkSpace())
+    }
+}
+
+private struct DrawerMarkSpace: ViewModifier {
+    @Namespace private var space
+
+    func body(content: Content) -> some View {
+        content.environment(\.drawerMarkSpace, space)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var drawerMarkSpace: Namespace.ID?
 }
 
 /// How far a place's name may shrink to fit on its line.
@@ -94,7 +125,8 @@ private let placeNameScale: CGFloat = 0.7
 private let drawerInset = Spacing.sm + Spacing.xs
 
 /// How far a place's icon column sits in from the row's leading edge: far enough that the fill
-/// of the place showing, its icon's vertical space to its left, stays clear of the drawer's edge.
+/// of the place showing, half the row's height to the left of the column's center, stays clear
+/// of the drawer's edge.
 private let iconLead: CGFloat = 17
 
 /// How far the fill of the place showing stops short of the row's trailing edge.

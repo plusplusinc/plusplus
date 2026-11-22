@@ -15,13 +15,13 @@ struct DrawerSnapshotTests {
     /// An iPhone's height, so the drawer and the screen beside it are drawn whole.
     private static let screenHeight: CGFloat = 844
 
-    /// The place showing, which the drawer marks; a workout marks nothing.
+    /// The place the drawer marks. An open workout marks Workouts, so it draws as `.workouts`.
     private enum Showing: Equatable {
         case workouts
-        case workout
+        case log
     }
 
-    /// The drawer as `DrawerMenu` lays it out: the title, then Workouts.
+    /// The drawer as `DrawerMenu` lays it out: the title, then Workouts and Log, one marked.
     private func menu(showing: Showing) -> some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text(verbatim: "PlusPlus")
@@ -31,7 +31,10 @@ struct DrawerSnapshotTests {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Button("Workouts", systemImage: "checklist") { }
                     .buttonStyle(.drawer(isSelected: showing == .workouts))
+                Button("Log", systemImage: "book.closed") { }
+                    .buttonStyle(.drawer(isSelected: showing == .log))
             }
+            .drawerMarks()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Spacing.sm)
@@ -77,14 +80,14 @@ struct DrawerSnapshotTests {
         .frame(height: Self.screenHeight)
     }
 
-    @Test("The drawer open on a workout: Workouts, unmarked, beside the sliver")
-    func workoutShowing() {
-        assertThemedSnapshots(of: drawer(showing: .workout), width: Self.screenWidth)
-    }
-
-    @Test("The drawer open on the Workouts screen: Workouts is marked")
+    @Test("The drawer open on a workout: Workouts is marked, Log under it, beside the sliver")
     func workoutsShowing() {
         assertThemedSnapshots(of: drawer(showing: .workouts), width: Self.screenWidth)
+    }
+
+    @Test("The drawer open on Log: Log is marked, its mark's left edge where Workouts' is")
+    func logShowing() {
+        assertThemedSnapshots(of: drawer(showing: .log), width: Self.screenWidth)
     }
 
     /// The Workouts screen's content as `WorkoutsScreen` lays it out, under its bar.

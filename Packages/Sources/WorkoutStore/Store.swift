@@ -90,6 +90,16 @@ public actor Store {
         }
     }
 
+    /// Every finished logged workout, the latest finish first, a tie by id. All of them, not a
+    /// window: an opened logged workout compares with the time before, however long ago.
+    public func finishedLoggedWorkouts() throws -> [LoggedWorkout] {
+        let finished = FetchDescriptor<StoredWorkout>(
+            predicate: #Predicate { $0.endedAt != nil },
+            sortBy: [SortDescriptor(\.endedAt, order: .reverse), SortDescriptor(\.id)],
+        )
+        return try modelContext.fetch(finished).map(\.loggedWorkout)
+    }
+
     /// Deletes the logged workout, keeping nothing of it, its sets with it, and its workout if
     /// cleared to nothing while it ran, in one save; nothing if there is none.
     public func discardLoggedWorkout(_ id: LoggedWorkout.ID) throws {

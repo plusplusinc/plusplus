@@ -23,6 +23,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         // audited on the way to the new workout.
         try liveWorkoutAtAX5(in: app)
         try drawerAtAX5(in: app)
+        try logAtAX5(in: app)
         app.pushNewWorkout()
         let title = app.workoutTitle
         let keyboard = app.keyboards.element

@@ -86,14 +86,6 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")
             XCTAssertTrue(more.appears(), "••• did not come back after the workout")
         }
-        XCTContext.runActivity(named: "The logged one was kept: launch opens a new workout") { _ in
-            app.relaunch()
-            XCTAssertFalse(app.workoutTime.exists, "The finished workout came back running")
-            XCTAssertNotEqual(
-                title.value as? String,
-                name,
-                "Launch reopened the workout, as after a discard",
-            )
-        }
+        relaunchKeepsIt(named: name, title: title, in: app)
     }
 }

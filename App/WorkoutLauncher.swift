@@ -13,6 +13,7 @@ struct WorkoutLauncher: View {
 
     @State private var session: AppSession?
     @Environment(\.locale) private var locale
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         if let session {
@@ -26,7 +27,7 @@ struct WorkoutLauncher: View {
                     isOpen ? session.openDrawer() : session.closeDrawer()
                 },
                 isHeld: Binding { session.isDrawerHeld } set: { session.holdDrawer($0) },
-                swipeOpens: session.screen != .pushedWorkout && !session.isDrawerLocked
+                swipeOpens: !session.screen.isPushed && !session.isDrawerLocked
                     && session.rowSheet == nil,
             ) {
                 DrawerMenu(session: session)
@@ -39,9 +40,18 @@ struct WorkoutLauncher: View {
                         .id(session.opened.id)
                 case .workouts, .pushedWorkout:
                     WorkoutsScreen(session: session, namer: namer)
+                case .log, .loggedWorkout:
+                    LogScreen(session: session)
                 }
             }
             .keepsScreenOn(session.loggedWorkout != nil)
+            // A way through the drawer that the app leaves mid-way lands where it was going,
+            // closed.
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active {
+                    session.finishThroughDrawer()
+                }
+            }
         } else {
             Color.pp(.background)
                 .ignoresSafeArea()
@@ -60,6 +70,7 @@ struct WorkoutLauncher: View {
                     self.session = session
                     // Read ahead, so the Workouts screen's first showing has its list.
                     await session.refreshRecent(weightUnit: WeightUnit(region: locale))
+                    await session.refreshLog()
                 }
         }
     }
