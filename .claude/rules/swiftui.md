@@ -15,7 +15,7 @@ Leaf views take plain values and closures so they preview and snapshot without a
   bars only once started and until finished, at its detail line's trailing end.
   Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
   just made, and a generated name typing into the title, for the moment it arrives, then gives way to the thing's own color; nothing
-  rests in it. Whatever the rail draws (line, nodes, loops, in any color) keeps at least 3:1 on
+  rests in it. Whatever the rail draws keeps at least 3:1 on
   `background` and on `well`, where a held superset shows.
 - Numbers on a row's detail line and in a sheet's values are SF Mono, set with
   `AttributedString.monoNumbers(_:font:)`; the words around them stay in the system font.
@@ -71,7 +71,10 @@ feature, and change them with it.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - Drawer, Workouts: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
-  `NameRow`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
+  `NameRow`. The drawer's mark and a way through it: `drawerMarks()`, `DrawerWay`,
+  `AppSession.show(_:throughDrawer:markWait:)`.
+- Log: `LogScreen`, `LogScreen+Tabs.swift`, `LoggedWorkoutScreen`, `DayGrid`, `LogRow`,
+  `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
   `ExerciseForm`, `BarSearchField`.
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
@@ -108,8 +111,7 @@ Each of these cost a round; the code at the named spot works around it.
   `isMakingRoom` flipped in End's disabled set-back, not in its shrink, and an End that took over
   a sequence lost its room for a frame.
 - Never clear state that must hold for a motion from `withAnimation`'s completion: in about 2 of
-  50 of Start's grows, with no scroll in the transaction, SwiftUI ran it 12 to 28 ms in, before
-  the first frame, while the rows went on growing. Change a count on the motion's own animation
+  50 of Start's grows SwiftUI ran it 12 to 28 ms in, before the first frame. Change a count on the motion's own animation
   and read the animated value against its target (`listResizes(_:)`).
 - Compare recordings frame by frame from the second run after an install: the first's ran
   0.42 s late.
@@ -146,11 +148,11 @@ Each of these cost a round; the code at the named spot works around it.
   which starts at an offset from an earlier layout pass, not SwiftUI's current one: the AX5
   sheet's weight ruler opened on 29 under 25 lb. Build it only while it shows
   (`ValueRuler.shown(_:)`).
-- A lazy stack laid out again at a new size, as the text size changes live, puts back the scroll
+- A lazy stack laid out again at a new text size puts back the scroll
   offset it had over the scroll anchor. Give it an identity per size (`.id(spacing)`).
 - A scroll asked from `onScrollGeometryChange` to a content's new end can stop at the old end:
   the growth is reported before the scroll view takes it. Following only growths, the list
-  rested short of its end, the last row under the +; follow every change short of the end
+  rested short of its end; follow every change short of the end
   once the following has begun (`keepEndInView`, `EndFollow`).
 - A sheet's `.height` detent measures inside its safe area, and a scroll view's container there
   already excludes the bar and the home indicator: grow it by the content's overflow alone
