@@ -267,6 +267,9 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         }
         .modifier(rowActions(exercise))
         .listRowBackground(Color.pp(.background))
+        // The list's first row draws a line over itself, which under the filters' buttons
+        // or the count line ruled them off with unequal room on its two sides.
+        .listRowSeparator(.hidden, edges: .top)
         .accessibilityIdentifier("exercises.row")
     }
 
@@ -319,7 +322,10 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
             .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
         .listRowBackground(Color.pp(.background))
-        .listRowSeparator(.hidden, edges: .bottom)
+        // No line of its own: under it, it would close a list that goes on to "Also needs";
+        // over it, as the first row, it would rule off the filters' buttons with unequal room
+        // on its two sides. The line between it and a match above is that match's.
+        .listRowSeparator(.hidden)
         .accessibilityIdentifier("picker.create")
     }
 }
