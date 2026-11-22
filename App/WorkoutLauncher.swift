@@ -58,8 +58,7 @@ struct WorkoutLauncher: View {
                 .task {
                     let launch = await launch()
                     let session = await AppSession(
-                        workout: launch.workout ?? Workout(),
-                        loggedWorkout: launch.loggedWorkout,
+                        launch: launch,
                         exercises: exercises(),
                         store: store,
                         namer: namer,
@@ -68,11 +67,9 @@ struct WorkoutLauncher: View {
                     // screen opens on the workout.
                     session.catchUp(override: WorkoutScreen.restOverride)
                     let weightUnit = WeightUnit(region: locale)
-                    // After a finish the app opens on the Workouts list, over a new workout,
-                    // the list read before its first frame, so it never shows empty and then
-                    // fills; the drawer, never opened, doesn't pass by.
-                    if launch == .workouts {
-                        session.showWorkouts()
+                    // On the Workouts list, after a finish, the list is read before the first
+                    // frame, so it never shows empty and then fills.
+                    if session.screen == .workouts {
                         await session.refreshRecent(weightUnit: weightUnit)
                         self.session = session
                     } else {
