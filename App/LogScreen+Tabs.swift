@@ -69,9 +69,16 @@ extension LogScreen {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Lazy, since History lists every finished workout there is.
+    /// Lazy, since History lists every finished workout there is. A row swiped left shows the
+    /// system's red Delete, which asks first in a centered alert, "Delete from Log?" over the
+    /// name and day (`LogScreen.delete(_:)`).
     private func loggedWorkoutRows(_ log: WorkoutLog) -> some View {
-        LazyVStack(alignment: .leading, spacing: 0) { ForEach(log.loggedWorkouts) { loggedWorkout in
+        let shown = log.loggedWorkouts.filter { !leaving.contains($0.id) }
+        // The system draws a swiped action inset from its row's end, so the row it swipes runs
+        // past History's margin to that inset short of the screen's edge, and Delete ends in
+        // line with the line under the row, as on Workouts.
+        let overhang = Spacing.md - WorkoutsScreen.swipeInset
+        return LazyVStack(alignment: .leading, spacing: 0) { ForEach(shown) { loggedWorkout in
             let name = Self.name(of: loggedWorkout)
             let spoken = loggedWorkout.spokenLogLine(locale: locale, calendar: calendar)
             Button {
@@ -82,11 +89,16 @@ extension LogScreen {
                     detail: loggedWorkout.logLine(locale: locale, calendar: calendar),
                     spoken: "\(name), \(spoken)",
                 )
+                .overlay(alignment: .bottom) { RowLine() }
+                .padding(.trailing, overhang)
             }
             .buttonStyle(.plain)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("log.workout")
-            .overlay(alignment: .bottom) { RowLine() }
+            .swipeActions(edge: .trailing) {
+                Button("Delete", role: .destructive) { askToDelete(loggedWorkout) }
+            }
+            .padding(.trailing, -overhang)
         } }
     }
 

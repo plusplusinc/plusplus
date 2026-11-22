@@ -147,8 +147,9 @@ struct WorkoutsScreen: View {
     }
 
     private static let platter = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
-    /// How far inside its row's end the system draws a swiped action.
-    private static let swipeInset = Spacing.sm
+    /// How far inside its row's end the system draws a swiped action. Log's History rows take it
+    /// too, so their Delete lines up as these do.
+    static let swipeInset = Spacing.sm
 
     private func askToDelete(_ workout: Workout) {
         deleting = workout
