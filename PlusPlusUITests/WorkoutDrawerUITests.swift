@@ -48,8 +48,8 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
                 app.buttons["Add exercise"].disappears(),
                 "VoiceOver reaches Add exercise behind it",
             )
-            // A workout showing isn't Workouts.
-            XCTAssertFalse(app.buttons["Workouts"].isSelected, "Workouts is marked on a workout")
+            // An open workout is one of the Workouts, so their row is marked.
+            XCTAssertTrue(app.buttons["Workouts"].isSelected, "Workouts is unmarked on a workout")
             attach(named: "drawer-workout")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
