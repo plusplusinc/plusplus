@@ -14,9 +14,11 @@ import SwiftUI
 /// These transitions run only inside an animated place change, and only Log's pill animates
 /// one: a place changed from the drawer swaps at once, under the drawer as it closes.
 enum PlaceShuffle {
-    /// A presented sheet decelerating into place, stopping dead.
-    static let duration = 0.38
-    static let animation = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: duration)
+    /// A presented sheet decelerating into place, stopping dead, at about the pace the system
+    /// presents one: at 0.38 s on a steeper curve the rise was over in a fifth of a second and
+    /// read as way too fast.
+    static let duration = 0.6
+    static let animation = Animation.timingCurve(0.32, 0.72, 0.2, 1, duration: duration)
 
     /// How far Log goes down behind the sheet, as a share of the screen's height.
     static let logTravel: CGFloat = 1 / 3
