@@ -4,7 +4,8 @@ import SwiftUI
 /// in purple with SF Mono numbers, and under them a bar the row's width whose purple fill is
 /// `fraction` of it, on a `toDo` track. A stressed row's title reads in primary text at the row
 /// title's weight, the others' in secondary text. VoiceOver reads the row as one element,
-/// `spoken`. At the accessibility sizes the count moves under the title.
+/// `spoken`. At the accessibility sizes the count moves under the title. It has no room of its
+/// own above or below: a list of them spaces them, with no line between, as the bars part them.
 public struct CountRow: View {
     private let title: String
     private let count: String
@@ -34,8 +35,6 @@ public struct CountRow: View {
             FillBar(fraction: fraction)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // With no line between rows, the bars part them, so the rows sit closer than a list's.
-        .padding(.vertical, Spacing.sm)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
     }
@@ -86,7 +85,7 @@ public struct FillBar: View {
 }
 
 #Preview {
-    VStack(spacing: 0) {
+    VStack(spacing: Spacing.lg) {
         CountRow("Core", count: "0", fraction: 0, isStressed: true, spoken: "Core")
         CountRow("Arms", count: "4", fraction: 0.25, isStressed: true, spoken: "Arms")
         CountRow("Legs", count: "16", fraction: 1, isStressed: false, spoken: "Legs")

@@ -58,7 +58,7 @@ struct LogSnapshotTests {
             }
             .padding(.bottom, Spacing.md)
             DayGrid(initials: Self.initials, weeks: Self.weeks(done: done))
-                .padding(.bottom, Spacing.md)
+                .padding(.bottom, Spacing.lg)
         }
     }
 
@@ -144,15 +144,17 @@ struct LogSnapshotTests {
         ]
         let view = screen {
             line("Sets since Oct 25")
-                .padding(.bottom, Spacing.sm)
-            ForEach(groups, id: \.key) { name, sets in
-                CountRow(
-                    name,
-                    count: "\(sets)",
-                    fraction: Double(sets) / 20,
-                    isStressed: sets < 5,
-                    spoken: name,
-                )
+                .padding(.bottom, Spacing.md)
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                ForEach(groups, id: \.key) { name, sets in
+                    CountRow(
+                        name,
+                        count: "\(sets)",
+                        fraction: Double(sets) / 20,
+                        isStressed: sets < 5,
+                        spoken: name,
+                    )
+                }
             }
         }
         assertThemedSnapshots(of: view, width: Self.screenWidth)

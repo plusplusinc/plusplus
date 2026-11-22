@@ -26,7 +26,8 @@ struct LoggedWorkoutScreen: View {
                 .font(.ppRowDetail)
                 .foregroundStyle(.pp(.textSecondary))
                 .accessibilityLabel(loggedWorkout.spokenLogLine(sets: sets, locale: locale))
-                .padding(.bottom, Spacing.xs)
+                // The first exercise's own room (`LogRow`) parts it from the line, as Diff's
+                // first row is parted from its line.
                 ForEach(rows, id: \.exercise.id) { row in
                     LogRow(
                         row.exercise.name,
@@ -40,8 +41,8 @@ struct LoggedWorkoutScreen: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.sm)
-            .padding(.bottom, Spacing.md)
+            .padding(.top, Spacing.md)
+            .padding(.bottom, Spacing.xl)
         }
         .background { Color.pp(.background).ignoresSafeArea() }
         .navigationTitle(LogScreen.name(of: loggedWorkout))

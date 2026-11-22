@@ -44,7 +44,9 @@ extension LogScreen {
                     }
                 },
             )
-            .padding(.bottom, Spacing.md)
+            // A section break: the list, or the empty line and Go to Workouts, starts a part of
+            // its own under the calendar.
+            .padding(.bottom, Spacing.lg)
             if log.loggedWorkouts.isEmpty {
                 noLoggedWorkouts
             } else {
@@ -146,16 +148,18 @@ extension LogScreen {
                 .accessibilityLabel(
                     "Sets since \(period.spokenFirstDay(locale: locale, calendar: calendar))",
                 )
-                .padding(.bottom, Spacing.sm)
-            // No line between the groups: their bars part them.
-            ForEach(gaps.groups) { group in
-                CountRow(
-                    group.group.name,
-                    count: group.sets.formatted(.number.locale(locale)),
-                    fraction: most > 0 ? Double(group.sets) / Double(most) : 0,
-                    isStressed: group.isMissed,
-                    spoken: group.spokenText(locale: locale),
-                )
+                .padding(.bottom, Spacing.md)
+            // No line between the groups: their bars part them, a section's room apart.
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                ForEach(gaps.groups) { group in
+                    CountRow(
+                        group.group.name,
+                        count: group.sets.formatted(.number.locale(locale)),
+                        fraction: most > 0 ? Double(group.sets) / Double(most) : 0,
+                        isStressed: group.isMissed,
+                        spoken: group.spokenText(locale: locale),
+                    )
+                }
             }
         }
     }

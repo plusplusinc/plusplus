@@ -56,7 +56,7 @@ struct LogScreen: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.md)
-                .padding(.bottom, Spacing.md)
+                .padding(.bottom, Spacing.xl)
                 // With nothing logged, History's line and Go to Workouts center in the room
                 // under the calendar; where they need more, at the largest sizes, it scrolls.
                 .frame(minHeight: isHistoryEmpty ? visibleHeight : nil, alignment: .top)
