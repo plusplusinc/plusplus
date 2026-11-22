@@ -90,6 +90,18 @@ struct StoreLaunchTests {
         #expect(try await launch() == .workouts)
     }
 
+    @Test("A workout edited after a finish opens")
+    func editedAfterFinish() async throws {
+        var workout = Workout(name: "Upper")
+        let store = relaunch()
+        try await store.save(workout, at: Self.at(1))
+        try await store.save(Workout(name: "Lower"), at: Self.at(2))
+        try await store.save(Self.finished(workout, from: 10, to: 20))
+        workout.name = "Upper again"
+        try await store.save(workout, at: Self.at(30))
+        #expect(try await launch() == .workout(workout))
+    }
+
     @Test("A workout opened after a finish opens, the one opened last")
     func openedAfterFinish() async throws {
         let workout = Workout(name: "Upper")

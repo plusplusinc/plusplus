@@ -17,8 +17,9 @@ extension AppSession {
             store: store,
             namer: namer,
         )
-        if launch == .workouts {
-            screen = .workouts
+        screen = switch launch {
+        case .workouts: .workouts
+        case .inProgress, .workout, .newWorkout: .workout
         }
     }
 }

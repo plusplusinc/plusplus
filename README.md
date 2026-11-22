@@ -50,8 +50,8 @@ The dependency rules between the packages are the architecture; they are spelled
 
 ## Status and contributing
 
-Early: the app launches into the workout you last opened or edited, or an empty one, which you
-can name and add built-in exercises to, each with its own sets, reps or time, weight, and rest,
+Early: the app launches into the workout you last opened or edited (your Workouts list if you
+finished one since), or an empty one, which you can name and add built-in exercises to, each with its own sets, reps or time, weight, and rest,
 set in a sheet, and put in order by holding and dragging them. Every change saves on the phone, an
 unnamed workout is named for its exercises, and nothing syncs yet. The ++ drawer switches
 between your latest workouts, starts a new one, and opens the Workouts screen, which lists them
