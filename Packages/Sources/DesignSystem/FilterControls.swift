@@ -147,12 +147,38 @@ public struct FilterCount: View {
             Text(text)
                 .foregroundStyle(Color.pp(.textSecondary))
             Spacer()
-            Button("Clear", action: onClear)
-                .fontWeight(.semibold)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .accessibilityLabel("Clear filters")
+            Button(action: onClear) {
+                SmallCapsuleLabel(systemImage: "xmark", title: "Clear")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Clear filters")
         }
         .font(.ppRowDetail)
+    }
+}
+
+/// The small capsule a line's own button wears, Clear and "+ Bench": a symbol and a word.
+///
+/// The symbol is a symbol, not a character, so it centers on the word's line; a typed "+"
+/// sits on the baseline, low beside capitals. Its leading inset is the one the capsule's
+/// height leaves above and below it, so it sits in the middle of the capsule's round end.
+struct SmallCapsuleLabel: View {
+    let systemImage: String
+    let title: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: Spacing.xs) {
+            Image(systemName: systemImage)
+                .imageScale(.small)
+                .accessibilityHidden(true)
+            Text(title)
+        }
+        .fontWeight(.semibold)
+        .foregroundStyle(Color.pp(.textPrimary))
+        .padding(.leading, Spacing.sm)
+        .padding(.trailing, Spacing.sm + Spacing.xs)
+        .padding(.vertical, Spacing.xs)
+        .background(Color.pp(.surfaceRaised), in: .capsule)
     }
 }
 
@@ -177,22 +203,7 @@ public struct NeedsHeader: View {
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             Button(action: onAdd) {
-                // The + is a symbol, not a character, so it centers on the name's line; a
-                // typed "+" sits on the baseline, low beside capitals. Its leading inset is
-                // the one the capsule's height leaves above and below it, so it sits in the
-                // middle of the capsule's round end.
-                HStack(alignment: .center, spacing: Spacing.xs) {
-                    Image(systemName: "plus")
-                        .imageScale(.small)
-                        .accessibilityHidden(true)
-                    Text(addTitle)
-                }
-                .fontWeight(.semibold)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .padding(.leading, Spacing.sm)
-                .padding(.trailing, Spacing.sm + Spacing.xs)
-                .padding(.vertical, Spacing.xs)
-                .background(Color.pp(.surfaceRaised), in: .capsule)
+                SmallCapsuleLabel(systemImage: "plus", title: addTitle)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add \(addTitle.lowercased()) to Equipment")

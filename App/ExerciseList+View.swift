@@ -148,6 +148,9 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                     filter = ExerciseFilter()
                 }
                 .padding(.horizontal, Spacing.md)
+                // Clear is a button of its own now, so the line stands off the filters'
+                // buttons by more than the gap between two of them.
+                .padding(.top, Spacing.sm + Spacing.xs)
                 .padding(.bottom, Spacing.sm)
             }
         }
