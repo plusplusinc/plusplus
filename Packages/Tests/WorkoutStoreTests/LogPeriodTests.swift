@@ -65,6 +65,21 @@ struct LogPeriodTests {
         #expect(period.loggedWorkoutCountText(locale: Fixture.locale) == "1 workout")
     }
 
+    @Test("A workout across midnight marks the day it started, the day its row reads")
+    func acrossMidnight() {
+        let late = LoggedWorkout(
+            workoutID: UUID(),
+            workoutName: "Late",
+            startedAt: Fixture.date(day: 19, hour: 23, minute: 30),
+            endedAt: Fixture.date(day: 20, hour: 0, minute: 40),
+        )
+        let period = period([late])
+        let marked = period.weeks.joined().filter(\.hasLoggedWorkout).map(\.date)
+        #expect(marked == [Fixture.calendar.startOfDay(for: Fixture.date(day: 19))])
+        #expect(late.logLine(locale: Fixture.locale, calendar: Fixture.calendar)
+            .hasPrefix("Thu, Nov 19"))
+    }
+
     @Test("Two workouts on one day mark one square and count two; one in progress counts none")
     func countsLoggedWorkouts() {
         let inProgress = LoggedWorkout(

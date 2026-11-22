@@ -3,7 +3,7 @@ import Foundation
 /// A muscle group's sets in the period, and when it was last worked.
 public struct GroupRecency: Identifiable, Equatable, Sendable {
     public let group: MuscleGroup
-    /// Days between the day of the newest workout with a set for it and today; nil for none.
+    /// Days between the day the newest workout with a set for it started and today; nil for none.
     public let daysAgo: Int?
     /// Its sets in the period, a round done one side at a time counted once.
     public let sets: Int

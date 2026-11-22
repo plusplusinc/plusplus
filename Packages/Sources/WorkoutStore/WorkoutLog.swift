@@ -2,8 +2,9 @@ import Foundation
 
 /// The record of finished logged workouts, newest first, and its readings: an opened logged
 /// workout's exercises against the time before, the diff over the period (`LogPeriod`), and what
-/// has been left alone. Days are calendar days: a logged workout is `n` days ago when `n` days lie
-/// between the start of the day it finished and the start of today.
+/// has been left alone. Days are calendar days, and a logged workout's day is the one it started
+/// on, as its row reads: it is `n` days ago when `n` days lie between the start of that day and
+/// the start of today.
 public struct WorkoutLog: Equatable, Sendable {
     /// Finished logged workouts, the latest finish first.
     public let loggedWorkouts: [LoggedWorkout]
@@ -46,20 +47,20 @@ public struct WorkoutLog: Equatable, Sendable {
         }
     }
 
-    /// How many days before `now` the logged workout finished, in `calendar`'s days.
+    /// How many days before `now` the logged workout started, in `calendar`'s days.
     static func daysAgo(_ loggedWorkout: LoggedWorkout, now: Date, calendar: Calendar) -> Int {
-        let end = calendar.startOfDay(for: loggedWorkout.endedAt ?? now)
+        let start = calendar.startOfDay(for: loggedWorkout.startedAt)
         let today = calendar.startOfDay(for: now)
-        return calendar.dateComponents([.day], from: end, to: today).day ?? 0
+        return calendar.dateComponents([.day], from: start, to: today).day ?? 0
     }
 
-    /// The logged workouts finished in the period around `now`, newest first.
+    /// The logged workouts started in the period around `now`, newest first.
     func inPeriod(now: Date, calendar: Calendar) -> [LoggedWorkout] {
         let firstDay = LogPeriod.firstDay(calendar: calendar, now: now)
-        return loggedWorkouts.filter { ($0.endedAt ?? .distantPast) >= firstDay }
+        return loggedWorkouts.filter { $0.startedAt >= firstDay }
     }
 
-    /// The period around `now`, with the days a logged workout finished on.
+    /// The period around `now`, with the days a logged workout started on.
     public func period(now: Date, calendar: Calendar) -> LogPeriod {
         LogPeriod(loggedWorkouts: loggedWorkouts, calendar: calendar, now: now)
     }

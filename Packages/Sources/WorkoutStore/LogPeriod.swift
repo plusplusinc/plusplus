@@ -2,8 +2,9 @@ import Foundation
 
 /// The days Log reads over: four full calendar weeks ending with this week, each starting on the
 /// calendar's first weekday, so the period's first day is the first day of the week three weeks
-/// before this one. Workouts, Diff, and Gaps all read from that day. A logged workout belongs to
-/// the day it finished, in the calendar's time zone.
+/// before this one. History, Diff, and Gaps all read from that day. A logged workout belongs to
+/// the day it started, in the calendar's time zone, as its row's date reads: one that runs past
+/// midnight marks the day it began.
 public struct LogPeriod: Equatable, Sendable {
     /// The weeks the period spans, this week's included.
     public static let weekCount = 4
@@ -12,7 +13,7 @@ public struct LogPeriod: Equatable, Sendable {
     public struct Day: Identifiable, Equatable, Sendable {
         /// The start of the day.
         public let date: Date
-        /// A finished logged workout ended on it.
+        /// A finished logged workout started on it.
         public let hasLoggedWorkout: Bool
         public let isToday: Bool
         /// After today, in this week's row: not drawn.
@@ -28,15 +29,16 @@ public struct LogPeriod: Equatable, Sendable {
     /// `weekCount` weeks of seven days, oldest first, each starting on the calendar's first
     /// weekday.
     public let weeks: [[Day]]
-    /// The finished logged workouts that ended in the period, up to `now`.
+    /// The finished logged workouts that started in the period, up to `now`.
     public let loggedWorkoutCount: Int
 
-    /// The period around `now`, with the days on which one of `loggedWorkouts` finished. Logged
+    /// The period around `now`, with the days on which one of `loggedWorkouts` started. Logged
     /// workouts still in progress don't count.
     public init(loggedWorkouts: [LoggedWorkout], calendar: Calendar, now: Date) {
         let firstDay = Self.firstDay(calendar: calendar, now: now)
         let today = calendar.startOfDay(for: now)
-        let finished = loggedWorkouts.compactMap(\.endedAt).filter { $0 >= firstDay && $0 <= now }
+        let finished = loggedWorkouts.filter { !$0.isInProgress }.map(\.startedAt)
+            .filter { $0 >= firstDay && $0 <= now }
         let loggedWorkoutDays = Set(finished.map { calendar.startOfDay(for: $0) })
         let days = (0 ..< Self.weekCount * 7).compactMap { offset -> Day? in
             guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else {
