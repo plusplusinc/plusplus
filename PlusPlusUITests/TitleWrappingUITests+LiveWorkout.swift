@@ -22,8 +22,9 @@ extension TitleWrappingUITests {
                     textSize: Self.largestTextSize,
                     arguments: ["-seedSuperset", "0,1"],
                 )
-                // Pushed from the Workouts screen, with a back chevron in the bar for ++.
-                app.openDrawer(andTap: "Workouts")
+                // Pushed from the Workouts screen, with a back chevron in the bar for ++; the
+                // drawer and Workouts are audited on the way, not on a trip of their own.
+                try drawerAtAX5(in: app)
                 app.workoutRows.firstMatch.tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "The workout opened no Start")
                 app.buttons["Start"].tap()

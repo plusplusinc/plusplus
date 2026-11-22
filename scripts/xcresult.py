@@ -27,8 +27,12 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR"
 
 # Budgets in seconds on Xcode Cloud. A local run's are these divided by LOCAL_RATIO, the ratio
-# of CI to local times measured in 2026-10 with one test at a time on both.
+# of CI to local times measured in 2026-10 with one test at a time on both, or by the target's
+# own in UI_RATIOS. The UI tests ran 1.34 times as long on Xcode Cloud as on a Mac (run 539,
+# 421.5 s, against 315.0 s locally on the same code, 2026-11-22; #222's relaunch test 93.8 s
+# against 69.3 s), so at 1.25 a run within its local budget was over on Xcode Cloud.
 LOCAL_RATIO = 1.25
+UI_RATIOS = {"PlusPlusUITests": 1.35}
 # Per test target: (all its tests, any one of them or None, whether every test is listed).
 TARGETS = {
     "WorkoutStoreTests": (10, None, False),
@@ -122,13 +126,21 @@ def budget_lines(tests, parallel, on_ci):
     ...     print(line)
     DesignSystemTests 3.6 s (budget 24 s)
       A/slow() 3.5 s (budget 1.6 s) OVER BUDGET
+
+    The UI tests' local budgets follow their own ratio: #222's 69.3 s relaunch test, 93.8 s on
+    Xcode Cloud, reads over.
+
+    >>> for line in budget_lines([("PlusPlusUITests", "A/relaunch()", 69.3)], set(), on_ci=False):
+    ...     print(line)
+    PlusPlusUITests 69.3 s (budget 267 s)
+      A/relaunch() 69.3 s (budget 66.7 s) OVER BUDGET
     """
     lines = []
     by_target = bundle_times(tests, parallel)
     order = list(TARGETS)
     for target in sorted(by_target, key=lambda t: order.index(t) if t in order else len(order)):
         total, per_test, lists_all = TARGETS.get(target, (None, None, False))
-        scale = 1 if on_ci else 1 / LOCAL_RATIO
+        scale = 1 if on_ci else 1 / UI_RATIOS.get(target, LOCAL_RATIO)
         seconds = by_target[target]
         lines.append(f"{target} {over(seconds, total * scale) if total else f'{seconds:.1f} s'}")
         if not per_test or target in parallel:

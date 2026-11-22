@@ -20,9 +20,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         let app = XCUIApplication()
         // The workout in progress is seeded at this launch, and the title's checks run on a new
         // workout opened after it, so the test launches once. The drawer and Workouts are
-        // audited on the way to the new workout.
+        // audited on the way to the workout, and Log on the way to the new one.
         try liveWorkoutAtAX5(in: app)
-        try drawerAtAX5(in: app)
         try logAtAX5(in: app)
         app.pushNewWorkout()
         let title = app.workoutTitle
@@ -104,10 +103,9 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     }
 
     /// The drawer, its places kept whole, and the Workouts screen pass the audit at this size,
-    /// opened with ++ over the workout in progress, which its relaunch reopened as the launch's
-    /// own. Ends on Workouts.
+    /// opened with ++ over the workout the launch seeded. Ends on Workouts.
     @MainActor
-    private func drawerAtAX5(in app: XCUIApplication) throws {
+    func drawerAtAX5(in app: XCUIApplication) throws {
         try XCTContext.runActivity(named: "The drawer and the Workouts screen at AX5") { _ in
             try app.openDrawer(andTap: "Workouts") {
                 attach(named: "drawer-ax5")

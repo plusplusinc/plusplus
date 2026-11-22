@@ -97,8 +97,8 @@ Cheapest first. The tests' display names are the inventory of what each tier hol
 
 Reported on every run, never failed on: `scripts/test.sh` prints the package's, `scripts/test.sh
 sim` each target's and each UI test's, and `scripts/ci-times.py <branch>` an Xcode Cloud run's.
-They are defined once, in `scripts/xcresult.py`. Local is CI divided by 1.25, the ratio with
-one test at a time on both.
+They are defined once, in `scripts/xcresult.py`. Local is CI divided by 1.25, or 1.35 for UI
+tests, the ratios with one test at a time on both.
 
 | Tier | Xcode Cloud | Local |
 |---|---|---|
@@ -107,11 +107,11 @@ one test at a time on both.
 | `SessionTests` | 5 s | 4 s |
 | `DesignSystemTests` | 30 s | 24 s |
 | a `DesignSystemTests` test | 2 s | 1.6 s |
-| each UI test | 90 s | 72 s |
-| the UI tests together | 360 s | 288 s |
+| each UI test | 90 s | 67 s |
+| the UI tests together | 360 s | 267 s |
 
 A PR run's start-to-finish time is printed with no budget: about 250 s of it is Xcode Cloud's
-own steps, which vary by tens of seconds from run to run.
+own steps, which vary by tens of seconds.
 
 A target's budget holds its wall time. A serial target's is its tests' sum, and a parallel
 Swift Testing target's its longest test's, since each is timed from their common start.
