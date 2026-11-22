@@ -17,7 +17,6 @@ struct WorkoutScreen: View {
     let namer: WorkoutNamer
     /// Pushed onto the Workouts screen, with a back button where ++ otherwise is.
     let isPushed: Bool
-    @State var isPicking = false
     /// How high the picker is: half as it opens (`openPicker()`), full once pulled up or once
     /// its search opens.
     @State var pickerDetent: PresentationDetent = .medium
@@ -365,12 +364,7 @@ struct WorkoutScreen: View {
         // window's black behind the keyboard's rounded top corners.
         .background { Color.pp(.background).ignoresSafeArea() }
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $isPicking) {
-            picker
-                // A fixed set: one worked out from `pickerDetent` was read from the opening
-                // before.
-                .presentationDetents([.medium, .large], selection: $pickerDetent)
-        }
+        .sheet(item: addExerciseOpening, content: picker)
         // By item, so the sheet keeps its content as it slides away; by opening, so each opening
         // starts from fresh state (`RowSheet.opening`).
         .sheet(item: Binding { editing } set: {
