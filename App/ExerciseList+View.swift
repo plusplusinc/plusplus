@@ -192,9 +192,15 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     private func list(_ filtered: FilteredExercises) -> some View {
         List {
             if filter.isOn {
-                ForEach(filtered.matches, content: row)
+                ForEach(filtered.matches) { exercise in
+                    row(exercise)
+                        .listRowSeparator(
+                            exercise.id == filtered.matches.first?.id ? .hidden : .automatic,
+                            edges: .top,
+                        )
+                }
                 if query.isEmpty || exercises.offersCreate(for: query) {
-                    createRow
+                    createRow(isFirst: filtered.matches.isEmpty)
                 }
                 ForEach(filtered.alsoNeeds) { section in
                     Section {
@@ -223,7 +229,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                     .indexLabel(section.letter, isShown: showsIndex)
                 }
                 if exercises.offersCreate(for: query) {
-                    createRow
+                    createRow(isFirst: exercises.matching(query).isEmpty)
                 }
             }
         }
@@ -267,9 +273,6 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         }
         .modifier(rowActions(exercise))
         .listRowBackground(Color.pp(.background))
-        // The list's first row draws a line over itself, which under the filters' buttons
-        // or the count line ruled them off with unequal room on its two sides.
-        .listRowSeparator(.hidden, edges: .top)
         .accessibilityIdentifier("exercises.row")
     }
 
@@ -291,7 +294,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// `ExerciseList.unnamedExerciseName`, whose Customize opens with the name to type over.
     /// Either way it starts with the filter's groups and equipment (`ExerciseFilter.carried…`),
     /// which the row's detail line shows.
-    private var createRow: some View {
+    private func createRow(isFirst: Bool) -> some View {
         let needsName = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return Button {
             guard !isCreating else { return }
@@ -322,10 +325,11 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
             .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
         .listRowBackground(Color.pp(.background))
-        // No line of its own: under it, it would close a list that goes on to "Also needs";
-        // over it, as the first row, it would rule off the filters' buttons with unequal room
-        // on its two sides. The line between it and a match above is that match's.
-        .listRowSeparator(.hidden)
+        // No line under it, which would close a list that goes on to "Also needs"; and none
+        // over it as the list's first row, where it ruled off the filters' buttons with unequal
+        // room on its two sides. After a match, the line between the two stays: a line between
+        // two rows goes when either hides its side of it.
+        .listRowSeparator(.hidden, edges: isFirst ? .all : .bottom)
         .accessibilityIdentifier("picker.create")
     }
 }
