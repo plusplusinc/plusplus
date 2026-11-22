@@ -111,9 +111,8 @@ struct LogScreen: View {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) { delete(loggedWorkout.id) }
         } message: { loggedWorkout in
-            Text(
-                "\(Self.name(of: loggedWorkout)), \(loggedWorkout.dayText(locale: locale, calendar: calendar))",
-            )
+            let day = loggedWorkout.dayText(locale: locale, calendar: calendar)
+            Text("\(Self.name(of: loggedWorkout)), \(day)")
         }
         .task { await session.refreshLog() }
     }

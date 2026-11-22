@@ -70,8 +70,8 @@ extension LogScreen {
     }
 
     /// Lazy, since History lists every finished workout there is. A row swiped left shows the
-    /// system's red Delete, which asks first in a centered alert, "Delete <name>?", as a row on
-    /// Workouts does (`LogScreen.delete(_:)`).
+    /// system's red Delete, which asks first in a centered alert, "Delete from Log?" over the
+    /// name and day (`LogScreen.delete(_:)`).
     private func loggedWorkoutRows(_ log: WorkoutLog) -> some View {
         let shown = log.loggedWorkouts.filter { !leaving.contains($0.id) }
         // The system draws a swiped action inset from its row's end, so the row it swipes runs
