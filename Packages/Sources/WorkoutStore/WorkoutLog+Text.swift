@@ -4,7 +4,6 @@ import Foundation
 // time is a clock, "0:45", as a change in it is, "+0:15". Every number keeps its unit beside it
 // with a no-break space, so a line never breaks between them.
 
-private let noBreakSpace = "\u{00A0}"
 private let minus = "\u{2212}"
 
 extension TopSet {
@@ -180,12 +179,7 @@ extension LoggedWorkout {
         locale: Locale = .current,
         calendar: Calendar = .current,
     ) -> String {
-        let style = Date.FormatStyle(
-            locale: locale,
-            calendar: calendar,
-            timeZone: calendar.timeZone,
-        )
-        .weekday(.wide).month(.wide).day()
+        let style = dateStyle(locale: locale, calendar: calendar).weekday(.wide).month(.wide).day()
         var parts = [
             startedAt.formatted(style),
             elapsed(at: endedAt ?? startedAt)
@@ -198,13 +192,10 @@ extension LoggedWorkout {
     }
 
     private func dayText(locale: Locale, calendar: Calendar) -> String {
-        let style = Date.FormatStyle(
-            locale: locale,
-            calendar: calendar,
-            timeZone: calendar.timeZone,
+        startedAt.formatted(
+            dateStyle(locale: locale, calendar: calendar)
+                .weekday(.abbreviated).month(.abbreviated).day(),
         )
-        .weekday(.abbreviated).month(.abbreviated).day()
-        return startedAt.formatted(style)
     }
 
     /// "51 min", "1 hr 5 min".
@@ -225,12 +216,12 @@ extension GroupRecency {
 extension LogPeriod {
     /// The first day, "Oct 25", as the period's lines name it.
     public func firstDayText(locale: Locale = .current, calendar: Calendar = .current) -> String {
-        firstDay.formatted(Self.style(locale: locale, calendar: calendar).month(.abbreviated).day())
+        firstDay.formatted(dateStyle(locale: locale, calendar: calendar).month(.abbreviated).day())
     }
 
     /// "October 25", for VoiceOver.
     public func spokenFirstDay(locale: Locale = .current, calendar: Calendar = .current) -> String {
-        firstDay.formatted(Self.style(locale: locale, calendar: calendar).month(.wide).day())
+        firstDay.formatted(dateStyle(locale: locale, calendar: calendar).month(.wide).day())
     }
 
     /// "9 workouts", "1 workout".
@@ -244,13 +235,15 @@ extension LogPeriod {
         locale: Locale = .current,
         calendar: Calendar = .current,
     ) -> String {
-        let date = day.date.formatted(style(locale: locale, calendar: calendar)
-            .weekday(.wide).month(.wide).day())
+        let date = day.date.formatted(
+            dateStyle(locale: locale, calendar: calendar).weekday(.wide).month(.wide).day(),
+        )
         let today = day.isToday ? "Today, " : ""
         return "\(today)\(date), \(day.hasLoggedWorkout ? "workout" : "no workout")"
     }
+}
 
-    private static func style(locale: Locale, calendar: Calendar) -> Date.FormatStyle {
-        Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
-    }
+/// Dates in `calendar`'s own time zone, so a day reads as the calendar marks it.
+private func dateStyle(locale: Locale, calendar: Calendar) -> Date.FormatStyle {
+    Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
 }

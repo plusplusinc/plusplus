@@ -45,7 +45,8 @@ struct WorkoutLauncher: View {
                 }
             }
             .keepsScreenOn(session.loggedWorkout != nil)
-            // A way through the drawer that the app leaves mid-way lands on Workouts, closed.
+            // A way through the drawer that the app leaves mid-way lands where it was going,
+            // closed.
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active {
                     session.finishThroughDrawer()

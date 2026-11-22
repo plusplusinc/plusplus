@@ -4,7 +4,7 @@ import Foundation
 // but the sets count, joined by a no-break space so a line never breaks between them, and says
 // whether it's per side: the reps or time, or a pair's weight ("20 lb/side").
 
-private let noBreakSpace = "\u{00A0}"
+let noBreakSpace = "\u{00A0}"
 
 extension WorkoutExercise {
     /// The row's detail line in parts: the plan, then the weight if it holds one.

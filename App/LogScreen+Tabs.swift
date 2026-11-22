@@ -79,8 +79,9 @@ extension LogScreen {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Lazy, since History lists every finished workout there is.
     private func loggedWorkoutRows(_ log: WorkoutLog) -> some View {
-        ForEach(log.loggedWorkouts) { loggedWorkout in
+        LazyVStack(alignment: .leading, spacing: 0) { ForEach(log.loggedWorkouts) { loggedWorkout in
             let name = Self.name(of: loggedWorkout)
             let spoken = loggedWorkout.spokenLogLine(locale: locale, calendar: calendar)
             Button {
@@ -96,7 +97,7 @@ extension LogScreen {
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("log.workout")
             .overlay(alignment: .bottom) { RowLine() }
-        }
+        } }
     }
 
     func diffTab(_ log: WorkoutLog) -> some View {

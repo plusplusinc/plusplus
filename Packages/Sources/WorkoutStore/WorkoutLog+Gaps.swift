@@ -30,7 +30,7 @@ public struct Gaps: Equatable, Sendable {
 }
 
 extension WorkoutLog {
-    /// A group unworked for this many days is listed.
+    /// A group unworked for this many days is missed, drawn stressed.
     public static let missedDays = 14
 
     /// Gaps at `now`. A set counts toward each group its exercise works now, through `list`: a

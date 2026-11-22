@@ -20,8 +20,9 @@ import WorkoutStore
 struct DrawerMenu: View {
     let session: AppSession
 
-    /// The place marked, taken as the drawer starts to show, and moved with the session's mark.
-    /// The drawer is in the hierarchy only while it shows, so this is taken anew each time.
+    /// The place marked, taken as the drawer starts to show, until a way moves the session's
+    /// mark, which it keeps through the close. The drawer is in the hierarchy only while it
+    /// shows, so this is taken anew each time.
     @State private var held: AppSession.Showing?
     @AccessibilityFocusState private var isTitleFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -65,13 +66,6 @@ struct DrawerMenu: View {
         // first frame.
         .onAppear { held = session.showing }
         .animation(DrawerWay.markSlide(reduceMotion: reduceMotion), value: showing)
-        // The way's mark is held once it moves, so the session clearing it as the drawer closes
-        // leaves it where it is.
-        .onChange(of: session.drawerMark) { _, mark in
-            if let mark {
-                held = mark
-            }
-        }
         .task { isTitleFocused = true }
     }
 

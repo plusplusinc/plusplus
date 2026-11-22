@@ -75,17 +75,13 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     /// slides from row to row as the place changes inside an animation; the row it leaves
     /// drops its own at once, so no second fill fades.
     private func fill(in size: CGSize) -> some View {
-        fillShape(in: size)
-            .modifier(DrawerMarkMatch())
-            .transition(.identity)
-    }
-
-    private func fillShape(in size: CGSize) -> some View {
         let leading = max(0, iconLead + iconColumn / 2 - size.height / 2)
         return RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
             .fill(.pp(.selectionFill))
             .frame(width: max(0, size.width - fillTrailingInset - leading), height: size.height)
             .padding(.leading, leading)
+            .modifier(DrawerMarkMatch())
+            .transition(.identity)
     }
 }
 

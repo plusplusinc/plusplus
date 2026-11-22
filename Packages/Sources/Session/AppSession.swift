@@ -21,17 +21,15 @@ public final class AppSession {
     public private(set) var rowSheet: RowSheet?
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
-    /// The place the drawer marks while `show(_:throughDrawer:markWait:)` shows the way there;
-    /// nil otherwise, when the drawer marks what showed as it started to show.
+    /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
+    /// until the drawer next shows; nil otherwise, when it marks what showed as it opened.
     public internal(set) var drawerMark: Showing?
-    /// The beats of `show(_:throughDrawer:markWait:)` under way, so one plays at a time and
-    /// whatever closes the drawer can end it, and the place they go to.
+    /// A way through the drawer's beats under way, which whatever closes it ends, and its place.
     @ObservationIgnored var throughDrawer: Task<Void, Never>?
     @ObservationIgnored var throughDrawerPlace: Showing?
     /// The clock those beats sleep on: a test steps its own.
     @ObservationIgnored var beatClock: any Clock<Duration> = ContinuousClock()
-    /// Where the app is: the workout, the Workouts screen, or a workout pushed on it, or Log, or
-    /// a logged workout pushed on it.
+    /// Where the app is, under the drawer (`Screen`).
     public internal(set) var screen = Screen.workout
     /// The finished logged workouts as of the last read (`refreshLog()`); nil until the first.
     public internal(set) var log: WorkoutLog?
@@ -100,6 +98,7 @@ public final class AppSession {
     /// Opens the drawer, unless one in progress keeps it shut or a row's sheet has been asked for.
     public func openDrawer() {
         guard !isDrawerLocked, rowSheet == nil else { return }
+        startShowingDrawer()
         isDrawerOpen = true
     }
 
@@ -127,6 +126,9 @@ public final class AppSession {
 
     /// Whether a finger holds the drawer, as the edge swipe brings it in.
     public func holdDrawer(_ held: Bool) {
+        if held {
+            startShowingDrawer()
+        }
         isDrawerHeld = held
     }
 
@@ -300,6 +302,8 @@ public final class AppSession {
     private func show(_ workout: Workout, on shown: Screen = .pushedWorkout) {
         // The workout left stays in the list at its place, before its last save reads back.
         saved = recent
+        // A workout put up mid-way ends the way, or its late close would land over it.
+        endThroughDrawer()
         switches += 1
         opened = workout
         current = workout

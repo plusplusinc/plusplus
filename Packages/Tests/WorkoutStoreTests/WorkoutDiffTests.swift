@@ -30,6 +30,26 @@ struct WorkoutDiffTests {
         #expect(progress([bench(1, 150), bench(28, 135)]).isEmpty)
     }
 
+    @Test("A workout started after now, as a clock set back leaves one, is out, as History's is")
+    func afterNow() {
+        #expect(progress([bench(1, 150), bench(-1, 135)]).isEmpty)
+    }
+
+    @Test("Per side follows the newest workout's sets, as the name does")
+    func perSideFromNewest() throws {
+        let sided = Fixture.loggedWorkout(
+            daysAgo: 1,
+            [Fixture.set("bench", .reps(8), Fixture.pounds(50), side: .left)],
+        )
+        let item = try #require(progress([sided, bench(5, 50)]).first)
+        #expect(item.isPerSide)
+        let unsided = try #require(progress([bench(1, 50), Fixture.loggedWorkout(
+            daysAgo: 5,
+            [Fixture.set("bench", .reps(8), Fixture.pounds(50), side: .left)],
+        )]).first)
+        #expect(!unsided.isPerSide)
+    }
+
     @Test("First is the oldest in the window, latest the newest")
     func firstAndLatest() throws {
         let item = try #require(progress([bench(1, 150), bench(10, 140), bench(20, 135)]).first)

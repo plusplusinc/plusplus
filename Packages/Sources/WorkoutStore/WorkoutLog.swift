@@ -57,7 +57,8 @@ public struct WorkoutLog: Equatable, Sendable {
     /// The logged workouts started in the period around `now`, newest first.
     func inPeriod(now: Date, calendar: Calendar) -> [LoggedWorkout] {
         let firstDay = LogPeriod.firstDay(calendar: calendar, now: now)
-        return loggedWorkouts.filter { $0.startedAt >= firstDay }
+        // Bounded by `now` as History's count and calendar are (`LogPeriod`).
+        return loggedWorkouts.filter { $0.startedAt >= firstDay && $0.startedAt <= now }
     }
 
     /// The period around `now`, with the days a logged workout started on.
@@ -66,7 +67,7 @@ public struct WorkoutLog: Equatable, Sendable {
     }
 
     /// Every exercise in the logged workouts, by id, with its top set in each, oldest logged
-    /// workout first, and the name the newest logged it with.
+    /// workout first, and the name and sides the newest logged it with.
     func history(of loggedWorkouts: [LoggedWorkout], in list: ExerciseList) -> [ExerciseHistory] {
         var order: [String] = []
         var byID: [String: ExerciseHistory] = [:]
@@ -82,6 +83,7 @@ public struct WorkoutLog: Equatable, Sendable {
                     )
                 }
                 byID[exercise.id]?.name = exercise.name
+                byID[exercise.id]?.isPerSide = exercise.isPerSide
                 byID[exercise.id]?.topSets.append(exercise.topSet)
                 byID[exercise.id]?.lastDone = loggedWorkout.endedAt ?? .distantPast
             }
@@ -95,7 +97,8 @@ struct ExerciseHistory {
     let id: String
     var name: String
     let exercise: Exercise?
-    let isPerSide: Bool
+    /// As the newest logged it, as `name` is.
+    var isPerSide: Bool
     /// Oldest logged workout first.
     var topSets: [TopSet] = []
     var lastDone = Date.distantPast

@@ -49,12 +49,14 @@ extension AppSession {
         markWait: Duration,
     ) {
         guard throughDrawerPlace == nil else { return }
+        if !isDrawerOpen {
+            drawerMark = nil
+        }
         throughDrawerPlace = place
         var markAt = Duration.zero
         var closeAt = markWait
-        // From an open drawer the mark moves on the Task's first turn, a frame after the tap: set
-        // in the tap's own update, the row's press animation took the slide over, and the mark
-        // crawled and was still short of its row as the drawer closed.
+        // From an open drawer the mark moves on the beats' first turn, as from a closed one,
+        // so both starts take one path.
         if !isDrawerOpen {
             openDrawer()
             guard isDrawerOpen else {
@@ -97,12 +99,19 @@ extension AppSession {
         closeDrawer()
     }
 
-    /// Stops a way through the drawer, leaving the place and the drawer to the caller.
+    /// A drawer starting to show marks what shows now, not where a finished way went.
+    func startShowingDrawer() {
+        if !isDrawerOpen, throughDrawerPlace == nil {
+            drawerMark = nil
+        }
+    }
+
+    /// Stops a way through the drawer, leaving the place and the drawer to the caller, and the
+    /// mark where it got to until the drawer next starts to show.
     func endThroughDrawer() {
         throughDrawer?.cancel()
         throughDrawer = nil
         throughDrawerPlace = nil
-        drawerMark = nil
     }
 
     /// Puts `place` under the drawer: a workout is no place the drawer goes, so it changes

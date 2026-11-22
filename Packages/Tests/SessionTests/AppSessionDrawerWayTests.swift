@@ -52,7 +52,10 @@ struct AppSessionDrawerWayTests {
         await way.value
         #expect(session.screen == .workouts)
         #expect(!session.isDrawerOpen)
-        #expect(session.drawerMark == nil)
+        #expect(session.drawerMark == .workouts, "the closing drawer keeps its mark")
+
+        session.openDrawer()
+        #expect(session.drawerMark == nil, "a drawer opened again marks what shows")
     }
 
     @Test("From an open drawer, as a row is tapped: the mark moves at once, the close follows it")
@@ -123,6 +126,24 @@ struct AppSessionDrawerWayTests {
         await way.value
         #expect(session.screen == .workouts)
         #expect(!session.isDrawerOpen)
+    }
+
+    @Test("A workout pushed mid-way ends the way, so no late close pops it")
+    func workoutPushedMidWay() async throws {
+        let session = session()
+        session.show(.workouts, throughDrawer: opening, markWait: markWait)
+        let way = try #require(session.throughDrawer)
+        await clock.sleeper()
+
+        await session.startNew()
+        let lingering = clock.hasSleeper
+        #expect(!lingering, "no beat is left to land on Workouts")
+        if lingering {
+            way.cancel()
+        }
+        await way.value
+        #expect(session.screen == .pushedWorkout)
+        #expect(session.throughDrawer == nil)
     }
 
     @Test("Where the drawer is kept shut, as under a row's sheet, it goes straight there")
