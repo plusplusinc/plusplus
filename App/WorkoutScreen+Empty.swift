@@ -11,7 +11,7 @@ extension WorkoutScreen {
     /// up until it closes.
     func openPicker() {
         pickerDetent = .medium
-        isPicking = true
+        session.openAddExercise()
     }
 
     /// A tap anywhere on an empty workout, or below the last row, opens the picker, once the

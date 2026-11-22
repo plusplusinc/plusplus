@@ -6,15 +6,19 @@ import WorkoutStore
 public struct RowSheet: Identifiable {
     public let id: WorkoutExercise.ID
     public var opensCustomizing: Bool
+    /// Whether Customize opens with the name selected to type over, as after a Create with
+    /// nothing typed.
+    public var namesIt: Bool
     /// This opening's own identity, which the sheet's content takes, so every opening starts
     /// from fresh state. A sheet asked for while the last one was still going down came up with
     /// the last one's state: on the form its Customize had pushed, the last exercise's name in
     /// it (measured on iOS 27, with the system's sheet slowed).
     public let opening = UUID()
 
-    public init(id: WorkoutExercise.ID, opensCustomizing: Bool = false) {
+    public init(id: WorkoutExercise.ID, opensCustomizing: Bool = false, namesIt: Bool = false) {
         self.id = id
         self.opensCustomizing = opensCustomizing
+        self.namesIt = namesIt
     }
 }
 
