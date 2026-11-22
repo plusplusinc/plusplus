@@ -52,8 +52,8 @@ Leaf views take plain values and closures so they preview and snapshot without a
 ## Where each feature is described
 
 How each part of the screen looks, moves, sounds, and reads to VoiceOver is in the doc comments
-of the types that draw it, with its timings in named constants. Read them before changing a
-feature, and change them with it.
+of the types that draw it, with its timings in named constants. Read them first, and change them
+with the feature.
 
 - Start, End, and the current exercise: `WorkoutScreen+LiveWorkout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`, `CaptionLine`, `ProgressLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
@@ -75,7 +75,7 @@ feature, and change them with it.
   `AppSession.show(_:throughDrawer:markWait:)`.
 - Log: `LogScreen`, `LogScreen+Tabs.swift`, `LoggedWorkoutScreen`, `DayGrid`, `LogRow`,
   `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
-  `ExerciseForm`, `BarSearchField`.
+  `ExerciseForm`, `BarSearchField`, `FilterBar`, `ChipSheet`.
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
   `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by

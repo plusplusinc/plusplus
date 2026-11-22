@@ -57,14 +57,10 @@ public struct FilterLabel: View {
 /// The touch is the capsule and half the gap to its neighbors on every side, so chips a gap
 /// apart leave no dead strip between them and each is a thumb's height; `ChipSheet` lays them
 /// out touching.
-public struct ChipButtonStyle: ButtonStyle {
+struct ChipButtonStyle: ButtonStyle {
     let isOn: Bool
 
-    public init(isOn: Bool) {
-        self.isOn = isOn
-    }
-
-    public func makeBody(configuration: Configuration) -> some View {
+    func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .fontWeight(.medium)
             .modifier(FilterCapsule(isOn: isOn))
