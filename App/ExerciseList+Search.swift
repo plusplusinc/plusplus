@@ -53,4 +53,3 @@ struct SearchField<Leading: View>: ViewModifier {
             .scrollDismissesKeyboard(.immediately)
     }
 }
-
