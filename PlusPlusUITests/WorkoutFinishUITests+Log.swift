@@ -4,7 +4,8 @@ import XCTest
 /// launch opens a new workout, and Log lists the finished one. What Log reads from the store
 /// and how each row reads are the package's (`StoreLoggedWorkoutTests`, `WorkoutLogTextTests`);
 /// this is what a relaunch brings back to Log, the system push and back of an opened
-/// workout, and the segmented control's wire from each tab to what it shows.
+/// workout, the segmented control's wire from each tab to what it shows, and a row's swipe to
+/// Delete, which ends it on an empty History.
 @MainActor
 extension WorkoutFinishUITests {
     func relaunchKeepsIt(named name: String, title: XCUIElement, in app: XCUIApplication) {
@@ -68,6 +69,30 @@ extension WorkoutFinishUITests {
                 XCTAssertTrue(groups["Core, 1 set"].appears(), "Balance counts no set for Core")
                 XCTAssertEqual(groups.count, 6, "Balance shows \(groups.count) muscle groups")
                 XCTAssertFalse(line.exists, "Balance still shows Diff's line")
+            }
+        deleteFromHistory(named: name, in: app)
+    }
+
+    /// The system's swipe actions and alert, composed on History's scroll view, show only in the
+    /// running app; what the delete stores and what the log reads after it are
+    /// `AppSessionLogDeleteTests`' and `StoreDeleteTests`'.
+    private func deleteFromHistory(named name: String, in app: XCUIApplication) {
+        XCTContext
+            .runActivity(named: "A History row's swipe asks first, and Delete takes it out") { _ in
+                app.segmentedControls.firstMatch.buttons["History"].tap()
+                let logged = app.buttons.matching(identifier: "log.workout").firstMatch
+                XCTAssertTrue(logged.appears(), "History lists no finished workout")
+                logged.swipeOpen()
+                let delete = app.buttons["Delete"]
+                XCTAssertTrue(delete.appears(), "A swipe did not open the row")
+                delete.tap()
+                let message = app.answerAlert("Delete from Log?", with: "Delete")
+                XCTAssertTrue(message.hasPrefix("\(name), "), "The alert's line reads \(message)")
+                XCTAssertTrue(logged.disappears(), "Delete left the row in History")
+                XCTAssertTrue(
+                    app.buttons["log.goToWorkouts"].appears(),
+                    "History without its one workout shows no Go to Workouts",
+                )
             }
     }
 }
