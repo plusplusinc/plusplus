@@ -111,6 +111,14 @@ public actor Store {
         try modelContext.save()
     }
 
+    /// Deletes a finished logged workout and its sets; nothing if there is none. Its workout
+    /// stays, as it holds no link to it.
+    public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) throws {
+        guard let stored = try storedLoggedWorkout(id: id) else { return }
+        modelContext.delete(stored)
+        try modelContext.save()
+    }
+
     /// A workout cleared to nothing is kept only while it is in progress; ending the logged
     /// workout deletes it in the same save, so no empty workout outlives one cut short between
     /// two writes.

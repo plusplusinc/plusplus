@@ -17,6 +17,8 @@ extension AppSession {
 
     enum LoggedWorkoutQueueEntry {
         case write(LoggedWorkoutWrite)
+        /// A finished logged workout deleted from Log, after any write of it still on its way.
+        case delete(LoggedWorkout.ID)
         /// Every write before it has landed.
         case landed(CheckedContinuation<Void, Never>)
     }
@@ -53,6 +55,7 @@ extension AppSession {
                     switch entry {
                     case let .write(.save(loggedWorkout)): try await store?.save(loggedWorkout)
                     case let .write(.discard(id)): try await store?.discardLoggedWorkout(id)
+                    case let .delete(id): try await store?.deleteLoggedWorkout(id)
                     case let .landed(done): done.resume()
                     }
                 } catch {
