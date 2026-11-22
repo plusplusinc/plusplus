@@ -101,23 +101,31 @@ public actor Store {
     }
 
     /// Deletes the logged workout, keeping nothing of it, its sets with it, and its workout if
-    /// cleared to nothing while it ran, in one save; nothing if there is none.
+    /// cleared to nothing while it ran, in one save; nothing if there is none. A discard that
+    /// doesn't save is undone, all of it (`saveDelete()`).
     public func discardLoggedWorkout(_ id: LoggedWorkout.ID) throws {
         guard let stored = try storedLoggedWorkout(id: id) else { return }
         if let workoutID = stored.routineID {
             try deleteIfCleared(workoutID: workoutID)
         }
         modelContext.delete(stored)
-        try modelContext.save()
+        try saveDelete()
     }
 
     /// Deletes a finished logged workout and its sets; nothing if there is none, or if it is still
     /// in progress, which only Discard ends without keeping. Its workout stays, as it holds no
-    /// link to it. A delete that doesn't save is undone in the context, so reads still list it
-    /// and no later save lands it unasked; the store's other writes don't undo yet.
+    /// link to it. A delete that doesn't save is undone (`saveDelete()`).
     public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) throws {
         guard let stored = try storedLoggedWorkout(id: id), stored.endedAt != nil else { return }
         modelContext.delete(stored)
+        try saveDelete()
+    }
+
+    /// Saves the deletes pending in the context, or, when the save fails, undoes every change
+    /// since the last save and rethrows: reads still return what was deleted, and no later save
+    /// of something else lands the delete unasked. Only the deletes call it; the store's other
+    /// writes save as they are.
+    func saveDelete() throws {
         do {
             try modelContext.save()
         } catch {
@@ -137,11 +145,12 @@ public actor Store {
     }
 
     /// Deletes the workout and its rows; nothing if there is none. Its logged workouts hold its id
-    /// and name, not a relationship, so they stay stored.
+    /// and name, not a relationship, so they stay stored. A delete that doesn't save is undone
+    /// (`saveDelete()`).
     public func deleteWorkout(_ id: Workout.ID) throws {
         guard let workout = try stored(id: id) else { return }
         modelContext.delete(workout)
-        try modelContext.save()
+        try saveDelete()
     }
 
     /// Marks the workout opened at `now` and returns it, or nil, storing nothing, if there is

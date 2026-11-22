@@ -83,7 +83,8 @@ extension Store {
     /// Deletes the created exercise `id` and every workout row that uses it, in one save. A
     /// workout left with nothing, no name and no rows, goes too, as a cleared one does; one
     /// left with a superset of one reads it as a plain row. Logged sets keep the exercise's id
-    /// and name, so they still read.
+    /// and name, so they still read. A delete that doesn't save is undone, rows and workouts
+    /// with it (`saveDelete()`).
     public func deleteExercise(_ id: String) throws {
         let exercises = try modelContext.fetch(FetchDescriptor<StoredExercise>(
             predicate: #Predicate { $0.id == id },
@@ -107,6 +108,6 @@ extension Store {
                 modelContext.delete(workout)
             }
         }
-        try modelContext.save()
+        try saveDelete()
     }
 }
