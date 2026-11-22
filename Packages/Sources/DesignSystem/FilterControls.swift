@@ -191,11 +191,8 @@ public struct FilterCount: View {
             Text(text)
                 .foregroundStyle(Color.pp(.textSecondary))
         } button: {
-            Button(action: onClear) {
-                SmallCapsuleLabel(systemImage: "xmark", title: "Clear")
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Clear filters")
+            SmallCapsuleButton(systemImage: "xmark", title: "Clear", action: onClear)
+                .accessibilityLabel("Clear filters")
         }
     }
 }
@@ -211,6 +208,29 @@ private struct TextAndButton<Words: View, Trailing: View>: View {
             button
         }
         .font(.ppRowDetail)
+    }
+}
+
+/// A line's own small button, Clear and "+ Bench": its capsule (`SmallCapsuleLabel`) laid out
+/// at the capsule's size, so the line stands as tall as its words, while the button, its touch
+/// and what VoiceOver outlines, reaches past the capsule to a thumb's height and a gap's width
+/// on each side (`TouchOutset`). A thumb's size, not scaled with the text, as `FilterLabel`'s.
+struct SmallCapsuleButton: View {
+    let systemImage: String
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        TouchOutset(minHeight: 44, sides: Spacing.sm) {
+            Button(action: action) {
+                SmallCapsuleLabel(systemImage: systemImage, title: title)
+                    // Fills the room `TouchOutset` places it in, centered, and takes touches
+                    // across all of it.
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
 
@@ -261,11 +281,8 @@ public struct NeedsHeader: View {
                 .foregroundStyle(Color.pp(.textSecondary))
                 .accessibilityAddTraits(.isHeader)
         } button: {
-            Button(action: onAdd) {
-                SmallCapsuleLabel(systemImage: "plus", title: addTitle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Add \(addTitle.lowercased()) to Equipment")
+            SmallCapsuleButton(systemImage: "plus", title: addTitle, action: onAdd)
+                .accessibilityLabel("Add \(addTitle.lowercased()) to Equipment")
         }
     }
 }
