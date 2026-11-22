@@ -34,8 +34,8 @@ struct WorkoutLauncher: View {
             } content: {
                 // A place changed from the drawer swaps at once, under the drawer as it closes.
                 // One changed from the screen itself, as Log's Go to Workouts, has nothing over
-                // it, so it changes inside an animation: Log is put away below, in front, as
-                // Workouts grows into place behind it (`PlaceShuffle`).
+                // it, so it changes inside an animation: Workouts comes up in front like a sheet
+                // as Log goes down behind it (`PlaceShuffle`).
                 ZStack {
                     // What Log uncovers as it slides away, so nothing behind it shows darker.
                     Color.pp(.background)
@@ -54,7 +54,8 @@ struct WorkoutLauncher: View {
                                 insertion: PlaceShuffle.arriving(reduceMotion: reduceMotion),
                                 removal: .opacity,
                             ))
-                            .zIndex(1)
+                            .zIndex(PlaceShuffle
+                                .workoutsInFront(reduceMotion: reduceMotion) ? 3 : 1)
                     case .log, .loggedWorkout:
                         LogScreen(session: session)
                             .transition(.asymmetric(
