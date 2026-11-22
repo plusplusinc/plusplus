@@ -56,6 +56,18 @@ struct StoreLoggedWorkoutTests {
         #expect(stored.map(\.loggedWorkout) == [resumed.finishing(at: Self.at(70))])
     }
 
+    @Test("Finished logged workouts read back newest finish first, one in progress left out")
+    func finishedNewestFirst() async throws {
+        let workout = Workout(name: "Upper")
+        let older = Self.started(workout, at: 10).finishing(at: Self.at(20))
+        let newer = Self.started(workout, at: 30).finishing(at: Self.at(40))
+        try await relaunch().save(workout, at: Self.at(1))
+        try await relaunch().save(older)
+        try await relaunch().save(newer)
+        try await relaunch().save(Self.started(workout, at: 50))
+        #expect(try await relaunch().finishedLoggedWorkouts() == [newer, older])
+    }
+
     @Test("A stored set the app can't read is kept through a save, not deleted")
     func unreadableSetKept() async throws {
         let bench = try WorkoutExercise.builtIn("Barbell bench press")

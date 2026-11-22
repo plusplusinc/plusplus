@@ -58,6 +58,52 @@ struct AppSessionScreenTests {
         #expect(!session.isDrawerOpen)
     }
 
+    @Test("Log from the drawer shows Log, marked, and closes the drawer")
+    func showLog() {
+        let session = session()
+        session.openDrawer()
+        session.showLog()
+        #expect(session.screen == .log)
+        #expect(session.showing == .log)
+        #expect(!session.isDrawerOpen)
+    }
+
+    @Test("A logged workout opened from History is pushed on Log, still marking Log; back pops it")
+    func openLoggedWorkout() {
+        let session = session()
+        session.showLog()
+        let id = UUID()
+        session.openLoggedWorkout(id)
+        #expect(session.screen == .loggedWorkout(id))
+        #expect(session.screen.isPushed)
+        #expect(session.showing == .log)
+        session.popLoggedWorkout()
+        #expect(session.screen == .log)
+        // A pop sent once the place has changed leaves it.
+        session.showWorkouts()
+        session.popLoggedWorkout()
+        #expect(session.screen == .workouts)
+    }
+
+    @Test("Log reads the finished logged workouts, leaving one in progress out")
+    func refreshLog() async throws {
+        let finished = LoggedWorkout(
+            workoutID: saved.id,
+            workoutName: saved.name,
+            startedAt: Date(timeIntervalSinceReferenceDate: 10),
+        ).finishing(at: Date(timeIntervalSinceReferenceDate: 70))
+        try await store.save(finished)
+        try await store.save(LoggedWorkout(
+            workoutID: saved.id,
+            workoutName: saved.name,
+            startedAt: Date(timeIntervalSinceReferenceDate: 100),
+        ))
+        let session = session()
+        #expect(session.log == nil)
+        await session.refreshLog()
+        #expect(session.log?.loggedWorkouts == [finished])
+    }
+
     @Test("The drawer and a row's sheet keep each other out, whichever was asked for first")
     func drawerAndRowSheetExclude() throws {
         let (session, row) = try sessionWithRow()
@@ -161,7 +207,7 @@ struct AppSessionScreenTests {
         #expect(session.current.name == "Upper")
     }
 
-    @Test("The list's + pushes a new workout on it, which marks neither place")
+    @Test("The list's + pushes a new workout on it, showing as the workout")
     func newFromList() async {
         let session = session()
         session.showWorkouts()

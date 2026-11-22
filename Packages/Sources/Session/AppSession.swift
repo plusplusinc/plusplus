@@ -28,6 +28,8 @@ public final class AppSession {
     /// whatever closes the drawer can end it, and the place they go to.
     @ObservationIgnored var throughDrawer: Task<Void, Never>?
     @ObservationIgnored var throughDrawerPlace: Showing?
+    /// The clock those beats sleep on: a test steps its own.
+    @ObservationIgnored var beatClock: any Clock<Duration> = ContinuousClock()
     /// Where the app is: the workout, the Workouts screen, or a workout pushed on it, or Log, or
     /// a logged workout pushed on it.
     public internal(set) var screen = Screen.workout

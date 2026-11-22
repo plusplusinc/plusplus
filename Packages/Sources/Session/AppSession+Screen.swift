@@ -49,7 +49,6 @@ extension AppSession {
         markWait: Duration,
     ) {
         guard throughDrawerPlace == nil else { return }
-        let start = ContinuousClock.now
         throughDrawerPlace = place
         var markAt = Duration.zero
         var closeAt = markWait
@@ -65,12 +64,24 @@ extension AppSession {
             markAt = opening.arrival + opening.holdBefore
             closeAt = markAt + markWait + opening.holdAfter
         }
-        throughDrawer = Task { [weak self] in
+        throughDrawer = beats(on: beatClock, markingAt: markAt, closingAt: closeAt, place: place)
+    }
+
+    /// The way's two beats, each a sleep to a deadline from now on `clock`: the mark moves to
+    /// `place`, then the drawer closes.
+    private func beats(
+        on clock: some Clock<Duration>,
+        markingAt markAt: Duration,
+        closingAt closeAt: Duration,
+        place: Showing,
+    ) -> Task<Void, Never> {
+        let start = clock.now
+        return Task { [weak self] in
             do {
-                try await Task.sleep(until: start + markAt, tolerance: .zero, clock: .continuous)
+                try await clock.sleep(until: start.advanced(by: markAt), tolerance: .zero)
                 try Task.checkCancellation()
                 self?.drawerMark = place
-                try await Task.sleep(until: start + closeAt, tolerance: .zero, clock: .continuous)
+                try await clock.sleep(until: start.advanced(by: closeAt), tolerance: .zero)
                 try Task.checkCancellation()
                 self?.closeDrawer()
             } catch {
