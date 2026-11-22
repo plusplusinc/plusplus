@@ -75,15 +75,20 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
         .padding(.vertical, Spacing.xs)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
         .backgroundPreferenceValue(DrawerIconBounds.self) { anchor in
+            if isSelected, let anchor {
+                GeometryReader { proxy in
+                    fill(around: proxy[anchor], in: proxy.size)
+                }
+            }
+        }
+        // A background of its own, behind the mark's: drawn inside the mark's reader, always
+        // there, the mark stopped sliding between rows and changed rows at once.
+        .backgroundPreferenceValue(DrawerIconBounds.self) { anchor in
             if let anchor {
                 GeometryReader { proxy in
-                    // Under the mark, so the mark arriving covers it.
                     fillShape(around: proxy[anchor], in: proxy.size)
                         .opacity(isPressed && !isSelected ? Self.pressedStrength : 0)
                         .keyPressAnimation(isPressed: isPressed)
-                    if isSelected {
-                        fill(around: proxy[anchor], in: proxy.size)
-                    }
                 }
             }
         }
