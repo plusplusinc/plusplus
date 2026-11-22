@@ -4,6 +4,7 @@ import WorkoutStore
 extension AppSession {
     /// Shows Log and closes the drawer.
     public func showLog() {
+        endThroughDrawer()
         screen = .log
         closeDrawer()
     }

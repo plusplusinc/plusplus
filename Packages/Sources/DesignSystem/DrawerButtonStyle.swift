@@ -69,13 +69,50 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
 
     /// The fill of the place showing: as much space to the icon's left as above and below it,
     /// so the icon sits evenly inside its corner, and inset from the drawer's trailing edge.
+    /// Within `drawerMarks()` it is one mark that slides from row to row as the place changes
+    /// inside an animation; the row it leaves drops its own at once, so no second fill fades.
     private func fill(around icon: CGRect, in size: CGSize) -> some View {
         let leading = max(0, icon.minX - icon.minY)
         return RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
             .fill(.pp(.selectionFill))
             .frame(width: max(0, size.width - fillTrailingInset - leading), height: size.height)
-            .offset(x: leading)
+            .padding(.leading, leading)
+            .modifier(DrawerMarkMatch())
+            .transition(.identity)
     }
+}
+
+/// One mark across a drawer's places, where `drawerMarks()` gives them a namespace.
+private struct DrawerMarkMatch: ViewModifier {
+    @Environment(\.drawerMarkSpace) private var space
+
+    func body(content: Content) -> some View {
+        if let space {
+            content.matchedGeometryEffect(id: "mark", in: space)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    /// Makes the mark of the place showing, across the drawer places inside, one mark that
+    /// slides from the old place to the new as the place changes inside an animation.
+    public func drawerMarks() -> some View {
+        modifier(DrawerMarkSpace())
+    }
+}
+
+private struct DrawerMarkSpace: ViewModifier {
+    @Namespace private var space
+
+    func body(content: Content) -> some View {
+        content.environment(\.drawerMarkSpace, space)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var drawerMarkSpace: Namespace.ID?
 }
 
 /// The bounds of a place's icon as drawn, which its fill keeps an even space around.

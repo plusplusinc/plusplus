@@ -34,6 +34,8 @@ struct LogScreen: View {
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
     var body: some View {
         NavigationStack {
@@ -66,9 +68,6 @@ struct LogScreen: View {
             }
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
-            // The stack's own layer, under the screen: left the system's black, it showed
-            // through as Log faded out with Reduce Motion, and the screen went darker.
-            .containerBackground(Color.pp(.background), for: .navigation)
             .navigationDestination(item: pushedLoggedWorkout) { id in
                 if let log = session.log, let loggedWorkout = log.loggedWorkout(id: id) {
                     LoggedWorkoutScreen(
@@ -123,9 +122,20 @@ struct LogScreen: View {
         session.openLoggedWorkout(id)
     }
 
-    /// Workouts at the root, as the drawer's Workouts row shows it, never pushed onto Log.
+    /// Workouts at the root, never pushed onto Log, by way of the drawer: a quick version of
+    /// opening it and tapping Workouts (`AppSession.show(_:throughDrawer:markWait:)`): it opens,
+    /// its mark slides from Log to Workouts, and it closes over Workouts. With VoiceOver it goes
+    /// straight there: a drawer passing by unasked reads as noise.
     func goToWorkouts() {
-        withAnimation(PlaceCrossfade.animation) { session.showWorkouts() }
+        guard !voiceOver else {
+            session.showWorkouts()
+            return
+        }
+        session.show(
+            .workouts,
+            throughDrawer: DrawerWay.arrival(reduceMotion: reduceMotion),
+            markWait: DrawerWay.markWait(reduceMotion: reduceMotion),
+        )
     }
 
     var now: Date {

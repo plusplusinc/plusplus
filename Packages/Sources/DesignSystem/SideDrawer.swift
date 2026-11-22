@@ -293,6 +293,36 @@ extension EnvironmentValues {
     @Entry var isBehindOpenDrawer = false
 }
 
+/// Going to a place by way of the drawer: the mark of the place showing slides to the place
+/// chosen, and the drawer closes as it lands, so the change is seen before the drawer goes. A
+/// drawer row tapped starts at the slide; Log's Go to Workouts first opens the drawer with its
+/// own motion. The beats a keeper of the drawer sleeps to, from the start.
+public enum DrawerWay {
+    /// When the drawer's opening has visibly arrived: its slide's duration, after which the
+    /// spring's tail is too small to see, or with Reduce Motion its fade's.
+    public static func arrival(reduceMotion: Bool) -> Duration {
+        .seconds(reduceMotion ? DrawerMetrics.fadeDuration : DrawerMetrics.slide.duration)
+    }
+
+    /// How long the mark takes to slide to its new place, which the drawer waits for before
+    /// closing; with Reduce Motion the mark changes rows at once and the drawer waits a moment
+    /// so the change is seen.
+    public static func markWait(reduceMotion: Bool) -> Duration {
+        .seconds(reduceMotion ? markPause : markSlideDuration)
+    }
+
+    /// The mark sliding from one place to the next: eased in and out so the travel spreads over
+    /// the whole time and stops dead; an ease-out alone front-loads it and reads as a jump.
+    /// Snappy, yet slow enough to follow. Nil with Reduce Motion: it changes rows at once.
+    public static func markSlide(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeInOut(duration: markSlideDuration)
+    }
+
+    private static let markSlideDuration = 0.25
+    /// With Reduce Motion, the new mark held in view before the drawer closes.
+    private static let markPause = 0.2
+}
+
 enum DrawerMetrics {
     /// How much of the screen stays in view beside the open drawer.
     static let sliver: CGFloat = 78
@@ -302,7 +332,8 @@ enum DrawerMetrics {
     /// Opening and closing: quick and without bounce, as a key answers a tap.
     static let slide = Spring(duration: 0.25, bounce: 0)
     /// The drawer fading in or out, with Reduce Motion.
-    static let fade = Animation.easeInOut(duration: 0.2)
+    static let fade = Animation.easeInOut(duration: fadeDuration)
+    static let fadeDuration = 0.2
     /// Starting to open: solid, between soft (muddy) and rigid, and lighter than shutting.
     static let opened = SensoryFeedback.impact(flexibility: .solid, intensity: 0.5)
     /// Starting to shut: solid, as opening is, and firmer, so it's felt as the drawer closes.

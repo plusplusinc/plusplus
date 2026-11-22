@@ -21,6 +21,13 @@ public final class AppSession {
     public private(set) var rowSheet: RowSheet?
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
+    /// The place the drawer marks while `show(_:throughDrawer:markWait:)` shows the way there;
+    /// nil otherwise, when the drawer marks what showed as it started to show.
+    public internal(set) var drawerMark: Showing?
+    /// The beats of `show(_:throughDrawer:markWait:)` under way, so one plays at a time and
+    /// whatever closes the drawer can end it, and the place they go to.
+    @ObservationIgnored var throughDrawer: Task<Void, Never>?
+    @ObservationIgnored var throughDrawerPlace: Showing?
     /// Where the app is: the workout, the Workouts screen, or a workout pushed on it, or Log, or
     /// a logged workout pushed on it.
     public internal(set) var screen = Screen.workout
@@ -125,7 +132,13 @@ public final class AppSession {
         rowSheet = nil
     }
 
+    /// Closes the drawer. Mid-way through `show(_:throughDrawer:markWait:)`, as at its end or as
+    /// a tap beside the drawer or a swipe closes it, the place it was going to swaps in first.
     public func closeDrawer() {
+        if let place = throughDrawerPlace {
+            endThroughDrawer()
+            land(on: place)
+        }
         isDrawerOpen = false
     }
 

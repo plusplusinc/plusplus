@@ -13,7 +13,7 @@ struct WorkoutLauncher: View {
 
     @State private var session: AppSession?
     @Environment(\.locale) private var locale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         if let session {
@@ -32,40 +32,25 @@ struct WorkoutLauncher: View {
             ) {
                 DrawerMenu(session: session)
             } content: {
-                // A place changed from the drawer swaps at once, under the drawer as it closes.
-                // One changed from the screen itself, as Log's Go to Workouts, has nothing over
-                // it, so it changes inside an animation: Workouts fades in over Log as the two
-                // trade places (`PlaceCrossfade`).
-                ZStack {
-                    // What shows round the moving screens, so nothing behind them shows darker.
-                    Color.pp(.background)
-                        .ignoresSafeArea()
-                        .zIndex(-1)
-                    switch session.screen {
-                    case .workout:
-                        // A switch to another workout gives a fresh screen: scroll, sheets,
-                        // and title.
-                        WorkoutScreen(session: session, namer: namer)
-                            .id(session.opened.id)
-                            .transition(.opacity)
-                    case .workouts, .pushedWorkout:
-                        WorkoutsScreen(session: session, namer: namer)
-                            .transition(.asymmetric(
-                                insertion: PlaceCrossfade.arriving(reduceMotion: reduceMotion),
-                                removal: .opacity,
-                            ))
-                            .zIndex(3)
-                    case .log, .loggedWorkout:
-                        LogScreen(session: session)
-                            .transition(.asymmetric(
-                                insertion: .opacity,
-                                removal: PlaceCrossfade.leaving(reduceMotion: reduceMotion),
-                            ))
-                            .zIndex(2)
-                    }
+                switch session.screen {
+                case .workout:
+                    // A switch to another workout gives a fresh screen: scroll, sheets,
+                    // and title.
+                    WorkoutScreen(session: session, namer: namer)
+                        .id(session.opened.id)
+                case .workouts, .pushedWorkout:
+                    WorkoutsScreen(session: session, namer: namer)
+                case .log, .loggedWorkout:
+                    LogScreen(session: session)
                 }
             }
             .keepsScreenOn(session.loggedWorkout != nil)
+            // A way through the drawer that the app leaves mid-way lands on Workouts, closed.
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active {
+                    session.finishThroughDrawer()
+                }
+            }
         } else {
             Color.pp(.background)
                 .ignoresSafeArea()
