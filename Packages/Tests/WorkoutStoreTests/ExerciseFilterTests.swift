@@ -114,4 +114,62 @@ struct ExerciseFilterTests {
             #expect(muscle.group == group)
         }
     }
+
+    @Test("Exercises one piece short go under that piece, never also in the matches")
+    func alsoNeeds() throws {
+        let chest = list.filtered(
+            by: ExerciseFilter(muscleGroups: [.chest], equipment: [.piece(.dumbbells)]),
+            matching: "",
+        )
+        #expect(chest.matches.isEmpty)
+        let bench = try #require(chest.alsoNeeds.first)
+        #expect(bench.piece == .bench)
+        #expect(Set(bench.exercises.map(\.name))
+            .isSuperset(of: ["Dumbbell bench press", "Incline dumbbell press"]))
+        let back = list.filtered(
+            by: ExerciseFilter(muscleGroups: [.back], equipment: [.piece(.dumbbells)]),
+            matching: "",
+        )
+        let shown = Set(back.matches.map(\.id))
+        #expect(back.alsoNeeds.allSatisfy { section in
+            section.exercises.allSatisfy { !shown.contains($0.id) }
+        })
+    }
+
+    @Test("Sections run by how many exercises each holds, most first")
+    func alsoNeedsOrder() {
+        let counts = list.filtered(
+            by: ExerciseFilter(equipment: [.piece(.dumbbells)]),
+            matching: "",
+        ).alsoNeeds.map(\.exercises.count)
+        #expect(!counts.isEmpty)
+        #expect(counts == counts.sorted(by: >))
+    }
+
+    @Test("Only No equipment chosen has no Also needs")
+    func noEquipmentHasNoSections() {
+        let filtered = list.filtered(by: ExerciseFilter(equipment: [.none]), matching: "")
+        #expect(filtered.alsoNeeds.isEmpty)
+    }
+
+    @Test("Create carries the groups, then the equipment, bodyweight by name, never the kind")
+    func carriedLine() {
+        #expect(ExerciseFilter(
+            muscleGroups: [.back, .chest],
+            kind: .strength,
+            equipment: [.piece(.bench), .piece(.dumbbells)],
+        ).carriedLine == "Chest, Back, Dumbbells, Bench")
+        #expect(ExerciseFilter(muscleGroups: [.chest], equipment: [.none])
+            .carriedLine == "Chest, Bodyweight")
+        #expect(ExerciseFilter(kind: .stretch).carriedLine == nil)
+        #expect(ExerciseFilter(equipment: [.none, .piece(.band)]).carriedEquipment == [.band])
+    }
+
+    @Test("An unnamed exercise takes the first name no exercise has")
+    func unusedName() {
+        let base = ExerciseList.unnamedExerciseName
+        #expect(list.unusedName(base) == base)
+        let taken = ExerciseList(created: [CreatedExercise(name: base, muscleGroups: [])])
+        #expect(taken.unusedName(base) == "\(base) 2")
+    }
 }

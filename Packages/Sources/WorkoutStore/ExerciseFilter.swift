@@ -147,27 +147,124 @@ public struct ExerciseFilter: Equatable, Sendable {
     }
 }
 
+extension ExerciseFilter {
+    /// The muscle groups Create gives the exercise it makes: the chosen ones.
+    public var carriedGroups: Set<MuscleGroup> {
+        muscleGroups
+    }
+
+    /// The equipment Create gives the exercise it makes: the chosen pieces. No equipment adds
+    /// none, which an exercise reads as bodyweight.
+    public var carriedEquipment: Set<Equipment> {
+        Set(equipment.compactMap {
+            if case let .piece(piece) = $0 {
+                piece
+            } else {
+                nil
+            }
+        })
+    }
+
+    /// What Create carries, as its row's detail line reads it: the chosen groups in body order,
+    /// then the chosen equipment in display order, No equipment as "Bodyweight"
+    /// ("Chest, Dumbbells"). Kind is never carried, so nil when only Kind is on.
+    public var carriedLine: String? {
+        let groups = MuscleGroup.allCases.filter(muscleGroups.contains).map(\.name)
+        let kit = EquipmentChoice.allCases.filter(equipment.contains).map { choice in
+            choice == .none ? "Bodyweight" : choice.name
+        }
+        let names = groups + kit
+        return names.isEmpty ? nil : names.joined(separator: ", ")
+    }
+}
+
 /// What a filtered list shows.
 public struct FilteredExercises: Equatable, Sendable {
     /// The exercises every filter and the search hold for: those that mainly work a chosen
     /// group first, then those that work one along the way, A to Z within each.
     public let matches: [Exercise]
+    /// The exercises one piece short of the chosen equipment, a section per missing piece.
+    public let alsoNeeds: [Section]
+
+    /// Exercises that pass every filter but equipment, use a chosen piece, and miss exactly
+    /// `piece`.
+    public struct Section: Identifiable, Equatable, Sendable {
+        public let piece: Equipment
+        public let exercises: [Exercise]
+
+        public var id: Equipment {
+            piece
+        }
+    }
 }
 
 extension ExerciseList {
-    /// The exercises matching `query` that pass `filter`, in its order (`ExerciseFilter`).
+    /// The exercises matching `query` that pass `filter`, in its order (`ExerciseFilter`), and
+    /// those one piece of equipment short: among the exercises that pass search, muscle, and
+    /// kind, each that uses a chosen piece and misses exactly one goes in that piece's section.
+    /// Sections run by how many exercises each holds, most first, a tie in display order; inside
+    /// one, the matches' order. An exercise is in the matches or in one section, never both.
     public func filtered(by filter: ExerciseFilter, matching query: String) -> FilteredExercises {
         var mainly: [Exercise] = []
         var alongTheWay: [Exercise] = []
-        for exercise in matching(query)
-            where filter.passesKind(exercise) && filter.passesEquipment(exercise)
-        {
+        for exercise in matching(query) where filter.passesKind(exercise) {
             switch filter.muscleMatch(exercise) {
             case .mainly: mainly.append(exercise)
             case .alongTheWay: alongTheWay.append(exercise)
             case nil: break
             }
         }
-        return FilteredExercises(matches: mainly + alongTheWay)
+        let ordered = mainly + alongTheWay
+        let chosen = filter.carriedEquipment
+        var short: [Equipment: [Exercise]] = [:]
+        for exercise in ordered where !filter.passesEquipment(exercise) {
+            let missing = exercise.equipment.subtracting(chosen)
+            if missing.count == 1, let piece = missing.first,
+               !exercise.equipment.isDisjoint(with: chosen)
+            {
+                short[piece, default: []].append(exercise)
+            }
+        }
+        let sections = Equipment.allCases.compactMap { piece in
+            short[piece].map { FilteredExercises.Section(piece: piece, exercises: $0) }
+        }
+        // A stable sort, so a tie keeps display order.
+        let byCount = sections.enumerated().sorted {
+            ($0.element.exercises.count, -$0.offset) > ($1.element.exercises.count, -$1.offset)
+        }.map(\.element)
+        return FilteredExercises(
+            matches: ordered.filter(filter.passesEquipment),
+            alsoNeeds: byCount,
+        )
+    }
+
+    /// The name Create gives an exercise when nothing is typed, as Customize opens on it.
+    public static let unnamedExerciseName = "New exercise"
+
+    /// `base`, or the first of "`base` 2", "`base` 3", … that no exercise is named.
+    public func unusedName(_ base: String) -> String {
+        guard hasExercise(named: base) else { return base }
+        var number = 2
+        while hasExercise(named: "\(base) \(number)") {
+            number += 1
+        }
+        return "\(base) \(number)"
+    }
+}
+
+extension Equipment {
+    /// The piece as "Also needs …" reads it: "a bench", "dumbbells".
+    public var needed: String {
+        switch self {
+        case .dumbbells: "dumbbells"
+        case .kettlebell: "a kettlebell"
+        case .barbell: "a barbell"
+        case .medicineBall: "a medicine ball"
+        case .bench: "a bench"
+        case .band: "a band"
+        case .pullUpBar: "a pull-up bar"
+        case .rings: "rings"
+        case .balanceBoard: "a balance board"
+        }
     }
 }
