@@ -129,10 +129,11 @@ Their time is the scarce thing, and it is for the product.
   grid, measurement, or cleanup only with the question it answers. A value they name a change to
   (a duration, a spacing) you change, commit, and install with `scripts/device.sh` in the
   slice's worktree while no builder runs there, with a line in the handoff note; the full
-  pass reviews it. Before a builder round's install, check what they asked for in the
-  round's screenshots on content like theirs, and that nothing they corrected earlier moved.
+  pass reviews it. A round's build reaches them first, called unchecked; meanwhile check what
+  they asked for in its screenshots on content like theirs, and that nothing they corrected
+  earlier moved.
   The loop ends on their word that it's right; then the builder's full pass and the verifier run once,
-  while the next card starts (below). Work done while they are away is a round for them to
+  while the next card starts. Work done while they are away is a round for them to
   try, not the end of the loop.
 - **Fresh and focused.** Each builder round or job gets a new agent named for it, starting from the
   slice's handoff note (`.slices/sliceN-handoff.md`) and bringing it up to date; resume one
@@ -152,7 +153,7 @@ Their time is the scarce thing, and it is for the product.
   (SendMessage) to commit what builds and hand back, and that line says where it is. A wake you
   set says what was true then: cancel it when you stop what it watches, and a check that has
   finished is a result whatever a watch says. A turn with no text is sent back for one, so a
-  notice that brings nothing new still gets a few words, never a second summary.
+  notice with nothing new gets a few words, never a second summary.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`) whenever a phase
   ends, with this session's id, so a cleared context or another session can pick it up.
 
