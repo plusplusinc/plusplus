@@ -125,7 +125,7 @@ struct LogScreen: View {
 
     /// Workouts at the root, as the drawer's Workouts row shows it, never pushed onto Log.
     func goToWorkouts() {
-        withAnimation(PlaceShuffle.animation) { session.showWorkouts() }
+        withAnimation(PlaceCrossfade.animation) { session.showWorkouts() }
     }
 
     var now: Date {

@@ -58,6 +58,9 @@ struct WorkoutsScreen: View {
             .swipeActionsContainer()
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
+            // The stack's own layer, under the screen: left the system's black, it showed
+            // through as the screen faded in over Log, and the screen went darker.
+            .containerBackground(Color.pp(.background), for: .navigation)
             .onAppear(perform: takeOrder)
             .onDisappear(perform: takeOrder)
             .navigationDestination(isPresented: isWorkoutPushed) {

@@ -34,10 +34,10 @@ struct WorkoutLauncher: View {
             } content: {
                 // A place changed from the drawer swaps at once, under the drawer as it closes.
                 // One changed from the screen itself, as Log's Go to Workouts, has nothing over
-                // it, so it changes inside an animation: Workouts comes up in front like a sheet
-                // as Log goes down behind it (`PlaceShuffle`).
+                // it, so it changes inside an animation: Workouts fades in over Log as the two
+                // trade places (`PlaceCrossfade`).
                 ZStack {
-                    // What Log uncovers as it slides away, so nothing behind it shows darker.
+                    // What shows round the moving screens, so nothing behind them shows darker.
                     Color.pp(.background)
                         .ignoresSafeArea()
                         .zIndex(-1)
@@ -51,16 +51,15 @@ struct WorkoutLauncher: View {
                     case .workouts, .pushedWorkout:
                         WorkoutsScreen(session: session, namer: namer)
                             .transition(.asymmetric(
-                                insertion: PlaceShuffle.arriving(reduceMotion: reduceMotion),
+                                insertion: PlaceCrossfade.arriving(reduceMotion: reduceMotion),
                                 removal: .opacity,
                             ))
-                            .zIndex(PlaceShuffle
-                                .workoutsInFront(reduceMotion: reduceMotion) ? 3 : 1)
+                            .zIndex(3)
                     case .log, .loggedWorkout:
                         LogScreen(session: session)
                             .transition(.asymmetric(
                                 insertion: .opacity,
-                                removal: PlaceShuffle.leaving(reduceMotion: reduceMotion),
+                                removal: PlaceCrossfade.leaving(reduceMotion: reduceMotion),
                             ))
                             .zIndex(2)
                     }
