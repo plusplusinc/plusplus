@@ -5,8 +5,8 @@ import SwiftUI
 /// fill (`selectionFill`); today is outlined, in primary text over purple and in the rail's gray
 /// over the gray; a day after today keeps its room and draws nothing. Each square shows its day
 /// of the month, small and centered, in SF Mono: secondary text on the gray, the background's
-/// dark on purple, so the fill stays what the eye finds first. It grows with the text size up
-/// to the first accessibility size, and shrinks rather than reach the square's edge. The squares
+/// dark on purple, so the fill stays what the eye finds first. It grows with the text size
+/// within the square's middle, and shrinks there rather than reach the square's edge. The squares
 /// share the row's width, and
 /// their height follows it, whatever height the grid is offered. VoiceOver reads the initials
 /// and numbers not at all and each drawn day as one element, `spoken`, row by row.
@@ -42,9 +42,10 @@ public struct DayGrid: View {
     private let weeks: [[Square]]
 
     private static let outline: CGFloat = 1.5
-    /// The least a number shrinks to, where a narrow screen's squares are smaller than its two
-    /// digits.
-    private static let numberShrink: CGFloat = 0.4
+    /// The least a number shrinks to at the largest sizes, where two digits outgrow the room.
+    private static let numberShrink: CGFloat = 0.3
+    /// The room around a number, a share of the square's side on each edge.
+    private static let numberInset: CGFloat = 0.2
 
     public init(initials: [String], weeks: [[Square]]) {
         self.initials = initials
@@ -88,15 +89,17 @@ public struct DayGrid: View {
                 }
             }
             .overlay {
-                Text(square.number)
-                    .font(.ppCaptionNumber)
-                    .foregroundStyle(.pp(square.isDone ? .background : .textSecondary))
-                    .lineLimit(1)
-                    .minimumScaleFactor(Self.numberShrink)
-                    // Past the first accessibility size the square's width stays put, and a
-                    // number grown further filled it, louder than the purple.
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                    .padding(Spacing.xs)
+                // Kept to the square's middle: the square's width stays put as the text grows,
+                // and a number grown to its edges was louder than the purple.
+                GeometryReader { geometry in
+                    Text(square.number)
+                        .font(.ppCaptionNumber)
+                        .foregroundStyle(.pp(square.isDone ? .background : .textSecondary))
+                        .lineLimit(1)
+                        .minimumScaleFactor(Self.numberShrink)
+                        .padding(geometry.size.width * Self.numberInset)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                }
             }
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: .infinity)

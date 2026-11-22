@@ -98,6 +98,28 @@ struct LogPeriodTests {
         #expect(period.loggedWorkoutCount == 2)
     }
 
+    @Test("The bar's range: one month shortened, a year on each side across one, each day numbered")
+    func rangeAcrossMonthsAndYears() throws {
+        func range(year: Int, month: Int, day: Int) -> LogPeriod {
+            let now = Fixture.calendar.date(
+                from: DateComponents(year: year, month: month, day: day, hour: 18),
+            ) ?? .distantPast
+            return LogPeriod(loggedWorkouts: [], calendar: Self.sundayFirst, now: now)
+        }
+        let dash = "\u{2009}\u{2013}\u{2009}"
+        let oneMonth = range(year: 2026, month: 11, day: 28)
+        #expect(oneMonth.rangeText(locale: Fixture.locale, calendar: Self.sundayFirst)
+            == "Nov 1\(dash)28")
+        let newYear = range(year: 2027, month: 1, day: 2)
+        #expect(newYear.rangeText(locale: Fixture.locale, calendar: Self.sundayFirst)
+            == "Dec 6, 2026\(dash)Jan 2, 2027")
+        #expect(newYear.spokenRange(locale: Fixture.locale, calendar: Self.sundayFirst)
+            == "December 6 to January 2")
+        let first = try #require(oneMonth.weeks.first?.first)
+        #expect(LogPeriod.dayNumber(first, locale: Fixture.locale, calendar: Self.sundayFirst)
+            == "1")
+    }
+
     @Test("A day reads its date and whether a workout was done")
     func spokenDay() throws {
         let period = period([Fixture.loggedWorkout(daysAgo: 0, [])])

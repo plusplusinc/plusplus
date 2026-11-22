@@ -35,6 +35,10 @@ struct LogSnapshotTests {
 
     /// A tab's first line, in secondary text.
     private func line(_ text: String) -> some View {
+        line(AttributedString(text))
+    }
+
+    private func line(_ text: AttributedString) -> some View {
         Text(text)
             .font(.ppRowDetail)
             .foregroundStyle(.pp(.textSecondary))
@@ -47,17 +51,15 @@ struct LogSnapshotTests {
             .background(Color.pp(.background))
     }
 
-    /// History's top, as `LogScreen.historyTab` lays it out.
-    private func historyTop(count: String, done: Set<Int>) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                line("Since Oct 25")
-                Spacer(minLength: Spacing.sm)
-                Text(count)
-                    .font(.ppRowDetail)
-                    .foregroundStyle(.pp(.done))
-            }
-            .padding(.bottom, Spacing.md)
+    /// History's top, as `LogScreen.historyTab` lays it out: the count, its number purple.
+    private func historyTop(count: Int, done: Set<Int>) -> some View {
+        var text = AttributedString.monoNumbers("\(count) workouts", font: .ppRowDetailNumber)
+        if let range = text.range(of: "\(count)") {
+            text[range].foregroundColor = .pp(.done)
+        }
+        return VStack(alignment: .leading, spacing: 0) {
+            line(text)
+                .padding(.bottom, Spacing.md)
             DayGrid(initials: Self.initials, weeks: Self.weeks(done: done))
                 .padding(.bottom, Spacing.lg)
         }
@@ -66,7 +68,7 @@ struct LogSnapshotTests {
     @Test("History: the period's calendar, today outlined, then each workout, a long name wrapping")
     func history() {
         let view = screen {
-            historyTop(count: "4", done: [5, 12, 19, 24, 26])
+            historyTop(count: 5, done: [5, 12, 19, 24, 26])
             ForEach(
                 [
                     ("Upper body", "Sat, Nov 21 · 51 min"),
@@ -88,7 +90,7 @@ struct LogSnapshotTests {
     @Test("History with nothing logged: the empty calendar, its line, and Go to Workouts")
     func emptyHistory() {
         let view = screen {
-            historyTop(count: "0", done: [])
+            historyTop(count: 0, done: [])
             VStack(spacing: Spacing.md) {
                 line("Today is a good day to go from 0 to 1.")
                     .multilineTextAlignment(.center)
@@ -137,14 +139,14 @@ struct LogSnapshotTests {
         assertThemedSnapshots(of: view, width: Self.screenWidth)
     }
 
-    @Test("Gaps: six groups fewest first, a bar each, the missed ones at full strength")
-    func gaps() {
+    @Test("Balance: six groups fewest first, a bar each, the missed ones at full strength")
+    func balance() {
         // Core and Arms have had no set in two weeks.
         let groups: KeyValuePairs = [
             "Core": 0, "Arms": 3, "Shoulders": 6, "Back": 11, "Chest": 14, "Legs": 20,
         ]
         let view = screen {
-            line("Sets since Oct 25")
+            line("Sets")
                 .padding(.bottom, Spacing.md)
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 ForEach(groups, id: \.key) { name, sets in
