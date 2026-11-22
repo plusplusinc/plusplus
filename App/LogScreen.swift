@@ -7,7 +7,7 @@ import WorkoutStore
 /// bar: History, a calendar of the period and the workouts themselves, newest first; Diff, what
 /// changed since the period's first day; and Balance, each muscle group's sets. "Log" is the
 /// bar's own inline title, centered, with ++ leading and the period trailing, once for all
-/// three tabs: "Oct 25 – Nov 21", plain secondary text, its numbers in SF Mono, not a control.
+/// three tabs: "Oct 25 – Nov 21", plain secondary text, not a control.
 /// It opens on History each time the drawer shows it. The period is `LogPeriod`'s four
 /// calendar weeks.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
@@ -95,7 +95,9 @@ struct LogScreen: View {
     }
 
     /// The period, trailing in the bar. Always there, empty until the log is read, so the bar
-    /// never puts the item in or takes it out.
+    /// never puts the item in or takes it out. Its numbers are set in SF Mono, but the bar draws
+    /// a system font's monospaced design in the default one, in a run, a text of its own, or a
+    /// `UIFont`, so they show in SF Pro; only a named font kept its face.
     private var periodText: some View {
         let period = session.log?.period(now: now, calendar: calendar)
         let text = period?.rangeText(locale: locale, calendar: calendar) ?? ""
