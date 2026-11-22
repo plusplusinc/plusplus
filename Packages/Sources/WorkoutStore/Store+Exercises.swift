@@ -84,17 +84,18 @@ extension Store {
     /// workout left with nothing, no name and no rows, goes too, as a cleared one does; one
     /// left with a superset of one reads it as a plain row. Logged sets keep the exercise's id
     /// and name, so they still read. A delete that doesn't save is undone, rows and workouts
-    /// with it (`saveDelete()`).
+    /// with it (`saveOrRollback()`).
     public func deleteExercise(_ id: String) throws {
+        // Both fetched before anything is deleted, so a fetch that throws leaves no delete pending.
         let exercises = try modelContext.fetch(FetchDescriptor<StoredExercise>(
             predicate: #Predicate { $0.id == id },
+        ))
+        let rows = try modelContext.fetch(FetchDescriptor<StoredRoutineExercise>(
+            predicate: #Predicate { $0.exerciseID == id },
         ))
         for exercise in exercises {
             modelContext.delete(exercise)
         }
-        let rows = try modelContext.fetch(FetchDescriptor<StoredRoutineExercise>(
-            predicate: #Predicate { $0.exerciseID == id },
-        ))
         var touched: [StoredRoutine] = []
         for row in rows {
             if let workout = row.routine, !touched.contains(where: { $0 === workout }) {
@@ -108,6 +109,6 @@ extension Store {
                 modelContext.delete(workout)
             }
         }
-        try saveDelete()
+        try saveOrRollback()
     }
 }

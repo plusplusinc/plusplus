@@ -4,7 +4,8 @@ import SwiftData
 import Testing
 @testable import WorkoutStore
 
-/// A delete whose save fails is undone in the store that tried it: the call throws, a read right
+/// Each of the four deletes, when its save fails, is undone in the store that tried it: the call
+/// throws, a read right
 /// after still returns what it would have deleted, and a later save of something else, which
 /// succeeds, doesn't land the delete. A relaunch is a second store over the same file.
 @Suite("Workout store, a delete that doesn't save")
@@ -93,10 +94,33 @@ final class StoreFailedDeleteTests {
         #expect(try await store.workout(cleared.id, weightUnit: .pounds) == cleared)
         try allowSaves()
         try await store.save(Workout(name: "Lower"), at: Self.at(30))
-        let launch = try await relaunch().launch(weightUnit: .pounds)
-        #expect(launch.loggedWorkout == running)
-        #expect(launch.loggedWorkout?.sets.count == 1)
-        #expect(try await relaunch().workout(cleared.id, weightUnit: .pounds) == cleared)
+        let relaunched = relaunch()
+        #expect(try await relaunched.launch(weightUnit: .pounds).loggedWorkout == running)
+        #expect(try await relaunched.workout(cleared.id, weightUnit: .pounds) == cleared)
+    }
+
+    @Test(
+        "A Log delete that fails leaves the finished workout and its sets, after a later save too",
+    )
+    func deleteLoggedWorkout() async throws {
+        let row = try WorkoutExercise.builtIn("Push-up")
+        let upper = Workout(name: "Upper", exercises: [row])
+        let store = relaunch()
+        try await store.save(upper, at: Self.at(1))
+        let finished = LoggedWorkout(
+            workoutID: upper.id,
+            workoutName: "Upper",
+            startedAt: Self.at(10),
+        )
+        .logging(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
+        .finishing(at: Self.at(30))
+        try await store.save(finished)
+        try refuseSaves()
+        await #expect(throws: (any Error).self) { try await store.deleteLoggedWorkout(finished.id) }
+        #expect(try await store.finishedLoggedWorkouts() == [finished])
+        try allowSaves()
+        try await store.save(Workout(name: "Lower"), at: Self.at(40))
+        #expect(try await relaunch().finishedLoggedWorkouts() == [finished])
     }
 
     @Test("An exercise delete that fails leaves the exercise, its rows, and the workout it empties")
