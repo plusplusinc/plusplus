@@ -23,6 +23,7 @@ extension WorkoutAutosaveUITests {
         XCTContext
             .runActivity(named: "An exercise created from the search joins the workout") { _ in
                 let search = app.openPicker()
+                addTheMissingPiece(in: app)
                 app.search(for: "Ring")
                 let create = app.buttons["picker.create"]
                 XCTAssertEqual(
@@ -119,6 +120,33 @@ extension WorkoutAutosaveUITests {
             XCTAssertEqual(plus.frame.minY, low.minY, accuracy: 1, "The + stayed up with no Start")
             attach(named: "deleted-in-picker")
         }
+    }
+
+    /// With Chest and Dumbbells chosen nothing matches, and the exercises a bench short follow
+    /// under their heading: its button reads to VoiceOver as what it does, "Add bench to
+    /// Equipment", and a tap adds Bench to the Equipment filter and takes the count off 0, the
+    /// bench's section gone. Clear then leaves no filter on, as the search after this expects.
+    /// Which exercises are a piece short, and that they match once it is chosen, are the
+    /// package's (`ExerciseFilterTests`); only the running app shows what VoiceOver reads for
+    /// the button and that its tap reaches the filter. `filterAtAX5` never brings a section up.
+    @MainActor
+    private func addTheMissingPiece(in app: XCUIApplication) {
+        choose("Chest", under: "Muscle", in: app)
+        choose("Dumbbells", under: "Equipment", in: app)
+        let none = app.staticTexts["0 exercises"]
+        XCTAssertTrue(none.appears(), "Chest and Dumbbells don't count 0")
+        let add = app.buttons["Add bench to Equipment"]
+        XCTAssertTrue(add.appears(), "No button reads as adding the bench")
+        XCTAssertTrue(add.settles(), "The bench's button kept moving")
+        add.tap()
+        let equipment = app.buttons["Equipment"]
+        XCTAssertEqual(equipment.value(becoming: "Dumbbells, Bench"), "Dumbbells, Bench")
+        XCTAssertTrue(add.disappears(), "The bench's section stayed with Bench chosen")
+        XCTAssertTrue(none.disappears(), "Adding the bench matched nothing")
+        let clear = app.buttons["Clear filters"]
+        XCTAssertTrue(clear.settles(), "Clear kept moving")
+        clear.tap()
+        XCTAssertTrue(clear.disappears(), "Clear left a filter on")
     }
 
     /// Opens the filter `filter`'s sheet of chips, chooses `chip`, and closes it with Done.
