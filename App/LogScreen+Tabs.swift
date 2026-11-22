@@ -14,14 +14,19 @@ extension LogScreen {
 
     func historyTab(_ log: WorkoutLog) -> some View {
         let period = log.period(now: now, calendar: calendar)
+        // At the accessibility sizes the count goes under the line, as a row's tag does.
+        let top = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.xxs))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Spacing.sm))
         return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
+            top {
                 periodLine("Since \(period.firstDayText(locale: locale, calendar: calendar))")
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(
                         "Since \(period.spokenFirstDay(locale: locale, calendar: calendar))",
                     )
-                Spacer(minLength: Spacing.sm)
                 loggedWorkoutCount(period)
+                    .layoutPriority(1)
             }
             .accessibilityElement(children: .combine)
             .padding(.bottom, Spacing.md)

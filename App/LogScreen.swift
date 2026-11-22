@@ -34,6 +34,7 @@ struct LogScreen: View {
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
+    @Environment(\.dynamicTypeSize) var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
@@ -57,8 +58,8 @@ struct LogScreen: View {
                 .padding(.top, Spacing.md)
                 .padding(.bottom, Spacing.md)
                 // With nothing logged, History's line and Go to Workouts center in the room
-                // under the calendar.
-                .frame(height: isHistoryEmpty ? visibleHeight : nil, alignment: .top)
+                // under the calendar; where they need more, at the largest sizes, it scrolls.
+                .frame(minHeight: isHistoryEmpty ? visibleHeight : nil, alignment: .top)
             }
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.containerSize.height - geometry.contentInsets.top
