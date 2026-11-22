@@ -27,8 +27,6 @@ private struct FilterCapsule: ViewModifier {
 public struct FilterLabel: View {
     let text: String
     let isOn: Bool
-    @ScaledMetric(relativeTo: .subheadline) private var minHeight: CGFloat = 44
-
     public init(_ text: String, isOn: Bool) {
         self.text = text
         self.isOn = isOn
@@ -44,8 +42,10 @@ public struct FilterLabel: View {
                 .accessibilityHidden(true)
         }
         .modifier(FilterCapsule(isOn: isOn))
-        // The capsule is drawn smaller than a thumb; the touch is not.
-        .frame(minHeight: minHeight)
+        // The capsule is drawn smaller than a thumb; the touch is not. A thumb's size, not
+        // scaled with the text: at the accessibility sizes the capsule is past it, and a
+        // scaled minimum stood the row 127 pt tall around a 74 pt capsule.
+        .frame(minHeight: 44)
         .contentShape(.rect)
     }
 }
@@ -82,8 +82,8 @@ public struct ChipButtonStyle: ButtonStyle {
 /// what it is at the sides. A `.height` detent adds the home indicator's room under the
 /// content even where the sheet floats clear of it, so the detent asks that much less
 /// (`detentRoom`). Content that outgrows the sheet's full height, as at the largest text
-/// sizes, scrolls, and keeps that room under its end. At the accessibility sizes Done goes
-/// under the title, which would otherwise break mid-word beside it.
+/// sizes, scrolls, and keeps that room under its end. Where the title and Done won't fit side
+/// by side, Done goes under the title (`LineOrStack`), which beside it broke mid-word.
 public struct ChipSheet<Item: Hashable>: View {
     let title: String
     let items: [Item]
@@ -93,7 +93,6 @@ public struct ChipSheet<Item: Hashable>: View {
 
     @State private var height: CGFloat = 0
     @State private var overflows = false
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     public init(
         title: String,
@@ -151,15 +150,11 @@ public struct ChipSheet<Item: Hashable>: View {
     }
 
     private var header: some View {
-        let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
-            : AnyLayout(HStackLayout())
-        return layout {
+        LineOrStack(spacing: 0) {
             Text(title)
                 .font(.ppBarTitle)
                 .foregroundStyle(Color.pp(.textPrimary))
                 .accessibilityAddTraits(.isHeader)
-                .frame(maxWidth: .infinity, alignment: .leading)
             Button("Done", action: onDone)
                 .font(.ppButton)
                 .foregroundStyle(Color.pp(.textPrimary))
@@ -182,8 +177,9 @@ public struct ChipSheet<Item: Hashable>: View {
 }
 
 /// The line under the filter buttons while one is on: how many exercises show, and Clear,
-/// which VoiceOver reads as "Clear filters". At the accessibility sizes Clear goes under the
-/// count, where beside it the two broke mid-word.
+/// which VoiceOver reads as "Clear filters". Where the two won't fit side by side, as at the
+/// largest text sizes, Clear goes under the count (`LineOrStack`) rather than either breaking
+/// a word.
 public struct FilterCount: View {
     let text: String
     let onClear: () -> Void
@@ -207,20 +203,14 @@ public struct FilterCount: View {
     }
 }
 
-/// A line's words leading and its small button trailing, or, at the accessibility sizes, the
-/// button under the words, so neither has to break a word to fit beside the other.
+/// A line's words leading and its small button trailing, in `.ppRowDetail`.
 private struct TextAndButton<Words: View, Trailing: View>: View {
     @ViewBuilder let words: Words
     @ViewBuilder let button: Trailing
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.sm))
-            : AnyLayout(HStackLayout())
-        layout {
+        LineOrStack {
             words
-                .frame(maxWidth: .infinity, alignment: .leading)
             button
         }
         .font(.ppRowDetail)
@@ -254,8 +244,8 @@ struct SmallCapsuleLabel: View {
 
 /// The heading of the exercises one piece of equipment short of a filter: "Also needs a
 /// bench" in the letter headings' style, read as a heading, and a small button that adds the
-/// piece to the filter, read as "Add bench to Equipment". At the accessibility sizes the
-/// button goes under the words.
+/// piece to the filter, read as "Add bench to Equipment". Where the two won't fit side by
+/// side, the button goes under the words (`LineOrStack`).
 public struct NeedsHeader: View {
     let title: String
     let addTitle: String
