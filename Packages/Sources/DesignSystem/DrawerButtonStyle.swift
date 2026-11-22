@@ -2,7 +2,9 @@ import SwiftUI
 
 /// A place the drawer goes: its icon and name, with no outline, taking taps across the drawer's
 /// width. The place showing sits on a rounded fill, icon and name, with as much space to the
-/// icon's left as above and below it. Pressing dims it, as a key does.
+/// icon's left as above and below it. Pressing another place lights a faint fill of the same
+/// shape behind it, as a list's row highlights under a finger, where the mark then arrives; its
+/// icon and name don't dim, which read as a second, weaker sign beside the sliding mark.
 public struct DrawerButtonStyle: ButtonStyle {
     private let isSelected: Bool
 
@@ -12,21 +14,29 @@ public struct DrawerButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .labelStyle(DrawerLabelStyle(isSelected: isSelected))
+            .labelStyle(DrawerLabelStyle(
+                isSelected: isSelected,
+                isPressed: configuration.isPressed,
+            ))
             .font(.ppDrawerItem)
             .foregroundStyle(.pp(.textPrimary))
             .multilineTextAlignment(.leading)
             .contentShape(.rect)
-            .keyPress(isPressed: configuration.isPressed)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
 private struct DrawerLabelStyle: LabelStyle {
     let isSelected: Bool
+    let isPressed: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        DrawerLabel(icon: configuration.icon, title: configuration.title, isSelected: isSelected)
+        DrawerLabel(
+            icon: configuration.icon,
+            title: configuration.title,
+            isSelected: isSelected,
+            isPressed: isPressed,
+        )
     }
 }
 
@@ -35,6 +45,12 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     let icon: Icon
     let title: Title
     let isSelected: Bool
+    let isPressed: Bool
+
+    /// How strong the fill under a pressed place is, against the mark's own.
+    private static var pressedStrength: Double {
+        0.5
+    }
 
     /// The minimum touch target, for every place alike.
     private let minHeight: CGFloat = 44
@@ -59,9 +75,15 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
         .padding(.vertical, Spacing.xs)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
         .backgroundPreferenceValue(DrawerIconBounds.self) { anchor in
-            if isSelected, let anchor {
+            if let anchor {
                 GeometryReader { proxy in
-                    fill(around: proxy[anchor], in: proxy.size)
+                    // Under the mark, so the mark arriving covers it.
+                    fillShape(around: proxy[anchor], in: proxy.size)
+                        .opacity(isPressed && !isSelected ? Self.pressedStrength : 0)
+                        .keyPressAnimation(isPressed: isPressed)
+                    if isSelected {
+                        fill(around: proxy[anchor], in: proxy.size)
+                    }
                 }
             }
         }
@@ -72,13 +94,17 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     /// Within `drawerMarks()` it is one mark that slides from row to row as the place changes
     /// inside an animation; the row it leaves drops its own at once, so no second fill fades.
     private func fill(around icon: CGRect, in size: CGSize) -> some View {
+        fillShape(around: icon, in: size)
+            .modifier(DrawerMarkMatch())
+            .transition(.identity)
+    }
+
+    private func fillShape(around icon: CGRect, in size: CGSize) -> some View {
         let leading = max(0, icon.minX - icon.minY)
         return RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
             .fill(.pp(.selectionFill))
             .frame(width: max(0, size.width - fillTrailingInset - leading), height: size.height)
             .padding(.leading, leading)
-            .modifier(DrawerMarkMatch())
-            .transition(.identity)
     }
 }
 
