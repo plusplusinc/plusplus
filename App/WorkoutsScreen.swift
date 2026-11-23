@@ -135,9 +135,7 @@ struct WorkoutsScreen: View {
         // The system draws a swiped action inset from its row's end, so the row it swipes
         // ends that far short of the screen's edge, and Delete ends in line with the line
         // under the row and with the bar's +.
-        .swipeActions(edge: .trailing) {
-            Button("Delete", role: .destructive) { askToDelete(workout) }
-        }
+        .rowSwipe("Delete", value: workout, action: askToDelete)
         .padding(.trailing, Self.swipeInset)
         // The platter the held row lifts on, as a list row's in Add exercise: in the screen's
         // own color, so it shows only once the screen behind it dims. Like a picker row's cell,

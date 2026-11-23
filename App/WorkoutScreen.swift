@@ -90,7 +90,8 @@ struct WorkoutScreen: View {
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?
-    /// The list's height between the bars.
+    /// The list's height between the bars, 0 until the list first has one. Read only in actions,
+    /// never in `body`, so its writes as the screen lays out don't run the screen again.
     @State var listHeight: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
@@ -218,6 +219,10 @@ struct WorkoutScreen: View {
                         accessibilityHint: "Renames the workout.",
                     )
                     .onScrollVisibilityChange(threshold: 0.01) { isVisible in
+                        // Not while the list is 0 high, as for a pass of its first layout: the
+                        // title is out of sight there, and taking it ran the screen again in that
+                        // frame, which SwiftUI logged as a fault per row (`rowSwipe`).
+                        guard listHeight > 0 else { return }
                         // A short fade, so the small title has gone by the time the large one
                         // is out from under the bar.
                         withAnimation(.easeOut(duration: Self.barFade)) {
@@ -273,7 +278,7 @@ struct WorkoutScreen: View {
                             // folded into the row's accessibility element, where VoiceOver and
                             // the UI tests never find it. The row's tap stays on where the swipe
                             // is off.
-                            .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
+                            .swipeToDelete(item.id, isOn: item.id != currentID) { delete($0) }
                     } end: {
                         FloatingButtonRoom()
                             .onGeometryChange(for: CGFloat.self) {

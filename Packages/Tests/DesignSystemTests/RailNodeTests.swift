@@ -22,4 +22,28 @@ struct RailNodeTests {
             == CGPoint(x: 20, y: 18))
         #expect(RailDrag.railNode(moving, isHeld: true, known: nil) == CGPoint(x: 20, y: -19.8))
     }
+
+    // Measured again once the workout screen's scroll view had its height, in the frame its rows
+    // first laid out: the same place as the first measure, but for its last bits. Taken, it ran
+    // the rail's body again, building each row a third time in that frame, a fault per row.
+    private let first: CGFloat = 18.166666666666515
+    private let again: CGFloat = 18.16666666666663
+
+    @Test("A node measured again in the same place keeps the first measure, so nothing redraws")
+    func sameNodeKept() {
+        let known = CGPoint(x: 26, y: first)
+        #expect(RailDrag.railNode([CGPoint(x: 26, y: again)], isHeld: false, known: known) == known)
+        #expect(RailDrag.railNode([CGPoint(x: 26, y: first + 0.5)], isHeld: false, known: known)
+            == CGPoint(x: 26, y: first + 0.5))
+    }
+
+    @Test("Nodes measured again in the same places keep the first measures; moved or missing don't")
+    func sameInsetsKept() {
+        let known = [1: first, 2: 18.0]
+        #expect(RailDrag.nodeInsets([1: again, 2: 18.0], known: known) == known)
+        for measured in [[1: first + 0.5, 2: 18.0], [1: first], [1: first, 3: 18.0]] {
+            #expect(RailDrag.nodeInsets(measured, known: known) == measured)
+        }
+        #expect(RailDrag.nodeInsets(known, known: [:]) == known)
+    }
 }
