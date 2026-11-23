@@ -14,7 +14,6 @@ public struct FilterButtonRow<Buttons: View>: View {
     let shows: AnyHashable
     let onClear: () -> Void
     let buttons: Buttons
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(
         isOn: Bool,
@@ -41,14 +40,32 @@ public struct FilterButtonRow<Buttons: View>: View {
             // Inside the scroll's content, so the first button lines up with the rows and the
             // last scrolls clear of the edge.
             .padding(.horizontal, Spacing.md)
-            .id(reduceMotion ? shows : AnyHashable(0))
-            .transition(.opacity)
+            .crossfadesWithReduceMotion(on: shows)
         }
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         // Room under the buttons' touches before what follows, a list's first row or an offer
         // line, the same on both screens.
         .padding(.bottom, Spacing.sm)
+    }
+}
+
+extension View {
+    /// With Reduce Motion, a new `value` makes a new view, which crossfades with the one it
+    /// replaces, so nothing in it slides; without, the view keeps its identity and moves.
+    public func crossfadesWithReduceMotion(on value: some Hashable) -> some View {
+        modifier(ReduceMotionCrossfade(value: AnyHashable(value)))
+    }
+}
+
+private struct ReduceMotionCrossfade: ViewModifier {
+    let value: AnyHashable
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .id(reduceMotion ? value : AnyHashable(0))
+            .transition(.opacity)
     }
 }
 

@@ -97,7 +97,7 @@ struct WorkoutsScreen: View {
                                 }
                             }
                         }
-                        .id(reduceMotion ? AnyHashable(filter) : AnyHashable(0))
+                        .crossfadesWithReduceMotion(on: filter)
                         FloatingButtonRoom()
                     } header: {
                         // Pinned under the bar once the title scrolls away, as Add exercise's.

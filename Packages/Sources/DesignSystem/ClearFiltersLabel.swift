@@ -20,8 +20,10 @@ public struct ClearFiltersLabel: View {
                     .imageScale(.medium)
                     .fontWeight(.semibold)
                     .rotationEffect(.degrees(45))
-                    // The symbol's own name, "Add", read under the control's.
-                    .accessibilityRepresentation { }
+                    // The symbol's own name, "Add", stayed in the accessibility tree under the
+                    // control's, with `accessibilityHidden` and the label's ignored children
+                    // alike, on both screens.
+                    .accessibilityShown(false)
             }
             .font(.ppRowDetail)
             .foregroundStyle(Color.pp(.textPrimary))

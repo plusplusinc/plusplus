@@ -81,7 +81,9 @@ struct FilterBar: View {
         }
         // A pick makes a new button, which grows into its place as the others slide. The
         // closing menu shrinks back into the button it opened from: resized under it, that one
-        // came back cut flat at its old width.
+        // came back cut flat at its old width. A count of picks, not the kind: Clear and a
+        // taken Kind offer change the kind with no menu closing, and the button eases as the
+        // others do.
         .id(menuPicks)
         .menuOrder(.fixed)
         .buttonStyle(.plain)

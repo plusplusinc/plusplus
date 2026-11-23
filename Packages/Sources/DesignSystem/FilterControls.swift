@@ -69,15 +69,24 @@ public struct FilterLabel: View {
 /// How far through the change the words are comes from the animation itself: the modifier
 /// animates a number standing for the words, `key`, and its square, from the old words' to the
 /// new. Partway, at `p`, the two are `old + p(new - old)` and `old² + p(new² - old²)`, which
-/// give `p` knowing only the new words' `key`.
+/// give `p` knowing only the new words' `key`. That holds for a change from words at rest; one
+/// that takes over another mid-way starts off that curve, and its words come in sooner, still cut
+/// at the capsule's width. So do words whose numbers happen to match, about one change in ten
+/// thousand.
 private struct WordsFade: ViewModifier, Animatable {
     var animatableData: AnimatablePair<Double, Double>
     let key: Double
 
+    /// How far through the change the new words stay out of sight, while the capsule does most
+    /// of its easing to their width, so they come in on a button near its new size, as the
+    /// keyframe fade they replace did.
+    static let hiddenFor = 0.5
+
     init(_ text: String) {
-        // Any number per words, so long as different words get different numbers; its square
-        // has to stay exact in a `Double`.
-        key = Double(UInt(bitPattern: text.hashValue) % 1_000_003) + 1
+        // Any number per words, so long as different words mostly get different numbers. Kept
+        // small, so its square stays precise enough near a change's end that close numbers
+        // don't flicker.
+        key = Double(UInt(bitPattern: text.hashValue) % 10007) + 1
         animatableData = AnimatablePair(key, key * key)
     }
 
@@ -92,8 +101,7 @@ private struct WordsFade: ViewModifier, Animatable {
     }
 
     func body(content: Content) -> some View {
-        // Out of sight for the first half, while the capsule does most of its easing.
-        let opacity = min(max((progress - 0.5) / 0.5, 0), 1)
+        let opacity = min(max((progress - Self.hiddenFor) / (1 - Self.hiddenFor), 0), 1)
         // Set as worked out, frame by frame: animated too, the change's own transaction eased
         // it from the old words' 1, and the new words showed whole for two frames.
         return content.animation(nil) { $0.opacity(opacity) }
