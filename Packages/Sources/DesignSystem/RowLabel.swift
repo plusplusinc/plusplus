@@ -209,7 +209,7 @@ public struct RowLabel: View {
         let isResting = setRest?.isResting == true
         // A rest's or a set's own count reads as its own element after the label
         // (`SetRest.spoken`), in the figures' place. Landing on "Start in", the label says the
-        // set's figures and "start in 10 seconds".
+        // set's figures and "start in 5 seconds".
         let startIn = setRest?.spokenStartIn
         let hidesFigures = isResting || setRest?.kind == .count
         let parts = if let focus {

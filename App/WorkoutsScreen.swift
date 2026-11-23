@@ -200,7 +200,8 @@ struct WorkoutsScreen: View {
             } else {
                 withAnimation(.snappy) { filter = changed }
             }
-            let count = session.recent.count { changed.passes($0.summary) }
+            // Over the rows the bar counts, so a delete still leaving reads as gone.
+            let count = shown.count { changed.passes($0.summary) }
             AccessibilityNotification.Announcement(WorkoutFilter.countText(count)).post()
         }
     }
@@ -211,7 +212,7 @@ struct WorkoutsScreen: View {
         let length = announcedFilter.length
         let presets = LengthRange.Preset.allCases
         return LengthSheet(
-            presets: presets.map(\.name),
+            presets: presets.map(\.range.label),
             spokenPresets: presets.map(\.range.spoken),
             lit: filter.length.preset.flatMap { presets.firstIndex(of: $0) },
             lower: filter.length.lower,

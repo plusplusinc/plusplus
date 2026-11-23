@@ -49,7 +49,7 @@ public struct SetRest {
         }
     }
 
-    /// "start in 10 seconds", for the exercise's label during "Start in"; nil otherwise.
+    /// "start in 5 seconds", for the exercise's label during "Start in"; nil otherwise.
     var spokenStartIn: String? {
         guard case .startIn = kind else { return nil }
         return String(localized: "start in \(length) seconds")
@@ -301,7 +301,7 @@ extension EnvironmentValues {
 extension SetRest.Kind {
     /// The seconds left a countdown of this kind shows, `length` long. "Start in" reads 0:01
     /// through its last second until it goes, never 0:00; and at most its length, as it counts
-    /// from after the slot has come in, so its 0:10 shows a full second at full strength.
+    /// from after the slot has come in, so its 0:05 shows a full second at full strength.
     func shown(length: Int) -> ClosedRange<Double> {
         if case .startIn = self {
             0.001 ... Double(length)

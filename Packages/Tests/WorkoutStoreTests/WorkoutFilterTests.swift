@@ -139,9 +139,11 @@ struct WorkoutFilterTests {
         #expect(WorkoutFilter(muscleGroups: [.legs]).muscleLabel == "Legs")
         #expect(WorkoutFilter(muscleGroups: [.back, .chest]).muscleLabel == "Chest, Back")
         #expect(WorkoutFilter(length: LengthRange(lower: 25, upper: 45)).lengthLabel == "25–45 min")
-        for preset in LengthRange.Preset.allCases {
-            #expect(WorkoutFilter(length: preset.range).lengthLabel == preset.name)
-        }
+        #expect(LengthRange.Preset.allCases.map(\.range.label) == [
+            "≤ 20 min",
+            "20–40 min",
+            "≥ 40 min",
+        ])
         #expect(WorkoutFilter(length: LengthRange(lower: 50, upper: nil)).lengthLabel == "≥ 50 min")
         #expect(WorkoutFilter(length: LengthRange(lower: 0, upper: 25)).lengthLabel == "≤ 25 min")
         #expect(WorkoutFilter(length: LengthRange(lower: 30, upper: 30)).lengthLabel == "30 min")

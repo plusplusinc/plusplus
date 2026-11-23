@@ -4,8 +4,8 @@ import WorkoutStore
 
 /// "Start in" before a set, and a timed set running itself. As each exercise comes up (the
 /// workout's first set, on to another exercise, between a superset's members in every round),
-/// the figures' slot shows "Start in" over a 10 s count; before a set's other side, over a 5 s
-/// one (`Workout.startIn(before:)`); between two sets of one exercise, none. A rest before it
+/// and before a set's other side, the figures' slot shows "Start in" over a 5 s count
+/// (`Workout.startIn(before:)`); between two sets of one exercise, none. A rest before it
 /// runs first, and "Start in" counts from the rest's end (`endRest()`). The exercise opens on
 /// it held at its full count, and the count starts as the screen comes to rest on the set
 /// (`arrivingCount()`); as it reaches 0 the phone taps lightly. On a reps set the key logs
@@ -28,7 +28,7 @@ extension WorkoutScreen {
     /// Begins the current set's count as the screen comes to rest on it, when it is timed and
     /// has none, and says where it stands: what each transition that lands at rest is given.
     /// `lead`, the seconds the slot takes to come in from here: "Start in" counts from then, so
-    /// its 0:10 shows a full second at full strength.
+    /// its 0:05 shows a full second at full strength.
     func arrivingCount(lead: Double = 0) -> CountStage? {
         session.beginCount(override: restOverride, at: .now.addingTimeInterval(lead))
         return live?.countStage(at: .now)
@@ -154,7 +154,7 @@ extension WorkoutScreen {
                 kind: .count,
             )
         }
-        let length = shown.startInLength ?? LiveWorkout.startIn
+        let length = shown.startInLength
         guard let stage = drawnStage(in: shown), let timed = shown.timedSet else {
             // On the way to the set, or ended on the way: "Start in", held at its full count.
             return SetRest(
@@ -207,7 +207,7 @@ extension WorkoutScreen {
         guard case let .reps(reps) = row.plan.target, let set = shown.currentSet,
               set.row == row.id, phase.loggedAndDrawn == nil
         else { return nil }
-        let length = shown.startInLength ?? LiveWorkout.startIn
+        let length = shown.startInLength
         let words = String(localized: "\(reps) reps")
         guard drawnStage(in: shown) == .startIn, let count = shown.setCount else {
             guard phase.isStarting || phase.isMovingOn, shown.workout.startIn(before: set) > 0

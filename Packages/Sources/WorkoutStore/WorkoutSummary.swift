@@ -62,7 +62,7 @@ extension Workout {
         var total = 0
         for (index, set) in order.enumerated() {
             if let row = rows[set.row] {
-                total += startIn(before: set)
+                total += Self.startIn(before: set, after: index > 0 ? order[index - 1] : nil)
                 switch row.plan.target {
                 case let .reps(reps): total += reps * WorkoutSummary.secondsPerRep
                 case let .time(seconds): total += seconds

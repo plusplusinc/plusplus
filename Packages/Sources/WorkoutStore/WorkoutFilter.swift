@@ -35,15 +35,10 @@ public struct WorkoutFilter: Hashable, Sendable {
         ExerciseFilter(equipment: equipment).equipmentLabel
     }
 
-    /// The Length button's words: "25–45 min", "≥ 45 min" with no upper limit, "≤ 20 min" from
-    /// 0, "20 min" for one length; nil while off. Both ends count, since a length is a rounded
-    /// figure, so a preset reads as any range does.
+    /// The Length button's words (`LengthRange.label`); nil while off.
     public var lengthLabel: String? {
         guard length != .full else { return nil }
-        guard let upper = length.upper else { return "≥ \(length.lower) min" }
-        guard length.lower != 0 else { return "≤ \(upper) min" }
-        guard length.lower != upper else { return "\(upper) min" }
-        return "\(length.lower)–\(upper) min"
+        return length.label
     }
 
     /// The Length button's words as VoiceOver reads them, without the symbols: "20 minutes or
@@ -159,6 +154,16 @@ public struct LengthRange: Hashable, Sendable {
         minutes >= lower && upper.map { minutes <= $0 } ?? true
     }
 
+    /// The range's words: "25–45 min", "≥ 45 min" with no upper limit, "≤ 20 min" from 0,
+    /// "20 min" for one length. Both ends count, since a length is a rounded figure, so a
+    /// preset reads as any range does.
+    public var label: String {
+        guard let upper else { return "≥ \(lower) min" }
+        guard lower != 0 else { return "≤ \(upper) min" }
+        guard lower != upper else { return "\(upper) min" }
+        return "\(lower)–\(upper) min"
+    }
+
     /// The range as VoiceOver reads it, for a "≤" or "≥" that reads poorly: "20 minutes or
     /// less", "40 minutes or more", "20 minutes", "25 to 45 minutes".
     public var spoken: String {
@@ -177,14 +182,6 @@ public struct LengthRange: Hashable, Sendable {
         case upTo20
         case twentyToForty
         case from40
-
-        public var name: String {
-            switch self {
-            case .upTo20: "≤ 20 min"
-            case .twentyToForty: "20–40 min"
-            case .from40: "≥ 40 min"
-            }
-        }
 
         /// Neighbors share an end: a workout that reads 20 minutes is in the first two.
         public var range: LengthRange {

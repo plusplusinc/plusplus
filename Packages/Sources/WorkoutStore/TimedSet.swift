@@ -82,10 +82,13 @@ extension Workout {
     public func startIn(before set: PlannedSet) -> Int {
         let order = setOrder
         guard let index = order.firstIndex(of: set), index > 0 else { return LiveWorkout.startIn }
-        let previous = order[index - 1]
-        if previous.row != set.row {
-            return LiveWorkout.startIn
-        }
+        return Self.startIn(before: set, after: order[index - 1])
+    }
+
+    /// The rule of `startIn(before:)`, given the set done before `set`, nil for none, so a
+    /// walk over `setOrder` asks it in one pass.
+    static func startIn(before set: PlannedSet, after previous: PlannedSet?) -> Int {
+        guard let previous, previous.row == set.row else { return LiveWorkout.startIn }
         return previous.round == set.round && previous.side != set.side
             ? LiveWorkout.startInSides : 0
     }
@@ -135,9 +138,11 @@ extension LiveWorkout {
         return isOnTimedSet ? .counting : nil
     }
 
-    /// The seconds of "Start in" the current set's count began with: nil with none.
-    public var startInLength: Int? {
-        currentSet.map { workout.startIn(before: $0) }.map { $0 > 0 ? $0 : Self.startIn }
+    /// The seconds of "Start in" due before the current set, or, with none due, the one a timed
+    /// set opens on after time away (`beginningCount(at:restOverride:fresh:)`).
+    public var startInLength: Int {
+        let due = currentSet.map { workout.startIn(before: $0) } ?? 0
+        return due > 0 ? due : Self.startIn
     }
 
     /// The count `set` stopped at as it was logged: nil for a set not logged, or not timed.
@@ -174,14 +179,15 @@ extension LiveWorkout {
         let clock = loggedWorkout.clock(at: now)
         var lead = workout.startIn(before: set)
         var base = clock
+        var restJustEnded = false
         if let rest = rest(override: restOverride) {
             guard rest.isOver(atClock: clock) else { return begun }
-            if clock - rest.endClock <= Self.missedBy {
+            restJustEnded = clock - rest.endClock <= Self.missedBy
+            if restJustEnded {
                 base = rest.endClock
-            } else if lead == 0, isOnTimedSet {
-                lead = Self.startIn
             }
-        } else if lead == 0, isOnTimedSet {
+        }
+        if !restJustEnded, lead == 0, isOnTimedSet {
             lead = Self.startIn
         }
         guard lead > 0 || isOnTimedSet else { return begun }

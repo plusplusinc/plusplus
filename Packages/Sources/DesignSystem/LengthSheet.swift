@@ -72,8 +72,7 @@ public struct LengthSheet: View {
             // ends line up with the presets'.
             .padding(.horizontal, -Spacing.sm)
         }
-        .padding([.horizontal, .top], Spacing.md)
-        .padding(.bottom, Spacing.md)
+        .padding(Spacing.md)
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
         .frame(maxHeight: .infinity, alignment: .top)
