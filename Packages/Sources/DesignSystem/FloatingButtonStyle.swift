@@ -102,6 +102,62 @@ struct FloatingPlace<Key: View, Floating: View>: View {
     }
 }
 
+/// Where a bottom key sits on a screen, shared by the key's bar (`primaryKeyBar`) and a floating
+/// button with no key under it, so the two cannot drift.
+enum KeyInsets {
+    /// The key's inset from the screen's sides: `lowInset`, and with no home indicator, as far as
+    /// content is inset. At the accessibility sizes, as far as content is inset, so its label
+    /// has the width to stay on one line.
+    static func side(bottomInset: CGFloat, dynamicTypeSize: DynamicTypeSize) -> CGFloat {
+        bottomInset > 0 && !dynamicTypeSize.isAccessibilitySize
+            ? PrimaryKeyButtonStyle.lowInset
+            : Spacing.md
+    }
+
+    /// The ledge's bottom above the screen's bottom: `lowInset`, and with no home indicator, the
+    /// bar's own bottom.
+    static func ledgeLift(bottomInset: CGFloat) -> CGFloat {
+        bottomInset > 0 ? PrimaryKeyButtonStyle.lowInset : 0
+    }
+}
+
+extension View {
+    /// `button` floating at the screen's bottom trailing corner in the floating style, where the
+    /// workout screen's + sits with no key under it: its bottom where a key's ledge would be, as
+    /// far in from the side as a key.
+    public func floatingButton(_ button: some View) -> some View {
+        modifier(FloatingButtonPlacement(button: button))
+    }
+}
+
+private struct FloatingButtonPlacement<Floating: View>: ViewModifier {
+    let button: Floating
+    @State private var bottomInset: CGFloat = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                FloatingPlace(
+                    key: EmptyView(),
+                    floating: button,
+                    gap: 0,
+                    sides: KeyInsets.side(
+                        bottomInset: bottomInset,
+                        dynamicTypeSize: dynamicTypeSize,
+                    ),
+                    bottom: KeyInsets.ledgeLift(bottomInset: bottomInset) - bottomInset,
+                    isLow: true,
+                )
+            }
+            .background {
+                Color.clear.onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
+                    bottomInset = $0
+                }
+            }
+    }
+}
+
 #Preview {
     Button("Add exercise", systemImage: "plus") { }
         .buttonStyle(.floating)

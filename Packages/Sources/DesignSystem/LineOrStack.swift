@@ -4,8 +4,12 @@ import SwiftUI
 /// other; or, when the two won't fit side by side at their one-line widths, the second under
 /// the first, both leading. So at the largest text sizes a title and its button stack rather
 /// than either breaking a word to make room, and stay side by side wherever they fit.
+///
+/// `atTrailingEdge` keeps the two together at the trailing edge instead, the first right
+/// before the second, and stacked, both trailing: a phrase that ends in its button.
 struct LineOrStack: Layout {
     var spacing = Spacing.sm
+    var atTrailingEdge = false
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         guard subviews.count == 2 else { return .zero }
@@ -32,9 +36,12 @@ struct LineOrStack: Layout {
         guard subviews.count == 2 else { return }
         let (first, second) = (subviews[0], subviews[1])
         if oneLine(first, second, in: bounds.width) != nil {
+            let firstX = atTrailingEdge
+                ? bounds.maxX - second.sizeThatFits(.unspecified).width - spacing
+                : bounds.minX
             first.place(
-                at: CGPoint(x: bounds.minX, y: bounds.midY),
-                anchor: .leading,
+                at: CGPoint(x: firstX, y: bounds.midY),
+                anchor: atTrailingEdge ? .trailing : .leading,
                 proposal: .unspecified,
             )
             second.place(
@@ -46,9 +53,12 @@ struct LineOrStack: Layout {
         }
         let column = ProposedViewSize(width: bounds.width, height: nil)
         let top = first.sizeThatFits(column)
-        first.place(at: bounds.origin, proposal: column)
+        let x = atTrailingEdge ? bounds.maxX : bounds.minX
+        let anchor: UnitPoint = atTrailingEdge ? .topTrailing : .topLeading
+        first.place(at: CGPoint(x: x, y: bounds.minY), anchor: anchor, proposal: column)
         second.place(
-            at: CGPoint(x: bounds.minX, y: bounds.minY + top.height + spacing),
+            at: CGPoint(x: x, y: bounds.minY + top.height + spacing),
+            anchor: anchor,
             proposal: column,
         )
     }

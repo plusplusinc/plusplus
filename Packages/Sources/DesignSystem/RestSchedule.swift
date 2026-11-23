@@ -25,7 +25,7 @@ struct RestSchedule: TimelineSchedule {
     }
 }
 
-/// A countdown to VoiceOver alone, drawing nothing: `label` ("Rest", "Starts in", "Time left"),
+/// A countdown to VoiceOver alone, drawing nothing: `label` ("Rest", "Start in", "Time left"),
 /// its time left as its value as the countdown shows it (`shown`), on the countdown's schedule,
 /// for a countdown drawn inside an element that reads as one (`SetRest`).
 struct SpokenRest: View {

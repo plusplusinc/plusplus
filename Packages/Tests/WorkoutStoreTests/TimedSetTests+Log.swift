@@ -40,8 +40,8 @@ extension TimedSetTests {
         #expect(set.clockWhenLogged == 22)
     }
 
-    @Test("Finish during Starts in logs nothing for the set")
-    func finishedInStartsIn() throws {
+    @Test("Finish during a timed set's Start in logs nothing for the set")
+    func finishedInStartIn() throws {
         let finished = try Self.started(Self.workout()).finishing(at: Self.at(5))
         #expect(finished.sets.isEmpty)
         #expect(finished.count == nil)
@@ -59,7 +59,7 @@ extension TimedSetTests {
     @Test("A count logged after it ran out stores the time of day it ended, not the log's")
     func runOutTimeOfDay() throws {
         let begun = try Self.started(Self.workout())
-        // Paused from 2 to 12 during Starts in: the count runs on the clock from 10 to 40, 20 to
+        // Paused from 2 to 12 during Start in: the count runs on the clock from 10 to 40, 20 to
         // 50 by the time of day.
         let paused = begun.loggedWorkout.pausing(at: Self.at(2)).resuming(at: Self.at(12))
         let live = LiveWorkout(workout: begun.workout, loggedWorkout: paused)

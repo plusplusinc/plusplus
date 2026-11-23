@@ -19,7 +19,7 @@ public struct SetRest {
     /// Whether each second and +15 s turn the countdown's figure: once it is up. Turning as it
     /// came in, its end set at the log, it rolled from its length to itself.
     let turns: Bool
-    /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
+    /// What waits in the slot: a rest, a set's "Start in", or a timed set's own count.
     public let kind: Kind
     /// Held by a pause: the count takes the gray the workout's paused time does, and its white
     /// back on resume. A count held by its log, as between a side plank's sides, stays white.
@@ -33,35 +33,35 @@ public struct SetRest {
     }
 
     /// Whether a rest runs in the slot: "then rest 1:00" goes for a rest only, and stays through
-    /// "Starts in" and a set's count, as through a reps set.
+    /// "Start in" and a set's count, as through a reps set.
     var isResting: Bool {
         isRunning && kind == .rest
     }
 
     /// Whether the set's segment is green, as the set is under way: not through a rest, nor
-    /// through a timed set's "Starts in", but while its count runs, and held where its log
+    /// through a set's "Start in", but while its count runs, and held where its log
     /// stopped it until the segment turns purple.
     var isOnSet: Bool {
         switch kind {
         case .rest: !isRunning
-        case .startsIn: false
+        case .startIn: false
         case .count: true
         }
     }
 
-    /// "starts in 10 seconds", for the exercise's label during "Starts in"; nil otherwise.
-    var spokenStartsIn: String? {
-        guard case .startsIn = kind else { return nil }
-        return String(localized: "starts in \(length) seconds")
+    /// "start in 5 seconds", for the exercise's label during "Start in"; nil otherwise.
+    var spokenStartIn: String? {
+        guard case .startIn = kind else { return nil }
+        return String(localized: "start in \(length) seconds")
     }
 
     /// What a wait in the figures' slot is.
     public enum Kind: Equatable, Sendable {
         /// "Rest" over the countdown.
         case rest
-        /// "Starts in" over the short count, nothing under it: the set's time in words ("30
-        /// seconds") is at the caption line's end. `time` is for VoiceOver.
-        case startsIn(time: String)
+        /// "Start in" over the short count, nothing under it: a timed set's time in words ("30
+        /// seconds"), `time`, is at the caption line's end; a reps set has none.
+        case startIn(time: String? = nil)
         /// A timed set's own count where the figures stand, with no word over it and no bar.
         case count
     }
@@ -87,7 +87,7 @@ public struct SetRest {
     }
 
     /// The wait as VoiceOver reads it while it runs: its own element after the exercise's label,
-    /// which holds every other part of the current exercise as one, "Rest", "Starts in", or, for
+    /// which holds every other part of the current exercise as one, "Rest", "Start in", or, for
     /// a timed set's own count, "Time left", its time left as its value, changing as the
     /// countdown does. Nothing before it runs, or once it is over.
     public var spoken: some View {
@@ -153,14 +153,14 @@ struct SetRoom: View, Animatable {
                 if let rest, let block {
                     // "Rest" over the countdown, as over the rest between exercises: its line
                     // takes the place of the caption's under the figures.
-                    // A wait of one kind giving way to another ("Starts in" reaching 0, a rest
+                    // A wait of one kind giving way to another ("Start in" reaching 0, a rest
                     // ending on a timed set's count) swaps as the figures and a rest do.
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         // Its capitals' tops where the figures' are, as far under the caption
                         // line, not the font's room over them lower.
                         // Over a timed set's own count, unseen, so the count stands where
-                        // "Starts in"'s did and nothing below moves between them.
-                        Text(Self.word(rest.kind) ?? "Starts in")
+                        // "Start in"'s did and nothing below moves between them.
+                        Text(Self.word(rest.kind) ?? "Start in")
                             .font(.ppFigureCaption)
                             .foregroundStyle(.pp(.textSecondary))
                             .fixedSize(horizontal: false, vertical: true)
@@ -174,6 +174,7 @@ struct SetRoom: View, Animatable {
                             turns: rest.turnsFigure && !reduceMotion,
                             color: rest.isPaused ? .textSecondary : .textPrimary,
                             shown: rest.kind.shown(length: rest.length),
+                            label: rest.kind.spokenAs,
                         )
                         .figureBox(size: size)
                     }
@@ -214,7 +215,7 @@ struct SetRoom: View, Animatable {
     private static func word(_ kind: SetRest.Kind) -> LocalizedStringKey? {
         switch kind {
         case .rest: "Rest"
-        case .startsIn: "Starts in"
+        case .startIn: "Start in"
         case .count: nil
         }
     }
@@ -253,7 +254,7 @@ private struct KindSwap: ViewModifier, Animatable {
             ))
         } else {
             content.going(RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
-                // Going, its count holds where it stood: still ticking, "Starts in" cut short by
+                // Going, its count holds where it stood: still ticking, "Start in" cut short by
                 // "Start now" read one second less as it went.
                 .environment(\.waitLeaves, swap > 0)
         }
@@ -268,6 +269,7 @@ private struct WaitCountdown: View {
     let turns: Bool
     let color: ColorToken
     let shown: ClosedRange<Double>
+    let label: LocalizedStringKey
 
     @Environment(\.locale) private var locale
     @Environment(\.waitLeaves) private var leaves
@@ -283,11 +285,13 @@ private struct WaitCountdown: View {
                 skips: skips,
                 color: color,
                 shown: shown,
+                label: label,
             )
             .onChange(of: leaves, initial: true) {
                 leftAt = leaves ? .now : nil
             }
-            // Read by its own element, named for its kind (`SetRest.spoken`), never as "Rest".
+            // Read by its own element (`SetRest.spoken`); named for its kind all the same, as
+            // automation reads hidden elements too.
             .accessibilityHidden(true)
     }
 }
@@ -298,11 +302,11 @@ extension EnvironmentValues {
 }
 
 extension SetRest.Kind {
-    /// The seconds left a countdown of this kind shows, `length` long. "Starts in" reads 0:01
+    /// The seconds left a countdown of this kind shows, `length` long. "Start in" reads 0:01
     /// through its last second until it goes, never 0:00; and at most its length, as it counts
-    /// from after the slot has come in, so its 0:10 shows a full second at full strength.
+    /// from after the slot has come in, so its 0:05 shows a full second at full strength.
     func shown(length: Int) -> ClosedRange<Double> {
-        if case .startsIn = self {
+        if case .startIn = self {
             0.001 ... Double(length)
         } else {
             0 ... .infinity
@@ -314,7 +318,7 @@ extension SetRest.Kind {
     var spokenAs: LocalizedStringKey {
         switch self {
         case .rest: "Rest"
-        case .startsIn: "Starts in"
+        case .startIn: "Start in"
         case .count: "Time left"
         }
     }
@@ -323,7 +327,7 @@ extension SetRest.Kind {
     var swapID: Int {
         switch self {
         case .rest: 0
-        case .startsIn: 1
+        case .startIn: 1
         case .count: 2
         }
     }

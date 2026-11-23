@@ -6,9 +6,8 @@ import WorkoutStore
 /// The workout open on screen, which screen shows, the switch to another workout, and the
 /// logged workout in progress on it.
 ///
-/// It owns saving, so a switch can wait for the last edit to land before opening the next
-/// workout: an edit just before a switch is never lost, and the workout opened is newer than
-/// the one left.
+/// It owns saving, so a switch waits for the last edit to land before opening the next workout:
+/// an edit just before a switch is never lost, and the workout opened is newer than the one left.
 @Observable
 public final class AppSession {
     /// The workout as it was opened. Changes only on a switch, which gives a fresh screen.
@@ -85,8 +84,9 @@ public final class AppSession {
         saved.withOpen(current)
     }
 
-    /// Saves a change to the open workout.
+    /// Saves a change to the open workout, dropping a count whose set's measure it flips.
     public func save(_ workout: Workout) {
+        changeLive { $0.droppingCount(for: workout) }
         current = workout
         saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
     }
@@ -153,7 +153,7 @@ public final class AppSession {
         guard canStart(on: workout) else { return }
         // The logged workout first: a screen shown at the root reads it as it is made, to open
         // on the current exercise.
-        // A timed first set's "Starts in" begins as the screen lands on it (`beginCount`).
+        // The first set's "Start in" begins as the screen lands on it (`beginCount`).
         change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
         if screen != .workout {
             // A fresh screen at the root, opening on the workout as it is now.

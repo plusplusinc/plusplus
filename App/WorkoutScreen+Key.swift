@@ -149,7 +149,8 @@ extension WorkoutScreen {
             // The count, the key, and the segment all change from the tap, on the slot's swap.
             withAnimation(SetMotion.restSwap) {
                 session.startCountNow()
-                phase.startCount()
+                // "Start now" is the key only on a timed set.
+                phase.startCount(isTimed: true)
             }
         case let .extendCount(seconds):
             session.extendCount(by: seconds)

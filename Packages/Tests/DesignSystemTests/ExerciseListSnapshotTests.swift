@@ -126,7 +126,7 @@ struct ExerciseListSnapshotTests {
                 CreateLabel(title: "Create exercise", detail: "Chest, Dumbbells")
                     .font(.ppRowTitle)
                     .makesSomething()
-                NeedsHeader(title: "Also needs a bench", addTitle: "Bench") { }
+                NeedsHeader(needed: "a bench", addTitle: "Bench") { }
                 RowLabel(title: "Dumbbell bench press", detail: "Dumbbells, bench")
             }
             .padding(Spacing.md)

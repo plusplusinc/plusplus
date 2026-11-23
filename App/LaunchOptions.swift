@@ -72,6 +72,9 @@ enum LaunchOptions {
         if seedsLog {
             try await seedLog(store)
         }
+        if seedsWorkouts {
+            try await seedWorkouts(store, weightUnit: weightUnit)
+        }
         guard let seed = seededWorkout else { return }
         let workout = seed.workout(weightUnit: weightUnit)
         try await store.save(workout)

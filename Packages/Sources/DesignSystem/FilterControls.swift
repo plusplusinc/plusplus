@@ -154,26 +154,8 @@ public struct ChipSheet<Item: Hashable>: View {
         .presentationBackground(Color.pp(.surface))
     }
 
-    /// The room a `.height` detent adds under the content: the window's bottom safe area. The
-    /// sheet stands that much taller than asked, and reports the room as a bottom safe area
-    /// (measured on iOS 27: 126 pt asked, 160 pt given, 34 pt of safe area).
-    private var detentRoom: CGFloat {
-        UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
-            .first ?? 0
-    }
-
     private var header: some View {
-        LineOrStack(spacing: 0) {
-            Text(title)
-                .font(.ppBarTitle)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .accessibilityAddTraits(.isHeader)
-            Button("Done", action: onDone)
-                .font(.ppButton)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .frame(minHeight: 44)
-        }
+        SheetHeader(title: title, onDone: onDone)
     }
 
     private func chip(_ item: Item) -> some View {
@@ -188,6 +170,35 @@ public struct ChipSheet<Item: Hashable>: View {
         .buttonStyle(ChipButtonStyle(isOn: isOn))
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
+}
+
+/// A filter sheet's header, `ChipSheet`'s and `LengthSheet`'s: the title, read as a heading, and
+/// Done. Where the two won't fit side by side, Done goes under the title (`LineOrStack`).
+struct SheetHeader: View {
+    let title: String
+    let onDone: () -> Void
+
+    var body: some View {
+        LineOrStack(spacing: 0) {
+            Text(title)
+                .font(.ppBarTitle)
+                .foregroundStyle(Color.pp(.textPrimary))
+                .accessibilityAddTraits(.isHeader)
+            Button("Done", action: onDone)
+                .font(.ppButton)
+                .foregroundStyle(Color.pp(.textPrimary))
+                .frame(minHeight: 44)
+        }
+    }
+}
+
+/// The room a `.height` detent adds under a sheet's content: the window's bottom safe area. The
+/// sheet stands that much taller than asked, and reports the room as a bottom safe area
+/// (measured on iOS 27: 126 pt asked, 160 pt given, 34 pt of safe area).
+var detentRoom: CGFloat {
+    UIApplication.shared.connectedScenes
+        .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
+        .first ?? 0
 }
 
 /// The line under the filter buttons while one is on: how many exercises show, and Clear,
@@ -235,15 +246,24 @@ private struct TextAndButton<Words: View, Trailing: View>: View {
 struct SmallCapsuleButton: View {
     let systemImage: String
     let title: String
+    var symbolColor = ColorToken.textPrimary
+    /// Where the capsule sits in its line's width once its word wraps there, as at the largest
+    /// text sizes, so it keeps to the edge of the words it goes with.
+    var alignment = Alignment.center
     let action: () -> Void
 
+    /// How far the touch reaches past the capsule on each side.
+    private static let sides = Spacing.sm
+
     var body: some View {
-        TouchOutset(minHeight: 44, sides: Spacing.sm) {
+        TouchOutset(minHeight: 44, sides: Self.sides) {
             Button(action: action) {
-                SmallCapsuleLabel(systemImage: systemImage, title: title)
-                    // Fills the room `TouchOutset` places it in, centered, and takes touches
-                    // across all of it.
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                SmallCapsuleLabel(systemImage: systemImage, title: title, symbolColor: symbolColor)
+                    // Fills the room `TouchOutset` places it in, short of its sides, so the
+                    // capsule wraps its word within the line, and takes touches across all of
+                    // it.
+                    .padding(.horizontal, Self.sides)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -256,14 +276,18 @@ struct SmallCapsuleButton: View {
 /// The symbol is a symbol, not a character, so it centers on the word's line; a typed "+"
 /// sits on the baseline, low beside capitals. Its leading inset is the one the capsule's
 /// height leaves above and below it, so it sits in the middle of the capsule's round end.
+/// The symbol is in the word's color unless `symbolColor` says otherwise: "+ Bench"'s + is
+/// green, as the app's other + marks that make or add something are.
 struct SmallCapsuleLabel: View {
     let systemImage: String
     let title: String
+    var symbolColor = ColorToken.textPrimary
 
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.xs) {
             Image(systemName: systemImage)
                 .imageScale(.small)
+                .foregroundStyle(Color.pp(symbolColor))
                 .accessibilityHidden(true)
             Text(title)
         }
@@ -273,34 +297,6 @@ struct SmallCapsuleLabel: View {
         .padding(.trailing, Spacing.sm + Spacing.xs)
         .padding(.vertical, Spacing.xs)
         .background(Color.pp(.surfaceRaised), in: .capsule)
-    }
-}
-
-/// The heading of the exercises one piece of equipment short of a filter: "Also needs a
-/// bench" in the letter headings' style, read as a heading, and a small button that adds the
-/// piece to the filter, read as "Add bench to Equipment". Where the two won't fit side by
-/// side, the button goes under the words (`LineOrStack`).
-public struct NeedsHeader: View {
-    let title: String
-    let addTitle: String
-    let onAdd: () -> Void
-
-    public init(title: String, addTitle: String, onAdd: @escaping () -> Void) {
-        self.title = title
-        self.addTitle = addTitle
-        self.onAdd = onAdd
-    }
-
-    public var body: some View {
-        TextAndButton {
-            Text(title)
-                .fontWeight(.semibold)
-                .foregroundStyle(Color.pp(.textSecondary))
-                .accessibilityAddTraits(.isHeader)
-        } button: {
-            SmallCapsuleButton(systemImage: "plus", title: addTitle, action: onAdd)
-                .accessibilityLabel("Add \(addTitle.lowercased()) to Equipment")
-        }
     }
 }
 

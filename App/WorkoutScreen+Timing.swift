@@ -2,20 +2,24 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A timed set in a workout runs itself. When its turn comes with no rest before it (after
-/// Start, between a set's sides, on to a superset's next member), the figures' slot shows
-/// "Starts in" over a 10 s count, the set's time in words at the caption line's end, and the key
-/// is "Start now": the exercise opens on it at 0:10, held, and its ten seconds start as the
-/// screen comes to rest on the set (`arrivingCount()`); as that count reaches 0 the phone taps
-/// lightly. When a rest comes first, the set's count starts as the rest ends (`endRest()`), or
-/// at the tap on Skip rest. The set's count then runs in the figures' slot, with no word over
+/// "Start in" before a set, and a timed set running itself. As each exercise comes up (the
+/// workout's first set, on to another exercise, between a superset's members in every round),
+/// and before a set's other side, the figures' slot shows "Start in" over a 5 s count
+/// (`Workout.startIn(before:)`); between two sets of one exercise, none. A rest before it
+/// runs first, and "Start in" counts from the rest's end (`endRest()`). The exercise opens on
+/// it held at its full count, and the count starts as the screen comes to rest on the set
+/// (`arrivingCount()`); as it reaches 0 the phone taps lightly. On a reps set the key logs
+/// through it, and at 0 the set's figures swap back into the slot. On a timed set the set's
+/// time in words stands at the caption line's end, and the key is "Start now"; a timed set
+/// with no "Start in" due counts from the end of the rest before it, or at the tap on Skip
+/// rest. The set's count then runs in the figures' slot, with no word over
 /// it, "then rest 0:30" at the caption line's end, the set's segment green, and the key is
 /// "Log early", gray, filling with the done purple from its leading edge,
 /// with +15 s beside it (`CountKeys`). At 0 the set logs itself at its full time, with the
-/// heavy tap and the +1, and whatever follows begins: a rest, or the next set's "Starts in". A
+/// heavy tap and the +1, and whatever follows begins: a rest, or the next set's "Start in". A
 /// tap on "Log early" mid-count logs the time done, the fill running on to full and the count
 /// holding where it stopped; +15 s adds to this set only. Finish mid-count logs the time done,
-/// as "Log early" then would; Finish during "Starts in" logs nothing for the set
+/// as "Log early" then would; Finish during a timed set's "Start in" logs nothing for the set
 /// (`LiveWorkout.finishing(at:)`). Where the set is, at rest on it, is
 /// the phase's (`WorkoutPhase.timing`), which the key, the slot, the segment, and the watch
 /// all read. The count runs on the workout's clock (`TimedSet`), so a pause stops it, and a
@@ -23,8 +27,8 @@ import WorkoutStore
 extension WorkoutScreen {
     /// Begins the current set's count as the screen comes to rest on it, when it is timed and
     /// has none, and says where it stands: what each transition that lands at rest is given.
-    /// `lead`, the seconds the slot takes to come in from here: "Starts in" counts from then, so
-    /// its 0:10 shows a full second at full strength.
+    /// `lead`, the seconds the slot takes to come in from here: "Start in" counts from then, so
+    /// its 0:05 shows a full second at full strength.
     func arrivingCount(lead: Double = 0) -> CountStage? {
         session.beginCount(override: restOverride, at: .now.addingTimeInterval(lead))
         return live?.countStage(at: .now)
@@ -84,8 +88,8 @@ extension WorkoutScreen {
     }
 
     /// A timed set's caption line: it keeps room for both the set's time and what follows it,
-    /// so it is as tall through "Starts in" and the count, on either side, and the figures
-    /// under it never move. During "Starts in", the set's time in words, "30 seconds", stands
+    /// so it is as tall through "Start in" and the count, on either side, and the figures
+    /// under it never move. During "Start in", the set's time in words, "30 seconds", stands
     /// at the line's trailing end where it fits beside the counter, else under it, as "then rest
     /// 0:30" will once it counts; the change comes in the same update as the slot's, so the line
     /// changes once, with it.
@@ -93,7 +97,7 @@ extension WorkoutScreen {
         guard case let .time(seconds) = item.plan.target else { return }
         focus.afterRoom = [focus.after, RestBlock.spoken(Double(seconds), locale: locale)]
             .compactMap(\.self)
-        if case let .startsIn(time) = setWait(of: item.id, current: item.id)?.kind {
+        if case let .startIn(time?) = setWait(of: item.id, current: item.id)?.kind {
             focus.after = time
             focus.spokenAfter = time
             focus.showsAfter = true
@@ -118,18 +122,22 @@ extension WorkoutScreen {
 
     /// The current exercise's figures' slot when its set is timed, never its plan's figures: the
     /// rest between its sets while one runs; the count of a set just logged, where the log
-    /// stopped it, in that set's own row only; at rest on the set, "Starts in" or the count as
-    /// the phase says; out of a rest, the count, which the rest's end began; else, on the way
-    /// to it (Start, a move), "Starts in", held at 0:10 until the screen comes to rest on it.
+    /// stopped it, in that set's own row only; at rest on the set, "Start in" or the count as
+    /// the phase says; out of a rest, "Start in" or the count, which the rest's end began; else,
+    /// on the way to it (Start, a move), "Start in", held at its full count until the screen
+    /// comes to rest on it. On a reps set, its "Start in" the same way, else the rest or its
+    /// figures.
     func setWait(of id: WorkoutExercise.ID, current: WorkoutExercise.ID?) -> SetRest? {
         let rest = setRest(of: id, current: current)
-        guard id == current, let shown, let row = workout.exercises.first(where: { $0.id == id }),
-              case let .time(seconds) = row.plan.target
+        guard id == current, let shown, let row = workout.exercises.first(where: { $0.id == id })
         else { return rest }
         if let within = phase.drawnRest, within.isWithinExercise, within.beat >= .shown,
            within.beat < .returning
         {
             return rest
+        }
+        guard case let .time(seconds) = row.plan.target else {
+            return repsStartIn(of: row, in: shown) ?? rest
         }
         let time = RestBlock.spoken(Double(seconds), locale: locale)
         // The workout with every log, the one drawn hidden included.
@@ -146,14 +154,14 @@ extension WorkoutScreen {
                 kind: .count,
             )
         }
-        let stage = phase.timing ?? phase.endingCount ?? (phase.isLeavingRest ? .counting : nil)
-        guard let stage, let timed = shown.timedSet else {
-            // On the way to the set, or ended on the way: "Starts in", held at its full count.
+        let length = shown.startInLength
+        guard let stage = drawnStage(in: shown), let timed = shown.timedSet else {
+            // On the way to the set, or ended on the way: "Start in", held at its full count.
             return SetRest(
                 isRunning: true,
-                length: LiveWorkout.startsIn,
-                pausedLeft: Double(LiveWorkout.startsIn),
-                kind: .startsIn(time: time),
+                length: length,
+                pausedLeft: Double(length),
+                kind: .startIn(time: time),
             )
         }
         let loggedWorkout = shown.loggedWorkout
@@ -162,14 +170,14 @@ extension WorkoutScreen {
         let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? .now)
         let holds = loggedWorkout.isPaused || phase.endingCount != nil || countBeats.earlyLog != nil
         switch stage {
-        case .startsIn:
+        case .startIn:
             return SetRest(
                 isRunning: true,
-                length: LiveWorkout.startsIn,
+                length: length,
                 ends: loggedWorkout.date(ofClock: timed.startClock),
-                pausedLeft: holds ? timed.startsIn(atClock: clock) : nil,
+                pausedLeft: holds ? timed.startIn(atClock: clock) : nil,
                 turns: true,
-                kind: .startsIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
+                kind: .startIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
                 isPaused: loggedWorkout.isPaused,
             )
         case .counting:
@@ -185,42 +193,80 @@ extension WorkoutScreen {
         }
     }
 
-    /// What the count's watch waits on: the phase's count, a new count, "Start now", +15 s, a
-    /// pause, or a resume starts it again.
-    var countWatch: CountWatch? {
-        guard let stage = phase.timing, let timed = live?.timedSet,
-              let loggedWorkout = session.loggedWorkout
+    /// Where the current set's count stands as drawn: the phase's at rest on it, End's as it
+    /// found it, and out of a rest, the stored count's, which the rest's end began.
+    private func drawnStage(in shown: LiveWorkout) -> CountStage? {
+        phase.timing ?? phase.endingCount
+            ?? (phase.isLeavingRest ? shown.countStage(at: .now) ?? .counting : nil)
+    }
+
+    /// A reps set's "Start in" in the figures' slot, as a timed set's: running at rest on it or
+    /// out of a rest; held at its full count on the way to it (Start, a move) where one is due;
+    /// else nil, and the set's figures stand.
+    private func repsStartIn(of row: WorkoutExercise, in shown: LiveWorkout) -> SetRest? {
+        guard case .reps = row.plan.target, let set = shown.currentSet,
+              set.row == row.id, phase.loggedAndDrawn == nil
         else { return nil }
-        return CountWatch(
-            stage: stage,
-            set: timed.set,
-            startClock: timed.startClock,
-            endClock: timed.endClock,
+        let length = shown.startInLength
+        guard drawnStage(in: shown) == .startIn, let count = shown.setCount else {
+            guard phase.isStarting || phase.isMovingOn, shown.workout.startIn(before: set) > 0
+            else { return nil }
+            return SetRest(
+                isRunning: true,
+                length: length,
+                pausedLeft: Double(length),
+                kind: .startIn(),
+            )
+        }
+        let loggedWorkout = shown.loggedWorkout
+        let holds = loggedWorkout.isPaused || phase.endingCount != nil
+        return SetRest(
+            isRunning: true,
+            length: length,
+            ends: loggedWorkout.date(ofClock: count.startClock),
+            pausedLeft: holds ? max(0, count.startClock - loggedWorkout.clock(at: .now)) : nil,
+            turns: true,
+            kind: .startIn(),
             isPaused: loggedWorkout.isPaused,
         )
     }
 
-    /// Sleeps to the end of "Starts in", then swaps it for the count with a light tap; or to the
-    /// count's end, then logs the set as the key would (`WorkoutKey.runOut`). Never while
-    /// paused. Each sleep runs on the device's clock to a point on the workout's: woken short of
-    /// it, it sleeps on.
+    /// What the count's watch waits on: the phase's count, a new count, "Start now", +15 s, a
+    /// pause, or a resume starts it again. On a reps set, its "Start in" alone.
+    var countWatch: CountWatch? {
+        guard let stage = phase.timing, let live, let count = live.setCount,
+              let loggedWorkout = session.loggedWorkout
+        else { return nil }
+        return CountWatch(
+            stage: stage,
+            set: count.set,
+            startClock: count.startClock,
+            endClock: live.timedSet?.endClock ?? count.startClock,
+            isPaused: loggedWorkout.isPaused,
+        )
+    }
+
+    /// Sleeps to the end of "Start in", then swaps it for a timed set's count, or a reps set's
+    /// figures, with a light tap; or to a timed set's end, then logs the set as the key would
+    /// (`WorkoutKey.runOut`). Never while paused. Each sleep runs on the device's clock to a
+    /// point on the workout's: woken short of it, it sleeps on.
     func watchCount() async {
         guard let watch = countWatch, !watch.isPaused else { return }
-        let target = watch.stage == .startsIn ? watch.startClock : watch.endClock
+        let target = watch.stage == .startIn ? watch.startClock : watch.endClock
         while let loggedWorkout = session.loggedWorkout {
             let left = target - loggedWorkout.clock(at: .now)
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }
         }
-        guard watch.stage == .startsIn else {
+        guard watch.stage == .startIn else {
             // Logged early in the count's last moment: that log stands.
             guard countBeats.earlyLog == nil else { return }
             return perform(liveKey.runOut)
         }
-        // "Starts in" swaps for the count as the figures and a rest swap, the key with it.
+        // "Start in" swaps for the count as the figures and a rest swap, the key with it.
         withAnimation(SetMotion.restSwap) {
-            if phase.startCount() {
+            if phase.startCount(isTimed: live?.isOnTimedSet ?? true) {
                 countBeats.starts += 1
             }
         }
@@ -234,15 +280,16 @@ extension WorkoutScreen {
         CountSubject(
             set: live?.currentSet,
             isTimed: live?.isOnTimedSet == true,
-            counted: live?.timedSet?.set,
+            counted: live?.setCount?.set,
         )
     }
 
     /// An edit at rest made another set current, or changed the current set's measure: the
-    /// count goes with the set it was begun for, and a timed set made current opens on "Starts
-    /// in" from now, as any with no rest before it. A time changed mid-count needs nothing
-    /// here: the count's length follows the row, its start kept, and its watch wakes to the new
-    /// end.
+    /// count goes with the set it was begun for, or, for a measure changed, as the edit was
+    /// saved (`AppSession.save(_:)`), and a set made current, or changed to reps or to a time,
+    /// opens on the "Start in" due before it from now, a timed one on "Start in" in any case, as
+    /// any with no rest before it. A time changed mid-count needs nothing here: the count's
+    /// length follows the row, its start kept, and its watch wakes to the new end.
     func settleCountAfterEdit() {
         guard phase.isAtRest else { return }
         session.beginCount(override: restOverride)
@@ -258,7 +305,7 @@ struct CountSubject: Equatable {
     let counted: PlannedSet?
 }
 
-/// The beats of a timed set the screen plays: "Starts in" reaching 0, with a light tap, and the
+/// The beats of a set the screen plays: "Start in" reaching 0, with a light tap, and the
 /// set's own end, with the heavy one and the +1.
 struct CountBeats {
     var starts = 0

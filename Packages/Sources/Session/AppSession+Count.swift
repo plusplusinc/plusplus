@@ -1,15 +1,16 @@
 import Foundation
 import WorkoutStore
 
-/// A timed set's count: each change through `LiveWorkout`'s rules and `change(_:)`.
+/// A set's "Start in" and a timed set's count: each change through `LiveWorkout`'s rules and
+/// `change(_:)`.
 extension AppSession {
-    /// Begins the current set's count, when it is timed and has none: as a rest before it ends.
-    /// `override`, for the UI tests, is every rest's length.
+    /// Begins the current set's count, when it has none and one is due: as a rest before it
+    /// ends, or as the screen lands on it. `override`, for the UI tests, is every rest's length.
     public func beginCount(override: Int? = nil, at now: Date = .now) {
         changeLive { $0.beginningCount(at: now, restOverride: override) }
     }
 
-    /// Cuts "Starts in" short: the set counts from now.
+    /// Cuts "Start in" short: the set counts from now.
     public func startCountNow(at now: Date = .now) {
         changeLive { $0.startingCountNow(at: now) }
     }

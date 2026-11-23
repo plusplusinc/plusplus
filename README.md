@@ -55,7 +55,8 @@ finished one since), or an empty one, which you can name and add built-in exerci
 set in a sheet, and put in order by holding and dragging them. Every change saves on the phone, an
 unnamed workout is named for its exercises, and nothing syncs yet. The ++ drawer switches
 between your latest workouts, starts a new one, and opens the Workouts screen, which lists them
-all by name and opens one with a tap. Start runs a workout, logged set by set
+all with each one's length and the muscles it works, filters them by muscle, equipment, and
+length, and opens one with a tap. Start runs a workout, logged set by set
 with a tap, moving on through its exercises in order. Status, architecture, and the branching rules are in
 [CLAUDE.md](CLAUDE.md); the PR check in
 [docs/pr-check.md](docs/pr-check.md); Xcode Cloud and TestFlight builds in

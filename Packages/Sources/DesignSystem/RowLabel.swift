@@ -208,9 +208,9 @@ public struct RowLabel: View {
     private var spokenLabel: String {
         let isResting = setRest?.isResting == true
         // A rest's or a set's own count reads as its own element after the label
-        // (`SetRest.spoken`), in the figures' place. Landing on "Starts in", the label says the
-        // set's time (the figures') and that it starts in 10 seconds.
-        let startsIn = setRest?.spokenStartsIn
+        // (`SetRest.spoken`), in the figures' place. Landing on "Start in", the label says the
+        // set's figures and "start in 5 seconds".
+        let startIn = setRest?.spokenStartIn
         let hidesFigures = isResting || setRest?.kind == .count
         let parts = if let focus {
             [
@@ -222,9 +222,9 @@ public struct RowLabel: View {
                 ]
                 .compactMap(\.self).joined(separator: ", "),
                 hidesFigures ? "" : focus.spokenFigures,
-                isResting || startsIn != nil || !focus.showsAfter
+                isResting || startIn != nil || !focus.showsAfter
                     ? "" : focus.spokenAfter ?? focus.after ?? "",
-                startsIn ?? "",
+                startIn ?? "",
             ]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]

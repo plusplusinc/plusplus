@@ -75,7 +75,7 @@ struct WorkoutTimeKey: View {
     }
 
     /// Sets `shownAt` now, then at each whole second of the elapsed time while it runs. Not a
-    /// `TimelineView`: one in a bar item and one ticking in the screen ("Starts in") rendered
+    /// `TimelineView`: one in a bar item and one ticking in the screen ("Start in") rendered
     /// each other's hosts in a layout loop, holding the main thread a quarter second after each
     /// tick, the time showing late (UIKit's layout feedback loop debugger).
     private func tick() async {
