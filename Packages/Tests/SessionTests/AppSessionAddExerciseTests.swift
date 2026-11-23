@@ -96,15 +96,4 @@ struct AppSessionAddExerciseTests {
         await session.open(session.current.id, weightUnit: .pounds)
         #expect(session.addExerciseFilter.muscleGroups == [.legs])
     }
-
-    @Test("A filter handed to Add exercise replaces the kept one, and is kept in turn")
-    func handedInFilterReplacesKept() throws {
-        let session = try sessionKeepingLegs()
-        session.openAddExercise(filter: ExerciseFilter(muscleGroups: [.back]))
-        #expect(session.addExerciseFilter.muscleGroups == [.back])
-        #expect(session.addExerciseFilter.muscleLabel == "Back")
-        session.closeAddExercise()
-        session.openAddExercise()
-        #expect(session.addExerciseFilter.muscleGroups == [.back])
-    }
 }

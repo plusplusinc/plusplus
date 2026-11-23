@@ -110,7 +110,7 @@ extension WorkoutScreen {
     func picker(_ opening: AddExerciseSheet) -> some View {
         ExercisePicker(
             exercises: leavingExercise.map(session.exercises.removing) ?? session.exercises,
-            filter: Binding { session.addExerciseFilter } set: { session.addExerciseFilter = $0 },
+            filter: Bindable(session).addExerciseFilter,
             onPick: addPicked,
             // Full height with search (decided 2026-11-17) and with a filter's tap (decided
             // 2026-11-22), in the tap's own transaction: at medium height the sheet went out of

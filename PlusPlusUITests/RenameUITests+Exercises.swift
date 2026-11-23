@@ -116,20 +116,18 @@ extension RenameUITests {
             let unfiltered = app.pickerRows["Backward arm circles"]
             XCTAssertEqual(search.label, "Search", "The last opening's search is still open")
             XCTAssertTrue(unfiltered.exists, "The last opening's search still narrows the list")
-            let muscle = app.buttons["Muscle"]
-            muscle.tap()
-            let legs = app.scrollViews.buttons["Legs"]
-            XCTAssertTrue(legs.appears(), "Muscle opened no sheet of chips")
-            legs.tap()
-            app.buttons["Done"].tap()
-            XCTAssertTrue(legs.disappears(), "Done left the chips up")
+            app.choose("Legs", under: "Muscle")
             app.pickerRows["Barbell back squat, Barbell"].tap()
             XCTAssertTrue(search.disappears(), "The pick left the picker open")
             XCTAssertEqual(app.exerciseCount(becoming: 2), 2, "The pick added no row")
             _ = app.openPicker()
             let clear = app.buttons["Clear filters"]
             XCTAssertTrue(clear.exists, "No Clear on the picker opened after a pick")
-            XCTAssertEqual(muscle.value as? String, "Legs", "Legs is not on after a pick")
+            XCTAssertEqual(
+                app.buttons["Muscle"].value as? String,
+                "Legs",
+                "Legs is not on after a pick",
+            )
             XCTAssertFalse(unfiltered.exists, "The kept filter does not narrow the list")
             // It rises with the sheet.
             XCTAssertTrue(clear.settles(), "Clear kept moving")

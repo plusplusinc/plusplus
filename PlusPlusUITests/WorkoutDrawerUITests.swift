@@ -207,12 +207,7 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
     private func logTurnsFiltersOff(in app: XCUIApplication, showing all: [String]) {
         XCTContext.runActivity(named: "A visit to Log turns Workouts' filters off") { _ in
             let clear = app.buttons["Clear filters"]
-            app.buttons["Muscle"].tap()
-            let chest = app.scrollViews.buttons["Chest"]
-            XCTAssertTrue(chest.appears(), "Muscle opened no sheet of chips")
-            chest.tap()
-            app.buttons["Done"].tap()
-            XCTAssertTrue(chest.disappears(), "Done left the chips up")
+            app.choose("Chest", under: "Muscle")
             XCTAssertTrue(clear.exists, "Chest turned no filter on")
             app.openDrawer(andTap: "Log")
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: [], within: 2), [])

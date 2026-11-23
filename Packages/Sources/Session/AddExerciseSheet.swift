@@ -13,15 +13,10 @@ public struct AddExerciseSheet: Identifiable {
 }
 
 extension AppSession {
-    /// Opens Add exercise on the open workout's kept filter, or on `filter` when a caller that
-    /// knows what is wanted hands one in: it replaces the kept one, and is kept in turn. The
-    /// same ask while it is open changes nothing, so a double tap doesn't build the rising
-    /// sheet again.
-    public func openAddExercise(filter: ExerciseFilter? = nil) {
+    /// Opens Add exercise on the open workout's kept filter. The same ask while it is open
+    /// changes nothing, so a double tap doesn't build the rising sheet again.
+    public func openAddExercise() {
         guard addExercise == nil else { return }
-        if let filter {
-            addExerciseFilter = filter
-        }
         addExercise = AddExerciseSheet()
     }
 
