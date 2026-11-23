@@ -82,8 +82,9 @@ public struct RestBlock: View {
     /// The time left, its changing digits rolling as `rolls(on:to:)` says. With `turns` off, as
     /// with Reduce Motion, nothing rolls and the figure takes the update's own animation, so
     /// `turns` never goes off in the change that moves the figure (`SetRest.turnsFigure`).
-    /// Always within `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes,
-    /// never 0:00.
+    /// Always within `shown`: "Start in" reads 0:10 as it comes in and 0:01 until it goes,
+    /// never 0:00. `label` names it for accessibility: "Rest", or the wait in the figures' slot
+    /// it counts ("Start in", "Time left").
     func countdown(
         size: CGFloat,
         locale: Locale,
@@ -91,6 +92,7 @@ public struct RestBlock: View {
         skips: Int,
         color: ColorToken = .textPrimary,
         shown: ClosedRange<Double> = 0 ... .infinity,
+        label: LocalizedStringKey = "Rest",
     ) -> some View {
         TimelineView(RestSchedule(
             ends: ends,
@@ -130,7 +132,7 @@ public struct RestBlock: View {
                 .transition(.identity)
                 .id(figureKey(skips: skips))
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Rest")
+                .accessibilityLabel(label)
                 .accessibilityValue(Self.spoken(seconds, locale: locale))
         }
     }

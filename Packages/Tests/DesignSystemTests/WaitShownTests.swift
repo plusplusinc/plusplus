@@ -14,9 +14,9 @@ struct WaitShownTests {
         )
     }
 
-    @Test("Starts in never reads 0:00, and reads 0:10 while its count has not yet begun")
-    func startsIn() {
-        let kind = SetRest.Kind.startsIn(time: "30 seconds")
+    @Test("Start in never reads 0:00, and reads 0:10 while its count has not yet begun")
+    func startIn() {
+        let kind = SetRest.Kind.startIn(time: "30 seconds")
         #expect(Self.reads(kind, left: 0) == "0:01")
         #expect(Self.reads(kind, left: 0.4) == "0:01")
         // Counting from after the slot comes in: 10.3 s to go as it fades in.

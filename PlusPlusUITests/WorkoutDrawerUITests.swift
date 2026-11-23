@@ -1,7 +1,8 @@
 import XCTest
 
 /// The ++ drawer and the Workouts screen over saved workouts: the drawer's mark, a row's
-/// Customize…, a built-in's hold menu in Add exercise, and the drill-in from the Workouts screen.
+/// Customize…, a built-in's hold menu in Add exercise, and the drill-in from the Workouts screen
+/// and its filters.
 /// Which workouts come first is `StoreRecencyTests`'. Names come from the muscle groups
 /// (`-fallbackNames`). A name typed on a pushed workout and left with no Return shows in the list
 /// once popped, which only the session's save puts there; that a save reaches the store is
@@ -75,6 +76,10 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             XCTAssertTrue(app.buttons["Workouts"].isSelected, "Workouts isn't marked")
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
+            // One +, floating at the bottom, none left in the bar.
+            let new = app.buttons.matching(NSPredicate(format: "label == 'New workout'"))
+            XCTAssertEqual(new.count, 1, "Workouts shows other than one New workout")
+            XCTAssertGreaterThan(new.firstMatch.frame.midY, app.frame.midY, "The + isn't low")
             app.buttons["New workout"].tap()
             XCTAssertEqual(title.value(becoming: "New workout"), "New workout")
             newWorkoutDimsDelete(in: app)
@@ -118,6 +123,76 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             let renamed = ["Chest day", "Back"]
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: renamed, within: 2), renamed)
             attach(named: "chevron-renamed")
+        }
+        workoutsFilter(in: app)
+    }
+
+    /// The filters' wire, on "Chest day" (a barbell and a bench) and "Back" (a pull-up bar):
+    /// a sheet of chips over the list narrows it behind the sheet, Also needs' + adds its piece
+    /// to the filter, the Length sheet's wheel reaches the list, and Clear brings every workout
+    /// back. Which workouts pass is `WorkoutFilterTests`'; the sheets over this screen's scroll
+    /// view, the picker's wheel in one, and a button in the list writing the filter are the
+    /// running app's.
+    @MainActor
+    private func workoutsFilter(in app: XCUIApplication) {
+        let all = ["Chest day", "Back"]
+        let clear = app.buttons["Clear filters"]
+        let done = app.buttons["Done"]
+        XCTContext.runActivity(named: "Muscle narrows Workouts, and Clear brings them back") { _ in
+            let muscle = app.buttons["Muscle"]
+            XCTAssertTrue(app.buttons["Equipment"].exists && app.buttons["Length"].exists)
+            muscle.tap()
+            let chest = app.scrollViews.buttons["Chest"]
+            XCTAssertTrue(chest.appears(), "Muscle opened no sheet of chips")
+            chest.tap()
+            done.tap()
+            XCTAssertTrue(chest.disappears(), "Done left the chips up")
+            XCTAssertEqual(
+                reading(app.workoutRowLabels, becoming: ["Chest day"], within: 2),
+                ["Chest day"],
+            )
+            XCTAssertEqual(muscle.value as? String, "Chest")
+            XCTAssertTrue(app.staticTexts["1 workout"].exists, "No count under the filter")
+            clear.tap()
+            XCTAssertTrue(clear.disappears(), "Clear left a filter on")
+            XCTAssertEqual(reading(app.workoutRowLabels, becoming: all, within: 2), all)
+        }
+        XCTContext.runActivity(named: "Also needs' + adds its piece to Equipment") { _ in
+            app.buttons["Equipment"].tap()
+            let barbell = app.scrollViews.buttons["Barbell"]
+            XCTAssertTrue(barbell.appears(), "Equipment opened no sheet of chips")
+            barbell.tap()
+            done.tap()
+            XCTAssertTrue(barbell.disappears(), "Done left the chips up")
+            XCTAssertTrue(
+                app.staticTexts["0 workouts"].appears(),
+                "Chest day matched a barbell alone",
+            )
+            let addBench = app.buttons["Add bench to Equipment"]
+            XCTAssertTrue(addBench.exists, "Chest day isn't listed as short a bench")
+            addBench.tap()
+            XCTAssertTrue(app.staticTexts["1 workout"].appears(), "+ Bench didn't match Chest day")
+            XCTAssertEqual(app.buttons["Equipment"].value as? String, "Barbell, Bench")
+            XCTAssertTrue(addBench.disappears(), "Also needs stayed once Bench was added")
+            clear.tap()
+            XCTAssertTrue(clear.disappears(), "Clear left a filter on")
+        }
+        XCTContext.runActivity(named: "Length's wheel reaches the list") { _ in
+            let length = app.buttons["Length"]
+            length.tap()
+            let upTo20 = app.buttons["20 minutes or less"]
+            XCTAssertTrue(upTo20.appears(), "Length opened no presets")
+            upTo20.tap()
+            XCTAssertEqual(length.value(becoming: "20 minutes or less"), "20 minutes or less")
+            // Past the right wheel's 20, the left carries it along: no workout is 25 minutes.
+            app.pickerWheels.element(boundBy: 0).adjust(toPickerWheelValue: "25 minutes")
+            XCTAssertEqual(length.value(becoming: "25 minutes"), "25 minutes")
+            done.tap()
+            XCTAssertTrue(upTo20.disappears(), "Done left the Length sheet up")
+            XCTAssertTrue(app.staticTexts["0 workouts"].exists, "A 25 minute filter kept a workout")
+            XCTAssertEqual(app.workoutRowLabels, [], "A 25 minute filter kept a workout")
+            clear.tap()
+            XCTAssertEqual(reading(app.workoutRowLabels, becoming: all, within: 2), all)
         }
     }
 

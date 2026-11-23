@@ -6,8 +6,8 @@ import Testing
 import UIKit
 @testable import DesignSystem
 
-/// What VoiceOver reads for a timed set: landing on it during "Starts in", the exercise's label
-/// says its name, set, and time, and that it starts in 10 seconds, with "Starts in" its own
+/// What VoiceOver reads for a timed set: landing on it during "Start in", the exercise's label
+/// says its name, set, and time, and that it start in 10 seconds, with "Start in" its own
 /// element after it; once it counts, the count is "Time left", never "Rest"; and its keys are
 /// "Log early", its value the seconds done, and "Plus 15 seconds".
 @MainActor
@@ -44,17 +44,17 @@ struct TimedSetAccessibilityTests {
             }
     }
 
-    @Test("Landing on Starts in: name, set, time, starts in 10 seconds, then Starts in's time")
-    func startsIn() throws {
+    @Test("Landing on Start in: name, set, time, start in 10 seconds, then Start in's time")
+    func startIn() throws {
         let wait = SetRest(
             isRunning: true,
             length: 10,
             pausedLeft: 10,
-            kind: .startsIn(time: "30 seconds"),
+            kind: .startIn(time: "30 seconds"),
         )
         let read = try read(exercise(wait))
-        #expect(read.first == "Plank, Set 1 of 3, 30 seconds, starts in 10 seconds")
-        #expect(read.last == "Starts in: 10 seconds")
+        #expect(read.first == "Plank, Set 1 of 3, 30 seconds, start in 10 seconds")
+        #expect(read.last == "Start in: 10 seconds")
         #expect(!read.contains { $0.hasPrefix("Rest") }, "\(read)")
     }
 

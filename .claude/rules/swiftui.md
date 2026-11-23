@@ -20,7 +20,7 @@ Leaf views take plain values and closures so they preview and snapshot without a
 - Numbers on a row's detail line and in a sheet's values are SF Mono, set with
   `AttributedString.monoNumbers(_:font:)`; the words around them stay in the system font.
 - Every font token scales with Dynamic Type: built on a `Font.TextStyle`, or sized with
-  `@ScaledMetric(relativeTo:)` when the design sits between two styles. Never a fixed size.
+  `@ScaledMetric(relativeTo:)` when the design sits between two styles.
 - Let the system wrap text and measure what it laid out (a hidden copy, or the view's own
   layout); never work wraps or line counts out from character widths, which emoji, CJK, and
   glyphs SF Mono lacks break.
@@ -66,12 +66,12 @@ with the feature.
   Where a workout is and what a log leads to are `LiveWorkout`'s, and where the screen is in
   showing a log `WorkoutPhase`'s, both in `WorkoutStore`; its timed beats run on the screen's
   one `SequenceTask` (`WorkoutScreen+Sequence.swift`).
-- Rests: `WorkoutScreen+Resting.swift`, `RestBlock`, `SetRest`, `WorkoutRest`. A timed set's
-  "Starts in" and count: `WorkoutScreen+Timing.swift`, `TimedSet`; keys, `CountKeys`.
+- Rests: `WorkoutScreen+Resting.swift`, `RestBlock`, `SetRest`, `WorkoutRest`. "Start in"
+  and a timed set's count: `WorkoutScreen+Timing.swift`, `TimedSet`; keys, `CountKeys`.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - Drawer, Workouts: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
-  `NameRow`. The drawer's mark and a way through it: `drawerMarks()`, `DrawerWay`,
+  `WorkoutsScreen`, `WorkoutRow`, `LengthSheet`, `NeedsHeader`. The drawer's mark and a way through it: `drawerMarks()`, `DrawerWay`,
   `AppSession.show(_:throughDrawer:markWait:)`.
 - Log: `LogScreen`, `LogScreen+Tabs.swift`, `LoggedWorkoutScreen`, `DayGrid`, `LogRow`,
   `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
@@ -136,7 +136,7 @@ Each of these cost a round; the code at the named spot works around it.
   `accessibilityHidden`: behind the drawer each applies `.hiddenBehindDrawer()`, and a faded bar
   item hides from VoiceOver with `accessibilityShown(_:)`. A bar item's elements update only
   with its host's state, so their state lives there (`BarSearchField`'s `isOpen`). A
-  `TimelineView` in a navigation bar item looped layout with "Starts in"'s count,
+  `TimelineView` in a navigation bar item looped layout with a count,
   stalling it: the time key ticks from a task (`WorkoutTimeKey`).
 - Attach a `confirmationDialog` outside the `NavigationStack`; inside, iOS shows a popover with
   an arrow, so a pushed screen's goes on its button (`ExerciseForm`).
@@ -156,7 +156,7 @@ Each of these cost a round; the code at the named spot works around it.
   once the following has begun (`keepEndInView`, `EndFollow`).
 - A sheet's `.height` detent measures inside its safe area: grow it by the content's overflow
   alone (`ExerciseSheet.fit(_:)`). A floating one still gets that room, as a safe area
-  (`ChipSheet.detentRoom`).
+  (`detentRoom`).
 - `ViewThatFits` on the workout screen hung the app as the title took focus; use a small
   `Layout` (`FigureLayout`).
 - A hold on a row in a scroll view is a UIKit long press (`RailLiftGesture`) outside the row's

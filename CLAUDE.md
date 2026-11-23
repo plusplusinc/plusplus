@@ -13,8 +13,8 @@ planning work in it), and in `docs/`. If this file and a rules file disagree, th
 
 **Status.** The app is one screen and its drawer: a workout built from built-in and created exercises, each
 with its sets, reps or time, weight, and rest, some joined into supersets, saved on the phone as
-it is edited, and logged set by set on that same screen; a Workouts screen listing the
-saved ones; and Log, the finished ones. It shows only in dark appearance (`Config/Base.xcconfig`); the light palette is seen
+it is edited, and logged set by set on that same screen; a Workouts screen listing and
+filtering the saved ones; and Log, the finished ones. It shows only in dark appearance (`Config/Base.xcconfig`); the light palette is seen
 only in snapshots. Nothing syncs yet, and there is no watch app yet.
 
 This file does not say how a feature looks or behaves. That is in the doc comments of the types

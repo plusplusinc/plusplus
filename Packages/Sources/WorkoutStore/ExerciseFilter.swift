@@ -12,6 +12,15 @@ public enum ExerciseKind: CaseIterable, Sendable {
         case .conditioning: "Conditioning"
         }
     }
+
+    /// The kind as a workout's row reads it: "Stretching" where the menu reads "Stretch".
+    public var workoutWord: String {
+        switch self {
+        case .strength: "Strength"
+        case .stretch: "Stretching"
+        case .conditioning: "Conditioning"
+        }
+    }
 }
 
 extension Exercise {
@@ -21,6 +30,11 @@ extension Exercise {
         case .stretch: .stretch
         case .conditioning: .conditioning
         }
+    }
+
+    /// The groups it mainly works: its own groups and its primary muscles'.
+    public var mainGroups: Set<MuscleGroup> {
+        muscleGroups.union(tags.primary.map(\.group))
     }
 }
 
@@ -121,8 +135,7 @@ public struct ExerciseFilter: Hashable, Sendable {
     /// nil when it doesn't pass.
     fileprivate func muscleMatch(_ exercise: Exercise) -> MuscleMatch? {
         guard !muscleGroups.isEmpty else { return .mainly }
-        let primary = exercise.muscleGroups.union(exercise.tags.primary.map(\.group))
-        if !primary.isDisjoint(with: muscleGroups) {
+        if !exercise.mainGroups.isDisjoint(with: muscleGroups) {
             return .mainly
         }
         if !Set(exercise.tags.secondary.map(\.group)).isDisjoint(with: muscleGroups) {
@@ -183,26 +196,57 @@ public struct FilteredExercises: Equatable, Sendable {
     /// group first, then those that work one along the way, A to Z within each.
     public let matches: [Exercise]
     /// The exercises one piece short of the chosen equipment, a section per missing piece.
-    public let alsoNeeds: [Section]
+    public let alsoNeeds: [NeedsSection<Exercise>]
+}
 
-    /// Exercises that pass every filter but equipment, use a chosen piece, and miss exactly
-    /// `piece`.
-    public struct Section: Identifiable, Equatable, Sendable {
-        public let piece: Equipment
-        public let exercises: [Exercise]
+/// What a filtered list holds one piece of equipment short of the chosen pieces: items that
+/// pass every filter but equipment, use a chosen piece, and miss exactly `piece`. Add
+/// exercise's exercises and the Workouts list's workouts are sectioned by the one rule
+/// (`sections(of:chosen:uses:)`).
+public struct NeedsSection<Item>: Identifiable {
+    public let piece: Equipment
+    public let items: [Item]
 
-        public var id: Equipment {
-            piece
+    public var id: Equipment {
+        piece
+    }
+
+    /// Among `candidates`, the items that pass every filter but equipment and fail it, each
+    /// that uses a piece of `chosen` and misses exactly one goes in that piece's section, in
+    /// `candidates`' order. Sections run by how many items each holds, most first, a tie in
+    /// display order. With no piece chosen (No equipment alone) there are none: nothing is
+    /// chosen to be one short of.
+    static func sections(
+        of candidates: some Sequence<Item>,
+        chosen: Set<Equipment>,
+        uses: (Item) -> Set<Equipment>,
+    ) -> [Self] {
+        var short: [Equipment: [Item]] = [:]
+        for item in candidates {
+            let used = uses(item)
+            let missing = used.subtracting(chosen)
+            if missing.count == 1, let piece = missing.first, !used.isDisjoint(with: chosen) {
+                short[piece, default: []].append(item)
+            }
         }
+        let sections = Equipment.allCases.compactMap { piece in
+            short[piece].map { Self(piece: piece, items: $0) }
+        }
+        // A stable sort, so a tie keeps display order.
+        return sections.enumerated().sorted {
+            ($0.element.items.count, -$0.offset) > ($1.element.items.count, -$1.offset)
+        }.map(\.element)
     }
 }
 
+extension NeedsSection: Equatable where Item: Equatable { }
+extension NeedsSection: Sendable where Item: Sendable { }
+
 extension ExerciseList {
     /// The exercises matching `query` that pass `filter`, in its order (`ExerciseFilter`), and
-    /// those one piece of equipment short: among the exercises that pass search, muscle, and
-    /// kind, each that uses a chosen piece and misses exactly one goes in that piece's section.
-    /// Sections run by how many exercises each holds, most first, a tie in display order; inside
-    /// one, the matches' order. An exercise is in the matches or in one section, never both.
+    /// those one piece of equipment short among the exercises that pass search, muscle, and
+    /// kind (`NeedsSection`), inside a section in the matches' order. An exercise is in the
+    /// matches or in one section, never both.
     public func filtered(by filter: ExerciseFilter, matching query: String) -> FilteredExercises {
         var mainly: [Exercise] = []
         var alongTheWay: [Exercise] = []
@@ -214,26 +258,13 @@ extension ExerciseList {
             }
         }
         let ordered = mainly + alongTheWay
-        let chosen = filter.carriedEquipment
-        var short: [Equipment: [Exercise]] = [:]
-        for exercise in ordered where !filter.passesEquipment(exercise) {
-            let missing = exercise.equipment.subtracting(chosen)
-            if missing.count == 1, let piece = missing.first,
-               !exercise.equipment.isDisjoint(with: chosen)
-            {
-                short[piece, default: []].append(exercise)
-            }
-        }
-        let sections = Equipment.allCases.compactMap { piece in
-            short[piece].map { FilteredExercises.Section(piece: piece, exercises: $0) }
-        }
-        // A stable sort, so a tie keeps display order.
-        let byCount = sections.enumerated().sorted {
-            ($0.element.exercises.count, -$0.offset) > ($1.element.exercises.count, -$1.offset)
-        }.map(\.element)
         return FilteredExercises(
             matches: ordered.filter(filter.passesEquipment),
-            alsoNeeds: byCount,
+            alsoNeeds: NeedsSection.sections(
+                of: ordered.lazy.filter { !filter.passesEquipment($0) },
+                chosen: filter.carriedEquipment,
+                uses: \.equipment,
+            ),
         )
     }
 

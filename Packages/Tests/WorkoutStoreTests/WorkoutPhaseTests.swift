@@ -103,8 +103,8 @@ struct WorkoutPhaseTests {
         #expect(shown.held == nil)
         #expect(shown.hidden.isEmpty)
         var timed = phase
-        timed.rollOn(on: .startsIn)
-        #expect(timed == .timing(.startsIn), "On a timed set, at rest on its Starts in")
+        timed.rollOn(on: .startIn)
+        #expect(timed == .timing(.startIn), "On a timed set, at rest on its Start in")
     }
 
     @Test("A move is hidden until shown, its node unlit until landed, its beats only in order")

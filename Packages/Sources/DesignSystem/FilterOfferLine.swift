@@ -58,6 +58,7 @@ public struct FilterOfferLine: View {
                         systemImage: "plus",
                         title: offer.title,
                         symbolColor: .accent,
+                        alignment: .trailing,
                         action: offer.action,
                     )
                     .accessibilityLabel("Add \(offer.title.lowercased()) to \(offer.filterName)")

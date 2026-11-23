@@ -113,7 +113,7 @@ struct WorkoutScreen: View {
     /// and the taps on Skip rest, each a new count figure (`RestBlock.figureKey(skips:)`).
     @State var restEnds = 0
     @State var restSkips = 0
-    /// A timed set's beats: "Starts in" ending, and the set running out (`WorkoutScreen+Timing`).
+    /// A set's beats: "Start in" ending, and the set running out (`WorkoutScreen+Timing`).
     @State var countBeats = CountBeats()
     /// Where the workout is in its sequence: out of one, starting, at rest, showing a set just
     /// logged (`play(_:leadingTo:)`), or ending. Every change to it lands in a transaction the

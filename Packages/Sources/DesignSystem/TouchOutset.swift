@@ -54,9 +54,11 @@ struct TouchOutset: Layout {
 
 /// The inside of a `TouchOutset`: places its one view where the outset laid it out, its own
 /// size, at the outset's insets from the touch frame's edges. Centered, it would sit off its
-/// spot wherever `TouchRoom` makes the insets lopsided.
+/// spot wherever `TouchRoom` makes the insets lopsided. Where the view wraps narrower than the
+/// line's width, `alignment` places it in that width.
 struct TouchInset: Layout {
     let outset: TouchOutset
+    var alignment = HorizontalAlignment.center
 
     /// What it is offered, as a flexible frame takes, or its view's own size where unoffered.
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
@@ -76,10 +78,16 @@ struct TouchInset: Layout {
         let width = bounds.width - sides.leading - sides.trailing
         let size = view.sizeThatFits(ProposedViewSize(width: width, height: nil))
         let reach = outset.insets(around: size)
+        let spare = max(width - size.width, 0)
+        let shift: CGFloat = switch alignment {
+        case .leading: 0
+        case .trailing: spare
+        default: spare / 2
+        }
         view.place(
-            at: CGPoint(x: bounds.minX + reach.leading, y: bounds.minY + reach.top),
+            at: CGPoint(x: bounds.minX + reach.leading + shift, y: bounds.minY + reach.top),
             anchor: .topLeading,
-            proposal: ProposedViewSize(width: width, height: size.height),
+            proposal: ProposedViewSize(width: size.width, height: size.height),
         )
     }
 }

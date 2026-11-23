@@ -99,7 +99,7 @@ struct DrawerSnapshotTests {
                 .padding(.horizontal, Spacing.md)
                 .padding(.bottom, Spacing.md)
             ForEach(names, id: \.self) { name in
-                NameRow(name)
+                WorkoutRow(name)
                     .padding(.horizontal, Spacing.md)
                     .overlay(alignment: .bottom) { RowLine().padding(.horizontal, Spacing.md) }
             }
