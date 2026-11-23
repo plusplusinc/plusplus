@@ -190,30 +190,6 @@ public struct ChipSheet<Item: Hashable>: View {
     }
 }
 
-/// The line under the filter buttons while one is on: how many exercises show, and Clear,
-/// which VoiceOver reads as "Clear filters". Where the two won't fit side by side, as at the
-/// largest text sizes, Clear goes under the count (`LineOrStack`) rather than either breaking
-/// a word.
-public struct FilterCount: View {
-    let text: String
-    let onClear: () -> Void
-
-    public init(_ text: String, onClear: @escaping () -> Void) {
-        self.text = text
-        self.onClear = onClear
-    }
-
-    public var body: some View {
-        TextAndButton {
-            Text(text)
-                .foregroundStyle(Color.pp(.textSecondary))
-        } button: {
-            SmallCapsuleButton(systemImage: "xmark", title: "Clear", action: onClear)
-                .accessibilityLabel("Clear filters")
-        }
-    }
-}
-
 /// A line's words leading and its small button trailing, in `.ppRowDetail`.
 struct TextAndButton<Words: View, Trailing: View>: View {
     @ViewBuilder let words: Words
@@ -235,6 +211,7 @@ struct TextAndButton<Words: View, Trailing: View>: View {
 struct SmallCapsuleButton: View {
     let systemImage: String
     let title: String
+    var symbolColor = ColorToken.textPrimary
     let action: () -> Void
     @Environment(\.touchRoom) private var room
     /// Read by `OfferButtons`, a `Layout`, whose methods are nonisolated.
@@ -247,7 +224,11 @@ struct SmallCapsuleButton: View {
                 // Fills the room `TouchOutset` places it in, the capsule on its own spot, and
                 // takes touches across all of it.
                 TouchInset(outset: outset) {
-                    SmallCapsuleLabel(systemImage: systemImage, title: title)
+                    SmallCapsuleLabel(
+                        systemImage: systemImage,
+                        title: title,
+                        symbolColor: symbolColor,
+                    )
                 }
                 .contentShape(.rect)
             }
@@ -261,14 +242,18 @@ struct SmallCapsuleButton: View {
 /// The symbol is a symbol, not a character, so it centers on the word's line; a typed "+"
 /// sits on the baseline, low beside capitals. Its leading inset is the one the capsule's
 /// height leaves above and below it, so it sits in the middle of the capsule's round end.
+/// The symbol is in the word's color unless `symbolColor` says otherwise: an offer's + is
+/// green, as the app's other + marks that make or add something are.
 struct SmallCapsuleLabel: View {
     let systemImage: String
     let title: String
+    var symbolColor = ColorToken.textPrimary
 
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.xs) {
             Image(systemName: systemImage)
                 .imageScale(.small)
+                .foregroundStyle(Color.pp(symbolColor))
                 .accessibilityHidden(true)
             Text(title)
         }
@@ -355,11 +340,11 @@ public struct CreateLabel: View {
             FilterLabel("Equipment", isOn: false)
         }
         FlowLayout(spacing: Spacing.sm) {
+            ClearFiltersLabel()
             FilterLabel("Chest, Back", isOn: true)
             FilterLabel("Stretch", isOn: true)
             FilterLabel("Dumbbells, Bench", isOn: true)
         }
-        FilterCount("4 exercises") { }
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)

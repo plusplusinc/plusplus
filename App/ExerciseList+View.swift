@@ -97,7 +97,6 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
             .safeAreaBar(edge: .top) {
                 FilterBar(
                     filter: announcedFilter,
-                    count: filtered.matches.count,
                     onOpen: open,
                     offers: FilterOffer.offers(in: query, given: filter),
                     onTake: take,

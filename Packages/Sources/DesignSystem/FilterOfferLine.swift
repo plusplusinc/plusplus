@@ -1,13 +1,14 @@
 #if os(iOS)
 import SwiftUI
 
-/// The line that offers a filter when typed words name one of its choices: "Filter by
-/// muscle" leading, gray as the count line's words, and a "+ Back" button per offer trailing,
-/// the small capsule Clear and "+ Bench" wear (`SmallCapsuleButton`). Where the words and the
-/// buttons won't fit on one line, as at the accessibility sizes or with three long names, the
-/// buttons show alone, never under the words (`WordsOrButtons`); where the buttons won't fit
-/// side by side either, they go one under another (`OfferButtons`). VoiceOver reads each
-/// button as "Add back to Muscle", which says what it adds to with the words gone too.
+/// The line under the filter buttons while typed words name a filter's choice: "Filter by" in
+/// the letter headings' style, right before a "+ Back" button per offer, the pair at the
+/// trailing edge. Each button is the small capsule "+ Bench" wears (`SmallCapsuleButton`), its
+/// + green, as the app's other + marks that add something are. Where the words and the buttons
+/// won't fit on one line, as at the accessibility sizes or with three long names, the buttons
+/// show alone (`WordsOrButtons`); where they won't fit side by side either, they go one under
+/// another (`OfferButtons`). VoiceOver reads each button as "Add back to Muscle", which says
+/// what it adds to with the words gone too.
 ///
 /// Side by side, two buttons' touches each reach halfway into the gap between them, so a tap
 /// lands on the nearer one.
@@ -32,7 +33,7 @@ public struct FilterOfferLine: View {
         }
     }
 
-    public init(_ text: String, offers: [Offer]) {
+    public init(_ text: String = "Filter by", offers: [Offer]) {
         self.text = text
         self.offers = offers
     }
@@ -40,6 +41,7 @@ public struct FilterOfferLine: View {
     public var body: some View {
         WordsOrButtons {
             Text(text)
+                .fontWeight(.semibold)
                 .foregroundStyle(Color.pp(.textSecondary))
                 .lineLimit(1)
                 .fixedSize()
@@ -55,6 +57,7 @@ public struct FilterOfferLine: View {
                     SmallCapsuleButton(
                         systemImage: "plus",
                         title: offer.title,
+                        symbolColor: .accent,
                         action: offer.action,
                     )
                     .accessibilityLabel("Add \(offer.title.lowercased()) to \(offer.filterName)")
@@ -69,9 +72,9 @@ public struct FilterOfferLine: View {
     }
 }
 
-/// An offer line's words leading and its buttons trailing, on one line, centered on each other,
-/// as `LineOrStack` lays a line; or, where the two won't fit side by side at their one-line
-/// widths, the buttons alone, leading, and the words not drawn: stacked over the buttons at the
+/// An offer line's words right before its buttons, together at the trailing edge, centered on
+/// each other; or, where the two won't fit side by side at their one-line widths, the buttons
+/// alone at the trailing edge, and the words not drawn: stacked over the buttons at the
 /// largest text sizes they took a third of the list's room over the keyboard, and the "+" and
 /// the line's place under the filters carry their meaning (decided 2026-11-22).
 struct WordsOrButtons: Layout {
@@ -96,13 +99,14 @@ struct WordsOrButtons: Layout {
         guard subviews.count == 2 else { return }
         let (words, buttons) = (subviews[0], subviews[1])
         if oneLine(words, buttons, in: bounds.width) != nil {
-            words.place(
-                at: CGPoint(x: bounds.minX, y: bounds.midY),
-                anchor: .leading,
-                proposal: .unspecified,
-            )
+            let buttonsWidth = buttons.sizeThatFits(.unspecified).width
             buttons.place(
                 at: CGPoint(x: bounds.maxX, y: bounds.midY),
+                anchor: .trailing,
+                proposal: .unspecified,
+            )
+            words.place(
+                at: CGPoint(x: bounds.maxX - buttonsWidth - spacing, y: bounds.midY),
                 anchor: .trailing,
                 proposal: .unspecified,
             )
@@ -110,7 +114,8 @@ struct WordsOrButtons: Layout {
         }
         words.place(at: bounds.origin, proposal: .zero)
         buttons.place(
-            at: bounds.origin,
+            at: CGPoint(x: bounds.maxX, y: bounds.minY),
+            anchor: .topTrailing,
             proposal: ProposedViewSize(width: bounds.width, height: nil),
         )
     }
@@ -136,7 +141,7 @@ struct WordsOrButtons: Layout {
 /// (`TouchOutset`, capped by `room`), so they meet without overlapping or leaving a dead strip.
 /// A small `Layout`, not `ViewThatFits`, which hung the workout screen.
 struct OfferButtons: Layout {
-    /// The cap on the buttons' reach from further out, as `FilterLines` puts above the line.
+    /// The cap on the buttons' reach from further out.
     var room = TouchRoom()
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
@@ -208,53 +213,21 @@ struct OfferButtons: Layout {
     }
 }
 
-/// The lines under the filter buttons: the offer line while typed words name a filter's choice
-/// (`FilterOfferLine`), and under it the count and Clear while a filter is on (`FilterCount`), a
-/// gap apart. The offer line comes first so taking an offer, which brings the count line in,
-/// moves nothing under the finger: a second tap there takes the next offer, never Clear
-/// (decided 2026-11-22). The two lines' touches reach a thumb's height around
-/// their capsules, further than the gap, so where both show each reaches only halfway into it,
-/// and a tap lands on the button nearer the finger. Either line comes and goes at once, with no
-/// motion.
-public struct FilterLines: View {
-    let count: FilterCount?
-    let offer: FilterOfferLine?
-
-    public init(count: FilterCount?, offer: FilterOfferLine?) {
-        self.count = count
-        self.offer = offer
-    }
-
-    public var body: some View {
-        let shared = count != nil && offer != nil ? Spacing.sm / 2 : nil
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            offer.map { $0.touchRoom(below: shared) }
-            count.map { $0.touchRoom(above: shared) }
-        }
-    }
-}
-
 #Preview {
-    VStack(alignment: .leading, spacing: Spacing.md) {
-        FilterOfferLine(
-            "Filter by muscle",
-            offers: [.init(title: "Back", filterName: "Muscle") { }],
-        )
-        FilterLines(
-            count: FilterCount("23 exercises") { },
-            offer: FilterOfferLine("Filter by", offers: [
-                .init(title: "Back", filterName: "Muscle") { },
-                .init(title: "Dumbbells", filterName: "Equipment") { },
-            ]),
-        )
-        FilterOfferLine("Filter by", offers: [
+    VStack(alignment: .trailing, spacing: Spacing.md) {
+        FilterOfferLine(offers: [.init(title: "Back", filterName: "Muscle") { }])
+        FilterOfferLine(offers: [
+            .init(title: "Back", filterName: "Muscle") { },
+            .init(title: "Dumbbells", filterName: "Equipment") { },
+        ])
+        FilterOfferLine(offers: [
             .init(title: "Medicine ball", filterName: "Equipment") { },
             .init(title: "Balance board", filterName: "Equipment") { },
             .init(title: "Stretch", filterName: "Kind") { },
         ])
     }
     .padding()
-    .frame(maxWidth: .infinity, alignment: .leading)
+    .frame(maxWidth: .infinity, alignment: .trailing)
     .background(Color.pp(.background))
 }
 #endif
