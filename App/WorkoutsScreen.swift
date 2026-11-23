@@ -46,8 +46,12 @@ struct WorkoutsScreen: View {
             session.recent.compactMap { workout in workout.summary.map { (workout.id, $0) } },
             uniquingKeysWith: { first, _ in first },
         )
-        let shown = shown.filter { filter.passes(summaries[$0.id]) }
-        let fullBar = WorkoutSummary.fullBarMinutes(among: shown.compactMap { summaries[$0.id] })
+        let filtered = filter.filtered(shown) { summaries[$0.id] }
+        let items = WorkoutsItem.items(filtered)
+        // Every row shown sets the scale, a section's included.
+        let fullBar = WorkoutSummary.fullBarMinutes(among: items.compactMap {
+            $0.workout.flatMap { summaries[$0.id] }
+        })
         return NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
@@ -67,13 +71,22 @@ struct WorkoutsScreen: View {
                             }
                         }
                     Section {
-                        ForEach(shown) { workout in
-                            row(workout, summary: summaries[workout.id], fullBar: fullBar)
+                        // One ForEach for matches and sections alike, so a workout whose
+                        // piece is added keeps its identity and moves up into the matches.
+                        ForEach(items) { item in
+                            switch item {
+                            case let .workout(workout):
+                                row(workout, summary: summaries[workout.id], fullBar: fullBar)
+                            case let .needs(piece):
+                                needsHeader(piece)
+                            }
                         }
                         FloatingButtonRoom()
                     } header: {
                         // Pinned under the bar once the title scrolls away, as Add exercise's.
-                        WorkoutsFilterBar(filter: announcedFilter, count: shown.count) {
+                        // The only pinned view: "Also needs" headings are rows that scroll
+                        // under it, as a second pinned header would push the bar away.
+                        WorkoutsFilterBar(filter: announcedFilter, count: filtered.matches.count) {
                             choosing = $0
                         }
                         .background(Color.pp(.background))
@@ -201,6 +214,17 @@ struct WorkoutsScreen: View {
             onUpper: { length.wrappedValue.setUpper($0) },
             onDone: { choosing = nil },
         )
+    }
+
+    /// "Also needs a bench", and a button that adds the piece to the Equipment filter, through
+    /// the one animated, announced write the sheet's chips use.
+    private func needsHeader(_ piece: Equipment) -> some View {
+        NeedsHeader(title: "Also needs \(piece.needed)", addTitle: piece.name) {
+            announcedFilter.wrappedValue.equipment.insert(.piece(piece))
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.top, Spacing.lg)
+        .padding(.bottom, Spacing.xs)
     }
 
     private func row(_ workout: Workout, summary: WorkoutSummary?, fullBar: Int) -> some View {

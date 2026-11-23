@@ -3,10 +3,11 @@ import Foundation
 import WorkoutStore
 
 extension LaunchOptions {
-    /// `-seedWorkouts YES`, with `resetsStore`: five saved workouts of different shapes, as the
+    /// `-seedWorkouts YES`, with `resetsStore`: seven saved workouts of different shapes, as the
     /// Workouts list's drawing has them (a legs day, a pressing day, a short circuit, a stretch
-    /// with no equipment, and a long full-body day), and one finished just after, so the app
-    /// launches on the Workouts list.
+    /// with no equipment, and a long full-body day), two more so Dumbbells alone leaves some
+    /// one piece short (an upper-body day short a bench, a legs day short a kettlebell), and one
+    /// finished just after, so the app launches on the Workouts list.
     static var seedsWorkouts: Bool {
         UserDefaults.standard.bool(forKey: "seedWorkouts")
     }
@@ -48,8 +49,13 @@ extension LaunchOptions {
             ("triceps-extension", 3),
         ]),
         ("Legs and back", [
-            ("goblet-squat", 5), ("reverse-lunge", 4), ("step-up", 3), ("dumbbell-row", 3),
+            ("romanian-deadlift", 5), ("reverse-lunge", 4), ("step-up", 3), ("dumbbell-row", 3),
         ]),
+        ("Upper body", [
+            ("dumbbell-bench-press", 4), ("dumbbell-row", 4), ("lateral-raise", 3),
+            ("biceps-curl", 3),
+        ]),
+        ("Legs", [("goblet-squat", 4), ("walking-lunge", 3), ("calf-raise", 3)]),
     ]
 }
 #endif

@@ -76,6 +76,64 @@ struct WorkoutFilterTests {
         #expect(LengthRange.upperValues.suffix(2) == [90, nil])
     }
 
+    /// Workouts of built-ins: dumbbells and a bench; dumbbells, a bench, and a barbell; a
+    /// kettlebell alone; dumbbells and a kettlebell; nothing.
+    private static func workouts() throws -> [Workout] {
+        try [
+            Workout(
+                name: "Bench",
+                exercises: [.builtIn("Dumbbell bench press"), .builtIn("Lateral raise")],
+            ),
+            Workout(
+                name: "Two short",
+                exercises: [.builtIn("Barbell bench press"), .builtIn("Biceps curl")],
+            ),
+            Workout(name: "Kettlebell", exercises: [.builtIn("Kettlebell swing")]),
+            Workout(name: "Legs", exercises: [.builtIn("Goblet squat"), .builtIn("Reverse lunge")]),
+            Workout(name: "Rows", exercises: [.builtIn("Dumbbell row")]),
+        ]
+    }
+
+    private static func filtered(_ filter: WorkoutFilter) throws -> FilteredWorkouts {
+        try filter.filtered(workouts(), summary: \.summary)
+    }
+
+    @Test("A workout one piece short goes under that piece, never also in the matches")
+    func alsoNeeds() throws {
+        let dumbbells = try Self.filtered(WorkoutFilter(equipment: [.piece(.dumbbells)]))
+        #expect(dumbbells.matches.isEmpty)
+        let sections = dumbbells.alsoNeeds.map { ($0.piece, $0.items.map(\.name)) }
+        #expect(sections.map(\.0) == [.bench, .kettlebell])
+        #expect(sections.first?.1 == ["Bench", "Rows"])
+        #expect(sections.last?.1 == ["Legs"])
+        // Two pieces short is in no section; a workout using no chosen piece neither.
+        let named = Set(sections.flatMap(\.1))
+        #expect(!named.contains("Two short"))
+        #expect(!named.contains("Kettlebell"))
+        let both = try Self.filtered(WorkoutFilter(equipment: [.piece(.dumbbells), .piece(.bench)]))
+        #expect(both.matches.map(\.name) == ["Bench", "Rows"])
+        #expect(both.alsoNeeds.map(\.piece) == [.kettlebell, .barbell])
+    }
+
+    @Test("A workout that fails Muscle or Length is in no section")
+    func alsoNeedsKeepsTheOtherFilters() throws {
+        let chest = try Self.filtered(WorkoutFilter(
+            muscleGroups: [.chest],
+            equipment: [.piece(.dumbbells)],
+        ))
+        #expect(chest.alsoNeeds.flatMap(\.items).map(\.name) == ["Bench"])
+        let bench = try #require(Self.workouts().first?.summary)
+        let short = LengthRange(lower: bench.minutes + 5, upper: nil)
+        let long = try Self.filtered(WorkoutFilter(equipment: [.piece(.dumbbells)], length: short))
+        #expect(!long.alsoNeeds.flatMap(\.items).map(\.name).contains("Bench"))
+    }
+
+    @Test("No equipment alone has no sections")
+    func noEquipmentHasNoSections() throws {
+        #expect(try Self.filtered(WorkoutFilter(equipment: [.none])).alsoNeeds.isEmpty)
+        #expect(try Self.filtered(WorkoutFilter()).alsoNeeds.isEmpty)
+    }
+
     @Test("Labels and the count read the choice")
     func labels() {
         #expect(WorkoutFilter(muscleGroups: [.legs]).muscleLabel == "Legs")

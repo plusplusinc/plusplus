@@ -160,7 +160,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                 }
                 ForEach(filtered.alsoNeeds) { section in
                     Section {
-                        ForEach(section.exercises, content: row)
+                        ForEach(section.items, content: row)
                     } header: {
                         NeedsHeader(
                             title: "Also needs \(section.piece.needed)",

@@ -50,21 +50,61 @@ public struct WorkoutFilter: Hashable, Sendable {
     public func passes(_ summary: WorkoutSummary?) -> Bool {
         guard isOn else { return true }
         guard let summary else { return false }
+        return passesAllButEquipment(summary) && passesEquipment(summary)
+    }
+
+    private func passesAllButEquipment(_ summary: WorkoutSummary) -> Bool {
         if !muscleGroups.isEmpty,
            !summary.muscles.contains(where: { muscleGroups.contains($0.group) })
         {
             return false
         }
-        if !equipment.isEmpty, !summary.equipment.allSatisfy({ equipment.contains(.piece($0)) }) {
-            return false
-        }
         return length.contains(summary.minutes)
+    }
+
+    private func passesEquipment(_ summary: WorkoutSummary) -> Bool {
+        equipment.isEmpty || summary.equipment.allSatisfy { equipment.contains(.piece($0)) }
+    }
+
+    /// The workouts that pass, in `workouts`' order, and those one piece of equipment short
+    /// among those that pass Muscle and Length (`NeedsSection`), inside a section in
+    /// `workouts`' order. A workout is in the matches or in one section, never both. `summary`
+    /// gives each workout's summary, so a list that has them already need not work them out
+    /// again.
+    public func filtered(
+        _ workouts: [Workout],
+        summary: (Workout) -> WorkoutSummary?,
+    ) -> FilteredWorkouts {
+        var matches: [Workout] = []
+        var short: [(Workout, Set<Equipment>)] = []
+        for workout in workouts {
+            let summary = summary(workout)
+            if passes(summary) {
+                matches.append(workout)
+            } else if let summary, passesAllButEquipment(summary) {
+                short.append((workout, Set(summary.equipment)))
+            }
+        }
+        let chosen = ExerciseFilter(equipment: equipment).carriedEquipment
+        let sections = NeedsSection.sections(of: short, chosen: chosen, uses: \.1)
+        return FilteredWorkouts(
+            matches: matches,
+            alsoNeeds: sections.map { NeedsSection(piece: $0.piece, items: $0.items.map(\.0)) },
+        )
     }
 
     /// The count line's words: "2 workouts", "1 workout", "0 workouts".
     public static func countText(_ count: Int) -> String {
         count == 1 ? "1 workout" : "\(count) workouts"
     }
+}
+
+/// What the filtered Workouts list shows, as Add exercise's (`FilteredExercises`).
+public struct FilteredWorkouts: Equatable, Sendable {
+    /// The workouts every filter holds for, in the list's order.
+    public let matches: [Workout]
+    /// The workouts one piece short of the chosen equipment, a section per missing piece.
+    public let alsoNeeds: [NeedsSection<Workout>]
 }
 
 /// A span of minutes on the Length wheels' 5-minute grid: a lower end from 0 to `top`, and an

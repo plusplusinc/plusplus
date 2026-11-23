@@ -124,7 +124,7 @@ struct ExerciseFilterTests {
         #expect(chest.matches.isEmpty)
         let bench = try #require(chest.alsoNeeds.first)
         #expect(bench.piece == .bench)
-        #expect(Set(bench.exercises.map(\.name))
+        #expect(Set(bench.items.map(\.name))
             .isSuperset(of: ["Dumbbell bench press", "Incline dumbbell press"]))
         let back = list.filtered(
             by: ExerciseFilter(muscleGroups: [.back], equipment: [.piece(.dumbbells)]),
@@ -132,7 +132,7 @@ struct ExerciseFilterTests {
         )
         let shown = Set(back.matches.map(\.id))
         #expect(back.alsoNeeds.allSatisfy { section in
-            section.exercises.allSatisfy { !shown.contains($0.id) }
+            section.items.allSatisfy { !shown.contains($0.id) }
         })
     }
 
@@ -141,7 +141,7 @@ struct ExerciseFilterTests {
         let counts = list.filtered(
             by: ExerciseFilter(equipment: [.piece(.dumbbells)]),
             matching: "",
-        ).alsoNeeds.map(\.exercises.count)
+        ).alsoNeeds.map(\.items.count)
         #expect(!counts.isEmpty)
         #expect(counts == counts.sorted(by: >))
     }
