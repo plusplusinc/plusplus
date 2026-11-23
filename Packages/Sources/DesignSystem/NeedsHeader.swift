@@ -6,7 +6,8 @@ import SwiftUI
 /// filter, "+ Bench" with a green +, the pair at the line's trailing edge so the button ends
 /// where Clear does. The words read as a heading that names the piece, "Also needs a bench",
 /// since the visible words don't; the button reads "Add bench to Equipment". Where the two
-/// won't fit on one line, the button goes under the words, both trailing (`LineOrStack`).
+/// won't fit on one line, the button goes under the words, both trailing (`LineOrStack`), and
+/// a piece's name too long for the line wraps inside its capsule, which keeps to the margins.
 public struct NeedsHeader: View {
     let needed: String
     let addTitle: String
@@ -31,6 +32,7 @@ public struct NeedsHeader: View {
                 systemImage: "plus",
                 title: addTitle,
                 symbolColor: .accent,
+                alignment: .trailing,
                 action: onAdd,
             )
             .accessibilityLabel("Add \(addTitle.lowercased()) to Equipment")

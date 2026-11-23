@@ -150,4 +150,17 @@ struct WorkoutFilterTests {
         #expect(WorkoutFilter.countText(1) == "1 workout")
         #expect(WorkoutFilter.countText(2) == "2 workouts")
     }
+
+    @Test("VoiceOver hears a length in words, never a ≤ or ≥: 'or less', 'or more', 'to'")
+    func spokenLength() {
+        #expect(WorkoutFilter(length: LengthRange(lower: 0, upper: 20))
+            .lengthSpoken == "20 minutes or less")
+        #expect(WorkoutFilter(length: LengthRange(lower: 40, upper: nil))
+            .lengthSpoken == "40 minutes or more")
+        #expect(WorkoutFilter(length: LengthRange(lower: 25, upper: 45))
+            .lengthSpoken == "25 to 45 minutes")
+        #expect(WorkoutFilter(length: LengthRange(lower: 30, upper: 30))
+            .lengthSpoken == "30 minutes")
+        #expect(WorkoutFilter(length: .full).lengthSpoken == nil)
+    }
 }

@@ -21,7 +21,12 @@ struct WorkoutsFilterBar: View {
                 HStack(spacing: Spacing.sm) {
                     button("Muscle", choice: filter.muscleLabel, opens: .muscle)
                     button("Equipment", choice: filter.equipmentLabel, opens: .equipment)
-                    button("Length", choice: filter.lengthLabel, opens: .length)
+                    button(
+                        "Length",
+                        choice: filter.lengthLabel,
+                        spoken: filter.lengthSpoken,
+                        opens: .length,
+                    )
                 }
                 .padding(.horizontal, Spacing.md)
             }
@@ -41,12 +46,17 @@ struct WorkoutsFilterBar: View {
     }
 
     /// A filter's button: its choice, or its name while none is chosen, lit while on. VoiceOver
-    /// reads its name, then the choice, and selected while on.
-    private func button(_ name: String, choice: String?, opens sheet: WorkoutsSheet) -> some View {
+    /// reads its name, then the choice (in `spoken` words where given), and selected while on.
+    private func button(
+        _ name: String,
+        choice: String?,
+        spoken: String? = nil,
+        opens sheet: WorkoutsSheet,
+    ) -> some View {
         Button { onOpen(sheet) } label: {
             FilterLabel(choice ?? name, isOn: choice != nil)
                 .accessibilityLabel(name)
-                .accessibilityValue(choice ?? "")
+                .accessibilityValue(spoken ?? choice ?? "")
                 .accessibilityAddTraits(choice != nil ? .isSelected : [])
         }
         .buttonStyle(.plain)

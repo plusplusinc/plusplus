@@ -80,7 +80,7 @@ struct TimedSetSnapshotTests {
         )
     }
 
-    @Test("Start in: 0:10, the set's time beside the side though its rest wraps, and Start now")
+    @Test("Start in: 0:05, the set's time beside the side though its rest wraps, and Start now")
     func startIn() {
         var focus = Self.plank(after: "30 seconds", side: "Left")
         focus.place = SetPlace(word: "Round", number: 1, total: 3)
@@ -92,8 +92,8 @@ struct TimedSetSnapshotTests {
             bars: Self.bars,
             setRest: SetRest(
                 isRunning: true,
-                length: 10,
-                pausedLeft: 10,
+                length: 5,
+                pausedLeft: 5,
                 kind: .startIn(time: "30 seconds"),
             ),
         )

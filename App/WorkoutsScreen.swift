@@ -212,6 +212,7 @@ struct WorkoutsScreen: View {
         let presets = LengthRange.Preset.allCases
         return LengthSheet(
             presets: presets.map(\.name),
+            spokenPresets: presets.map(\.range.spoken),
             lit: filter.length.preset.flatMap { presets.firstIndex(of: $0) },
             lower: filter.length.lower,
             upper: filter.length.upper,

@@ -247,15 +247,23 @@ struct SmallCapsuleButton: View {
     let systemImage: String
     let title: String
     var symbolColor = ColorToken.textPrimary
+    /// Where the capsule sits in its line's width once its word wraps there, as at the largest
+    /// text sizes, so it keeps to the edge of the words it goes with.
+    var alignment = Alignment.center
     let action: () -> Void
 
+    /// How far the touch reaches past the capsule on each side.
+    private static let sides = Spacing.sm
+
     var body: some View {
-        TouchOutset(minHeight: 44, sides: Spacing.sm) {
+        TouchOutset(minHeight: 44, sides: Self.sides) {
             Button(action: action) {
                 SmallCapsuleLabel(systemImage: systemImage, title: title, symbolColor: symbolColor)
-                    // Fills the room `TouchOutset` places it in, centered, and takes touches
-                    // across all of it.
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // Fills the room `TouchOutset` places it in, short of its sides, so the
+                    // capsule wraps its word within the line, and takes touches across all of
+                    // it.
+                    .padding(.horizontal, Self.sides)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)

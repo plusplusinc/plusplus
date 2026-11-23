@@ -46,6 +46,13 @@ public struct WorkoutFilter: Hashable, Sendable {
         return "\(length.lower)–\(upper) min"
     }
 
+    /// The Length button's words as VoiceOver reads them, without the symbols: "20 minutes or
+    /// less", "40 minutes or more", "25 to 45 minutes"; nil while off.
+    public var lengthSpoken: String? {
+        guard length != .full else { return nil }
+        return length.spoken
+    }
+
     /// Whether a workout with `summary` shows; one with none shows only while the filter is off.
     public func passes(_ summary: WorkoutSummary?) -> Bool {
         guard isOn else { return true }
@@ -150,6 +157,15 @@ public struct LengthRange: Hashable, Sendable {
 
     public func contains(_ minutes: Int) -> Bool {
         minutes >= lower && upper.map { minutes <= $0 } ?? true
+    }
+
+    /// The range as VoiceOver reads it, for a "≤" or "≥" that reads poorly: "20 minutes or
+    /// less", "40 minutes or more", "20 minutes", "25 to 45 minutes".
+    public var spoken: String {
+        guard let upper else { return "\(lower) minutes or more" }
+        guard lower != 0 else { return "\(upper) minutes or less" }
+        guard lower != upper else { return "\(upper) minutes" }
+        return "\(lower) to \(upper) minutes"
     }
 
     /// The preset this range is, if any.
