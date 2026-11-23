@@ -63,7 +63,36 @@ extension TitleWrappingUITests {
             XCTAssertTrue(row.appears(), "The workout isn't listed")
             attach(named: "workouts-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            try workoutsFiltersAtAX5(in: app)
         }
+    }
+
+    /// The Workouts list with a filter on, its count line and Clear, and the Length sheet, with
+    /// its presets stacked and its wheels, pass the audit. Leaves no filter on.
+    private func workoutsFiltersAtAX5(in app: XCUIApplication) throws {
+        app.buttons["Muscle"].tap()
+        let chest = app.scrollViews.buttons["Chest"]
+        XCTAssertTrue(chest.appears(), "Muscle opened no sheet of chips")
+        chest.tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(chest.disappears(), "Done left the chips up")
+        let clear = app.buttons["Clear filters"]
+        XCTAssertTrue(clear.exists, "No Clear under the filter")
+        attach(named: "workouts-filtered-ax5")
+        try auditBelowTheBar(in: app)
+        // At this size Length is past the screen's edge, as the bar scrolls sideways.
+        let length = app.buttons["Length"]
+        app.buttons["Equipment"].swipeLeft()
+        XCTAssertTrue(reading(length.isHittable, becoming: true, within: 2), "Length never in view")
+        length.tap()
+        let upTo20 = app.buttons["20 minutes or less"]
+        XCTAssertTrue(upTo20.appears(), "Length opened no presets")
+        attach(named: "length-sheet-ax5")
+        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        app.buttons["Done"].tap()
+        XCTAssertTrue(upTo20.disappears(), "Done left the Length sheet up")
+        clear.tap()
+        XCTAssertTrue(clear.disappears(), "Clear left a filter on")
     }
 
     /// The current exercise's row just under the bar, the key not going back to it.
