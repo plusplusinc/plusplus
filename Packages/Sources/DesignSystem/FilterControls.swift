@@ -220,7 +220,8 @@ struct SmallCapsuleButton: View {
     let title: String
     let action: () -> Void
     @Environment(\.touchRoom) private var room
-    static let touchHeight: CGFloat = 44
+    /// Read by `OfferButtons`, a `Layout`, whose methods are nonisolated.
+    nonisolated static let touchHeight: CGFloat = 44
 
     var body: some View {
         let outset = TouchOutset(minHeight: Self.touchHeight, sides: Spacing.sm, room: room)
