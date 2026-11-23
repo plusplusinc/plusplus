@@ -249,9 +249,11 @@ public final class AppSession {
     }
 
     /// Pushes a new, empty workout onto the Workouts screen; an empty one open already is shown
-    /// as it is. Nothing is saved for the new workout until it changes.
+    /// as it is. Nothing is saved for the new workout until it changes. Either way Add exercise
+    /// starts with no filter: to the person, New is a different workout.
     public func startNew() async {
         guard !isSwitching else { return }
+        addExerciseFilter = ExerciseFilter()
         guard !current.isEmpty else {
             return show(current)
         }

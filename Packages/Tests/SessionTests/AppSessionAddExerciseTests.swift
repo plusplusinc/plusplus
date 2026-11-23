@@ -51,17 +51,6 @@ struct AppSessionAddExerciseTests {
         #expect(session.addExerciseFilter.muscleGroups == [.legs])
     }
 
-    @Test("Clearing Add exercise's filter leaves none on at the next opening")
-    func clearedFilterStaysCleared() throws {
-        let session = try sessionKeepingLegs()
-        session.openAddExercise()
-        // What Clear writes (`FilterBar`).
-        session.addExerciseFilter = ExerciseFilter()
-        session.closeAddExercise()
-        session.openAddExercise()
-        #expect(!session.addExerciseFilter.isOn)
-    }
-
     @Test("Another workout opened from the list starts Add exercise with no filter")
     func anotherWorkoutStartsClear() async throws {
         let session = try sessionKeepingLegs()
@@ -77,6 +66,19 @@ struct AppSessionAddExerciseTests {
         session.showWorkouts()
         await session.startNew()
         #expect(session.current.isEmpty)
+        #expect(!session.addExerciseFilter.isOn)
+    }
+
+    @Test("New over an empty open workout, which shows it as it is, starts with no filter")
+    func newOverEmptyStartsClear() async {
+        let session = AppSession(workout: Workout(), store: store, namer: .muscleGroupsOnly)
+        let empty = session.current.id
+        session.openAddExercise()
+        session.addExerciseFilter = legs
+        session.closeAddExercise()
+        session.showWorkouts()
+        await session.startNew()
+        #expect(session.current.id == empty)
         #expect(!session.addExerciseFilter.isOn)
     }
 

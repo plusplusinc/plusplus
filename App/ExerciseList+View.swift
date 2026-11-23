@@ -5,11 +5,12 @@ import WorkoutStore
 /// Every exercise, built-in and created, A to Z under letter headings, narrowed by search and
 /// by filters: the list Add exercise (`ExercisePicker`) shows.
 ///
-/// Under the bar, the filters' buttons, Muscle, Kind, and Equipment (`FilterBar`), start from
-/// the host's filter, which outlives the list. While one is on, the list is one list with no
-/// letter headings and no index: the matches, those that mainly work a chosen muscle first
-/// (`ExerciseList.filtered(by:matching:)`); then Create; then an "Also needs" section for each
-/// piece one short of the chosen equipment, headed by a button that adds it (`NeedsHeader`).
+/// Under the bar, the filters' buttons, Muscle, Kind, and Equipment (`FilterBar`), read and
+/// write the host's filter through a binding, so it outlives the list. While one is on, the
+/// list is one list with no letter headings and no index: the matches, those that mainly work a
+/// chosen muscle first (`ExerciseList.filtered(by:matching:)`); then Create; then an "Also
+/// needs" section for each piece one short of the chosen equipment, headed by a button that adds
+/// it (`NeedsHeader`).
 /// The first row has no line over it, where it would rule off the buttons. Each change puts
 /// the list back at its top and tells VoiceOver the count. Muscle and Equipment choose in a
 /// sheet of chips (`ChipSheet`), applied with each tap.

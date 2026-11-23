@@ -112,23 +112,35 @@ extension RenameUITests {
     private func keepsFilterAfterAPick(in app: XCUIApplication) {
         XCTContext.runActivity(named: "A filter is still on after a pick, the search is not") { _ in
             let search = app.openPicker()
-            // Matches no "bench".
-            let unfiltered = app.pickerRows["Backward arm circles"]
-            XCTAssertEqual(search.label, "Search", "The last opening's search is still open")
-            XCTAssertTrue(unfiltered.exists, "The last opening's search still narrows the list")
+            // The whole list, A to Z, starts here; "bench" or a filter would start it elsewhere.
+            let whole = "Backward arm circles"
+            XCTAssertEqual(
+                search.label(becoming: "Search"),
+                "Search",
+                "The last opening's search is still open",
+            )
+            XCTAssertEqual(
+                reading(app.pickerRows.firstMatch.label, becoming: whole, within: 2),
+                whole,
+                "The last opening's search still narrows the list",
+            )
             app.choose("Legs", under: "Muscle")
             app.pickerRows["Barbell back squat, Barbell"].tap()
             XCTAssertTrue(search.disappears(), "The pick left the picker open")
             XCTAssertEqual(app.exerciseCount(becoming: 2), 2, "The pick added no row")
             _ = app.openPicker()
             let clear = app.buttons["Clear filters"]
-            XCTAssertTrue(clear.exists, "No Clear on the picker opened after a pick")
+            XCTAssertTrue(clear.appears(), "No Clear on the picker opened after a pick")
             XCTAssertEqual(
-                app.buttons["Muscle"].value as? String,
+                app.buttons["Muscle"].value(becoming: "Legs"),
                 "Legs",
                 "Legs is not on after a pick",
             )
-            XCTAssertFalse(unfiltered.exists, "The kept filter does not narrow the list")
+            XCTAssertNotEqual(
+                reading(app.pickerRows.firstMatch.label, until: { $0 != whole }, within: 2),
+                whole,
+                "The kept filter does not narrow the list",
+            )
             // It rises with the sheet.
             XCTAssertTrue(clear.settles(), "Clear kept moving")
             clear.tap()

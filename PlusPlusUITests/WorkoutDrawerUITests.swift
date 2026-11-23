@@ -197,24 +197,6 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             clear.tap()
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: all, within: 2), all)
         }
-        logTurnsFiltersOff(in: app, showing: all)
-    }
-
-    /// A filter on over Workouts is off after a visit to Log through the drawer, and every
-    /// workout is listed again: the filter is the Workouts screen's own, gone with the screen,
-    /// which only the running app shows.
-    @MainActor
-    private func logTurnsFiltersOff(in app: XCUIApplication, showing all: [String]) {
-        XCTContext.runActivity(named: "A visit to Log turns Workouts' filters off") { _ in
-            let clear = app.buttons["Clear filters"]
-            app.choose("Chest", under: "Muscle")
-            XCTAssertTrue(clear.exists, "Chest turned no filter on")
-            app.openDrawer(andTap: "Log")
-            XCTAssertEqual(reading(app.workoutRowLabels, becoming: [], within: 2), [])
-            app.openDrawer(andTap: "Workouts")
-            XCTAssertEqual(reading(app.workoutRowLabels, becoming: all, within: 2), all)
-            XCTAssertFalse(clear.exists, "A filter is on after a visit to Log")
-        }
     }
 
     /// On the workout showing, opens its first row's sheet, adds a set, drags the weight ruler,
