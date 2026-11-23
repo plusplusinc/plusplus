@@ -2,47 +2,29 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// The filters' buttons over the Workouts list, on one line that scrolls sideways when their
-/// words don't fit, as Add exercise's (`FilterBar`); under them, while one is on, the count and
-/// Clear. Each button opens its sheet through `onOpen`: Muscle and Equipment of chips, Length
-/// of presets and wheels.
-///
-/// Its own copy of `FilterBar`'s scrolling shell while that bar changes in another PR; the two
-/// will share one shell once it lands.
+/// The filters' buttons over the Workouts list, in the row Add exercise's bar shares
+/// (`FilterButtonRow`): one line that scrolls sideways when their words don't fit, led by Clear
+/// while a filter is on. No count shows; VoiceOver hears it with each change
+/// (`WorkoutsScreen.announcedFilter`). Each button opens its sheet through `onOpen`: Muscle and
+/// Equipment of chips, Length of presets and wheels.
 struct WorkoutsFilterBar: View {
     @Binding var filter: WorkoutFilter
-    /// How many workouts show, for the count line.
-    let count: Int
     let onOpen: (WorkoutsSheet) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ScrollView(.horizontal) {
-                HStack(spacing: Spacing.sm) {
-                    button("Muscle", choice: filter.muscleLabel, opens: .muscle)
-                    button("Equipment", choice: filter.equipmentLabel, opens: .equipment)
-                    button(
-                        "Length",
-                        choice: filter.lengthLabel,
-                        spoken: filter.lengthSpoken,
-                        opens: .length,
-                    )
-                }
-                .padding(.horizontal, Spacing.md)
-            }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-            if filter.isOn {
-                FilterCount(WorkoutFilter.countText(count)) {
-                    filter = WorkoutFilter()
-                }
-                .padding(.horizontal, Spacing.md)
-                .padding(.top, Spacing.sm + Spacing.xs)
-                .padding(.bottom, Spacing.sm)
-            }
+        FilterButtonRow(isOn: filter.isOn, shows: filter) {
+            filter = WorkoutFilter()
+        } buttons: {
+            button("Muscle", choice: filter.muscleLabel, opens: .muscle)
+            button("Equipment", choice: filter.equipmentLabel, opens: .equipment)
+            button(
+                "Length",
+                choice: filter.lengthLabel,
+                spoken: filter.lengthSpoken,
+                opens: .length,
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, Spacing.sm)
     }
 
     /// A filter's button: its choice, or its name while none is chosen, lit while on. VoiceOver

@@ -158,7 +158,9 @@ extension [Exercise] {
         }
     }
 
-    private static func lettersAndDigits(_ text: String) -> String {
+    /// A name's letters and digits alone, as search compares names; a typed word's offer folds
+    /// the same way (`FilterOffer`).
+    static func lettersAndDigits(_ text: String) -> String {
         let kept = text.unicodeScalars.filter(CharacterSet.alphanumerics.contains)
         return String(String.UnicodeScalarView(kept))
     }

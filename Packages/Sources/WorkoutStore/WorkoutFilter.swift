@@ -95,7 +95,7 @@ public struct WorkoutFilter: Hashable, Sendable {
         )
     }
 
-    /// The count line's words: "2 workouts", "1 workout", "0 workouts".
+    /// The count VoiceOver hears with each change: "2 workouts", "1 workout", "0 workouts".
     public static func countText(_ count: Int) -> String {
         count == 1 ? "1 workout" : "\(count) workouts"
     }

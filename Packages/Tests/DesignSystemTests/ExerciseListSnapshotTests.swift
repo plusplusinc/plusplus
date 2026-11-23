@@ -6,8 +6,9 @@ import Testing
 @testable import DesignSystem
 
 /// The parts of Add exercise drawn here: the bar's search, closed and open, with the leading
-/// button it covers, the checklist Customize pushes, and the filters' buttons, chips, count
-/// line, Create row, and Also needs heading. The screens live in the
+/// button it covers, the checklist Customize pushes, and the filters' row of buttons (the
+/// Workouts list's too), chips, offer line, Create row, and Also needs heading. The screens live in
+/// the
 /// app, which has no test target; the search's motion, its glass (which a snapshot doesn't
 /// draw), and Add exercise's title (placed from the item's measured frame, which a snapshot
 /// draws before it is measured) are checked on the simulator.
@@ -64,42 +65,80 @@ struct ExerciseListSnapshotTests {
         )
     }
 
-    /// The filter buttons as Add exercise lays them out: one line that scrolls sideways.
+    /// The filter buttons in the row both bars share (`FilterButtonRow`), its room under them
+    /// included: one line that scrolls sideways, led by Clear while a filter is on.
     private func filterRow(_ labels: [(String, Bool)]) -> some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: Spacing.sm) {
-                ForEach(labels, id: \.0) { FilterLabel($0.0, isOn: $0.1) }
-            }
-            .padding(.horizontal, Spacing.md)
+        let isOn = labels.contains { $0.1 }
+        return FilterButtonRow(isOn: isOn, shows: isOn) { } buttons: {
+            ForEach(labels, id: \.0) { FilterLabel($0.0, isOn: $0.1) }
         }
-        .scrollIndicators(.hidden)
     }
 
     @Test("The filter buttons, off: three alike, each a capsule with its name and a chevron")
     func filtersOff() {
         assertThemedSnapshots(
             of: filterRow([("Muscle", false), ("Kind", false), ("Equipment", false)])
-                .padding(.vertical, Spacing.sm)
+                .padding(.top, Spacing.sm)
                 .background(Color.pp(.background)),
             width: Self.screenWidth,
         )
     }
 
-    @Test("The filter buttons with choices, light, over the count and Clear, which stack at AX5")
+    @Test("The filter buttons with choices, light, after Clear's ×, a circle their height")
     func filtersOn() {
         assertThemedSnapshots(
-            of: VStack(alignment: .leading, spacing: Spacing.sm + Spacing.xs) {
-                filterRow([("Chest, Back", true), ("Stretch", true), ("Dumbbells, Bench", true)])
-                FilterCount("4 exercises") { }
+            of: filterRow([("Chest, Back", true), ("Stretch", true), ("Dumbbells, Bench", true)])
+                .padding(.top, Spacing.sm)
+                .background(Color.pp(.background)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("One offer under the filter buttons: its button beside the words, alone at AX5")
+    func oneOffer() {
+        assertThemedSnapshots(
+            of: VStack(alignment: .leading, spacing: 0) {
+                filterRow([("Muscle", false), ("Kind", false), ("Equipment", false)])
+                // As Add exercise's bar spaces the line under the row.
+                FilterOfferLine(offers: [.init(title: "Back", filterName: "Muscle") { }])
                     .padding(.horizontal, Spacing.md)
+                    .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.sm)
             }
-            .padding(.vertical, Spacing.sm)
+            .padding(.top, Spacing.sm)
             .background(Color.pp(.background)),
             width: Self.screenWidth,
         )
     }
 
-    @Test("The equipment chips wrap, the chosen ones light; the title and Done stack at AX5")
+    @Test("Two offers: a row right after the words, alone one under another at AX5")
+    func twoOffers() {
+        assertThemedSnapshots(
+            of: FilterOfferLine(offers: [
+                .init(title: "Back", filterName: "Muscle") { },
+                .init(title: "Dumbbells", filterName: "Equipment") { },
+            ])
+            .padding(Spacing.md)
+            .background(Color.pp(.background)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("Three long offers, too wide for a row beside the words, show alone")
+    func threeLongOffers() {
+        assertThemedSnapshots(
+            of: FilterOfferLine(offers: [
+                .init(title: "Medicine ball", filterName: "Equipment") { },
+                .init(title: "Balance board", filterName: "Equipment") { },
+                .init(title: "Stretch", filterName: "Kind") { },
+            ])
+            .padding(Spacing.md)
+            .background(Color.pp(.background)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("The equipment chips wrap, the chosen ones light; the title and the × stack at AX5")
     func equipmentChips() {
         let items = [
             "No equipment", "Dumbbells", "Kettlebell", "Barbell", "Medicine ball",
@@ -122,7 +161,6 @@ struct ExerciseListSnapshotTests {
     func nothingMatching() {
         assertThemedSnapshots(
             of: VStack(alignment: .leading, spacing: Spacing.md) {
-                FilterCount("0 exercises") { }
                 CreateLabel(title: "Create exercise", detail: "Chest, Dumbbells")
                     .font(.ppRowTitle)
                     .makesSomething()

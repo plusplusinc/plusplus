@@ -3,52 +3,65 @@ import SwiftUI
 import WorkoutStore
 
 /// The three filters' buttons over Add exercise's list (`ExerciseListView`), alike whatever
-/// they open, on one line that scrolls sideways when their words don't fit (decided
-/// 2026-11-22: the row never wraps); under them, while one is on, the count and Clear
-/// (`FilterCount`). Muscle and Equipment open a sheet of chips through `onOpen`; Kind, which
-/// takes one at a time, is the system's menu.
+/// they open, in the row the Workouts list's bar shares (`FilterButtonRow`): one line that
+/// scrolls sideways, led by Clear while a filter is on. Each change of the filter is one
+/// `.tapChange`
+/// transaction (`ExerciseListView.announcedFilter`): Clear fades as the buttons slide over,
+/// each button's fill and words crossfade and its width eases. No count shows: VoiceOver hears
+/// it with each change (`ExerciseListView.announcedFilter`). Under the buttons, while typed
+/// words name a filter's choice, the offer line (`FilterOfferLine`), whose button turns that
+/// choice on and takes its words out of the search; with no offer, no line. Muscle and
+/// Equipment open a sheet of chips through `onOpen`; Kind, which takes one at a time, is the
+/// system's menu.
 ///
 /// VoiceOver reads each button by its filter's name, "Muscle", with what is chosen as its
 /// value, "Chest, Back", and as selected while on: the words drawn change to the choice, and
 /// read alone they would lose which filter it is.
 struct FilterBar: View {
     @Binding var filter: ExerciseFilter
-    /// How many exercises show, for the count line.
-    let count: Int
     let onOpen: (FilterSheet) -> Void
+    /// What the typed words offer (`FilterOffer`), on a line right under the buttons.
+    let offers: [FilterOffer]
+    let onTake: (FilterOffer) -> Void
+    /// How many picks Kind's menu has taken: the menu's identity (`kindMenu`).
+    @State private var menuPicks = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ScrollView(.horizontal) {
-                HStack(spacing: Spacing.sm) {
-                    Button { onOpen(.muscle) } label: {
-                        label("Muscle", choice: filter.muscleLabel)
-                    }
-                    .buttonStyle(.plain)
-                    kindMenu
-                    Button { onOpen(.equipment) } label: {
-                        label("Equipment", choice: filter.equipmentLabel)
-                    }
-                    .buttonStyle(.plain)
+            FilterButtonRow(isOn: filter.isOn, shows: filter) {
+                filter = ExerciseFilter()
+            } buttons: {
+                Button { onOpen(.muscle) } label: {
+                    label("Muscle", choice: filter.muscleLabel)
                 }
-                // Inside the scroll's content, so the first button lines up with the rows and
-                // the last scrolls clear of the edge.
-                .padding(.horizontal, Spacing.md)
+                .buttonStyle(.plain)
+                kindMenu
+                Button { onOpen(.equipment) } label: {
+                    label("Equipment", choice: filter.equipmentLabel)
+                }
+                .buttonStyle(.plain)
             }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-            if filter.isOn {
-                FilterCount(Self.countText(count)) {
-                    filter = ExerciseFilter()
-                }
-                .padding(.horizontal, Spacing.md)
-                // Clear is a button of its own, so the line stands off the filters' buttons by
-                // more than the gap between two of them.
-                .padding(.top, Spacing.sm + Spacing.xs)
-                .padding(.bottom, Spacing.sm)
+            if !offers.isEmpty {
+                offerLine
+                    .padding(.horizontal, Spacing.md)
+                    // Its buttons are small buttons of their own, so the line stands off the
+                    // filters' buttons by more than the gap between two of them: the row's own
+                    // room under it, and a little more.
+                    .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.sm)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The offer line: "Filter by" and a button per offer.
+    private var offerLine: FilterOfferLine {
+        FilterOfferLine(offers: offers.map { offer in
+            FilterOfferLine.Offer(
+                title: offer.choice.name,
+                filterName: offer.choice.filterName,
+            ) { onTake(offer) }
+        })
     }
 
     /// Kind takes one at a time, so it is the system's menu: a toggle per kind, the chosen one
@@ -59,12 +72,19 @@ struct FilterBar: View {
                 Toggle(kind.name, isOn: Binding {
                     filter.kind == kind
                 } set: { _ in
+                    menuPicks += 1
                     filter.toggle(kind)
                 })
             }
         } label: {
             label("Kind", choice: filter.kindLabel)
         }
+        // A pick makes a new button, which grows into its place as the others slide. The
+        // closing menu shrinks back into the button it opened from: resized under it, that one
+        // came back cut flat at its old width. A count of picks, not the kind: Clear and a
+        // taken Kind offer change the kind with no menu closing, and the button eases as the
+        // others do.
+        .id(menuPicks)
         .menuOrder(.fixed)
         .buttonStyle(.plain)
     }
@@ -78,7 +98,7 @@ struct FilterBar: View {
             .accessibilityAddTraits(choice != nil ? .isSelected : [])
     }
 
-    /// The count line's words: "12 exercises", "1 exercise", "0 exercises".
+    /// The count VoiceOver hears with each change: "12 exercises", "1 exercise", "0 exercises".
     static func countText(_ count: Int) -> String {
         count == 1 ? "1 exercise" : "\(count) exercises"
     }

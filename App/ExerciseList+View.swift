@@ -18,11 +18,16 @@ import WorkoutStore
 /// (`lettered()`), in green; a tap on one jumps to its heading, and a drag along it scrubs
 /// through them. VoiceOver reads it as one adjustable "Section index". It hides while
 /// searching and while the keyboard is up, when the matches are few and the keyboard covers
-/// most of it, and goes with the headings under a filter.
+/// most of it, while a filter's sheet is up, and goes with the headings under a filter.
 ///
 /// Search is a round button at the bar's top trailing edge, which opens out to the left into a
 /// field across the bar (`BarSearchField`), which the bar's leading button, Close, turns into.
 /// The field covers the bar's title too.
+///
+/// A typed word that names a filter's choice, "back" or "dumbbells", offers it on a line under
+/// the filters' buttons (`FilterOffer`, `FilterOfferLine`): a tap turns the choice on, takes
+/// the word out of the search, and leaves the keyboard up, the field keeping its caret; VoiceOver
+/// hears the new count.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -65,6 +70,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// Where the list's room starts, at the filter row's bottom edge, in global coordinates:
     /// where a heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
     @State private var listTop: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         exercises: ExerciseList,
@@ -88,12 +94,23 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
 
     var body: some View {
         let filtered = exercises.filtered(by: filter, matching: query)
-        list(filtered)
+        // The list's identity is its filter (`list(_:)`); in a container of its own, so a new
+        // filter replaces the list alone. Straight on the list, the bar was replaced with it,
+        // and its buttons popped where they should slide.
+        ZStack { list(filtered) }
+            // The system picked the hard edge while typing, a hairline under the bar over a
+            // lighter band; the soft one, as with the keyboard down, either way.
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .safeAreaBar(edge: .top) {
-                FilterBar(filter: announcedFilter, count: filtered.matches.count, onOpen: open)
-                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
-                        listTop = $0
-                    }
+                FilterBar(
+                    filter: announcedFilter,
+                    onOpen: open,
+                    offers: FilterOffer.offers(in: query, given: filter),
+                    onTake: take,
+                )
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
+                    listTop = $0
+                }
             }
             .sheet(item: $choosing) { sheet in
                 switch sheet {
@@ -132,12 +149,25 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         choosing = sheet
     }
 
+    /// Takes an offer: its choice on, its words out of the search, which stays open with the
+    /// keyboard up. The text changes first, so the count VoiceOver hears is the list's.
+    private func take(_ offer: FilterOffer) {
+        // One transaction for both: the offer line leaving with its words and the filter's
+        // change. The text alone, outside it, took the line away at once and the buttons moved
+        // frames later.
+        withAnimation(.filterChange(reduceMotion: reduceMotion)) {
+            query = offer.remainingText
+            announcedFilter.wrappedValue.turnOn(offer.choice)
+        }
+    }
+
     /// The filter, written through one place, which tells VoiceOver how many exercises show
     /// after each change: it cannot glance at the list behind a sheet of chips. At the write,
-    /// not from a change of the filter, which can be skipped.
+    /// not from a change of the filter, which can be skipped. Every change, Clear, an offer, a
+    /// chip, is one `.tapChange` transaction, so the filter buttons move alike on and off.
     private var announcedFilter: Binding<ExerciseFilter> {
         Binding { filter } set: { changed in
-            filter = changed
+            withAnimation(.filterChange(reduceMotion: reduceMotion)) { filter = changed }
             let count = exercises.filtered(by: changed, matching: query).matches.count
             AccessibilityNotification.Announcement(FilterBar.countText(count)).post()
         }
@@ -217,8 +247,10 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         .containerBackground(Color.pp(.background), for: .navigation)
     }
 
+    /// Not under a filter's sheet either: the sheet floats clear of the screen's edges, and the
+    /// index's letters showed down its side.
     private var showsIndex: Bool {
-        query.isEmpty && !isKeyboardUp
+        query.isEmpty && !isKeyboardUp && choosing == nil
     }
 
     private func row(_ exercise: Exercise) -> some View {

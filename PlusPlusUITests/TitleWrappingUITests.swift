@@ -1,12 +1,16 @@
 import XCTest
 
-/// The title at the largest accessibility text size, where it wraps. VoiceOver frames the field,
+/// The app at the largest accessibility text size, in two tests of one launch each, so each
+/// fits the UI test budget: a seeded workout, the drawer, Workouts, Log, and the filters, and
+/// a new workout's title, rows, and picker.
+///
+/// The title wraps here. VoiceOver frames the field,
 /// so every line it shows, the default drawn behind an empty field included, has to sit inside
 /// the field's frame. Lines are read from the pixels between the bar and a line's height below
 /// the field, where nothing else is drawn on a new workout. Where
 /// the `_` draws on a wrapped name is snapshot-tested.
 ///
-/// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
+/// `nonisolated` because XCTestCase's initializers are; the tests drive the UI on the main actor.
 final nonisolated class TitleWrappingUITests: XCTestCase {
     /// Three lines at AX5.
     private static let threeLines = "Hot beat drills and abs"
@@ -15,16 +19,24 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     /// How far below the field the lines are read: more than a line of the title at AX5.
     private static let spill: CGFloat = 80
 
+    /// A seeded workout started and relaunched, with the drawer and Workouts audited on the way
+    /// to it and Log on the way back, then Add exercise's filters on a new workout pushed from
+    /// Workouts.
     @MainActor
-    func testWrappedTitleAtLargestTextSize() throws {
+    func testWorkoutAndFiltersAtLargestTextSize() throws {
         let app = XCUIApplication()
-        // The workout in progress is seeded at this launch, and the title's checks run on a new
-        // workout opened after it, so the test launches once. The drawer and Workouts are
-        // audited on the way to the workout, and Log on the way to the new one.
         try liveWorkoutAtAX5(in: app)
         try logAtAX5(in: app)
         app.pushNewWorkout()
-        let title = app.workoutTitle
+        _ = app.openPicker()
+        try filterAtAX5(in: app)
+        try offersAtAX5(in: app)
+    }
+
+    @MainActor
+    func testWrappedTitleAtLargestTextSize() throws {
+        let app = XCUIApplication()
+        let title = app.launchNewWorkout(textSize: Self.largestTextSize)
         let keyboard = app.keyboards.element
 
         try XCTContext.runActivity(named: "The field covers the wrapped default") { _ in
@@ -173,10 +185,9 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(time.disappears(), "Close left the sheet up")
             _ = app.openPicker()
             attach(named: "picker-ax5")
-            try filterAtAX5(in: app)
+            // Its filters at this size are `testWorkoutAndFiltersAtLargestTextSize`'.
             app.search(for: "curl")
             XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
-            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             let created = app.searchForNothing(extending: "curl")
             attach(named: "picker-create-only-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])

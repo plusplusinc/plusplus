@@ -22,8 +22,14 @@ private struct FilterCapsule: ViewModifier {
 /// What a filter's button shows: a capsule with its words and a small chevron. Off, it reads
 /// the filter's name on the raised surface; on, it reads what is chosen in the light style.
 /// Every filter's trigger draws this one view, whether it opens a sheet or a menu, so they look
-/// alike. The words are one `Text` whose string changes, so they never crossfade by branch;
-/// VoiceOver reads the words alone, without the chevron.
+/// alike. VoiceOver reads the words alone, without the chevron.
+///
+/// New words replace the old at once and fade in over the second half of the capsule's easing
+/// to their width (`WordsFade`), while the fill crossfades: crossfaded, the two showed
+/// overlapped mid-way. The words are one `Text` whose string changes, so they ride the capsule
+/// as it moves (a new `Text` showed at its end place while the capsule was still on its way),
+/// cut at the capsule's easing width, so a longer word never runs under the chevron. Words that
+/// stay as only the weight changes don't fade.
 public struct FilterLabel: View {
     let text: String
     let isOn: Bool
@@ -36,6 +42,11 @@ public struct FilterLabel: View {
         HStack(spacing: Spacing.xs) {
             Text(text)
                 .fontWeight(isOn ? .semibold : .medium)
+                .fixedSize()
+                .contentTransition(.identity)
+                .modifier(WordsFade(text))
+                // Laid out at full width at once; drawn only as far as the frame has eased.
+                .clipped()
             Image(systemName: "chevron.down")
                 .imageScale(.small)
                 .fontWeight(.semibold)
@@ -47,6 +58,53 @@ public struct FilterLabel: View {
         // scaled minimum stood the row 127 pt tall around a 74 pt capsule.
         .frame(minHeight: 44)
         .contentShape(.rect)
+    }
+}
+
+/// A filter button's new words faded in on the transaction that changes them: hidden from the
+/// first frame drawn with them, in through the second half of the change. A `keyframeAnimator`
+/// triggered by the words starts an update late, and on a change that rebuilt a list the new
+/// words showed whole for a frame or two before going out to fade in.
+///
+/// How far through the change the words are comes from the animation itself: the modifier
+/// animates a number standing for the words, `key`, and its square, from the old words' to the
+/// new. Partway, at `p`, the two are `old + p(new - old)` and `old² + p(new² - old²)`, which
+/// give `p` knowing only the new words' `key`. That holds for a change from words at rest; one
+/// that takes over another mid-way starts off that curve, and its words come in sooner, still cut
+/// at the capsule's width. So do words whose numbers happen to match, about one change in ten
+/// thousand.
+private struct WordsFade: ViewModifier, Animatable {
+    var animatableData: AnimatablePair<Double, Double>
+    let key: Double
+
+    /// How far through the change the new words stay out of sight, while the capsule does most
+    /// of its easing to their width, so they come in on a button near its new size, as the
+    /// keyframe fade they replace did.
+    static let hiddenFor = 0.5
+
+    init(_ text: String) {
+        // Any number per words, so long as different words mostly get different numbers. Kept
+        // small, so its square stays precise enough near a change's end that close numbers
+        // don't flicker.
+        key = Double(UInt(bitPattern: text.hashValue) % 10007) + 1
+        animatableData = AnimatablePair(key, key * key)
+    }
+
+    /// From 0 as the words change to 1 at the end of the change; 1 at rest.
+    private var progress: Double {
+        let (value, square) = (animatableData.first, animatableData.second)
+        let ahead = key - value
+        guard abs(ahead) > 1e-6 else { return 1 }
+        let span = 2 * key - (key * key - square) / ahead
+        guard abs(span) > 1e-6 else { return 1 }
+        return 1 - ahead / span
+    }
+
+    func body(content: Content) -> some View {
+        let opacity = min(max((progress - Self.hiddenFor) / (1 - Self.hiddenFor), 0), 1)
+        // Set as worked out, frame by frame: animated too, the change's own transaction eased
+        // it from the old words' 1, and the new words showed whole for two frames.
+        return content.animation(nil) { $0.opacity(opacity) }
     }
 }
 
@@ -70,32 +128,16 @@ struct ChipButtonStyle: ButtonStyle {
     }
 }
 
-/// A filter's sheet of chips, any number chosen: a header with the title and Done, then every
-/// item as a chip, wrapping. A tap toggles a chip at once, so whatever the filter narrows
-/// changes behind the sheet with each tap; Done or a swipe down only closes it.
-///
-/// The sheet sits at its content's own height, with the room under the last line of chips
-/// what it is at the sides. A `.height` detent adds the home indicator's room under the
-/// content even where the sheet floats clear of it, so the detent asks that much less
-/// (`detentRoom`). Chips that fit stay still under a drag; where they outgrow the sheet's full
-/// height, as at the largest text sizes, they scroll under the header, which stays put, and
-/// keep that room under their end. Where the title and Done won't fit side
-/// by side, Done goes under the title (`LineOrStack`), which beside it broke mid-word.
+/// A filter's sheet of chips, any number chosen (`FilterSheetFrame`: the title and a glass ×,
+/// at half height): every item as a chip, wrapping. A tap toggles a chip at once, so whatever
+/// the filter narrows changes behind the sheet with each tap; the × or a swipe down only
+/// closes it. Equipment's chips at the largest text sizes overflow half height, and scroll.
 public struct ChipSheet<Item: Hashable>: View {
     let title: String
     let items: [Item]
     @Binding var chosen: Set<Item>
     let name: (Item) -> String
     let onDone: () -> Void
-
-    @State private var headerHeight: CGFloat = 0
-    @State private var chipsHeight: CGFloat = 0
-    @State private var overflows = false
-
-    /// The sheet's content: the header over every chip.
-    private var height: CGFloat {
-        headerHeight + chipsHeight
-    }
 
     public init(
         title: String,
@@ -112,50 +154,18 @@ public struct ChipSheet<Item: Hashable>: View {
     }
 
     public var body: some View {
-        let room = detentRoom
-        return VStack(spacing: 0) {
-            header
-                .padding([.horizontal, .top], Spacing.md)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
-            ScrollView {
-                // Touching: each chip carries half the gap around its capsule
-                // (`ChipButtonStyle`), which the negative inset takes back at the edges, so
-                // the capsules line up with the title.
-                FlowLayout(spacing: 0) {
-                    ForEach(items, id: \.self) { item in
-                        chip(item)
-                    }
+        FilterSheetFrame(title: title, onDone: onDone) {
+            // Touching: each chip carries half the gap around its capsule (`ChipButtonStyle`),
+            // which the negative inset takes back at the edges, so the capsules line up with
+            // the title.
+            FlowLayout(spacing: 0) {
+                ForEach(items, id: \.self) { item in
+                    chip(item)
                 }
-                .padding(-Spacing.xs)
-                .padding([.horizontal, .bottom], Spacing.md)
-                .padding(.top, Spacing.sm)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { chipsHeight = $0 }
             }
-            // Scrolled to its end, the last chips stand clear of the home indicator: the room
-            // the ignored safe area below would have given, only where the chips overflow.
-            .contentMargins(.bottom, overflows ? room : 0, for: .scrollContent)
-            .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentSize.height > geometry.containerSize.height + 1
-            } action: { _, overflowing in
-                overflows = overflowing
-            }
-            .scrollBounceBehavior(.basedOnSize)
-            // The sheet hands the scroll view its bottom safe area as an inset, even where it
-            // floats clear of the home indicator; kept, it would scroll chips that fit by that
-            // much.
-            .ignoresSafeArea(.container, edges: .bottom)
+            .padding(-Spacing.xs)
         }
         .sensoryFeedback(.selection, trigger: chosen)
-        .presentationDetents(
-            headerHeight > 0 && chipsHeight > 0 ? [.height(max(height - room, 0))] : [.medium],
-        )
-        .presentationDragIndicator(.visible)
-        .presentationBackground(Color.pp(.surface))
-    }
-
-    private var header: some View {
-        SheetHeader(title: title, onDone: onDone)
     }
 
     private func chip(_ item: Item) -> some View {
@@ -172,74 +182,75 @@ public struct ChipSheet<Item: Hashable>: View {
     }
 }
 
-/// A filter sheet's header, `ChipSheet`'s and `LengthSheet`'s: the title, read as a heading, and
-/// Done. Where the two won't fit side by side, Done goes under the title (`LineOrStack`).
-struct SheetHeader: View {
+/// What every filter's sheet is, `ChipSheet`'s and `LengthSheet`'s: a header with the title, read
+/// as a heading, and a round glass × (`GlassCloseButton`, Add exercise's own Close, read "Done"
+/// since nothing it closes is undone), fixed at the top; under it the content, from the top.
+///
+/// The sheet opens at half height (decided 2026-11-23), empty room under the content, so
+/// nothing sits near the bottom of the screen. Content that fits stays still under a drag.
+/// Where it doesn't fit in half height, as at the largest text sizes, the sheet also offers
+/// full height, and the content scrolls under the header, which stays put. Where the title and
+/// the × won't fit side by side, the × goes under the title (`LineOrStack`), which beside it
+/// broke mid-word.
+struct FilterSheetFrame<Content: View>: View {
     let title: String
     let onDone: () -> Void
+    let content: Content
+
+    @State private var detent = PresentationDetent.medium
+    /// Measured at half height only: at full height the content may fit, and dropping `.large`
+    /// then would pull the sheet back down under the finger.
+    @State private var overflowsAtMedium = false
+
+    init(title: String, onDone: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.onDone = onDone
+        self.content = content()
+    }
 
     var body: some View {
+        VStack(spacing: 0) {
+            header
+                .padding([.horizontal, .top], Spacing.md)
+            ScrollView {
+                content
+                    .padding([.horizontal, .bottom], Spacing.md)
+                    .padding(.top, Spacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.height > geometry.containerSize.height + 1
+            } action: { _, overflowing in
+                if detent == .medium {
+                    overflowsAtMedium = overflowing
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .presentationDetents(
+            overflowsAtMedium ? [.medium, .large] : [.medium],
+            selection: $detent,
+        )
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Color.pp(.surface))
+    }
+
+    private var header: some View {
         LineOrStack(spacing: 0) {
             Text(title)
                 .font(.ppBarTitle)
                 .foregroundStyle(Color.pp(.textPrimary))
                 .accessibilityAddTraits(.isHeader)
-            Button("Done", action: onDone)
-                .font(.ppButton)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .frame(minHeight: 44)
+            GlassCloseButton("Done", action: onDone)
+                // The size Add exercise's Close reaches, which the bar stops growing; uncapped,
+                // at the largest sizes it stood 120 pt and pushed under the title.
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
     }
 }
 
-/// The room a `.height` detent adds under a sheet's content: the window's bottom safe area. The
-/// sheet stands that much taller than asked, and reports the room as a bottom safe area
-/// (measured on iOS 27: 126 pt asked, 160 pt given, 34 pt of safe area).
-var detentRoom: CGFloat {
-    UIApplication.shared.connectedScenes
-        .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
-        .first ?? 0
-}
-
-/// The line under the filter buttons while one is on: how many exercises show, and Clear,
-/// which VoiceOver reads as "Clear filters". Where the two won't fit side by side, as at the
-/// largest text sizes, Clear goes under the count (`LineOrStack`) rather than either breaking
-/// a word.
-public struct FilterCount: View {
-    let text: String
-    let onClear: () -> Void
-
-    public init(_ text: String, onClear: @escaping () -> Void) {
-        self.text = text
-        self.onClear = onClear
-    }
-
-    public var body: some View {
-        TextAndButton {
-            Text(text)
-                .foregroundStyle(Color.pp(.textSecondary))
-        } button: {
-            SmallCapsuleButton(systemImage: "xmark", title: "Clear", action: onClear)
-                .accessibilityLabel("Clear filters")
-        }
-    }
-}
-
-/// A line's words leading and its small button trailing, in `.ppRowDetail`.
-private struct TextAndButton<Words: View, Trailing: View>: View {
-    @ViewBuilder let words: Words
-    @ViewBuilder let button: Trailing
-
-    var body: some View {
-        LineOrStack {
-            words
-            button
-        }
-        .font(.ppRowDetail)
-    }
-}
-
-/// A line's own small button, Clear and "+ Bench": its capsule (`SmallCapsuleLabel`) laid out
+/// A line's own small button, an offer's "+ Back" and "+ Bench": its capsule (`SmallCapsuleLabel`)
+/// laid out
 /// at the capsule's size, so the line stands as tall as its words, while the button, its touch
 /// and what VoiceOver outlines, reaches past the capsule to a thumb's height and a gap's width
 /// on each side (`TouchOutset`). A thumb's size, not scaled with the text, as `FilterLabel`'s.
@@ -249,22 +260,27 @@ struct SmallCapsuleButton: View {
     var symbolColor = ColorToken.textPrimary
     /// Where the capsule sits in its line's width once its word wraps there, as at the largest
     /// text sizes, so it keeps to the edge of the words it goes with.
-    var alignment = Alignment.center
+    var alignment = HorizontalAlignment.center
     let action: () -> Void
-
-    /// How far the touch reaches past the capsule on each side.
-    private static let sides = Spacing.sm
+    @Environment(\.touchRoom) private var room
+    /// Read by `OfferButtons`, a `Layout`, whose methods are nonisolated.
+    nonisolated static let touchHeight: CGFloat = 44
 
     var body: some View {
-        TouchOutset(minHeight: 44, sides: Self.sides) {
+        let outset = TouchOutset(minHeight: Self.touchHeight, sides: Spacing.sm, room: room)
+        outset {
             Button(action: action) {
-                SmallCapsuleLabel(systemImage: systemImage, title: title, symbolColor: symbolColor)
-                    // Fills the room `TouchOutset` places it in, short of its sides, so the
-                    // capsule wraps its word within the line, and takes touches across all of
-                    // it.
-                    .padding(.horizontal, Self.sides)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
-                    .contentShape(.rect)
+                // Fills the room `TouchOutset` places it in, the capsule on its own spot within
+                // the line's width, so it wraps its word there, and takes touches across all
+                // of it.
+                TouchInset(outset: outset, alignment: alignment) {
+                    SmallCapsuleLabel(
+                        systemImage: systemImage,
+                        title: title,
+                        symbolColor: symbolColor,
+                    )
+                }
+                .contentShape(.rect)
             }
             .buttonStyle(.plain)
         }
@@ -276,8 +292,8 @@ struct SmallCapsuleButton: View {
 /// The symbol is a symbol, not a character, so it centers on the word's line; a typed "+"
 /// sits on the baseline, low beside capitals. Its leading inset is the one the capsule's
 /// height leaves above and below it, so it sits in the middle of the capsule's round end.
-/// The symbol is in the word's color unless `symbolColor` says otherwise: "+ Bench"'s + is
-/// green, as the app's other + marks that make or add something are.
+/// The symbol is in the word's color unless `symbolColor` says otherwise: an offer's + and
+/// "+ Bench"'s are green, as the app's other + marks that make or add something are.
 struct SmallCapsuleLabel: View {
     let systemImage: String
     let title: String
@@ -346,11 +362,11 @@ public struct CreateLabel: View {
             FilterLabel("Equipment", isOn: false)
         }
         FlowLayout(spacing: Spacing.sm) {
+            ClearFiltersLabel()
             FilterLabel("Chest, Back", isOn: true)
             FilterLabel("Stretch", isOn: true)
             FilterLabel("Dumbbells, Bench", isOn: true)
         }
-        FilterCount("4 exercises") { }
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)

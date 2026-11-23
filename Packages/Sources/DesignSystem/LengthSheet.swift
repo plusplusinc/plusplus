@@ -1,14 +1,14 @@
 #if os(iOS)
 import SwiftUI
 
-/// The Length filter's sheet: the header a chip sheet has, title and Done fixed at the top
-/// (`SheetHeader`); three presets on one row, sharing its width; and under them two wheels of
+/// The Length filter's sheet, a chip sheet's frame (`FilterSheetFrame`: the title and a glass ×,
+/// at half height): three presets on one row, sharing its width; and under them two wheels of
 /// minutes, read as "20 – 40 min" (`RangeWheels`). A preset sets both wheels and lights while
 /// the wheels read its range; tapping the lit one turns the filter off. Every change applies at
-/// once, behind the sheet, as a chip's tap does; Done or a swipe down only closes it.
+/// once, behind the sheet, as a chip's tap does; the × or a swipe down only closes it.
 ///
-/// The sheet sits at its content's own height, as `ChipSheet` does. At the accessibility sizes
-/// the presets stack, one per line, rather than any breaking a word.
+/// At the accessibility sizes the presets stack, one per line, rather than any breaking a
+/// word, and the sheet overflows half height, so it also offers full height and scrolls.
 public struct LengthSheet: View {
     let presets: [String]
     /// Each preset's words as VoiceOver reads them, "20 minutes or less" for "≤ 20 min".
@@ -23,8 +23,6 @@ public struct LengthSheet: View {
     let onLower: (Int) -> Void
     let onUpper: (Int?) -> Void
     let onDone: () -> Void
-
-    @State private var height: CGFloat = 0
 
     public init(
         presets: [String],
@@ -53,33 +51,31 @@ public struct LengthSheet: View {
     }
 
     public var body: some View {
-        let room = detentRoom
-        return VStack(alignment: .leading, spacing: Spacing.sm) {
-            SheetHeader(title: "Length", onDone: onDone)
-            LengthPresets(presets: presets, spoken: spokenPresets, lit: lit, onPreset: onPreset)
+        FilterSheetFrame(title: "Length", onDone: onDone) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                LengthPresets(
+                    presets: presets,
+                    spoken: spokenPresets,
+                    lit: lit,
+                    onPreset: onPreset,
+                )
                 // Touching, as `ChipSheet`'s chips: the negative inset takes back the half gap
                 // each chip carries, so the capsules line up with the title.
                 .padding(-Spacing.xs)
-            RangeWheels(
-                lower: lower,
-                upper: upper,
-                lowerValues: lowerValues,
-                upperValues: upperValues,
-                onLower: onLower,
-                onUpper: onUpper,
-            )
-            // The picker draws its band inset from its sides; out by that much, the band's
-            // ends line up with the presets'.
-            .padding(.horizontal, -Spacing.sm)
+                RangeWheels(
+                    lower: lower,
+                    upper: upper,
+                    lowerValues: lowerValues,
+                    upperValues: upperValues,
+                    onLower: onLower,
+                    onUpper: onUpper,
+                )
+                // The picker draws its band inset from its sides; out by that much, the band's
+                // ends line up with the presets'.
+                .padding(.horizontal, -Spacing.sm)
+            }
         }
-        .padding(Spacing.md)
-        .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
-        .frame(maxHeight: .infinity, alignment: .top)
         .sensoryFeedback(.selection, trigger: lit)
-        .presentationDetents(height > 0 ? [.height(max(height - room, 0))] : [.medium])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(Color.pp(.surface))
     }
 }
 

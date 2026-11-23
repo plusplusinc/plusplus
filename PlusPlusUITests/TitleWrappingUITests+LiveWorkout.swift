@@ -1,6 +1,6 @@
 import XCTest
 
-/// A workout at the largest text size, run first within `testWrappedTitleAtLargestTextSize`:
+/// A workout at the largest text size, run first within `testWorkoutAndFiltersAtLargestTextSize`:
 /// its bar and End's dialog under the audit, and where Start and a relaunch land. Here the
 /// equipment under the title stands taller than the screen, so the current exercise starts out
 /// below it, and Start's scroll to the top runs far.
@@ -67,8 +67,9 @@ extension TitleWrappingUITests {
         }
     }
 
-    /// The Workouts list with a filter on, its count line and Clear, and the Length sheet, with
-    /// its presets stacked and its wheels, pass the audit. Leaves no filter on.
+    /// The Workouts list with a filter on and Clear leading its buttons, and the Length sheet,
+    /// its presets stacked and its wheels, pass the audit; the Length sheet, opened at half
+    /// height, offers the full height its content overflows into. Leaves no filter on.
     private func workoutsFiltersAtAX5(in app: XCUIApplication) throws {
         app.buttons["Muscle"].tap()
         let chest = app.scrollViews.buttons["Chest"]
@@ -77,7 +78,7 @@ extension TitleWrappingUITests {
         app.buttons["Done"].tap()
         XCTAssertTrue(chest.disappears(), "Done left the chips up")
         let clear = app.buttons["Clear filters"]
-        XCTAssertTrue(clear.exists, "No Clear under the filter")
+        XCTAssertTrue(clear.exists, "No Clear with the filter on")
         attach(named: "workouts-filtered-ax5")
         try auditBelowTheBar(in: app)
         // At this size Length is past the screen's edge, as the bar scrolls sideways.
@@ -87,6 +88,11 @@ extension TitleWrappingUITests {
         length.tap()
         let upTo20 = app.buttons["20 minutes or less"]
         XCTAssertTrue(upTo20.appears(), "Length opened no presets")
+        // Its presets and wheels overflow half height at this size, so the sheet offers its
+        // large height, which only the system's grabber shows.
+        let grabber = app.buttons["Sheet Grabber"]
+        grabber.tap()
+        XCTAssertEqual(grabber.value(becoming: "Expanded"), "Expanded", "No full-height Length")
         attach(named: "length-sheet-ax5")
         try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         app.buttons["Done"].tap()

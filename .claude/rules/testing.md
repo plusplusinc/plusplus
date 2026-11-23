@@ -109,7 +109,7 @@ a distinct claim. A test's 90 s rises only with a new launch configuration.
 | `DesignSystemTests` | 30 s | 24 s |
 | a `DesignSystemTests` test | 2 s | 1.6 s |
 | each UI test | 90 s | 66.7 s |
-| the UI tests together, 9 | 450 s | 333 s |
+| the UI tests together, 10 | 500 s | 370 s |
 
 A PR run's start-to-finish time has no budget: about 250 s is Xcode Cloud's own steps.
 
@@ -147,7 +147,8 @@ and the drawer through `SideDrawer`'s `progress:`; a suggestion's arrival comes 
 There is one UI test per launch configuration, split by feature where one test would pass the
 UI test budget, each a series of named `XCTContext.runActivity` checks:
 `RenameUITests/testRenameAtDefaultSize`, `RowDragUITests/testDragAndDeleteRows` (the rows
-seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
+seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize` and
+`testWorkoutAndFiltersAtLargestTextSize`,
 `WorkoutAutosaveUITests/testWorkoutSurvivesRelaunch`,
 `WorkoutDrawerUITests/testDrawerSwitchesWorkouts` (a workout seeded),
 `LiveWorkoutUITests/testLiveWorkoutSurvivesRelaunch`, and
@@ -185,7 +186,7 @@ frame can land on what is arriving there.
 
 ## Every test
 
-Before adding a test, find the closest one that already exists. If it proves the guarantee,
+Before adding a test, find the closest existing one. If it proves the guarantee,
 don't add another; if not, say why it doesn't.
 
 - Tests that need UIKit are wrapped in `#if canImport(UIKit) && !os(watchOS)` so `swift test`
