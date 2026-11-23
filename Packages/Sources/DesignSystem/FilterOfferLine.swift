@@ -13,6 +13,7 @@ import SwiftUI
 public struct FilterOfferLine: View {
     let text: String
     let offers: [Offer]
+    @Environment(\.touchRoom) private var room
 
     /// One offer's button: the choice's name, the filter it joins, and what a tap does.
     public struct Offer: Identifiable {
@@ -39,7 +40,7 @@ public struct FilterOfferLine: View {
             Text(text)
                 .foregroundStyle(Color.pp(.textSecondary))
         } button: {
-            OfferButtons {
+            OfferButtons(room: room) {
                 ForEach(offers) { offer in
                     SmallCapsuleButton(
                         systemImage: "plus",
@@ -58,16 +59,18 @@ public struct FilterOfferLine: View {
 }
 
 /// An offer line's buttons: side by side, a gap apart, where they fit in the width; otherwise
-/// one under another, leading, each gap wide enough that two buttons' thumb-high touches
-/// (`TouchOutset`) meet without overlapping. A small `Layout`, not `ViewThatFits`, which hung
-/// the workout screen.
+/// one under another, leading, each gap as wide as the two buttons' touches reach across it
+/// (`TouchOutset`, capped by `room`), so they meet without overlapping or leaving a dead strip.
+/// A small `Layout`, not `ViewThatFits`, which hung the workout screen.
 struct OfferButtons: Layout {
+    /// The cap on the buttons' reach from further out, as `FilterLines` puts above the line.
+    var room = TouchRoom()
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let row = rowWidth(sizes)
         let width = proposal.width ?? .infinity
-        if row <= width {
-            return CGSize(width: row, height: sizes.map(\.height).max() ?? 0)
+        if fitsRow(sizes, in: width) {
+            return CGSize(width: rowWidth(sizes), height: sizes.map(\.height).max() ?? 0)
         }
         let column = ProposedViewSize(width: width, height: nil)
         let heights = subviews.map { $0.sizeThatFits(column).height }
@@ -84,7 +87,7 @@ struct OfferButtons: Layout {
         cache _: inout (),
     ) {
         let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        if rowWidth(sizes) <= bounds.width + 0.5 {
+        if fitsRow(sizes, in: bounds.width) {
             var x = bounds.minX
             for (view, size) in zip(subviews, sizes) {
                 view.place(
@@ -110,11 +113,24 @@ struct OfferButtons: Layout {
         sizes.map(\.width).reduce(0, +) + Spacing.sm * CGFloat(max(sizes.count - 1, 0))
     }
 
-    /// The gap under each button but the last: a gap, or wider where the two buttons' touches,
-    /// each reaching to a thumb's height around its capsule, would overlap across it.
+    /// Whether the buttons fit side by side, give or take the half point a width rounds by:
+    /// sizing and placing ask the same question, so they never pick different arrangements.
+    private func fitsRow(_ sizes: [CGSize], in width: CGFloat) -> Bool {
+        rowWidth(sizes) <= width + 0.5
+    }
+
+    /// The gap under each button but the last: a gap, or as wide as the upper button's touch
+    /// reaches down and the lower one's up, where that is wider.
     private func gaps(_ heights: [CGFloat]) -> [CGFloat] {
         zip(heights, heights.dropFirst()).map { upper, lower in
-            max(Spacing.sm, SmallCapsuleButton.touchHeight - (upper + lower) / 2)
+            let outset = TouchOutset(
+                minHeight: SmallCapsuleButton.touchHeight,
+                sides: 0,
+                room: room,
+            )
+            let below = outset.insets(around: CGSize(width: 0, height: upper)).bottom
+            let above = outset.insets(around: CGSize(width: 0, height: lower)).top
+            return max(Spacing.sm, below + above)
         }
     }
 }

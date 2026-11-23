@@ -51,95 +51,88 @@ public struct FilterOffer: Hashable, Sendable {
     /// The search text with the offer's words taken out, and the space beside them.
     public let remainingText: String
 
+    /// Every folded form that names a choice, singular and plural, to its choice; where two
+    /// choices share a form, the first in `FilterChoice.allCases` keeps it.
+    private static let choicesByName: [String: FilterChoice] = {
+        var named: [String: FilterChoice] = [:]
+        for choice in FilterChoice.allCases {
+            for name in choice.foldedNames {
+                let forms = [name, name + "s", name + "es"]
+                    + (name.hasSuffix("s") ? [String(name.dropLast())] : [])
+                for form in forms where named[form] == nil {
+                    named[form] = choice
+                }
+            }
+        }
+        return named
+    }()
+
     /// The most words a choice's name runs to, typed apart: "pull up bar".
-    private static let longestRun = 3
+    private static let longestRun = FilterChoice.allCases.map { choice in
+        choice.name.split { !$0.isLetter && !$0.isNumber }.count
+    }.max() ?? 1
 
     /// The offers `text` makes against `filter`, in the order their words were typed, one per
     /// choice. Longer names win over the shorter ones inside them, and a word belongs to one
     /// offer at most.
     public static func offers(in text: String, given filter: ExerciseFilter) -> [Self] {
-        let words = words(in: text)
+        let words = text.split(whereSeparator: \.isWhitespace).map(Word.init)
+            .filter { !$0.folded.isEmpty }
         var offers: [Self] = []
         var index = 0
         while index < words.count {
-            var taken = false
-            for length in stride(from: min(longestRun, words.count - index), through: 1, by: -1) {
-                let run = words[index ..< index + length]
-                let folded = run.map(\.folded).joined()
-                guard let choice = choice(named: folded) else { continue }
-                taken = true
-                if !filter.has(choice), !offers.contains(where: { $0.choice == choice }) {
-                    let range = words[index].range.lowerBound
-                        ..< words[index + length - 1].range.upperBound
-                    offers.append(Self(choice: choice, remainingText: removing(range, from: text)))
-                }
-                index += length
-                break
-            }
-            if !taken {
+            guard let (choice, length) = longestChoice(at: index, in: words) else {
                 index += 1
+                continue
             }
+            if !filter.has(choice), !offers.contains(where: { $0.choice == choice }) {
+                let range = words[index].range.lowerBound
+                    ..< words[index + length - 1].range.upperBound
+                offers.append(Self(choice: choice, remainingText: removing(range, from: text)))
+            }
+            index += length
         }
         return offers
     }
 
-    private static func choice(named folded: String) -> FilterChoice? {
-        FilterChoice.allCases.first { choice in
-            choice.foldedNames.contains { name in
-                folded == name || folded == name + "s" || folded == name + "es"
-                    || (name.hasSuffix("s") && folded == String(name.dropLast()))
+    /// The choice the longest run of words from `index` names, and how many words it took.
+    private static func longestChoice(at index: Int, in words: [Word]) -> (FilterChoice, Int)? {
+        for length in stride(from: min(longestRun, words.count - index), through: 1, by: -1) {
+            let folded = words[index ..< index + length].map(\.folded).joined()
+            if let choice = choicesByName[folded] {
+                return (choice, length)
             }
         }
+        return nil
     }
 
-    /// The text's words, split at spaces, each with its folded form; a word that folds to
-    /// nothing, such as "-", is left out.
-    private static func words(in text: String) -> [Word] {
-        var words: [Word] = []
-        var start: String.Index?
-        for index in text.indices {
-            if text[index].isWhitespace {
-                if let begun = start {
-                    words.append(Word(text, begun ..< index))
-                    start = nil
-                }
-            } else if start == nil {
-                start = index
-            }
-        }
-        if let begun = start {
-            words.append(Word(text, begun ..< text.endIndex))
-        }
-        return words.filter { !$0.folded.isEmpty }
-    }
-
-    /// `text` without `range` and one space beside it, trimmed.
+    /// `text` without `range` and one space beside it, the one after where there is one, so
+    /// the rest of the text, its spaces at either end included, stays as typed.
     private static func removing(_ range: Range<String.Index>, from text: String) -> String {
-        var upper = range.upperBound
+        var (lower, upper) = (range.lowerBound, range.upperBound)
         if upper < text.endIndex, text[upper].isWhitespace {
             upper = text.index(after: upper)
+        } else if lower > text.startIndex, text[text.index(before: lower)].isWhitespace {
+            lower = text.index(before: lower)
         }
-        let left = text[..<range.lowerBound] + text[upper...]
-        return left.trimmingCharacters(in: .whitespacesAndNewlines)
+        let left = String(text[..<lower] + text[upper...])
+        return left.allSatisfy(\.isWhitespace) ? "" : left
     }
 
-    /// Lowercased letters and digits alone, diacritics folded, as search compares names.
+    /// Letters and digits alone, as search compares names (`[Exercise].lettersAndDigits`), with
+    /// case and diacritics folded away, as search's comparison ignores them.
     static func folded(_ text: some StringProtocol) -> String {
-        let plain = String(text).folding(
-            options: [.caseInsensitive, .diacriticInsensitive],
-            locale: nil,
-        ).lowercased()
-        let kept = plain.unicodeScalars.filter(CharacterSet.alphanumerics.contains)
-        return String(String.UnicodeScalarView(kept))
+        [Exercise].lettersAndDigits(String(text))
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
     private struct Word {
         let range: Range<String.Index>
         let folded: String
 
-        init(_ text: String, _ range: Range<String.Index>) {
-            self.range = range
-            folded = FilterOffer.folded(text[range])
+        init(_ word: Substring) {
+            range = word.startIndex ..< word.endIndex
+            folded = FilterOffer.folded(word)
         }
     }
 }

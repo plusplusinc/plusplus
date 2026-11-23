@@ -68,8 +68,11 @@ struct FilterOfferTests {
         #expect(offers.map(\.remainingText) == ["dumbbell", "back"])
     }
 
-    @Test("Taking an offer leaves the rest of the text, trimmed")
+    @Test("Taking an offer leaves the rest of the text as typed, less one space by the word")
     func remainingText() {
+        // A space typed after the last word stays, so the next word starts apart.
+        #expect(FilterOffer.offers(in: "squat back ", given: ExerciseFilter()).first?
+            .remainingText == "squat ")
         let offer = FilterOffer.offers(in: "barbell  back squat", given: ExerciseFilter())
             .first { $0.choice == .muscle(.back) }
         #expect(offer?.remainingText == "barbell  squat")

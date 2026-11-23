@@ -20,8 +20,8 @@ struct FilterBar: View {
     let onOpen: (FilterSheet) -> Void
     /// What the typed words offer (`FilterOffer`), on a line under the count line, or under
     /// the buttons while no filter is on.
-    var offers: [FilterOffer] = []
-    var onTake: (FilterOffer) -> Void = { _ in }
+    let offers: [FilterOffer]
+    let onTake: (FilterOffer) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

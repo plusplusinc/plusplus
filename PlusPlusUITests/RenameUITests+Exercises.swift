@@ -73,7 +73,8 @@ extension RenameUITests {
     /// "bench" typed in the picker's search offers Bench; taking it turns Equipment's Bench on,
     /// takes the word out of the field, and leaves the keyboard up, so typing goes on. Which
     /// words offer what is `FilterOfferTests`'; the line's look, `ExerciseListSnapshotTests`'.
-    /// The real keyboard staying up is only the running app's. Leaves "bench" typed, Bench on.
+    /// The real keyboard staying up is only the running app's. Leaves "bench" typed and no
+    /// filter on, as a plain search would.
     private func takeTypedFilter(in app: XCUIApplication, keyboard: XCUIElement) {
         XCTContext.runActivity(named: "Taking a typed word's filter keeps the keyboard up") { _ in
             app.search(for: "bench")
@@ -90,6 +91,10 @@ extension RenameUITests {
                 "bench",
                 "Typing after the offer did not land in an emptied field",
             )
+            // Bench alone would move the next pick, which needs a barbell too, under "Also
+            // needs a barbell".
+            app.buttons["Clear filters"].tap()
+            XCTAssertEqual(app.buttons["Equipment"].value(becoming: ""), "")
         }
     }
 
