@@ -174,9 +174,22 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             _ = app.openPicker()
             attach(named: "picker-ax5")
             try filterAtAX5(in: app)
-            app.search(for: "curl")
-            XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
+            // "arm" finds names and offers Arms, so the results are audited with the offer line
+            // over them; its look is `ExerciseListSnapshotTests`'.
+            app.search(for: "arm")
+            let offer = app.buttons["Add arms to Muscle"]
+            XCTAssertTrue(offer.appears(), "\u{201C}arm\u{201D} offered no Arms")
+            XCTAssertTrue(app.pickerRows["Backward arm circles"].exists)
+            attach(named: "picker-offer-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            // Taking it empties the field for the next search; Clear, so Create presets nothing.
+            offer.tap()
+            let clear = app.buttons["Clear filters"]
+            XCTAssertTrue(clear.appears(), "Taking the offer turned no filter on")
+            clear.tap()
+            XCTAssertTrue(clear.disappears(), "Clear left a filter on")
+            app.typeIntoSearch("curl")
+            XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
             let created = app.searchForNothing(extending: "curl")
             attach(named: "picker-create-only-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
