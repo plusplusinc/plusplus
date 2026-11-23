@@ -90,10 +90,16 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         let filtered = exercises.filtered(by: filter, matching: query)
         list(filtered)
             .safeAreaBar(edge: .top) {
-                FilterBar(filter: announcedFilter, count: filtered.matches.count, onOpen: open)
-                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
-                        listTop = $0
-                    }
+                FilterBar(
+                    filter: announcedFilter,
+                    count: filtered.matches.count,
+                    onOpen: open,
+                    offers: FilterOffer.offers(in: query, given: filter),
+                    onTake: take,
+                )
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
+                    listTop = $0
+                }
             }
             .sheet(item: $choosing) { sheet in
                 switch sheet {
@@ -130,6 +136,13 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         dropKeyboard()
         onExpand()
         choosing = sheet
+    }
+
+    /// Takes an offer: its choice on, its words out of the search, which stays open with the
+    /// keyboard up. The text changes first, so the count VoiceOver hears is the list's.
+    private func take(_ offer: FilterOffer) {
+        query = offer.remainingText
+        announcedFilter.wrappedValue.turnOn(offer.choice)
     }
 
     /// The filter, written through one place, which tells VoiceOver how many exercises show

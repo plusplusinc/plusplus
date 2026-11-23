@@ -198,7 +198,7 @@ public struct FilterCount: View {
 }
 
 /// A line's words leading and its small button trailing, in `.ppRowDetail`.
-private struct TextAndButton<Words: View, Trailing: View>: View {
+struct TextAndButton<Words: View, Trailing: View>: View {
     @ViewBuilder let words: Words
     @ViewBuilder let button: Trailing
 

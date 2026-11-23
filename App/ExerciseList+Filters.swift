@@ -16,6 +16,10 @@ struct FilterBar: View {
     /// How many exercises show, for the count line.
     let count: Int
     let onOpen: (FilterSheet) -> Void
+    /// What the typed words offer (`FilterOffer`), on a line under the count line, or under
+    /// the buttons while no filter is on.
+    var offers: [FilterOffer] = []
+    var onTake: (FilterOffer) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -37,9 +41,16 @@ struct FilterBar: View {
             }
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-            if filter.isOn {
-                FilterCount(Self.countText(count)) {
-                    filter = ExerciseFilter()
+            if filter.isOn || !offers.isEmpty {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    if filter.isOn {
+                        FilterCount(Self.countText(count)) {
+                            filter = ExerciseFilter()
+                        }
+                    }
+                    if !offers.isEmpty {
+                        offerLine
+                    }
                 }
                 .padding(.horizontal, Spacing.md)
                 // Clear is a button of its own, so the line stands off the filters' buttons by
@@ -49,6 +60,20 @@ struct FilterBar: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The offer line: "Filter by muscle" for one offer, "Filter by" for several, a button
+    /// each.
+    private var offerLine: some View {
+        let text = offers.count == 1
+            ? "Filter by \(offers[0].choice.filterName.lowercased())"
+            : "Filter by"
+        return FilterOfferLine(text, offers: offers.map { offer in
+            FilterOfferLine.Offer(
+                title: offer.choice.name,
+                filterName: offer.choice.filterName,
+            ) { onTake(offer) }
+        })
     }
 
     /// Kind takes one at a time, so it is the system's menu: a toggle per kind, the chosen one
