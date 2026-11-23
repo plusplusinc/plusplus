@@ -24,6 +24,11 @@ import WorkoutStore
 /// field across the bar (`BarSearchField`), which the bar's leading button, Close, turns into.
 /// The field covers the bar's title too.
 ///
+/// A typed word that names a filter's choice, "back" or "dumbbells", offers it on a line under
+/// the filters' buttons (`FilterOffer`, `FilterOfferLine`): a tap turns the choice on, takes
+/// the word out of the search, and leaves the keyboard up, the field keeping its caret; VoiceOver
+/// hears the new count.
+///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
 ///

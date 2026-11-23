@@ -17,10 +17,11 @@ extension RenameUITests {
         let low = plus.frame
         openPickerFromEmptySpace(in: app, keyboard: keyboard)
         let (seeded, added) = XCUIApplication.renameRows
+        takeTypedFilter(in: app, keyboard: keyboard)
         XCTContext
             .runActivity(named: "Start appears with the first exercise, the + above it") { _ in
-                // Below the half-height sheet's first screenful.
-                app.search(for: "bench")
+                // Below the half-height sheet's first screenful; searched for, and Bench on,
+                // above.
                 app.pickerRows[seeded[0].label].tap()
                 XCTAssertTrue(search.disappears(), "The add left the picker open")
                 XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
@@ -66,6 +67,29 @@ extension RenameUITests {
             app.scrollToTop(titled: Self.seededName)
             let smallTitle = app.navigationBars.firstMatch.buttons[Self.seededName]
             XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
+        }
+    }
+
+    /// "bench" typed in the picker's search offers Bench; taking it turns Equipment's Bench on,
+    /// takes the word out of the field, and leaves the keyboard up, so typing goes on. Which
+    /// words offer what is `FilterOfferTests`'; the line's look, `ExerciseListSnapshotTests`'.
+    /// The real keyboard staying up is only the running app's. Leaves "bench" typed, Bench on.
+    private func takeTypedFilter(in app: XCUIApplication, keyboard: XCUIElement) {
+        XCTContext.runActivity(named: "Taking a typed word's filter keeps the keyboard up") { _ in
+            app.search(for: "bench")
+            app.buttons["Add bench to Equipment"].tap()
+            XCTAssertEqual(
+                app.buttons["Equipment"].value(becoming: "Bench"),
+                "Bench",
+                "The offer did not turn Bench on",
+            )
+            XCTAssertTrue(keyboard.exists, "Taking the offer put the keyboard down")
+            app.typeIntoSearch("bench")
+            XCTAssertEqual(
+                app.searchField.value(becoming: "bench"),
+                "bench",
+                "Typing after the offer did not land in an emptied field",
+            )
         }
     }
 

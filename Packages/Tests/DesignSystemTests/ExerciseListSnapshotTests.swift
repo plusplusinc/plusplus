@@ -7,7 +7,7 @@ import Testing
 
 /// The parts of Add exercise drawn here: the bar's search, closed and open, with the leading
 /// button it covers, the checklist Customize pushes, and the filters' buttons, chips, count
-/// line, Create row, and Also needs heading. The screens live in the
+/// line, offer line, Create row, and Also needs heading. The screens live in the
 /// app, which has no test target; the search's motion, its glass (which a snapshot doesn't
 /// draw), and Add exercise's title (placed from the item's measured frame, which a snapshot
 /// draws before it is measured) are checked on the simulator.
@@ -94,6 +94,56 @@ struct ExerciseListSnapshotTests {
                     .padding(.horizontal, Spacing.md)
             }
             .padding(.vertical, Spacing.sm)
+            .background(Color.pp(.background)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("One offer under the filter buttons: its button beside the words, under them at AX5")
+    func oneOffer() {
+        assertThemedSnapshots(
+            of: VStack(alignment: .leading, spacing: Spacing.sm + Spacing.xs) {
+                filterRow([("Muscle", false), ("Kind", false), ("Equipment", false)])
+                FilterLines(
+                    count: nil,
+                    offer: FilterOfferLine(
+                        "Filter by muscle",
+                        offers: [.init(title: "Back", filterName: "Muscle") { }],
+                    ),
+                )
+                .padding(.horizontal, Spacing.md)
+            }
+            .padding(.vertical, Spacing.sm)
+            .background(Color.pp(.background)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("Two offers under the count line: a row beside the words, one under another at AX5")
+    func twoOffers() {
+        assertThemedSnapshots(
+            of: FilterLines(
+                count: FilterCount("23 exercises") { },
+                offer: FilterOfferLine("Filter by", offers: [
+                    .init(title: "Back", filterName: "Muscle") { },
+                    .init(title: "Dumbbells", filterName: "Equipment") { },
+                ]),
+            )
+            .padding(Spacing.md)
+            .background(Color.pp(.background)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("Three long offers, too wide for a row, go one under another, under the words")
+    func threeLongOffers() {
+        assertThemedSnapshots(
+            of: FilterOfferLine("Filter by", offers: [
+                .init(title: "Medicine ball", filterName: "Equipment") { },
+                .init(title: "Balance board", filterName: "Equipment") { },
+                .init(title: "Stretch", filterName: "Kind") { },
+            ])
+            .padding(Spacing.md)
             .background(Color.pp(.background)),
             width: Self.screenWidth,
         )
