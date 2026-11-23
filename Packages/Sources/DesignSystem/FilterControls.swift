@@ -154,26 +154,8 @@ public struct ChipSheet<Item: Hashable>: View {
         .presentationBackground(Color.pp(.surface))
     }
 
-    /// The room a `.height` detent adds under the content: the window's bottom safe area. The
-    /// sheet stands that much taller than asked, and reports the room as a bottom safe area
-    /// (measured on iOS 27: 126 pt asked, 160 pt given, 34 pt of safe area).
-    private var detentRoom: CGFloat {
-        UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
-            .first ?? 0
-    }
-
     private var header: some View {
-        LineOrStack(spacing: 0) {
-            Text(title)
-                .font(.ppBarTitle)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .accessibilityAddTraits(.isHeader)
-            Button("Done", action: onDone)
-                .font(.ppButton)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .frame(minHeight: 44)
-        }
+        SheetHeader(title: title, onDone: onDone)
     }
 
     private func chip(_ item: Item) -> some View {
@@ -188,6 +170,35 @@ public struct ChipSheet<Item: Hashable>: View {
         .buttonStyle(ChipButtonStyle(isOn: isOn))
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
+}
+
+/// A filter sheet's header, `ChipSheet`'s and `LengthSheet`'s: the title, read as a heading, and
+/// Done. Where the two won't fit side by side, Done goes under the title (`LineOrStack`).
+struct SheetHeader: View {
+    let title: String
+    let onDone: () -> Void
+
+    var body: some View {
+        LineOrStack(spacing: 0) {
+            Text(title)
+                .font(.ppBarTitle)
+                .foregroundStyle(Color.pp(.textPrimary))
+                .accessibilityAddTraits(.isHeader)
+            Button("Done", action: onDone)
+                .font(.ppButton)
+                .foregroundStyle(Color.pp(.textPrimary))
+                .frame(minHeight: 44)
+        }
+    }
+}
+
+/// The room a `.height` detent adds under a sheet's content: the window's bottom safe area. The
+/// sheet stands that much taller than asked, and reports the room as a bottom safe area
+/// (measured on iOS 27: 126 pt asked, 160 pt given, 34 pt of safe area).
+var detentRoom: CGFloat {
+    UIApplication.shared.connectedScenes
+        .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
+        .first ?? 0
 }
 
 /// The line under the filter buttons while one is on: how many exercises show, and Clear,

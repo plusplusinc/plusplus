@@ -146,7 +146,7 @@ struct WorkoutsScreen: View {
                         onDone: { choosing = nil },
                     )
                 case .length:
-                    EmptyView()
+                    lengthSheet
                 }
             }
         }
@@ -179,6 +179,28 @@ struct WorkoutsScreen: View {
             let count = session.recent.count { changed.passes($0.summary) }
             AccessibilityNotification.Announcement(WorkoutFilter.countText(count)).post()
         }
+    }
+
+    /// The Length sheet over the filter's range: a preset sets both ends, the lit one turns the
+    /// filter off, and each wheel moves its end, carrying the other past a crossing.
+    private var lengthSheet: some View {
+        let length = announcedFilter.length
+        let presets = LengthRange.Preset.allCases
+        return LengthSheet(
+            presets: presets.map(\.name),
+            lit: filter.length.preset.flatMap { presets.firstIndex(of: $0) },
+            lower: filter.length.lower,
+            upper: filter.length.upper,
+            lowerValues: LengthRange.lowerValues,
+            upperValues: LengthRange.upperValues,
+            onPreset: { index in
+                let range = presets[index].range
+                length.wrappedValue = filter.length == range ? .full : range
+            },
+            onLower: { length.wrappedValue.setLower($0) },
+            onUpper: { length.wrappedValue.setUpper($0) },
+            onDone: { choosing = nil },
+        )
     }
 
     private func row(_ workout: Workout, summary: WorkoutSummary?, fullBar: Int) -> some View {

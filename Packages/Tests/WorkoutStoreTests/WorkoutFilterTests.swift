@@ -49,6 +49,9 @@ struct WorkoutFilterTests {
         #expect(!range.passes(Self.summary(45 * 60, [.legs], [])))
         let over = WorkoutFilter(length: LengthRange.Preset.over40.range)
         #expect(over.passes(Self.summary(300 * 60, [.legs], [])))
+        #expect(!over.passes(Self.summary(40 * 60, [.legs], [])))
+        let top = WorkoutFilter(length: LengthRange(lower: 0, upper: 90))
+        #expect(!top.passes(Self.summary(95 * 60, [.legs], [])))
     }
 
     @Test("A range carries its other end past a crossing, and knows its presets")
@@ -61,8 +64,15 @@ struct WorkoutFilterTests {
         #expect(range.upper == 50)
         range.setUpper(25)
         #expect(range.lower == 25)
+        range.setUpper(nil)
+        range.setLower(90)
+        #expect(range.upper == nil)
         #expect(LengthRange(lower: 20, upper: 45).preset == nil)
+        #expect(LengthRange.Preset.under20.range == LengthRange(lower: 0, upper: 15))
+        #expect(LengthRange.Preset.over40.range == LengthRange(lower: 45, upper: nil))
         #expect(!WorkoutFilter(length: .full).isOn)
+        #expect(LengthRange.lowerValues.last == 90)
+        #expect(LengthRange.upperValues.suffix(2) == [90, nil])
     }
 
     @Test("Labels and the count read the choice")
@@ -72,6 +82,11 @@ struct WorkoutFilterTests {
         #expect(WorkoutFilter(length: LengthRange(lower: 25, upper: 45)).lengthLabel == "25–45 min")
         #expect(WorkoutFilter(length: LengthRange.Preset.under20.range)
             .lengthLabel == "Under 20 min")
+        #expect(WorkoutFilter(length: LengthRange(lower: 45, upper: nil))
+            .lengthLabel == "Over 40 min")
+        #expect(WorkoutFilter(length: LengthRange(lower: 50, upper: nil)).lengthLabel == "50+ min")
+        #expect(WorkoutFilter(length: LengthRange(lower: 30, upper: 30)).lengthLabel == "30 min")
+        #expect(WorkoutFilter(length: .full).lengthLabel == nil)
         #expect(WorkoutFilter.countText(0) == "0 workouts")
         #expect(WorkoutFilter.countText(1) == "1 workout")
         #expect(WorkoutFilter.countText(2) == "2 workouts")

@@ -35,18 +35,16 @@ public struct WorkoutFilter: Hashable, Sendable {
         ExerciseFilter(equipment: equipment).equipmentLabel
     }
 
-    /// The Length button's words: the preset's own while the range is one, else "25–45 min";
-    /// nil while off.
+    /// The Length button's words: the preset's own while the range is one, else "25–45 min",
+    /// "45+ min" with no upper limit, "20 min" for one length; nil while off.
     public var lengthLabel: String? {
         guard length != .full else { return nil }
         if let preset = length.preset {
             return preset.name
         }
-        if length.upper >= LengthRange.top {
-            return "Over \(length.lower) min"
-        }
-        guard length.lower != length.upper else { return "\(length.lower) min" }
-        return "\(length.lower)–\(length.upper) min"
+        guard let upper = length.upper else { return "\(length.lower)+ min" }
+        guard length.lower != upper else { return "\(upper) min" }
+        return "\(length.lower)–\(upper) min"
     }
 
     /// Whether a workout with `summary` shows; one with none shows only while the filter is off.
@@ -70,35 +68,49 @@ public struct WorkoutFilter: Hashable, Sendable {
     }
 }
 
-/// A span of minutes on the Length wheels' 5-minute grid, from 0 to `top`, which means no upper
-/// limit. The full span is the filter off.
+/// A span of minutes on the Length wheels' 5-minute grid: a lower end from 0 to `top`, and an
+/// upper end from 0 to `top` or none (nil, the wheel's "∞"), meaning no upper limit. The ends
+/// never cross: moving one past the other carries the other with it. 0 to no limit is the
+/// filter off.
 public struct LengthRange: Hashable, Sendable {
     public private(set) var lower: Int
-    public private(set) var upper: Int
+    /// The upper end, nil for no upper limit.
+    public private(set) var upper: Int?
 
-    /// The wheels' last value, read as "and longer".
-    public static let top = 180
-    public static let full = Self(lower: 0, upper: top)
+    /// The wheels' highest number.
+    public static let top = 90
+    /// The wheels' step.
+    public static let step = 5
+    public static let full = Self(lower: 0, upper: nil)
 
-    public init(lower: Int, upper: Int) {
-        self.lower = min(lower, upper)
+    /// The left wheel's values, 0 to `top`.
+    public static let lowerValues = Array(stride(from: 0, through: top, by: step))
+    /// The right wheel's values: 0 to `top`, then no upper limit.
+    public static let upperValues: [Int?] = lowerValues.map(Optional.some) + [nil]
+
+    public init(lower: Int, upper: Int?) {
+        self.lower = upper.map { min(lower, $0) } ?? lower
         self.upper = upper
     }
 
     /// Sets the lower end, carrying the upper up to it when it passes.
     public mutating func setLower(_ minutes: Int) {
         lower = minutes
-        upper = max(upper, minutes)
+        if let upper, upper < minutes {
+            self.upper = minutes
+        }
     }
 
-    /// Sets the upper end, carrying the lower down to it when it passes.
-    public mutating func setUpper(_ minutes: Int) {
+    /// Sets the upper end, nil for no limit, carrying the lower down to it when it passes.
+    public mutating func setUpper(_ minutes: Int?) {
         upper = minutes
-        lower = min(lower, minutes)
+        if let minutes {
+            lower = min(lower, minutes)
+        }
     }
 
     public func contains(_ minutes: Int) -> Bool {
-        minutes >= lower && (upper >= Self.top || minutes <= upper)
+        minutes >= lower && upper.map { minutes <= $0 } ?? true
     }
 
     /// The preset this range is, if any.
@@ -123,7 +135,7 @@ public struct LengthRange: Hashable, Sendable {
             switch self {
             case .under20: LengthRange(lower: 0, upper: 15)
             case .twentyToForty: LengthRange(lower: 20, upper: 40)
-            case .over40: LengthRange(lower: 45, upper: LengthRange.top)
+            case .over40: LengthRange(lower: 45, upper: nil)
             }
         }
     }
