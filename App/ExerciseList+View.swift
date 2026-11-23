@@ -6,9 +6,8 @@ import WorkoutStore
 /// by filters: the list Add exercise (`ExercisePicker`) shows.
 ///
 /// Under the bar, the filters' buttons, Muscle, Kind, and Equipment (`FilterBar`), start from
-/// the host's filter, which outlives the list. While one is on, the list is one list with no letter
-/// headings and no
-/// index: the matches, those that mainly work a chosen muscle first
+/// the host's filter, which outlives the list. While one is on, the list is one list with no
+/// letter headings and no index: the matches, those that mainly work a chosen muscle first
 /// (`ExerciseList.filtered(by:matching:)`); then Create; then an "Also needs" section for each
 /// piece one short of the chosen equipment, headed by a button that adds it (`NeedsHeader`).
 /// The first row has no line over it, where it would rule off the buttons. Each change puts
@@ -60,7 +59,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// with nothing typed.
     let onCreate: (CreatedExercise, _ needsName: Bool) async -> Void
 
-    /// What the list is narrowed by: the host's, Add exercise's the open workout's kept filter
+    /// What the list is narrowed by, the host's: in Add exercise, the open workout's kept filter
     /// (`AppSession.addExerciseFilter`), so it is on again at the next opening until cleared.
     @Binding var filter: ExerciseFilter
     /// The filter whose sheet of chips is up.
