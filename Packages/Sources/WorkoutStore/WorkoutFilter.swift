@@ -110,9 +110,9 @@ public struct FilteredWorkouts: Equatable, Sendable {
 }
 
 /// A span of minutes on the Length wheels' 5-minute grid: a lower end from 0 to `top`, and an
-/// upper end from 0 to `top` or none (nil, the wheel's "∞"), meaning no upper limit. The ends
-/// never cross: moving one past the other carries the other with it. 0 to no limit is the
-/// filter off.
+/// upper end from `step` to `top` or none (nil, the wheel's "∞"), meaning no upper limit. An
+/// upper end of 0 would match no workout, so it is never one. The ends never cross: moving one
+/// past the other carries the other with it. 0 to no limit is the filter off.
 public struct LengthRange: Hashable, Sendable {
     public private(set) var lower: Int
     /// The upper end, nil for no upper limit.
@@ -120,18 +120,23 @@ public struct LengthRange: Hashable, Sendable {
 
     /// The wheels' highest number.
     public static let top = 90
-    /// The wheels' step.
+    /// The wheels' step, and the upper end's lowest value.
     public static let step = 5
     public static let full = Self(lower: 0, upper: nil)
 
     /// The left wheel's values, 0 to `top`.
     public static let lowerValues = Array(stride(from: 0, through: top, by: step))
-    /// The right wheel's values: 0 to `top`, then no upper limit.
-    public static let upperValues: [Int?] = lowerValues.map(Optional.some) + [nil]
+    /// The right wheel's values: `step` to `top`, then no upper limit.
+    public static let upperValues: [Int?] = lowerValues.dropFirst().map(Optional.some) + [nil]
 
     public init(lower: Int, upper: Int?) {
+        let upper = upper.map(Self.upperEnd)
         self.lower = upper.map { min(lower, $0) } ?? lower
         self.upper = upper
+    }
+
+    private static func upperEnd(_ minutes: Int) -> Int {
+        max(minutes, step)
     }
 
     /// Sets the lower end, carrying the upper up to it when it passes.
@@ -144,9 +149,9 @@ public struct LengthRange: Hashable, Sendable {
 
     /// Sets the upper end, nil for no limit, carrying the lower down to it when it passes.
     public mutating func setUpper(_ minutes: Int?) {
-        upper = minutes
-        if let minutes {
-            lower = min(lower, minutes)
+        upper = minutes.map(Self.upperEnd)
+        if let upper {
+            lower = min(lower, upper)
         }
     }
 

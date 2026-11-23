@@ -87,6 +87,20 @@ struct WorkoutFilterTests {
         #expect(LengthRange.upperValues.suffix(2) == [90, nil])
     }
 
+    @Test("The upper end never reaches 0, so no range reads \"≤ 0 min\"")
+    func upperNeverZero() {
+        #expect(LengthRange.upperValues.first == 5)
+        #expect(LengthRange.lowerValues.first == 0)
+        var range = LengthRange(lower: 20, upper: 40)
+        range.setUpper(0)
+        #expect(range.upper == 5)
+        #expect(range.lower == 5, "The lower end is carried down to it")
+        #expect(LengthRange(lower: 0, upper: 0).upper == 5)
+        range.setLower(0)
+        #expect(range.label == "≤ 5 min")
+        #expect(LengthRange.Preset.allCases.allSatisfy { ($0.range.upper ?? 5) >= 5 })
+    }
+
     /// Workouts of built-ins: dumbbells and a bench; dumbbells, a bench, and a barbell; a
     /// kettlebell alone; dumbbells and a kettlebell; nothing.
     private static func workouts() throws -> [Workout] {

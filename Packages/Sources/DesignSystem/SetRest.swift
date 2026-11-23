@@ -60,9 +60,8 @@ public struct SetRest {
         /// "Rest" over the countdown.
         case rest
         /// "Start in" over the short count, nothing under it: a timed set's time in words ("30
-        /// seconds") is at the caption line's end. `time` is for VoiceOver, the set's time or
-        /// its reps.
-        case startIn(time: String)
+        /// seconds"), `time`, is at the caption line's end; a reps set has none.
+        case startIn(time: String? = nil)
         /// A timed set's own count where the figures stand, with no word over it and no bar.
         case count
     }
@@ -175,6 +174,7 @@ struct SetRoom: View, Animatable {
                             turns: rest.turnsFigure && !reduceMotion,
                             color: rest.isPaused ? .textSecondary : .textPrimary,
                             shown: rest.kind.shown(length: rest.length),
+                            label: rest.kind.spokenAs,
                         )
                         .figureBox(size: size)
                     }
@@ -269,6 +269,7 @@ private struct WaitCountdown: View {
     let turns: Bool
     let color: ColorToken
     let shown: ClosedRange<Double>
+    let label: LocalizedStringKey
 
     @Environment(\.locale) private var locale
     @Environment(\.waitLeaves) private var leaves
@@ -284,11 +285,13 @@ private struct WaitCountdown: View {
                 skips: skips,
                 color: color,
                 shown: shown,
+                label: label,
             )
             .onChange(of: leaves, initial: true) {
                 leftAt = leaves ? .now : nil
             }
-            // Read by its own element, named for its kind (`SetRest.spoken`), never as "Rest".
+            // Read by its own element (`SetRest.spoken`); named for its kind all the same, as
+            // automation reads hidden elements too.
             .accessibilityHidden(true)
     }
 }

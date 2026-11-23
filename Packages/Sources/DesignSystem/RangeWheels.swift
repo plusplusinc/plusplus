@@ -310,7 +310,7 @@ private enum Wheel {
         lower: lower,
         upper: upper,
         lowerValues: Array(stride(from: 0, through: 90, by: 5)),
-        upperValues: Array(stride(from: 0, through: 90, by: 5)) + [nil],
+        upperValues: Array(stride(from: 5, through: 90, by: 5)) + [nil],
         onLower: { lower = $0
             upper = upper.map { max($0, lower) }
         },

@@ -97,7 +97,7 @@ extension WorkoutScreen {
         guard case let .time(seconds) = item.plan.target else { return }
         focus.afterRoom = [focus.after, RestBlock.spoken(Double(seconds), locale: locale)]
             .compactMap(\.self)
-        if case let .startIn(time) = setWait(of: item.id, current: item.id)?.kind {
+        if case let .startIn(time?) = setWait(of: item.id, current: item.id)?.kind {
             focus.after = time
             focus.spokenAfter = time
             focus.showsAfter = true
@@ -204,11 +204,10 @@ extension WorkoutScreen {
     /// out of a rest; held at its full count on the way to it (Start, a move) where one is due;
     /// else nil, and the set's figures stand.
     private func repsStartIn(of row: WorkoutExercise, in shown: LiveWorkout) -> SetRest? {
-        guard case let .reps(reps) = row.plan.target, let set = shown.currentSet,
+        guard case .reps = row.plan.target, let set = shown.currentSet,
               set.row == row.id, phase.loggedAndDrawn == nil
         else { return nil }
         let length = shown.startInLength
-        let words = String(localized: "\(reps) reps")
         guard drawnStage(in: shown) == .startIn, let count = shown.setCount else {
             guard phase.isStarting || phase.isMovingOn, shown.workout.startIn(before: set) > 0
             else { return nil }
@@ -216,7 +215,7 @@ extension WorkoutScreen {
                 isRunning: true,
                 length: length,
                 pausedLeft: Double(length),
-                kind: .startIn(time: words),
+                kind: .startIn(),
             )
         }
         let loggedWorkout = shown.loggedWorkout
@@ -227,7 +226,7 @@ extension WorkoutScreen {
             ends: loggedWorkout.date(ofClock: count.startClock),
             pausedLeft: holds ? max(0, count.startClock - loggedWorkout.clock(at: .now)) : nil,
             turns: true,
-            kind: .startIn(time: words),
+            kind: .startIn(),
             isPaused: loggedWorkout.isPaused,
         )
     }

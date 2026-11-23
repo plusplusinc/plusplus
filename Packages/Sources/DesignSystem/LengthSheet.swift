@@ -129,7 +129,7 @@ struct LengthPresets: View {
                 lower: lower,
                 upper: upper,
                 lowerValues: Array(stride(from: 0, through: 90, by: 5)),
-                upperValues: Array(stride(from: 0, through: 90, by: 5)) + [nil],
+                upperValues: Array(stride(from: 5, through: 90, by: 5)) + [nil],
                 onPreset: { _ in lower = 20
                     upper = 40
                 },
