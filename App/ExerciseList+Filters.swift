@@ -5,8 +5,9 @@ import WorkoutStore
 /// The three filters' buttons over Add exercise's list (`ExerciseListView`), alike whatever
 /// they open, on one line that scrolls sideways when their words don't fit (decided
 /// 2026-11-22: the row never wraps). While a filter is on, Clear (`ClearFiltersLabel`) leads
-/// the row, before Muscle, and scrolls with it; the buttons slide over as it comes and goes,
-/// on `.tapChange`, and with Reduce Motion it fades in place. No count shows: VoiceOver hears
+/// the row, before Muscle, and scrolls with it. Each change of the filter is one `.tapChange`
+/// transaction (`ExerciseListView.announcedFilter`): Clear fades as the buttons slide over,
+/// each button's fill and words crossfade and its width eases. No count shows: VoiceOver hears
 /// it with each change (`ExerciseListView.announcedFilter`). Under the buttons, while typed
 /// words name a filter's choice, the offer line (`FilterOfferLine`), whose button turns that
 /// choice on and takes its words out of the search; with no offer, no line. Muscle and
@@ -22,7 +23,6 @@ struct FilterBar: View {
     /// What the typed words offer (`FilterOffer`), on a line right under the buttons.
     let offers: [FilterOffer]
     let onTake: (FilterOffer) -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -46,7 +46,6 @@ struct FilterBar: View {
                 // Inside the scroll's content, so the first button lines up with the rows and
                 // the last scrolls clear of the edge.
                 .padding(.horizontal, Spacing.md)
-                .animation(reduceMotion ? nil : .tapChange, value: filter.isOn)
             }
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)

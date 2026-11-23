@@ -333,6 +333,32 @@ extension ButtonStyle where Self == BarGlassButtonStyle {
     }
 }
 
+/// The system's Close in its glass circle, as the bar draws it, in the label's own primary
+/// white, not the search button's cream: Add exercise's Close and a chip sheet's ×. `label`
+/// is what VoiceOver reads.
+public struct GlassCloseButton: View {
+    let label: String
+    let action: () -> Void
+    @Environment(\.displayScale) private var displayScale
+
+    public init(_ label: String, action: @escaping () -> Void) {
+        self.label = label
+        self.action = action
+    }
+
+    public var body: some View {
+        Button(role: .close, action: action) {
+            Label(label, systemImage: "xmark")
+                .labelStyle(.iconOnly)
+                .font(.ppBarGlyph)
+                // The bar sets the X a pixel left of the circle's middle and a pixel lower;
+                // centered here, it sat that pixel off from the bar's own Close.
+                .offset(x: -1 / displayScale, y: 1 / displayScale)
+        }
+        .buttonStyle(.barGlass(width: 0))
+    }
+}
+
 #Preview {
     @Previewable @State var text = ""
     @Previewable @State var isOpen = false

@@ -43,7 +43,6 @@ struct ExercisePicker<Customize: View>: View {
     /// The created exercise Delete in the hold menu is asking about.
     @State private var deleting: Exercise?
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         NavigationStack {
@@ -92,20 +91,8 @@ struct ExercisePicker<Customize: View>: View {
         )
     }
 
-    /// The system's Close in its glass circle, as the bar draws it, in the label's own primary
-    /// white, not the search button's cream.
     private var closeButton: some View {
-        Button(role: .close) {
-            dismiss()
-        } label: {
-            Label("Close", systemImage: "xmark")
-                .labelStyle(.iconOnly)
-                .font(.ppBarGlyph)
-                // The bar sets the X a pixel left of the circle's middle and a pixel lower;
-                // centered here, it sat that pixel off from the bar's own Close.
-                .offset(x: -1 / displayScale, y: 1 / displayScale)
-        }
-        .buttonStyle(.barGlass(width: 0))
+        GlassCloseButton("Close") { dismiss() }
     }
 }
 

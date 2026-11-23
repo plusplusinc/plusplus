@@ -70,6 +70,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// Where the list's room starts, at the filter row's bottom edge, in global coordinates:
     /// where a heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
     @State private var listTop: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         exercises: ExerciseList,
@@ -93,7 +94,10 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
 
     var body: some View {
         let filtered = exercises.filtered(by: filter, matching: query)
-        list(filtered)
+        // The list's identity is its filter (`list(_:)`); in a container of its own, so a new
+        // filter replaces the list alone. Straight on the list, the bar was replaced with it,
+        // and its buttons popped where they should slide.
+        ZStack { list(filtered) }
             .safeAreaBar(edge: .top) {
                 FilterBar(
                     filter: announcedFilter,
@@ -151,10 +155,11 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
 
     /// The filter, written through one place, which tells VoiceOver how many exercises show
     /// after each change: it cannot glance at the list behind a sheet of chips. At the write,
-    /// not from a change of the filter, which can be skipped.
+    /// not from a change of the filter, which can be skipped. Every change, Clear, an offer, a
+    /// chip, is one `.tapChange` transaction, so the filter buttons move alike on and off.
     private var announcedFilter: Binding<ExerciseFilter> {
         Binding { filter } set: { changed in
-            filter = changed
+            withAnimation(reduceMotion ? nil : .tapChange) { filter = changed }
             let count = exercises.filtered(by: changed, matching: query).matches.count
             AccessibilityNotification.Announcement(FilterBar.countText(count)).post()
         }

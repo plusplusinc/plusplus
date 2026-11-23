@@ -70,17 +70,17 @@ struct ChipButtonStyle: ButtonStyle {
     }
 }
 
-/// A filter's sheet of chips, any number chosen: a header with the title and Done, then every
-/// item as a chip, wrapping. A tap toggles a chip at once, so whatever the filter narrows
-/// changes behind the sheet with each tap; Done or a swipe down only closes it.
+/// A filter's sheet of chips, any number chosen: a header with the title and a round glass ×,
+/// then every item as a chip, wrapping. A tap toggles a chip at once, so whatever the filter
+/// narrows changes behind the sheet with each tap; the × (`GlassCloseButton`, Add exercise's
+/// own Close, read "Done" since nothing it closes is undone) or a swipe down only closes it.
 ///
-/// The sheet sits at its content's own height, with the room under the last line of chips
-/// what it is at the sides. A `.height` detent adds the home indicator's room under the
-/// content even where the sheet floats clear of it, so the detent asks that much less
-/// (`detentRoom`). Chips that fit stay still under a drag; where they outgrow the sheet's full
-/// height, as at the largest text sizes, they scroll under the header, which stays put, and
-/// keep that room under their end. Where the title and Done won't fit side
-/// by side, Done goes under the title (`LineOrStack`), which beside it broke mid-word.
+/// The sheet opens at half height (decided 2026-11-23), the header and chips at its top and
+/// empty room below, so no chip sits near the bottom of the screen. Chips that fit stay still
+/// under a drag. Where they don't fit in half height, as Equipment's at the largest text
+/// sizes, the sheet also offers full height, and the chips scroll under the header, which
+/// stays put. Where the title and the × won't fit side by side, the × goes under the title
+/// (`LineOrStack`), which beside it broke mid-word.
 public struct ChipSheet<Item: Hashable>: View {
     let title: String
     let items: [Item]
@@ -88,14 +88,10 @@ public struct ChipSheet<Item: Hashable>: View {
     let name: (Item) -> String
     let onDone: () -> Void
 
-    @State private var headerHeight: CGFloat = 0
-    @State private var chipsHeight: CGFloat = 0
-    @State private var overflows = false
-
-    /// The sheet's content: the header over every chip.
-    private var height: CGFloat {
-        headerHeight + chipsHeight
-    }
+    @State private var detent = PresentationDetent.medium
+    /// Measured at half height only: at full height the chips may fit, and dropping `.large`
+    /// then would pull the sheet back down under the finger.
+    @State private var overflowsAtMedium = false
 
     public init(
         title: String,
@@ -112,11 +108,9 @@ public struct ChipSheet<Item: Hashable>: View {
     }
 
     public var body: some View {
-        let room = detentRoom
-        return VStack(spacing: 0) {
+        VStack(spacing: 0) {
             header
                 .padding([.horizontal, .top], Spacing.md)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
             ScrollView {
                 // Touching: each chip carries half the gap around its capsule
                 // (`ChipButtonStyle`), which the negative inset takes back at the edges, so
@@ -130,37 +124,23 @@ public struct ChipSheet<Item: Hashable>: View {
                 .padding([.horizontal, .bottom], Spacing.md)
                 .padding(.top, Spacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { chipsHeight = $0 }
             }
-            // Scrolled to its end, the last chips stand clear of the home indicator: the room
-            // the ignored safe area below would have given, only where the chips overflow.
-            .contentMargins(.bottom, overflows ? room : 0, for: .scrollContent)
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentSize.height > geometry.containerSize.height + 1
             } action: { _, overflowing in
-                overflows = overflowing
+                if detent == .medium {
+                    overflowsAtMedium = overflowing
+                }
             }
             .scrollBounceBehavior(.basedOnSize)
-            // The sheet hands the scroll view its bottom safe area as an inset, even where it
-            // floats clear of the home indicator; kept, it would scroll chips that fit by that
-            // much.
-            .ignoresSafeArea(.container, edges: .bottom)
         }
         .sensoryFeedback(.selection, trigger: chosen)
         .presentationDetents(
-            headerHeight > 0 && chipsHeight > 0 ? [.height(max(height - room, 0))] : [.medium],
+            overflowsAtMedium ? [.medium, .large] : [.medium],
+            selection: $detent,
         )
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.surface))
-    }
-
-    /// The room a `.height` detent adds under the content: the window's bottom safe area. The
-    /// sheet stands that much taller than asked, and reports the room as a bottom safe area
-    /// (measured on iOS 27: 126 pt asked, 160 pt given, 34 pt of safe area).
-    private var detentRoom: CGFloat {
-        UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
-            .first ?? 0
     }
 
     private var header: some View {
@@ -169,10 +149,10 @@ public struct ChipSheet<Item: Hashable>: View {
                 .font(.ppBarTitle)
                 .foregroundStyle(Color.pp(.textPrimary))
                 .accessibilityAddTraits(.isHeader)
-            Button("Done", action: onDone)
-                .font(.ppButton)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .frame(minHeight: 44)
+            GlassCloseButton("Done", action: onDone)
+                // The size Add exercise's Close reaches, which the bar stops growing; uncapped,
+                // at the largest sizes it stood 120 pt and pushed under the title.
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
     }
 
