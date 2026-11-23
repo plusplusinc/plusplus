@@ -68,23 +68,23 @@ struct PlusOneSpot: View {
 
     var body: some View {
         let spot = hold.spot(for: key)
+        let rect = spot ?? .zero
         PlusOneBurst(trigger: trigger)
-            .frame(
-                width: spot?.width ?? 0,
-                height: max(spot?.minY ?? 0, 0),
-                alignment: .bottom,
-            )
-            .offset(x: spot?.minX ?? 0)
+            .frame(width: rect.width, height: max(rect.minY, 0), alignment: .bottom)
+            .offset(x: rect.minX)
             .opacity(spot == nil ? 0 : 1)
             .onChange(of: PlusOneHold.Input(trigger: trigger, key: key)) { old, new in
-                hold.follow(from: old, to: new)
-            }
-            .task(id: trigger) {
-                guard hold.held != nil else { return }
-                try? await Task.sleep(for: .seconds(PlusOneBurst.duration))
-                if !Task.isCancelled {
-                    hold.release()
+                // Every frame of a key's move comes through here; only a burst writes.
+                if old.trigger != new.trigger {
+                    hold.follow(from: old, to: new)
                 }
+            }
+            // A burst that follows another starts the wait again.
+            .task(id: trigger) {
+                do {
+                    try await Task.sleep(for: .seconds(PlusOneBurst.duration))
+                    hold.release()
+                } catch { }
             }
     }
 }
