@@ -99,7 +99,7 @@ struct ExerciseListSnapshotTests {
         )
     }
 
-    @Test("One offer under the filter buttons: its button beside the words, under them at AX5")
+    @Test("One offer under the filter buttons: its button beside the words, alone at AX5")
     func oneOffer() {
         assertThemedSnapshots(
             of: VStack(alignment: .leading, spacing: Spacing.sm + Spacing.xs) {
@@ -119,7 +119,7 @@ struct ExerciseListSnapshotTests {
         )
     }
 
-    @Test("Two offers under the count line: a row beside the words, one under another at AX5")
+    @Test("Two offers over the count line: a row beside the words, alone one under another at AX5")
     func twoOffers() {
         assertThemedSnapshots(
             of: FilterLines(
@@ -135,7 +135,7 @@ struct ExerciseListSnapshotTests {
         )
     }
 
-    @Test("Three long offers, too wide for a row, go one under another, under the words")
+    @Test("Three long offers, too wide for a row beside the words, show alone")
     func threeLongOffers() {
         assertThemedSnapshots(
             of: FilterOfferLine("Filter by", offers: [

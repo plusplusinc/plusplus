@@ -82,6 +82,15 @@ struct FilterOfferTests {
             .remainingText == "rows")
     }
 
+    @Test("Taking an offer takes out every word that names its choice")
+    func everyOccurrence() {
+        #expect(FilterOffer.offers(in: "back back", given: ExerciseFilter()).map(\.remainingText)
+            == [""])
+        let offers = FilterOffer.offers(in: "back squat backs dumbbell", given: ExerciseFilter())
+        #expect(offers.map(\.choice) == [.muscle(.back), .equipment(.piece(.dumbbells))])
+        #expect(offers.map(\.remainingText) == ["squat dumbbell", "back squat backs"])
+    }
+
     @Test("Taking turns the choice on: Muscle and Equipment add, Kind sets")
     func turnOn() {
         var filter = ExerciseFilter(muscleGroups: [.back], kind: .strength)

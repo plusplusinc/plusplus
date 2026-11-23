@@ -75,22 +75,28 @@ public struct FilterOffer: Hashable, Sendable {
     /// The offers `text` makes against `filter`, in the order their words were typed, one per
     /// choice. Longer names win over the shorter ones inside them, and a word belongs to one
     /// offer at most.
+    /// Taking one takes out every run of words that names its choice: "back back" leaves nothing.
     public static func offers(in text: String, given filter: ExerciseFilter) -> [Self] {
         let words = text.split(whereSeparator: \.isWhitespace).map(Word.init)
             .filter { !$0.folded.isEmpty }
-        var offers: [Self] = []
+        var runs: [(choice: FilterChoice, range: Range<String.Index>)] = []
         var index = 0
         while index < words.count {
             guard let (choice, length) = longestChoice(at: index, in: words) else {
                 index += 1
                 continue
             }
-            if !filter.has(choice), !offers.contains(where: { $0.choice == choice }) {
+            if !filter.has(choice) {
                 let range = words[index].range.lowerBound
                     ..< words[index + length - 1].range.upperBound
-                offers.append(Self(choice: choice, remainingText: removing(range, from: text)))
+                runs.append((choice, range))
             }
             index += length
+        }
+        var offers: [Self] = []
+        for run in runs where !offers.contains(where: { $0.choice == run.choice }) {
+            let ranges = runs.filter { $0.choice == run.choice }.map(\.range)
+            offers.append(Self(choice: run.choice, remainingText: removing(ranges, from: text)))
         }
         return offers
     }
@@ -106,16 +112,27 @@ public struct FilterOffer: Hashable, Sendable {
         return nil
     }
 
-    /// `text` without `range` and one space beside it, the one after where there is one, so
-    /// the rest of the text, its spaces at either end included, stays as typed.
-    private static func removing(_ range: Range<String.Index>, from text: String) -> String {
-        var (lower, upper) = (range.lowerBound, range.upperBound)
-        if upper < text.endIndex, text[upper].isWhitespace {
-            upper = text.index(after: upper)
-        } else if lower > text.startIndex, text[text.index(before: lower)].isWhitespace {
-            lower = text.index(before: lower)
+    /// `text` without `ranges`, each with one space beside it, the one after where there is
+    /// one, so the rest of the text, its spaces at either end included, stays as typed.
+    private static func removing(_ ranges: [Range<String.Index>], from text: String) -> String {
+        // Taken out last to first, character offsets before each cut still hold.
+        let cuts = ranges.map {
+            (
+                text.distance(from: text.startIndex, to: $0.lowerBound),
+                text.distance(from: text.startIndex, to: $0.upperBound),
+            )
         }
-        let left = String(text[..<lower] + text[upper...])
+        var left = text
+        for (start, end) in cuts.sorted(by: { $0.0 > $1.0 }) {
+            var lower = left.index(left.startIndex, offsetBy: start)
+            var upper = left.index(left.startIndex, offsetBy: end)
+            if upper < left.endIndex, left[upper].isWhitespace {
+                upper = left.index(after: upper)
+            } else if lower > left.startIndex, left[left.index(before: lower)].isWhitespace {
+                lower = left.index(before: lower)
+            }
+            left.removeSubrange(lower ..< upper)
+        }
         return left.allSatisfy(\.isWhitespace) ? "" : left
     }
 

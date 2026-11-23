@@ -207,9 +207,11 @@ struct OfferButtons: Layout {
     }
 }
 
-/// The lines under the filter buttons: the count and Clear while a filter is on
-/// (`FilterCount`), and under it the offer line while typed words name a filter's choice
-/// (`FilterOfferLine`), a gap apart. The two lines' touches reach a thumb's height around
+/// The lines under the filter buttons: the offer line while typed words name a filter's choice
+/// (`FilterOfferLine`), and under it the count and Clear while a filter is on (`FilterCount`), a
+/// gap apart. The offer line comes first so taking an offer, which brings the count line in,
+/// moves nothing under the finger: a second tap there takes the next offer, never Clear
+/// (decided 2026-11-22). The two lines' touches reach a thumb's height around
 /// their capsules, further than the gap, so where both show each reaches only halfway into it,
 /// and a tap lands on the button nearer the finger. Either line comes and goes at once, with no
 /// motion.
@@ -225,8 +227,8 @@ public struct FilterLines: View {
     public var body: some View {
         let shared = count != nil && offer != nil ? Spacing.sm / 2 : nil
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            count.map { $0.touchRoom(below: shared) }
-            offer.map { $0.touchRoom(above: shared) }
+            offer.map { $0.touchRoom(below: shared) }
+            count.map { $0.touchRoom(above: shared) }
         }
     }
 }

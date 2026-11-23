@@ -4,10 +4,11 @@ import WorkoutStore
 
 /// The three filters' buttons over Add exercise's list (`ExerciseListView`), alike whatever
 /// they open, on one line that scrolls sideways when their words don't fit (decided
-/// 2026-11-22: the row never wraps); under them, while one is on, the count and Clear
-/// (`FilterCount`), and under that, while typed words name a filter's choice, the offer line
-/// (`FilterOfferLine`), whose button turns that choice on and takes its words out of the
-/// search (`FilterLines`). Muscle and Equipment open a sheet of chips through `onOpen`; Kind, which
+/// 2026-11-22: the row never wraps); under them, while typed words name a filter's choice,
+/// the offer line (`FilterOfferLine`), whose button turns that choice on and takes its words
+/// out of the search, and under that, while a filter is on, the count and Clear
+/// (`FilterCount`), as `FilterLines` stacks them. Muscle and Equipment open a sheet of chips
+/// through `onOpen`; Kind, which
 /// takes one at a time, is the system's menu.
 ///
 /// VoiceOver reads each button by its filter's name, "Muscle", with what is chosen as its
@@ -18,8 +19,7 @@ struct FilterBar: View {
     /// How many exercises show, for the count line.
     let count: Int
     let onOpen: (FilterSheet) -> Void
-    /// What the typed words offer (`FilterOffer`), on a line under the count line, or under
-    /// the buttons while no filter is on.
+    /// What the typed words offer (`FilterOffer`), on a line right under the buttons.
     let offers: [FilterOffer]
     let onTake: (FilterOffer) -> Void
 
