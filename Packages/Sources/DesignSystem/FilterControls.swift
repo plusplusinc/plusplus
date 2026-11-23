@@ -132,7 +132,8 @@ public struct ChipSheet<Item: Hashable>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { chipsHeight = $0 }
             }
-            // Scrolled to its end, the last chips stand clear of the home indicator.
+            // Scrolled to its end, the last chips stand clear of the home indicator: the room
+            // the ignored safe area below would have given, only where the chips overflow.
             .contentMargins(.bottom, overflows ? room : 0, for: .scrollContent)
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentSize.height > geometry.containerSize.height + 1
@@ -141,11 +142,14 @@ public struct ChipSheet<Item: Hashable>: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             // The sheet hands the scroll view its bottom safe area as an inset, even where it
-            // floats clear of the home indicator, and chips that fit then scrolled by that much.
+            // floats clear of the home indicator; kept, it would scroll chips that fit by that
+            // much.
             .ignoresSafeArea(.container, edges: .bottom)
         }
         .sensoryFeedback(.selection, trigger: chosen)
-        .presentationDetents(height > 0 ? [.height(max(height - room, 0))] : [.medium])
+        .presentationDetents(
+            headerHeight > 0 && chipsHeight > 0 ? [.height(max(height - room, 0))] : [.medium],
+        )
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.surface))
     }
