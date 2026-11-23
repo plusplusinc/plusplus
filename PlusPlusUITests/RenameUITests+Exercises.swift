@@ -39,6 +39,7 @@ extension RenameUITests {
                     "The + is not above Start",
                 )
             }
+        keepsFilterAfterAPick(in: app)
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
             // Back to the Workouts screen the new workout was pushed from.
             app.tapBack()
@@ -99,6 +100,43 @@ extension RenameUITests {
             // needs a barbell".
             app.buttons["Clear filters"].tap()
             XCTAssertEqual(app.buttons["Equipment"].value(becoming: ""), "")
+        }
+    }
+
+    /// The picker, opened again after the pick that left "bench" typed, has its search closed and
+    /// its whole list; Legs chosen in Muscle is still on after the next pick, with the list
+    /// narrowed and Clear showing. That the session keeps the filter, and for which workout, is
+    /// `AppSessionAddExerciseTests`'; that the sheet the running app presents again draws that
+    /// filter, and starts its search over, is only the app's. Leaves no filter on and the picker
+    /// closed.
+    private func keepsFilterAfterAPick(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "A filter is still on after a pick, the search is not") { _ in
+            let search = app.openPicker()
+            // Matches no "bench".
+            let unfiltered = app.pickerRows["Backward arm circles"]
+            XCTAssertEqual(search.label, "Search", "The last opening's search is still open")
+            XCTAssertTrue(unfiltered.exists, "The last opening's search still narrows the list")
+            let muscle = app.buttons["Muscle"]
+            muscle.tap()
+            let legs = app.scrollViews.buttons["Legs"]
+            XCTAssertTrue(legs.appears(), "Muscle opened no sheet of chips")
+            legs.tap()
+            app.buttons["Done"].tap()
+            XCTAssertTrue(legs.disappears(), "Done left the chips up")
+            app.pickerRows["Barbell back squat, Barbell"].tap()
+            XCTAssertTrue(search.disappears(), "The pick left the picker open")
+            XCTAssertEqual(app.exerciseCount(becoming: 2), 2, "The pick added no row")
+            _ = app.openPicker()
+            let clear = app.buttons["Clear filters"]
+            XCTAssertTrue(clear.exists, "No Clear on the picker opened after a pick")
+            XCTAssertEqual(muscle.value as? String, "Legs", "Legs is not on after a pick")
+            XCTAssertFalse(unfiltered.exists, "The kept filter does not narrow the list")
+            // It rises with the sheet.
+            XCTAssertTrue(clear.settles(), "Clear kept moving")
+            clear.tap()
+            XCTAssertTrue(clear.disappears(), "Clear left a filter on")
+            app.buttons["Close"].tap()
+            XCTAssertTrue(search.disappears(), "Close left the picker up")
         }
     }
 
