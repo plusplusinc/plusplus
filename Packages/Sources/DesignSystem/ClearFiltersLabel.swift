@@ -13,8 +13,11 @@ public struct ClearFiltersLabel: View {
         Text(verbatim: "M")
             .hidden()
             .overlay {
+                // A size up from the buttons' chevrons, in their weight: turned, the + spans
+                // less across than it did upright, and at the chevrons' size the × read small,
+                // narrower than a chevron. At this size the two are about as wide.
                 Image(systemName: "plus")
-                    .imageScale(.small)
+                    .imageScale(.medium)
                     .fontWeight(.semibold)
                     .rotationEffect(.degrees(45))
             }

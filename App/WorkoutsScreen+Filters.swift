@@ -25,7 +25,6 @@ struct WorkoutsFilterBar: View {
             )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, Spacing.sm)
     }
 
     /// A filter's button: its choice, or its name while none is chosen, lit while on. VoiceOver

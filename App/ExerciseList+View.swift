@@ -18,7 +18,7 @@ import WorkoutStore
 /// (`lettered()`), in green; a tap on one jumps to its heading, and a drag along it scrubs
 /// through them. VoiceOver reads it as one adjustable "Section index". It hides while
 /// searching and while the keyboard is up, when the matches are few and the keyboard covers
-/// most of it, and goes with the headings under a filter.
+/// most of it, while a filter's sheet is up, and goes with the headings under a filter.
 ///
 /// Search is a round button at the bar's top trailing edge, which opens out to the left into a
 /// field across the bar (`BarSearchField`), which the bar's leading button, Close, turns into.
@@ -98,6 +98,9 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         // filter replaces the list alone. Straight on the list, the bar was replaced with it,
         // and its buttons popped where they should slide.
         ZStack { list(filtered) }
+            // The system picked the hard edge while typing, a hairline under the bar over a
+            // lighter band; the soft one, as with the keyboard down, either way.
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .safeAreaBar(edge: .top) {
                 FilterBar(
                     filter: announcedFilter,
@@ -244,8 +247,10 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         .containerBackground(Color.pp(.background), for: .navigation)
     }
 
+    /// Not under a filter's sheet either: the sheet floats clear of the screen's edges, and the
+    /// index's letters showed down its side.
     private var showsIndex: Bool {
-        query.isEmpty && !isKeyboardUp
+        query.isEmpty && !isKeyboardUp && choosing == nil
     }
 
     private func row(_ exercise: Exercise) -> some View {

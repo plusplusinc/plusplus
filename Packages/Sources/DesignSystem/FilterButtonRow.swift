@@ -46,6 +46,9 @@ public struct FilterButtonRow<Buttons: View>: View {
         }
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        // Room under the buttons' touches before what follows, a list's first row or an offer
+        // line, the same on both screens.
+        .padding(.bottom, Spacing.sm)
     }
 }
 

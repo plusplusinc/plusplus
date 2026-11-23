@@ -43,8 +43,9 @@ struct FilterBar: View {
                 offerLine
                     .padding(.horizontal, Spacing.md)
                     // Its buttons are small buttons of their own, so the line stands off the
-                    // filters' buttons by more than the gap between two of them.
-                    .padding(.top, Spacing.sm + Spacing.xs)
+                    // filters' buttons by more than the gap between two of them: the row's own
+                    // room under it, and a little more.
+                    .padding(.top, Spacing.xs)
                     .padding(.bottom, Spacing.sm)
             }
         }
