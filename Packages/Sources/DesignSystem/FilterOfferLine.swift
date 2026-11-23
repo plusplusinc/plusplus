@@ -137,7 +137,7 @@ struct WordsOrButtons: Layout {
 }
 
 /// An offer line's buttons: side by side, a gap apart, where they fit in the width; otherwise
-/// one under another, leading, each gap as wide as the two buttons' touches reach across it
+/// one under another, trailing, each gap as wide as the two buttons' touches reach across it
 /// (`TouchOutset`, capped by `room`), so they meet without overlapping or leaving a dead strip.
 /// A small `Layout`, not `ViewThatFits`, which hung the workout screen.
 struct OfferButtons: Layout {
@@ -182,7 +182,7 @@ struct OfferButtons: Layout {
         let gaps = gaps(heights) + [0]
         var y = bounds.minY
         for (index, view) in subviews.enumerated() {
-            view.place(at: CGPoint(x: bounds.minX, y: y), proposal: column)
+            view.place(at: CGPoint(x: bounds.maxX, y: y), anchor: .topTrailing, proposal: column)
             y += heights[index] + gaps[index]
         }
     }
