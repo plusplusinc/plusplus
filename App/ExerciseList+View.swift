@@ -5,11 +5,12 @@ import WorkoutStore
 /// Every exercise, built-in and created, A to Z under letter headings, narrowed by search and
 /// by filters: the list Add exercise (`ExercisePicker`) shows.
 ///
-/// Under the bar, the filters' buttons, Muscle, Kind, and Equipment (`FilterBar`), start from
-/// the opening's filter. While one is on, the list is one list with no letter headings and no
-/// index: the matches, those that mainly work a chosen muscle first
-/// (`ExerciseList.filtered(by:matching:)`); then Create; then an "Also needs" section for each
-/// piece one short of the chosen equipment, headed by a button that adds it (`NeedsHeader`).
+/// Under the bar, the filters' buttons, Muscle, Kind, and Equipment (`FilterBar`), read and
+/// write the host's filter through a binding, so it outlives the list. While one is on, the
+/// list is one list with no letter headings and no index: the matches, those that mainly work a
+/// chosen muscle first (`ExerciseList.filtered(by:matching:)`); then Create; then an "Also
+/// needs" section for each piece one short of the chosen equipment, headed by a button that adds
+/// it (`NeedsHeader`).
 /// The first row has no line over it, where it would rule off the buttons. Each change puts
 /// the list back at its top and tells VoiceOver the count. Muscle and Equipment choose in a
 /// sheet of chips (`ChipSheet`), applied with each tap.
@@ -59,8 +60,9 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// with nothing typed.
     let onCreate: (CreatedExercise, _ needsName: Bool) async -> Void
 
-    /// What the list is narrowed by, started from the opening's.
-    @State private var filter: ExerciseFilter
+    /// What the list is narrowed by, the host's: in Add exercise, the open workout's kept filter
+    /// (`AppSession.addExerciseFilter`), so it is on again at the next opening until cleared.
+    @Binding var filter: ExerciseFilter
     /// The filter whose sheet of chips is up.
     @State private var choosing: FilterSheet?
     @State private var query = ""
@@ -74,7 +76,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
 
     init(
         exercises: ExerciseList,
-        filter: ExerciseFilter = ExerciseFilter(),
+        filter: Binding<ExerciseFilter>,
         onTap: @escaping (Exercise) -> Void,
         rowActions: @escaping (Exercise) -> RowActions,
         barTitle: LocalizedStringKey,
@@ -83,7 +85,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
         onCreate: @escaping (CreatedExercise, _ needsName: Bool) async -> Void,
     ) {
         self.exercises = exercises
-        _filter = State(initialValue: filter)
+        _filter = filter
         self.onTap = onTap
         self.rowActions = rowActions
         self.barTitle = barTitle
@@ -350,9 +352,11 @@ private struct LeavesUnderBar: ViewModifier {
 }
 
 #Preview {
+    @Previewable @State var filter = ExerciseFilter()
     NavigationStack {
         ExerciseListView(
             exercises: .builtIn,
+            filter: $filter,
             onTap: { _ in },
             rowActions: { _ in EmptyModifier() },
             barTitle: "Add exercise",

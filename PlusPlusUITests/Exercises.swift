@@ -125,6 +125,19 @@ extension XCUIApplication {
         return search
     }
 
+    /// Opens the filter `filter`'s sheet of chips, chooses `chip`, and closes it with Done once
+    /// the chip reads as chosen: Done tapped before the tap has landed closes the sheet on no
+    /// change.
+    func choose(_ chip: String, under filter: String) {
+        buttons[filter].tap()
+        let button = buttons[chip]
+        XCTAssertTrue(button.appears(), "\(filter) opened no chips")
+        button.tap()
+        XCTAssertTrue(reading(button.isSelected, becoming: true, within: 2), "\(chip) isn't on")
+        buttons["Done"].tap()
+        XCTAssertTrue(button.disappears(), "Done left \(filter)'s chips up")
+    }
+
     /// Opens the picker and picks the row labeled `label`, searching for `query` first when the
     /// row is not in the half-height sheet's first screenful. Returns once the picker is closed and
     /// the row is in.

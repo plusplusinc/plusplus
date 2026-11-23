@@ -42,8 +42,8 @@ extension WorkoutAutosaveUITests {
                 XCTAssertEqual(app.pickerRows.count, 0, "Rows other than Create match")
                 attach(named: "picker-create-only")
                 // Rings hold no weight, so the row still reads no load.
-                choose("Back", under: "Muscle", in: app)
-                choose("Rings", under: "Equipment", in: app)
+                app.choose("Back", under: "Muscle")
+                app.choose("Rings", under: "Equipment")
                 let carried = created + ", Back, Rings"
                 XCTAssertEqual(create.label(becoming: carried), carried, "Create shows no carry")
                 let count = app.exerciseRows.count
@@ -131,8 +131,8 @@ extension WorkoutAutosaveUITests {
     /// the button and that its tap reaches the filter. `filterAtAX5` never brings a section up.
     @MainActor
     private func addTheMissingPiece(in app: XCUIApplication) {
-        choose("Chest", under: "Muscle", in: app)
-        choose("Dumbbells", under: "Equipment", in: app)
+        app.choose("Chest", under: "Muscle")
+        app.choose("Dumbbells", under: "Equipment")
         let add = app.buttons["Add bench to Equipment"]
         XCTAssertTrue(add.appears(), "No button reads as adding the bench")
         XCTAssertTrue(add.settles(), "The bench's button kept moving")
@@ -144,18 +144,6 @@ extension WorkoutAutosaveUITests {
         XCTAssertTrue(clear.settles(), "Clear kept moving")
         clear.tap()
         XCTAssertTrue(clear.disappears(), "Clear left a filter on")
-    }
-
-    /// Opens the filter `filter`'s sheet of chips, chooses `chip`, and closes it with Done.
-    @MainActor
-    private func choose(_ chip: String, under filter: String, in app: XCUIApplication) {
-        app.buttons[filter].tap()
-        let button = app.buttons[chip]
-        XCTAssertTrue(button.appears(), "\(filter) opened no chips")
-        button.tap()
-        XCTAssertTrue(reading(button.isSelected, becoming: true, within: 2), "\(chip) isn't on")
-        app.buttons["Done"].tap()
-        XCTAssertTrue(button.disappears(), "Done left \(filter)'s chips up")
     }
 
     /// Opens the row labeled `row`, checks `item` there, and comes back to the form.

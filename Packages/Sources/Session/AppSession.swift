@@ -19,6 +19,9 @@ public final class AppSession {
     /// The workout screen's open sheets, a row's and Add exercise, each through its open and close.
     public private(set) var rowSheet: RowSheet?
     public internal(set) var addExercise: AddExerciseSheet?
+    /// What Add exercise is narrowed by in the open workout, kept from one opening to the next
+    /// until cleared; a different workout starts with none (`show(_:on:)`).
+    public var addExerciseFilter = ExerciseFilter()
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
     /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
@@ -175,36 +178,6 @@ public final class AppSession {
         namer.shownName(of: current) ?? ""
     }
 
-    /// Pauses the workout, or resumes it if paused.
-    public func togglePause(at now: Date = .now) {
-        guard let loggedWorkout else { return }
-        change(.save(
-            loggedWorkout.isPaused
-                ? loggedWorkout.resuming(at: now)
-                : loggedWorkout.pausing(at: now),
-        ))
-    }
-
-    /// Logs `planned`, a set of `row`, at the numbers `row` plans now, or a timed set at the time
-    /// its count has run (`LiveWorkout.logging`).
-    public func log(_ planned: PlannedSet, of row: WorkoutExercise, at now: Date = .now) {
-        guard let loggedWorkout else { return }
-        let live = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
-        change(.save(live.logging(planned, of: row, at: now)))
-    }
-
-    /// Extends the rest running after the last set by `seconds`, unless it is over. `override`,
-    /// for the UI tests, is every rest's length (`LiveWorkout.rest(override:)`).
-    public func extendRest(by seconds: Int, override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.extendingRest(by: seconds, override: override, at: now) }
-    }
-
-    /// Ends the rest running after the last set now, unless it is over
-    /// (`LiveWorkout.skippingRest(override:at:)`).
-    public func skipRest(override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.skippingRest(override: override, at: now) }
-    }
-
     /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
     /// set counting logged at the time done (`LiveWorkout.finishing(at:)`).
     public func finish(at now: Date = .now) {
@@ -276,9 +249,11 @@ public final class AppSession {
     }
 
     /// Pushes a new, empty workout onto the Workouts screen; an empty one open already is shown
-    /// as it is. Nothing is saved for the new workout until it changes.
+    /// as it is. Nothing is saved for the new workout until it changes. Either way Add exercise
+    /// starts with no filter: to the person, New is a different workout.
     public func startNew() async {
         guard !isSwitching else { return }
+        addExerciseFilter = ExerciseFilter()
         guard !current.isEmpty else {
             return show(current)
         }
@@ -306,6 +281,9 @@ public final class AppSession {
         // A workout put up mid-way ends the way, or its late close would land over it.
         endThroughDrawer()
         switches += 1
+        if workout.id != current.id {
+            addExerciseFilter = ExerciseFilter()
+        }
         opened = workout
         current = workout
         screen = shown

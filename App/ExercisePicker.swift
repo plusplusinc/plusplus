@@ -3,7 +3,7 @@ import SwiftUI
 import WorkoutStore
 
 /// The sheet Add exercise opens: the exercise list (`ExerciseListView`) on a stack of its own,
-/// with Close, its filters starting as the opening asks (none from the workout screen's +).
+/// with Close, its filters the open workout's, on until cleared (`AppSession.addExerciseFilter`).
 /// Picking one hands it back; the presenter closes the sheet. Its inline title and Close are
 /// drawn by the bar's search: Close turns into its field as it opens, which covers the title,
 /// and back as it closes. Opening search, or tapping Muscle or Equipment, takes the sheet to
@@ -21,8 +21,8 @@ import WorkoutStore
 /// leave the workout behind the sheet (`WorkoutScreen.deleteExercise(_:closing:)`).
 struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
-    /// What the list is narrowed by as it opens (`AddExerciseSheet.filter`).
-    var filter = ExerciseFilter()
+    /// What the list is narrowed by, the open workout's kept filter, written as it changes.
+    @Binding var filter: ExerciseFilter
     let onPick: (Exercise) -> Void
     /// Runs as search opens or a filter's button is tapped, in the tap's own transaction
     /// (`ExerciseListView.onExpand`).
@@ -48,7 +48,7 @@ struct ExercisePicker<Customize: View>: View {
         NavigationStack {
             ExerciseListView(
                 exercises: exercises,
-                filter: filter,
+                filter: $filter,
                 onTap: onPick,
                 rowActions: holdMenu,
                 barTitle: "Add exercise",
@@ -124,7 +124,8 @@ private struct HoldMenu: ViewModifier {
 }
 
 #Preview {
-    ExercisePicker(exercises: .builtIn) { _ in } onCreate: { _, _ in
+    @Previewable @State var filter = ExerciseFilter()
+    ExercisePicker(exercises: .builtIn, filter: $filter) { _ in } onCreate: { _, _ in
     } deleteMessage: { _ in
         ""
     } onDelete: { _ in

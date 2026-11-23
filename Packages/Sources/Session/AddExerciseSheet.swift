@@ -1,26 +1,23 @@
 import Foundation
 import WorkoutStore
 
-/// Add exercise's open sheet: the filter its list starts with. The workout screen's + opens it
-/// with none; a caller that knows what is wanted, a muscle group, opens it with that chosen.
+/// Add exercise's open sheet. Its filter is not the sheet's: it is the open workout's
+/// (`AppSession.addExerciseFilter`), on again at the next opening until cleared.
 public struct AddExerciseSheet: Identifiable {
-    public let filter: ExerciseFilter
-    /// This opening's own identity, which the picker takes, so every opening starts from its
-    /// own filter and none comes up with the last one's, as a row's sheet did
-    /// (`RowSheet.opening`): filters clear when Add exercise closes.
+    /// This opening's own identity, which the picker takes, so every opening starts from fresh
+    /// view state (an empty search, the top of the list, no pushed Customize) and none comes up
+    /// with the last one's, as a row's sheet did (`RowSheet.opening`).
     public let id = UUID()
 
-    public init(filter: ExerciseFilter = ExerciseFilter()) {
-        self.filter = filter
-    }
+    public init() { }
 }
 
 extension AppSession {
-    /// Opens Add exercise with `filter` on. The same ask while it is open keeps the opening
-    /// already asked for, so a double tap doesn't build the rising sheet again.
-    public func openAddExercise(filter: ExerciseFilter = ExerciseFilter()) {
+    /// Opens Add exercise on the open workout's kept filter. The same ask while it is open
+    /// changes nothing, so a double tap doesn't build the rising sheet again.
+    public func openAddExercise() {
         guard addExercise == nil else { return }
-        addExercise = AddExerciseSheet(filter: filter)
+        addExercise = AddExerciseSheet()
     }
 
     public func closeAddExercise() {
