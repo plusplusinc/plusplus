@@ -23,6 +23,8 @@ struct FilterBar: View {
     /// What the typed words offer (`FilterOffer`), on a line right under the buttons.
     let offers: [FilterOffer]
     let onTake: (FilterOffer) -> Void
+    /// How many picks Kind's menu has taken: the menu's identity (`kindMenu`).
+    @State private var menuPicks = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -70,12 +72,17 @@ struct FilterBar: View {
                 Toggle(kind.name, isOn: Binding {
                     filter.kind == kind
                 } set: { _ in
+                    menuPicks += 1
                     filter.toggle(kind)
                 })
             }
         } label: {
             label("Kind", choice: filter.kindLabel)
         }
+        // A pick makes a new button, which grows into its place as the others slide. The
+        // closing menu shrinks back into the button it opened from: resized under it, that one
+        // came back cut flat at its old width.
+        .id(menuPicks)
         .menuOrder(.fixed)
         .buttonStyle(.plain)
     }
