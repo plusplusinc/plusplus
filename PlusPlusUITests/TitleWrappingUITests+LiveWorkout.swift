@@ -1,6 +1,6 @@
 import XCTest
 
-/// A workout at the largest text size, run first within `testWrappedTitleAtLargestTextSize`:
+/// A workout at the largest text size, run first within `testWorkoutAndFiltersAtLargestTextSize`:
 /// its bar and End's dialog under the audit, and where Start and a relaunch land. Here the
 /// equipment under the title stands taller than the screen, so the current exercise starts out
 /// below it, and Start's scroll to the top runs far.
