@@ -3,9 +3,9 @@ import SwiftUI
 import WorkoutStore
 
 /// The three filters' buttons over Add exercise's list (`ExerciseListView`), alike whatever
-/// they open, on one line that scrolls sideways when their words don't fit (decided
-/// 2026-11-22: the row never wraps). While a filter is on, Clear (`ClearFiltersLabel`) leads
-/// the row, before Muscle, and scrolls with it. Each change of the filter is one `.tapChange`
+/// they open, in the row the Workouts list's bar shares (`FilterButtonRow`): one line that
+/// scrolls sideways, led by Clear while a filter is on. Each change of the filter is one
+/// `.tapChange`
 /// transaction (`ExerciseListView.announcedFilter`): Clear fades as the buttons slide over,
 /// each button's fill and words crossfade and its width eases. No count shows: VoiceOver hears
 /// it with each change (`ExerciseListView.announcedFilter`). Under the buttons, while typed
@@ -26,29 +26,17 @@ struct FilterBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ScrollView(.horizontal) {
-                HStack(spacing: Spacing.sm) {
-                    if filter.isOn {
-                        Button { filter = ExerciseFilter() } label: { ClearFiltersLabel() }
-                            .buttonStyle(.plain)
-                            .transition(.opacity)
-                    }
-                    Button { onOpen(.muscle) } label: {
-                        label("Muscle", choice: filter.muscleLabel)
-                    }
-                    .buttonStyle(.plain)
-                    kindMenu
-                    Button { onOpen(.equipment) } label: {
-                        label("Equipment", choice: filter.equipmentLabel)
-                    }
-                    .buttonStyle(.plain)
+            FilterButtonRow(isOn: filter.isOn) { filter = ExerciseFilter() } buttons: {
+                Button { onOpen(.muscle) } label: {
+                    label("Muscle", choice: filter.muscleLabel)
                 }
-                // Inside the scroll's content, so the first button lines up with the rows and
-                // the last scrolls clear of the edge.
-                .padding(.horizontal, Spacing.md)
+                .buttonStyle(.plain)
+                kindMenu
+                Button { onOpen(.equipment) } label: {
+                    label("Equipment", choice: filter.equipmentLabel)
+                }
+                .buttonStyle(.plain)
             }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             if !offers.isEmpty {
                 offerLine
                     .padding(.horizontal, Spacing.md)

@@ -13,8 +13,9 @@ import WorkoutStore
 ///
 /// Under the title, pinned once it scrolls away, the filters' bar (`WorkoutsFilterBar`): Muscle
 /// and Equipment open sheets of chips, Length a sheet of presets and two wheels (`LengthSheet`),
-/// and the three narrow the list together (`WorkoutFilter`). A change animates in one `.snappy`
-/// move, the bars that stay taking their new scale, and VoiceOver hears the new count. Under the
+/// and the three narrow the list together (`WorkoutFilter`). A change animates in one `.tapChange`
+/// move, as Add exercise's, the bars that stay taking their new scale, and VoiceOver hears the
+/// new count. Under the
 /// matches, a workout one piece of equipment short is listed under "Also needs" and a button
 /// that adds the piece (`NeedsHeader`). The filters hold through opening a workout and coming
 /// back, and clear as the screen leaves for another place.
@@ -97,7 +98,7 @@ struct WorkoutsScreen: View {
                         // Pinned under the bar once the title scrolls away, as Add exercise's.
                         // The only pinned view: "Also needs" headings are rows that scroll
                         // under it, as a second pinned header would push the bar away.
-                        WorkoutsFilterBar(filter: announcedFilter, count: filtered.matches.count) {
+                        WorkoutsFilterBar(filter: announcedFilter) {
                             choosing = $0
                         }
                         .background(Color.pp(.background))
@@ -195,11 +196,8 @@ struct WorkoutsScreen: View {
     /// change of the filter, which can be skipped.
     private var announcedFilter: Binding<WorkoutFilter> {
         Binding { filter } set: { changed in
-            if reduceMotion {
-                filter = changed
-            } else {
-                withAnimation(.snappy) { filter = changed }
-            }
+            // `.tapChange`, as Add exercise's filter, so the two bars move alike.
+            withAnimation(reduceMotion ? nil : .tapChange) { filter = changed }
             // Over the rows the bar counts, so a delete still leaving reads as gone.
             let count = shown.count { changed.passes($0.summary) }
             AccessibilityNotification.Announcement(WorkoutFilter.countText(count)).post()
