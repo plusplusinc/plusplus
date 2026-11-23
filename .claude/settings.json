@@ -49,7 +49,6 @@
       "Bash(xcrun notarytool:*)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
-      "Bash(git tag:*)",
       "Bash(gh api -X PUT:*)",
       "Bash(gh api -X PATCH:*)",
       "Bash(gh api -X DELETE:*)",
