@@ -53,15 +53,16 @@ public struct WorkoutRow: View {
             segments.map(\.word) + (more.isEmpty ? [] : ["+\(more.count)"])
         }
 
-        /// The equipment as it may read, longest first: every piece, then fewer with "+N" for
-        /// the rest, at most four; "No equipment" for none.
+        /// The equipment as it may read, longest first: every piece, then each fewer with "+N"
+        /// for the rest, down to "+N" alone, so the line never truncates a piece's name; "No
+        /// equipment" for none.
         var equipmentCandidates: [String] {
             guard !equipment.isEmpty else { return ["No equipment"] }
             let all = [equipment.joined(separator: ", ")]
             let shorter = (1 ..< equipment.count).reversed().map { shown in
                 equipment.prefix(shown).joined(separator: ", ") + " +\(equipment.count - shown)"
             }
-            return Array((all + shorter).prefix(4))
+            return all + shorter + ["+\(equipment.count)"]
         }
     }
 

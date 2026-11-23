@@ -98,6 +98,33 @@ struct WorkoutsSnapshotTests {
         )
     }
 
+    /// xxxLarge, the largest size short of the accessibility ones, where the row keeps its two
+    /// columns; the AX5 image shows the same, as the size is set on the view.
+    @Test("At xxxLarge the equipment falls to fewer pieces and +N, never a cut name")
+    func equipmentAtXXXLarge() {
+        assertThemedSnapshots(
+            of: list {
+                row("Upper body", .init(
+                    length: "40 min",
+                    kind: "Strength",
+                    equipment: ["Dumbbells", "Bench"],
+                    segments: [("Chest", 0.3), ("Back", 0.3), ("Shoulders", 0.2)],
+                    more: [0.2],
+                    fill: 0.8,
+                ))
+                row("Legs and balance", .init(
+                    length: "35 min",
+                    kind: "Strength",
+                    equipment: ["Dumbbells", "Balance board"],
+                    segments: [("Legs", 0.7), ("Core", 0.3)],
+                    fill: 0.7,
+                ))
+            }
+            .dynamicTypeSize(.xxxLarge),
+            width: Self.screenWidth,
+        )
+    }
+
     @Test("An Also needs section under the matches; its button wraps inside the margins at AX5")
     func alsoNeeds() {
         let short = WorkoutRow.Shape(
