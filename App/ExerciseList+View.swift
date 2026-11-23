@@ -149,8 +149,13 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// Takes an offer: its choice on, its words out of the search, which stays open with the
     /// keyboard up. The text changes first, so the count VoiceOver hears is the list's.
     private func take(_ offer: FilterOffer) {
-        query = offer.remainingText
-        announcedFilter.wrappedValue.turnOn(offer.choice)
+        // One transaction for both: the offer line leaving with its words and the filter's
+        // change. The text alone, outside it, took the line away at once and the buttons moved
+        // frames later.
+        withAnimation(.filterChange(reduceMotion: reduceMotion)) {
+            query = offer.remainingText
+            announcedFilter.wrappedValue.turnOn(offer.choice)
+        }
     }
 
     /// The filter, written through one place, which tells VoiceOver how many exercises show
@@ -159,7 +164,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// chip, is one `.tapChange` transaction, so the filter buttons move alike on and off.
     private var announcedFilter: Binding<ExerciseFilter> {
         Binding { filter } set: { changed in
-            withAnimation(reduceMotion ? nil : .tapChange) { filter = changed }
+            withAnimation(.filterChange(reduceMotion: reduceMotion)) { filter = changed }
             let count = exercises.filtered(by: changed, matching: query).matches.count
             AccessibilityNotification.Announcement(FilterBar.countText(count)).post()
         }

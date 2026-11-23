@@ -155,8 +155,7 @@ Each of these cost a round; the code at the named spot works around it.
   rested short of its end; follow every change short of the end
   once the following has begun (`keepEndInView`, `EndFollow`).
 - A sheet's `.height` detent measures inside its safe area: grow it by the content's overflow
-  alone (`ExerciseSheet.fit(_:)`). A floating one still gets that room, as a safe area
-  (`detentRoom`).
+  alone (`ExerciseSheet.fit(_:)`). A floating one still gets that room, as a safe area.
 - `ViewThatFits` on the workout screen hung the app as the title took focus; use a small
   `Layout` (`FigureLayout`).
 - A hold on a row in a scroll view is a UIKit long press (`RailLiftGesture`) outside the row's

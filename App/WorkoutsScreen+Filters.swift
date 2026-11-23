@@ -12,7 +12,9 @@ struct WorkoutsFilterBar: View {
     let onOpen: (WorkoutsSheet) -> Void
 
     var body: some View {
-        FilterButtonRow(isOn: filter.isOn) { filter = WorkoutFilter() } buttons: {
+        FilterButtonRow(isOn: filter.isOn, shows: filter) {
+            filter = WorkoutFilter()
+        } buttons: {
             button("Muscle", choice: filter.muscleLabel, opens: .muscle)
             button("Equipment", choice: filter.equipmentLabel, opens: .equipment)
             button(

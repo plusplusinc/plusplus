@@ -66,6 +66,9 @@ public struct FilterOfferLine: View {
                         leading: offer.id == offers.first?.id ? nil : Spacing.sm / 2,
                         trailing: offer.id == offers.last?.id ? nil : Spacing.sm / 2,
                     )
+                    // A taken offer goes at once, as its choice lights in the filter's button:
+                    // fading in place, the words sliding over to the offers left ran across it.
+                    .transition(.asymmetric(insertion: .opacity, removal: .identity))
                 }
             }
         }

@@ -26,7 +26,9 @@ struct FilterBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            FilterButtonRow(isOn: filter.isOn) { filter = ExerciseFilter() } buttons: {
+            FilterButtonRow(isOn: filter.isOn, shows: filter) {
+                filter = ExerciseFilter()
+            } buttons: {
                 Button { onOpen(.muscle) } label: {
                     label("Muscle", choice: filter.muscleLabel)
                 }

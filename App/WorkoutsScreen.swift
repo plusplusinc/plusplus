@@ -85,14 +85,19 @@ struct WorkoutsScreen: View {
                     Section {
                         // One ForEach for matches and sections alike, so a workout whose
                         // piece is added keeps its identity and moves up into the matches.
-                        ForEach(items) { item in
-                            switch item {
-                            case let .workout(workout):
-                                row(workout, summary: summaries[workout.id], fullBar: fullBar)
-                            case let .needs(piece):
-                                needsHeader(piece)
+                        // With Reduce Motion a new filter is a new list, which crossfades
+                        // rather than rows sliding to close up.
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(items) { item in
+                                switch item {
+                                case let .workout(workout):
+                                    row(workout, summary: summaries[workout.id], fullBar: fullBar)
+                                case let .needs(piece):
+                                    needsHeader(piece)
+                                }
                             }
                         }
+                        .id(reduceMotion ? AnyHashable(filter) : AnyHashable(0))
                         FloatingButtonRoom()
                     } header: {
                         // Pinned under the bar once the title scrolls away, as Add exercise's.
@@ -196,8 +201,7 @@ struct WorkoutsScreen: View {
     /// change of the filter, which can be skipped.
     private var announcedFilter: Binding<WorkoutFilter> {
         Binding { filter } set: { changed in
-            // `.tapChange`, as Add exercise's filter, so the two bars move alike.
-            withAnimation(reduceMotion ? nil : .tapChange) { filter = changed }
+            withAnimation(.filterChange(reduceMotion: reduceMotion)) { filter = changed }
             // Over the rows the bar counts, so a delete still leaving reads as gone.
             let count = shown.count { changed.passes($0.summary) }
             AccessibilityNotification.Announcement(WorkoutFilter.countText(count)).post()
