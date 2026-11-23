@@ -47,9 +47,12 @@ extension Rail {
             railNode = node
         }
         guard !isHeld else { return }
-        nodeInsets = Dictionary(uniqueKeysWithValues: data.compactMap { item in
+        let measured = Dictionary(uniqueKeysWithValues: data.compactMap { item in
             insets[AnyHashable(item.id)].map { (item.id, $0.y) }
         })
+        if !RailDrag.isSame(measured, as: nodeInsets) {
+            nodeInsets = measured
+        }
     }
 
     /// Drops what the rail keeps for rows no longer in it, so a deleted row swiped open cuts

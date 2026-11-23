@@ -26,7 +26,26 @@ nonisolated extension RailDrag {
     ) -> CGPoint? {
         guard !isHeld || known == nil, let x = insets.map(\.x).max(), let y = insets.map(\.y).min()
         else { return known }
-        return CGPoint(x: x, y: y)
+        let node = CGPoint(x: x, y: y)
+        if let known, isSame(node.x, known.x), isSame(node.y, known.y) {
+            return known
+        }
+        return node
+    }
+
+    /// Whether `measured`, how far down each row its node is, places every node where `known`
+    /// does. A layout pass measuring the same place again can differ from the last in its last
+    /// bits, as the rows' first layout does once the scroll view around them has a height; kept,
+    /// the rail's body doesn't run again for it, building every row again.
+    static func isSame<ID>(_ measured: [ID: CGFloat], as known: [ID: CGFloat]) -> Bool {
+        measured.count == known.count && measured.allSatisfy { id, inset in
+            known[id].map { isSame(inset, $0) } ?? false
+        }
+    }
+
+    /// Whether two measures of a place draw it in the same place, within a hundredth of a point.
+    private static func isSame(_ one: CGFloat, _ other: CGFloat) -> Bool {
+        abs(one - other) < 0.01
     }
 }
 
