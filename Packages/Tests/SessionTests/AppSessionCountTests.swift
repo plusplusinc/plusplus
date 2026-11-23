@@ -127,4 +127,28 @@ struct AppSessionCountTests {
         #expect(second.loggedWorkout?.sets.first?.clockWhenLogged == lead + 30)
         #expect(second.loggedWorkout?.count?.startClock == 300 + lead)
     }
+
+    @Test("A set's measure flipped twice in a row drops its count at the save, stored")
+    func measureFlippedTwice() async throws {
+        let workout = try Self.planks()
+        let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
+        session.save(workout)
+        session.start(on: workout.id, at: Self.at(0))
+        session.beginCount(at: Self.at(0))
+        var longer = workout
+        longer.exercises[0].plan.target = .time(seconds: 45)
+        session.save(longer)
+        #expect(session.loggedWorkout?.count != nil, "A time changed keeps the count")
+        // Two saves with nothing between, as two edits in one frame: no reaction to either.
+        var asReps = longer
+        asReps.exercises[0].plan.target = .reps(10)
+        session.save(asReps)
+        session.save(longer)
+        #expect(session.loggedWorkout?.count == nil)
+        await session.writesLanded()
+        let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
+        #expect(relaunched?.count == nil)
+        session.beginCount(at: Self.at(20))
+        #expect(session.loggedWorkout?.count?.startClock == 20 + Double(LiveWorkout.startIn))
+    }
 }

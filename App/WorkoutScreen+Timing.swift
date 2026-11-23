@@ -285,17 +285,14 @@ extension WorkoutScreen {
     }
 
     /// An edit at rest made another set current, or changed the current set's measure: the
-    /// count goes with the set it was begun for, and a set made current, or changed to reps or
-    /// to a time, opens on the "Start in" due before it from now (`fresh`), a timed one on
-    /// "Start in" in any case, as any with no rest before it. A time changed mid-count needs
-    /// nothing here: the count's length follows the row, its start kept, and its watch wakes to
-    /// the new end.
-    func settleCountAfterEdit(from old: CountSubject, to new: CountSubject) {
+    /// count goes with the set it was begun for, or, for a measure changed, as the edit was
+    /// saved (`AppSession.save(_:)`), and a set made current, or changed to reps or to a time,
+    /// opens on the "Start in" due before it from now, a timed one on "Start in" in any case, as
+    /// any with no rest before it. A time changed mid-count needs nothing here: the count's
+    /// length follows the row, its start kept, and its watch wakes to the new end.
+    func settleCountAfterEdit() {
         guard phase.isAtRest else { return }
-        session.beginCount(
-            override: restOverride,
-            fresh: old.set == new.set && old.isTimed != new.isTimed,
-        )
+        session.beginCount(override: restOverride)
         withAnimation(SetMotion.restSwap) {
             phase.settleCount(on: live?.countStage(at: .now))
         }
@@ -345,8 +342,6 @@ extension View {
         sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: screen.countBeats.starts)
             .sensoryFeedback(.impact(weight: .heavy), trigger: screen.countBeats.ends)
             .task(id: screen.countWatch) { await screen.watchCount() }
-            .onChange(of: screen.countSubject) { old, new in
-                screen.settleCountAfterEdit(from: old, to: new)
-            }
+            .onChange(of: screen.countSubject) { screen.settleCountAfterEdit() }
     }
 }

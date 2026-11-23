@@ -277,16 +277,14 @@ struct TimedSetTests {
 
     @Test("A count's set changed to reps and back opens on Start in from each change")
     func timedAgain() throws {
-        var workout = try Self.workout()
-        let live = Self.started(workout)
-        workout.exercises[0].plan.target = .reps(10)
-        let asReps = LiveWorkout(workout: workout, loggedWorkout: live.loggedWorkout)
-            .beginningCount(at: Self.at(60), fresh: true)
+        var live = try Self.started(Self.workout())
         let lead = Double(LiveWorkout.startIn)
-        #expect(asReps.count?.startClock == 60 + lead)
-        workout.exercises[0].plan.target = .time(seconds: 30)
-        let again = LiveWorkout(workout: workout, loggedWorkout: asReps)
-            .beginningCount(at: Self.at(62), fresh: true)
-        #expect(again.count?.startClock == 62 + lead)
+        for (target, at) in [(SetTarget.reps(10), 60.0), (.time(seconds: 30), 62)] {
+            var edited = live.workout
+            edited.exercises[0].plan.target = target
+            live = LiveWorkout(workout: edited, loggedWorkout: live.droppingCount(for: edited))
+            live = LiveWorkout(workout: edited, loggedWorkout: live.beginningCount(at: Self.at(at)))
+            #expect(live.loggedWorkout.count?.startClock == at + lead, "as \(target)")
+        }
     }
 }

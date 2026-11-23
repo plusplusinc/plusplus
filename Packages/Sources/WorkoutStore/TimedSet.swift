@@ -160,19 +160,30 @@ extension LiveWorkout {
         return true
     }
 
+    /// The logged workout as `edited` replaces the workout: a count kept for a set whose row
+    /// changed measure, reps to a time or back, goes, so it never comes back with its old start
+    /// and the set opens on the "Start in" due before it from the edit
+    /// (`beginningCount(at:restOverride:)`). Decided as the edit is written, never from a
+    /// reaction to it, which SwiftUI can skip for a second change in one frame.
+    public func droppingCount(for edited: Workout) -> LoggedWorkout {
+        guard let count = loggedWorkout.count,
+              let before = workout.exercises.first(where: { $0.id == count.set.row }),
+              let after = edited.exercises.first(where: { $0.id == count.set.row }),
+              before.plan.target.isTime != after.plan.target.isTime
+        else { return loggedWorkout }
+        var dropped = loggedWorkout
+        dropped.count = nil
+        return dropped
+    }
+
     /// The workout with the current set's count begun at `now`, when it has none of its own:
     /// with the "Start in" due before it (`Workout.startIn(before:)`) from the end of the rest
     /// before it, when that just ended, else from now. A timed set with none due counts from the
     /// rest's end, when that just ended, else opens on `startIn` from now; a reps set with none
-    /// due begins nothing. `fresh` drops a count kept for the set, as after its measure changed,
-    /// so it never comes back with its old start; a count kept for no set goes. The rest of the
-    /// workout is unchanged while the rest before the set runs.
-    public func beginningCount(
-        at now: Date,
-        restOverride: Int? = nil,
-        fresh: Bool = false,
-    ) -> LoggedWorkout {
-        guard loggedWorkout.isInProgress, fresh || setCount == nil else { return loggedWorkout }
+    /// due begins nothing. A count kept for no set goes. The rest of the workout is unchanged
+    /// while the rest before the set runs.
+    public func beginningCount(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
+        guard loggedWorkout.isInProgress, setCount == nil else { return loggedWorkout }
         var begun = loggedWorkout
         begun.count = nil
         guard let set = currentSet else { return begun }
