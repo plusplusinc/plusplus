@@ -3,10 +3,11 @@ import SwiftUI
 
 /// The line that offers a filter when typed words name one of its choices: "Filter by
 /// muscle" leading, gray as the count line's words, and a "+ Back" button per offer trailing,
-/// the small capsule Clear and "+ Bench" wear (`SmallCapsuleButton`). Where they won't fit
-/// side by side, the buttons go under the words (`LineOrStack`), and where the buttons won't
-/// fit side by side either, as with three long names or at the largest text sizes, they go
-/// one under another (`OfferButtons`). VoiceOver reads each button as "Add back to Muscle".
+/// the small capsule Clear and "+ Bench" wear (`SmallCapsuleButton`). Where the words and the
+/// buttons won't fit on one line, as at the accessibility sizes or with three long names, the
+/// buttons show alone, never under the words (`WordsOrButtons`); where the buttons won't fit
+/// side by side either, they go one under another (`OfferButtons`). VoiceOver reads each
+/// button as "Add back to Muscle", which says what it adds to with the words gone too.
 ///
 /// Side by side, two buttons' touches each reach halfway into the gap between them, so a tap
 /// lands on the nearer one.
@@ -14,6 +15,7 @@ public struct FilterOfferLine: View {
     let text: String
     let offers: [Offer]
     @Environment(\.touchRoom) private var room
+    @State private var wordsShown = true
 
     /// One offer's button: the choice's name, the filter it joins, and what a tap does.
     public struct Offer: Identifiable {
@@ -36,10 +38,17 @@ public struct FilterOfferLine: View {
     }
 
     public var body: some View {
-        TextAndButton {
+        WordsOrButtons {
             Text(text)
                 .foregroundStyle(Color.pp(.textSecondary))
-        } button: {
+                .lineLimit(1)
+                .fixedSize()
+                // Shrinks to nothing, and draws nothing, where `WordsOrButtons` drops it.
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                .clipped()
+                // A dropped label keeps its text, so VoiceOver would still find it off screen.
+                .onGeometryChange(for: Bool.self) { $0.size.width > 0 } action: { wordsShown = $0 }
+                .accessibilityHidden(!wordsShown)
             OfferButtons(room: room) {
                 ForEach(offers) { offer in
                     SmallCapsuleButton(
@@ -55,6 +64,69 @@ public struct FilterOfferLine: View {
                 }
             }
         }
+        .font(.ppRowDetail)
+    }
+}
+
+/// An offer line's words leading and its buttons trailing, on one line, centered on each other,
+/// as `LineOrStack` lays a line; or, where the two won't fit side by side at their one-line
+/// widths, the buttons alone, leading, and the words not drawn: stacked over the buttons at the
+/// largest text sizes they took a third of the list's room over the keyboard, and the "+" and
+/// the line's place under the filters carry their meaning (decided 2026-11-22).
+struct WordsOrButtons: Layout {
+    var spacing = Spacing.sm
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        guard subviews.count == 2 else { return .zero }
+        let width = proposal.width ?? .infinity
+        if let line = oneLine(subviews[0], subviews[1], in: width) {
+            return CGSize(width: width.isFinite ? width : line.width, height: line.height)
+        }
+        let buttons = subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil))
+        return CGSize(width: width.isFinite ? width : buttons.width, height: buttons.height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal _: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout (),
+    ) {
+        guard subviews.count == 2 else { return }
+        let (words, buttons) = (subviews[0], subviews[1])
+        if oneLine(words, buttons, in: bounds.width) != nil {
+            words.place(
+                at: CGPoint(x: bounds.minX, y: bounds.midY),
+                anchor: .leading,
+                proposal: .unspecified,
+            )
+            buttons.place(
+                at: CGPoint(x: bounds.maxX, y: bounds.midY),
+                anchor: .trailing,
+                proposal: .unspecified,
+            )
+            return
+        }
+        words.place(at: bounds.origin, proposal: .zero)
+        buttons.place(
+            at: bounds.origin,
+            proposal: ProposedViewSize(width: bounds.width, height: nil),
+        )
+    }
+
+    /// The two at their one-line sizes, when they fit side by side in the width.
+    private func oneLine(
+        _ words: LayoutSubview,
+        _ buttons: LayoutSubview,
+        in width: CGFloat,
+    ) -> CGSize? {
+        let leading = words.sizeThatFits(.unspecified)
+        let trailing = buttons.sizeThatFits(.unspecified)
+        guard leading.width + spacing + trailing.width <= width else { return nil }
+        return CGSize(
+            width: leading.width + spacing + trailing.width,
+            height: max(leading.height, trailing.height),
+        )
     }
 }
 
