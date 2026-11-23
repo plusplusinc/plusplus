@@ -35,14 +35,13 @@ public struct WorkoutFilter: Hashable, Sendable {
         ExerciseFilter(equipment: equipment).equipmentLabel
     }
 
-    /// The Length button's words: the preset's own while the range is one, else "25–45 min",
-    /// "45+ min" with no upper limit, "20 min" for one length; nil while off.
+    /// The Length button's words: "25–45 min", "≥ 45 min" with no upper limit, "≤ 20 min" from
+    /// 0, "20 min" for one length; nil while off. Both ends count, since a length is a rounded
+    /// figure, so a preset reads as any range does.
     public var lengthLabel: String? {
         guard length != .full else { return nil }
-        if let preset = length.preset {
-            return preset.name
-        }
-        guard let upper = length.upper else { return "\(length.lower)+ min" }
+        guard let upper = length.upper else { return "≥ \(length.lower) min" }
+        guard length.lower != 0 else { return "≤ \(upper) min" }
         guard length.lower != upper else { return "\(upper) min" }
         return "\(length.lower)–\(upper) min"
     }
@@ -119,23 +118,24 @@ public struct LengthRange: Hashable, Sendable {
     }
 
     public enum Preset: CaseIterable, Sendable {
-        case under20
+        case upTo20
         case twentyToForty
-        case over40
+        case from40
 
         public var name: String {
             switch self {
-            case .under20: "< 20 min"
+            case .upTo20: "≤ 20 min"
             case .twentyToForty: "20–40 min"
-            case .over40: "> 40 min"
+            case .from40: "≥ 40 min"
             }
         }
 
+        /// Neighbors share an end: a workout that reads 20 minutes is in the first two.
         public var range: LengthRange {
             switch self {
-            case .under20: LengthRange(lower: 0, upper: 15)
+            case .upTo20: LengthRange(lower: 0, upper: 20)
             case .twentyToForty: LengthRange(lower: 20, upper: 40)
-            case .over40: LengthRange(lower: 45, upper: nil)
+            case .from40: LengthRange(lower: 40, upper: nil)
             }
         }
     }
