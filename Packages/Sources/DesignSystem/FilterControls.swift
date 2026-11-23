@@ -246,12 +246,13 @@ private struct TextAndButton<Words: View, Trailing: View>: View {
 struct SmallCapsuleButton: View {
     let systemImage: String
     let title: String
+    var symbolColor = ColorToken.textPrimary
     let action: () -> Void
 
     var body: some View {
         TouchOutset(minHeight: 44, sides: Spacing.sm) {
             Button(action: action) {
-                SmallCapsuleLabel(systemImage: systemImage, title: title)
+                SmallCapsuleLabel(systemImage: systemImage, title: title, symbolColor: symbolColor)
                     // Fills the room `TouchOutset` places it in, centered, and takes touches
                     // across all of it.
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -267,14 +268,18 @@ struct SmallCapsuleButton: View {
 /// The symbol is a symbol, not a character, so it centers on the word's line; a typed "+"
 /// sits on the baseline, low beside capitals. Its leading inset is the one the capsule's
 /// height leaves above and below it, so it sits in the middle of the capsule's round end.
+/// The symbol is in the word's color unless `symbolColor` says otherwise: "+ Bench"'s + is
+/// green, as the app's other + marks that make or add something are.
 struct SmallCapsuleLabel: View {
     let systemImage: String
     let title: String
+    var symbolColor = ColorToken.textPrimary
 
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.xs) {
             Image(systemName: systemImage)
                 .imageScale(.small)
+                .foregroundStyle(Color.pp(symbolColor))
                 .accessibilityHidden(true)
             Text(title)
         }
@@ -284,34 +289,6 @@ struct SmallCapsuleLabel: View {
         .padding(.trailing, Spacing.sm + Spacing.xs)
         .padding(.vertical, Spacing.xs)
         .background(Color.pp(.surfaceRaised), in: .capsule)
-    }
-}
-
-/// The heading of the exercises one piece of equipment short of a filter: "Also needs a
-/// bench" in the letter headings' style, read as a heading, and a small button that adds the
-/// piece to the filter, read as "Add bench to Equipment". Where the two won't fit side by
-/// side, the button goes under the words (`LineOrStack`).
-public struct NeedsHeader: View {
-    let title: String
-    let addTitle: String
-    let onAdd: () -> Void
-
-    public init(title: String, addTitle: String, onAdd: @escaping () -> Void) {
-        self.title = title
-        self.addTitle = addTitle
-        self.onAdd = onAdd
-    }
-
-    public var body: some View {
-        TextAndButton {
-            Text(title)
-                .fontWeight(.semibold)
-                .foregroundStyle(Color.pp(.textSecondary))
-                .accessibilityAddTraits(.isHeader)
-        } button: {
-            SmallCapsuleButton(systemImage: "plus", title: addTitle, action: onAdd)
-                .accessibilityLabel("Add \(addTitle.lowercased()) to Equipment")
-        }
     }
 }
 

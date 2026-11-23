@@ -216,10 +216,10 @@ struct WorkoutsScreen: View {
         )
     }
 
-    /// "Also needs a bench", and a button that adds the piece to the Equipment filter, through
+    /// "Also needs" and a button, "+ Bench", that adds the piece to the Equipment filter, through
     /// the one animated, announced write the sheet's chips use.
     private func needsHeader(_ piece: Equipment) -> some View {
-        NeedsHeader(title: "Also needs \(piece.needed)", addTitle: piece.name) {
+        NeedsHeader(needed: piece.needed, addTitle: piece.name) {
             announcedFilter.wrappedValue.equipment.insert(.piece(piece))
         }
         .padding(.horizontal, Spacing.md)
