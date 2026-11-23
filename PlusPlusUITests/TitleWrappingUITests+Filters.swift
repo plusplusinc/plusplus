@@ -18,9 +18,10 @@ extension TitleWrappingUITests {
         XCTAssertTrue(back.appears(), "Muscle opened no sheet of chips")
         // The system draws the floating sheet at about 96% of the size it lays out, so the
         // audit reads its widest words, the title and Shoulders, as clipped where they show
-        // whole; anything else it finds stands.
-        let sheet = app.scrollViews.containing(NSPredicate(format: "label == 'Done'")).firstMatch
-        let chips = sheet.frame
+        // whole; anything else it finds stands. The sheet is its chips' scroll view and the
+        // header over it, whose Done sits level with the title.
+        let chips = app.scrollViews.containing(NSPredicate(format: "label == 'Back'"))
+            .firstMatch.frame.union(app.buttons["Done"].frame)
         try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
             guard issue.auditType == .textClipped, let element = issue.element else { return false }
             return ["Muscle", "Shoulders"].contains(element.label) && chips.contains(element.frame)

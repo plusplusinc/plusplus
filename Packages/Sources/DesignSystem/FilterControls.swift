@@ -77,8 +77,9 @@ struct ChipButtonStyle: ButtonStyle {
 /// The sheet sits at its content's own height, with the room under the last line of chips
 /// what it is at the sides. A `.height` detent adds the home indicator's room under the
 /// content even where the sheet floats clear of it, so the detent asks that much less
-/// (`detentRoom`). Content that outgrows the sheet's full height, as at the largest text
-/// sizes, scrolls, and keeps that room under its end. Where the title and Done won't fit side
+/// (`detentRoom`). Chips that fit stay still under a drag; where they outgrow the sheet's full
+/// height, as at the largest text sizes, they scroll under the header, which stays put, and
+/// keep that room under their end. Where the title and Done won't fit side
 /// by side, Done goes under the title (`LineOrStack`), which beside it broke mid-word.
 public struct ChipSheet<Item: Hashable>: View {
     let title: String
@@ -87,8 +88,14 @@ public struct ChipSheet<Item: Hashable>: View {
     let name: (Item) -> String
     let onDone: () -> Void
 
-    @State private var height: CGFloat = 0
+    @State private var headerHeight: CGFloat = 0
+    @State private var chipsHeight: CGFloat = 0
     @State private var overflows = false
+
+    /// The sheet's content: the header over every chip.
+    private var height: CGFloat {
+        headerHeight + chipsHeight
+    }
 
     public init(
         title: String,
@@ -106,9 +113,11 @@ public struct ChipSheet<Item: Hashable>: View {
 
     public var body: some View {
         let room = detentRoom
-        return ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                header
+        return VStack(spacing: 0) {
+            header
+                .padding([.horizontal, .top], Spacing.md)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
+            ScrollView {
                 // Touching: each chip carries half the gap around its capsule
                 // (`ChipButtonStyle`), which the negative inset takes back at the edges, so
                 // the capsules line up with the title.
@@ -118,28 +127,36 @@ public struct ChipSheet<Item: Hashable>: View {
                     }
                 }
                 .padding(-Spacing.xs)
+                .padding([.horizontal, .bottom], Spacing.md)
+                .padding(.top, Spacing.sm)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { chipsHeight = $0 }
             }
-            .padding(Spacing.md)
-            .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
+            // Scrolled to its end, the last chips stand clear of the home indicator: the room
+            // the ignored safe area below would have given, only where the chips overflow.
+            .contentMargins(.bottom, overflows ? room : 0, for: .scrollContent)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.height > geometry.containerSize.height + 1
+            } action: { _, overflowing in
+                overflows = overflowing
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            // The sheet hands the scroll view its bottom safe area as an inset, even where it
+            // floats clear of the home indicator; kept, it would scroll chips that fit by that
+            // much.
+            .ignoresSafeArea(.container, edges: .bottom)
         }
-        // Scrolled to its end, the last chips stand clear of the home indicator.
-        .contentMargins(.bottom, overflows ? room : 0, for: .scrollContent)
-        .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentSize.height > geometry.containerSize.height + 1
-        } action: { _, overflowing in
-            overflows = overflowing
-        }
-        .scrollBounceBehavior(.basedOnSize)
         .sensoryFeedback(.selection, trigger: chosen)
-        .presentationDetents(height > 0 ? [.height(max(height - room, 0))] : [.medium])
+        .presentationDetents(
+            headerHeight > 0 && chipsHeight > 0 ? [.height(max(height - room, 0))] : [.medium],
+        )
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.surface))
     }
 
     /// The room a `.height` detent adds under the content: the window's bottom safe area. The
-    /// sheet keeps it without reporting it as a safe area of its own: inside, the safe area and
-    /// the scroll view's insets read 0 while the sheet stands that much taller than asked
-    /// (measured on iOS 27: 160 pt asked, 194 pt given).
+    /// sheet stands that much taller than asked, and reports the room as a bottom safe area
+    /// (measured on iOS 27: 126 pt asked, 160 pt given, 34 pt of safe area).
     private var detentRoom: CGFloat {
         UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }
