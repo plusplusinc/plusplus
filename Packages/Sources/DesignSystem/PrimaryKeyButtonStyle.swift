@@ -123,7 +123,8 @@ extension View {
     /// content runs on under the key, beside and below it, with the bottom scroll edge effect
     /// hidden, which a `safeAreaBar` would otherwise draw behind the bar. It sits where a tab bar
     /// floats: its ledge's bottom 21 pt above the screen's bottom, and its sides 21 pt from the
-    /// screen's. Each time `plusOnes` goes up, a +1 pops off the key's top. `drop` moves the key
+    /// screen's. Each time `plusOnes` goes up, a +1 pops off the key's top and plays on
+    /// there, whatever the key does next (`PlusOneSpot`). `drop` moves the key
     /// down by that much, at least off the screen, which an animation carries it along at its own
     /// pace. The keyboard covers the key, and the screen with it, rather than lifting them.
     ///
@@ -316,16 +317,7 @@ private struct PrimaryKeyBar<
             // Over the screen rather than in the bar, so it can rise above the bar's room.
             .overlayPreferenceValue(PrimaryKeyBounds.self) { key in
                 GeometryReader { proxy in
-                    if let key {
-                        let bounds = proxy[key]
-                        PlusOneBurst(trigger: plusOnes)
-                            .frame(
-                                width: bounds.width,
-                                height: max(bounds.minY, 0),
-                                alignment: .bottom,
-                            )
-                            .offset(x: bounds.minX)
-                    }
+                    PlusOneSpot(trigger: plusOnes, key: key.map { proxy[$0] })
                 }
                 .allowsHitTesting(false)
             }

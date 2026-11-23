@@ -57,6 +57,70 @@ struct PlusOneBurst: View {
     }
 }
 
+/// The +1 over the key's top, at the place the key had when the burst began, for the burst's
+/// length: the key may slide away, swap for another, or leave the bar, and the +1 plays on where
+/// it started. `key` is the key's bounds in this view's space, nil with no key.
+struct PlusOneSpot: View {
+    let trigger: Int
+    let key: CGRect?
+
+    @State private var hold = PlusOneHold()
+
+    var body: some View {
+        let spot = hold.spot(for: key)
+        PlusOneBurst(trigger: trigger)
+            .frame(
+                width: spot?.width ?? 0,
+                height: max(spot?.minY ?? 0, 0),
+                alignment: .bottom,
+            )
+            .offset(x: spot?.minX ?? 0)
+            .opacity(spot == nil ? 0 : 1)
+            .onChange(of: PlusOneHold.Input(trigger: trigger, key: key)) { old, new in
+                hold.follow(from: old, to: new)
+            }
+            .task(id: trigger) {
+                guard hold.held != nil else { return }
+                try? await Task.sleep(for: .seconds(PlusOneBurst.duration))
+                if !Task.isCancelled {
+                    hold.release()
+                }
+            }
+    }
+}
+
+/// Where a +1 plays: the key's bounds as its burst began, held until the burst is over.
+struct PlusOneHold {
+    /// What the spot is worked out from: the count of bursts and the key's bounds, nil with no
+    /// key.
+    struct Input: Equatable {
+        let trigger: Int
+        let key: CGRect?
+    }
+
+    /// The key's bounds as the burst playing began, nil between bursts.
+    private(set) var held: CGRect?
+
+    /// Where the +1 is drawn while the key is at `key`.
+    func spot(for key: CGRect?) -> CGRect? {
+        held ?? key
+    }
+
+    /// Holds the key's place when the count goes up: the bounds from before that update, which
+    /// may already have the key on its way out, and through a burst that follows another, the
+    /// place already held.
+    mutating func follow(from old: Input, to new: Input) {
+        if new.trigger != old.trigger {
+            held = held ?? old.key ?? new.key
+        }
+    }
+
+    /// The burst over, the +1 goes back to the key, unseen.
+    mutating func release() {
+        held = nil
+    }
+}
+
 #Preview {
     @Previewable @State var logs = 0
     Button("Log set") { logs += 1 }
