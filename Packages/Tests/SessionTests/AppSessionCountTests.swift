@@ -95,9 +95,10 @@ struct AppSessionCountTests {
         session.save(workout)
         session.start(on: workout.id, at: Self.at(0))
         session.beginCount(at: Self.at(0))
-        session.extendCount(by: 15, at: Self.at(12))
-        // Counting from 10: 18 s done at 28.
-        session.finish(at: Self.at(28))
+        let lead = Double(LiveWorkout.startIn)
+        session.extendCount(by: 15, at: Self.at(lead + 2))
+        // Counting from the lead: 18 s done 18 s on.
+        session.finish(at: Self.at(lead + 18))
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
             .map(\.loggedWorkout)
@@ -122,7 +123,8 @@ struct AppSessionCountTests {
         )
         second.catchUp(at: Self.at(300))
         #expect(second.loggedWorkout?.sets.map(\.target) == [.time(seconds: 30)])
-        #expect(second.loggedWorkout?.sets.first?.clockWhenLogged == 40)
-        #expect(second.loggedWorkout?.count?.startClock == 310)
+        let lead = Double(LiveWorkout.startIn)
+        #expect(second.loggedWorkout?.sets.first?.clockWhenLogged == lead + 30)
+        #expect(second.loggedWorkout?.count?.startClock == 300 + lead)
     }
 }

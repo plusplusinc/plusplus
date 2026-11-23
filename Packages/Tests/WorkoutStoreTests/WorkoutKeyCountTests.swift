@@ -8,7 +8,8 @@ import Testing
 struct WorkoutKeyCountTests {
     private static let start = Date(timeIntervalSinceReferenceDate: 1000)
 
-    /// A workout on two planks, the first of two sets, its count begun at `start`.
+    /// A workout on two planks, the first of two sets, its count begun at `start` and counting
+    /// from 10 on the clock.
     private static func live() throws -> LiveWorkout {
         var plank = try WorkoutExercise.builtIn("Plank") { $0.sets = 2 }
         plank.plan.target = .time(seconds: 30)
@@ -20,8 +21,9 @@ struct WorkoutKeyCountTests {
             workoutName: "Test",
             startedAt: start,
         )
-        let begun = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
+        var begun = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
             .beginningCount(at: start)
+        begun.count?.startClock = 10
         return LiveWorkout(workout: workout, loggedWorkout: begun)
     }
 

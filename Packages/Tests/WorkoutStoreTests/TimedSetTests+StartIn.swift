@@ -6,11 +6,12 @@ extension TimedSetTests {
     @Test("A reps set's Start in counts; it logs during it, and the next set begins none")
     func reps() throws {
         let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
-        let live = Self.started(workout)
-        #expect(live.loggedWorkout.count?.startClock == 10)
-        #expect(live.countStage(at: Self.at(5)) == .startIn)
-        #expect(live.countStage(at: Self.at(10)) == nil, "Over, the set stands")
-        let after = try Self.logged(live, at: 5)
+        let live = Self.begun(workout)
+        let lead = Double(LiveWorkout.startIn)
+        #expect(live.loggedWorkout.count?.startClock == lead)
+        #expect(live.countStage(at: Self.at(lead - 1)) == .startIn)
+        #expect(live.countStage(at: Self.at(lead)) == nil, "Over, the set stands")
+        let after = try Self.logged(live, at: lead - 1)
         let first = after.loggedWorkout.sets.first
         #expect(first?.target == first?.plannedTarget)
         #expect(after.loggedWorkout.count == nil)
@@ -42,7 +43,7 @@ extension TimedSetTests {
         let after = try Self.logged(live, at: 40)
         #expect(after.beginningCount(at: Self.at(50)).count == nil, "Not while the rest runs")
         let begun = Self.landed(after, at: 60.5)
-        #expect(begun.loggedWorkout.count?.startClock == 70)
-        #expect(begun.countStage(at: Self.at(65)) == .startIn)
+        #expect(begun.loggedWorkout.count?.startClock == 60 + Double(LiveWorkout.startIn))
+        #expect(begun.countStage(at: Self.at(61)) == .startIn)
     }
 }
