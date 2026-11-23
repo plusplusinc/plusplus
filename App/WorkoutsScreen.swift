@@ -3,10 +3,21 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// Every saved workout, most recently opened or edited first, each by its name. The app launches
-/// here when a finish was the last thing done (`Store.Launch.workouts`).
-/// Tapping one pushes it on the workout screen; + pushes a new one. A line runs under each row,
-/// the last included, as under each row in Add exercise.
+/// Every saved workout, most recently opened or edited first, each a `WorkoutRow`: its name,
+/// estimated length, kind, equipment, and a bar of the muscles it works, as long as the workout
+/// against the longest row shown, never less than 30 minutes (`WorkoutSummary.fullBarMinutes`).
+/// The app launches here when a finish was the last thing done (`Store.Launch.workouts`).
+/// Tapping one pushes it on the workout screen; the round green + at the bottom right, where an
+/// empty workout's + sits, pushes a new one. A line runs under each row, the last included, as
+/// under each row in Add exercise.
+///
+/// Under the title, pinned once it scrolls away, the filters' bar (`WorkoutsFilterBar`): Muscle
+/// and Equipment open sheets of chips, Length a sheet of presets and two wheels (`LengthSheet`),
+/// and the three narrow the list together (`WorkoutFilter`). A change animates in one `.snappy`
+/// move, the bars that stay taking their new scale, and VoiceOver hears the new count. Under the
+/// matches, a workout one piece of equipment short is listed under "Also needs" and a button
+/// that adds the piece (`NeedsHeader`). The filters hold through opening a workout and coming
+/// back, and clear as the screen leaves for another place.
 ///
 /// A row swiped left shows the system's red Delete, and a row held opens the system's context
 /// menu with Delete, red with a trash, the held row lifted on a rounded platter in the screen's
