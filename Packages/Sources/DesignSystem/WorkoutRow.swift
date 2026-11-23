@@ -21,8 +21,9 @@ public struct WorkoutRow: View {
         public let equipment: [String]
         /// The muscles named, most first, each with its share of the workout.
         public let segments: [(word: String, share: Double)]
-        /// Every muscle past those named, as one: how many and their share together.
-        public let more: (count: Int, share: Double)?
+        /// The share of each muscle past those named, most first: each draws its own segment,
+        /// in the "+N" shade, and one word, "+N", reads under the first of them.
+        public let more: [Double]
         /// How much of the bar's column the bar fills, 0 to 1.
         public let fill: Double
 
@@ -31,7 +32,7 @@ public struct WorkoutRow: View {
             kind: String,
             equipment: [String],
             segments: [(word: String, share: Double)],
-            more: (count: Int, share: Double)? = nil,
+            more: [Double] = [],
             fill: Double,
         ) {
             self.length = length
@@ -43,11 +44,13 @@ public struct WorkoutRow: View {
         }
 
         var shares: [Double] {
-            segments.map(\.share) + (more.map { [$0.share] } ?? [])
+            segments.map(\.share) + more
         }
 
+        /// A word per named segment, then "+N" under the first of the rest's; `SegmentWords`
+        /// places the words in order, so the rest's later segments go unworded.
         var words: [String] {
-            segments.map(\.word) + (more.map { ["+\($0.count)"] } ?? [])
+            segments.map(\.word) + (more.isEmpty ? [] : ["+\(more.count)"])
         }
 
         /// The equipment as it may read, longest first: every piece, then fewer with "+N" for
@@ -238,7 +241,7 @@ private struct ShapeLines: Layout {
                 kind: "Strength",
                 equipment: ["Barbell", "Dumbbells", "Bench", "Pull-up bar"],
                 segments: [("Chest", 0.25), ("Back", 0.25), ("Legs", 0.2)],
-                more: (2, 0.3),
+                more: [0.2, 0.1],
                 fill: 1,
             ))
             WorkoutRow("Morning stretch", shape: .init(

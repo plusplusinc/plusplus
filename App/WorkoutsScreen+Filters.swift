@@ -54,7 +54,7 @@ extension WorkoutRow.Shape {
             kind: summary.kind.workoutWord,
             equipment: summary.equipment.map(\.name),
             segments: named.map { ($0.group.name, $0.share) },
-            more: rest.map { ($0.count, $0.share) },
+            more: rest.map(\.share),
             fill: fill,
         )
     }

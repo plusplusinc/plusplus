@@ -116,13 +116,15 @@ struct WorkoutSummaryTests {
         }
     }
 
-    @Test("Past the limit, the rest of the muscles are one segment")
+    @Test("Past the limit, each muscle is its own segment, every one no longer than the last")
     func segments() {
         let summary = Self.summary(groups: [.chest, .back, .legs, .arms, .core])
         let (named, rest) = summary.segments(limit: 3)
         #expect(named.count == 3)
-        #expect(rest?.count == 2)
-        #expect(Self.summary(groups: [.chest, .back, .legs]).segments(limit: 3).rest == nil)
+        #expect(rest.count == 2)
+        let shares = (named + rest).map(\.share)
+        #expect(zip(shares, shares.dropFirst()).allSatisfy { $0 >= $1 })
+        #expect(Self.summary(groups: [.chest, .back, .legs]).segments(limit: 3).rest.isEmpty)
     }
 
     @Test("The kind is the most exercises', a tie going Strength; equipment once each")

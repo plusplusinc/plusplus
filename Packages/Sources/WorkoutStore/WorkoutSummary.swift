@@ -16,12 +16,6 @@ public struct WorkoutSummary: Equatable, Sendable {
         public let share: Double
     }
 
-    /// Every muscle beyond those a row names, as one: how many and their share together.
-    public struct Rest: Equatable, Sendable {
-        public let count: Int
-        public let share: Double
-    }
-
     /// The seconds a rep takes, with its share of settling in and re-gripping, so 10 reps is
     /// 50 s (the maintainer's figure, 2026-11-23).
     public static let secondsPerRep = 5
@@ -35,14 +29,11 @@ public struct WorkoutSummary: Equatable, Sendable {
         return max(5, Int(fives) * 5)
     }
 
-    /// The first `limit` muscles, and the rest as one, nil when there is none.
-    public func segments(limit: Int) -> (named: [Muscle], rest: Rest?) {
-        guard muscles.count > limit else { return (muscles, nil) }
-        let rest = muscles.dropFirst(limit)
-        return (
-            Array(muscles.prefix(limit)),
-            Rest(count: rest.count, share: rest.map(\.share).reduce(0, +)),
-        )
+    /// The first `limit` muscles, the ones a row names, and every muscle past them, each on its
+    /// own and still most first, so a bar of them all runs longest to shortest (decided
+    /// 2026-11-23); none past them when there are no more.
+    public func segments(limit: Int) -> (named: [Muscle], rest: [Muscle]) {
+        (Array(muscles.prefix(limit)), Array(muscles.dropFirst(limit)))
     }
 
     /// The minutes a full bar stands for among `summaries`, the workouts a list shows: the
