@@ -50,8 +50,9 @@ extension Rail {
         let measured = Dictionary(uniqueKeysWithValues: data.compactMap { item in
             insets[AnyHashable(item.id)].map { (item.id, $0.y) }
         })
-        if !RailDrag.isSame(measured, as: nodeInsets) {
-            nodeInsets = measured
+        let kept = RailDrag.nodeInsets(measured, known: nodeInsets)
+        if kept != nodeInsets {
+            nodeInsets = kept
         }
     }
 

@@ -4,12 +4,13 @@ import Testing
 
 /// A row's swipe actions compare equal while what they show and act on is, whatever closure
 /// made them, so SwiftUI keeps the ones it built rather than building them again on each run of
-/// the screen's body (`rowSwipe(_:value:action:)`). That SwiftUI skips an equal modifier's body
-/// in the frame a screen's rows first lay out was read on the simulator, from the fault log and
-/// the body's runs; a hosted window ran the body again in some runs and not in others.
+/// the screen's body (`rowSwipe(_:value:action:)`). That SwiftUI then skips an equal modifier's
+/// body was read on the simulator, from the fault log and the body's runs at an add and a drop;
+/// at some first layouts it ran the body with no compare, and a hosted window did either.
 @Suite("Row swipes")
 struct RowSwipeTests {
-    /// Made anew on each call, as a screen's body makes it on each run.
+    /// Made anew on each call, as a screen's body makes it on each run: the closure captures its
+    /// own storage, so no two calls' closures are the same.
     private func swipe(_ title: LocalizedStringKey = "Remove", value: Int) -> RowSwipe<Int> {
         var removed: Int?
         return RowSwipe(title: title, value: value) { removed = $0 }

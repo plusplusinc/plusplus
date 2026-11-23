@@ -24,9 +24,7 @@ extension View {
     }
 }
 
-/// `rowSwipe(_:value:action:)`'s actions, equal while what they show and act on is. When the body
-/// around it runs again, SwiftUI may compare an `Equatable` modifier with the last and skip its
-/// body when equal; on some first layouts it ran the body with no compare.
+/// `rowSwipe(_:value:action:)`'s actions, equal while what they show and act on is.
 struct RowSwipe<Value: Equatable>: ViewModifier, Equatable {
     let title: LocalizedStringKey
     let value: Value

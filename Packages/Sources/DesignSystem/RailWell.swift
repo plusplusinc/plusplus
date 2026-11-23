@@ -33,14 +33,16 @@ nonisolated extension RailDrag {
         return node
     }
 
-    /// Whether `measured`, how far down each row its node is, places every node where `known`
-    /// does. A layout pass measuring the same place again can differ from the last in its last
-    /// bits, as the rows' first layout does once the scroll view around them has a height; kept,
-    /// the rail's body doesn't run again for it, building every row again.
-    static func isSame<ID>(_ measured: [ID: CGFloat], as known: [ID: CGFloat]) -> Bool {
-        measured.count == known.count && measured.allSatisfy { id, inset in
+    /// How far down each row its node is, as `measured`, or `known` where `measured` places every
+    /// node where it does. A layout pass measuring the same place again can differ from the last
+    /// in its last bits, as the rows' first layout does once the scroll view around them has a
+    /// height; kept, as a node kept by `railNode`, the rail's body doesn't run again for it,
+    /// building every row again.
+    static func nodeInsets<ID>(_ measured: [ID: CGFloat], known: [ID: CGFloat]) -> [ID: CGFloat] {
+        let isSame = measured.count == known.count && measured.allSatisfy { id, inset in
             known[id].map { isSame(inset, $0) } ?? false
         }
+        return isSame ? known : measured
     }
 
     /// Whether two measures of a place draw it in the same place, within a hundredth of a point.

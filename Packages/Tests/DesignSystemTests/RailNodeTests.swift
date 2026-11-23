@@ -37,13 +37,13 @@ struct RailNodeTests {
             == CGPoint(x: 26, y: first + 0.5))
     }
 
-    @Test("Nodes measured again in the same places are the same; one moved or missing is not")
-    func sameInsets() {
+    @Test("Nodes measured again in the same places keep the first measures; moved or missing don't")
+    func sameInsetsKept() {
         let known = [1: first, 2: 18.0]
-        #expect(RailDrag.isSame([1: again, 2: 18.0], as: known))
-        #expect(!RailDrag.isSame([1: first + 0.5, 2: 18.0], as: known))
-        #expect(!RailDrag.isSame([1: first], as: known))
-        #expect(!RailDrag.isSame([1: first, 3: 18.0], as: known))
-        #expect(!RailDrag.isSame(known, as: [:]))
+        #expect(RailDrag.nodeInsets([1: again, 2: 18.0], known: known) == known)
+        for measured in [[1: first + 0.5, 2: 18.0], [1: first], [1: first, 3: 18.0]] {
+            #expect(RailDrag.nodeInsets(measured, known: known) == measured)
+        }
+        #expect(RailDrag.nodeInsets(known, known: [:]) == known)
     }
 }
