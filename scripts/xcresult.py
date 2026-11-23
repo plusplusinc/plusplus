@@ -33,12 +33,32 @@ PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR
 # against 69.3 s), so at 1.25 a run within its local budget was over on Xcode Cloud.
 LOCAL_RATIO = 1.25
 LOCAL_RATIOS = {"PlusPlusUITests": 1.35}
+# The UI tests together get this much a test. Their time is spread over checks that each make
+# a distinct claim (#254's breakdown of run 539), and the app gained screens after 360 s was
+# set for all of them, so the budget follows the tests rather than being raised whenever the
+# suite runs over. Each test's own 90 s rises only when a launch configuration is added.
+PER_UI_TEST = 50
+
+
+def ui_test_count(folder=ROOT / "PlusPlusUITests"):
+    """The XCTest methods in the UI test target's sources, which a run's UI budget is counted from.
+
+    >>> import tempfile
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     _ = (pathlib.Path(d) / "A.swift").write_text(
+    ...         "    func testOne() {}\\n    func testTwo() throws {}\\n    func helper() {}\\n")
+    ...     ui_test_count(pathlib.Path(d))
+    2
+    """
+    return sum(len(re.findall(r"^\s*func test\w*\(", p.read_text(), re.M)) for p in folder.glob("*.swift"))
+
+
 # Per test target: (all its tests, any one of them or None, whether every test is listed).
 TARGETS = {
     "WorkoutStoreTests": (10, None, False),
     "SessionTests": (5, None, False),
     "DesignSystemTests": (30, 2, False),
-    "PlusPlusUITests": (360, 90, True),
+    "PlusPlusUITests": (PER_UI_TEST * ui_test_count(), 90, True),
 }
 # Targets whose tests, over their own budget on Xcode Cloud, are judged by their local time.
 READ_LOCALLY = {"DesignSystemTests"}
@@ -132,12 +152,12 @@ def budget_lines(tests, parallel, on_ci):
       A/slow() 3.5 s (budget 1.6 s) OVER BUDGET
 
     The UI tests' local budgets follow their own ratio: #222's 69.3 s relaunch test, 93.8 s on
-    Xcode Cloud, reads over.
+    Xcode Cloud, reads over. Their budget together is PER_UI_TEST for each UI test there is.
 
-    >>> for line in budget_lines([("PlusPlusUITests", "A/relaunch()", 69.3)], set(), on_ci=False):
-    ...     print(line)
-    PlusPlusUITests 69.3 s (budget 267 s)
+    >>> print(budget_lines([("PlusPlusUITests", "A/relaunch()", 69.3)], set(), on_ci=False)[1])
       A/relaunch() 69.3 s (budget 66.7 s) OVER BUDGET
+    >>> TARGETS["PlusPlusUITests"][0] == PER_UI_TEST * ui_test_count()
+    True
     """
     lines = []
     by_target = bundle_times(tests, parallel)

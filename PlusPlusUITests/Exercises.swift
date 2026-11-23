@@ -228,8 +228,8 @@ extension XCUIElement {
         center.tap()
     }
 
-    /// Holds the element until its system context menu opens, which comes at about half a
-    /// second.
+    /// Holds the element until its system context menu opens, which comes at 0.4 s on the
+    /// simulator: a 0.35 s press opens nothing. Twice that leaves room for a slow runner.
     func holdForMenu() {
         press(forDuration: 0.8)
     }
@@ -317,13 +317,13 @@ extension XCUIElement {
 }
 
 extension XCUICoordinate {
-    /// Holds here long enough for a row to lift, half again `RailDrag.hold`, drags to
-    /// `target` at an unhurried hand's speed, holds there for `hold` seconds, and lets go.
-    /// XCTest's `.slow`, about 200 pt/s, took most of a second a drag.
+    /// Holds here long enough for a row to lift, twice `RailDrag.hold` so a slow runner still
+    /// lifts it, drags to `target` at an unhurried hand's speed, holds there for `hold`
+    /// seconds, and lets go. XCTest's `.slow`, about 200 pt/s, took most of a second a drag.
     @MainActor
     func holdAndDrag(to target: XCUICoordinate, holding hold: TimeInterval = 0.3) {
         press(
-            forDuration: 0.6,
+            forDuration: 0.8,
             thenDragTo: target,
             withVelocity: XCUIGestureVelocity(600),
             thenHoldForDuration: hold,
