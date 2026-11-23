@@ -22,8 +22,9 @@ public struct WorkoutSummary: Equatable, Sendable {
         public let share: Double
     }
 
-    /// The seconds a rep takes: about a second and a half each way, so 10 reps is 30 s.
-    public static let secondsPerRep = 3
+    /// The seconds a rep takes, with its share of settling in and re-gripping, so 10 reps is
+    /// 50 s (the maintainer's figure, 2026-11-23).
+    public static let secondsPerRep = 5
     /// The shortest workout that fills a row's bar, in shown minutes.
     public static let shortestFullBar = 30
 
