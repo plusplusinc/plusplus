@@ -54,16 +54,18 @@ extension Workout {
     /// How long the workout takes, in seconds, walked in the order its sets are done
     /// (`setOrder`): each set's work, and between each two the rest the live workout runs
     /// (`rest(after:before:)`), nothing after the last. A rep takes `secondsPerRep`; a timed set
-    /// its seconds and the count-in before it (`LiveWorkout.startsIn`).
+    /// its seconds. Before each set, the "Start in" the live workout runs
+    /// (`startIn(before:)`): as each exercise comes up, and before a set's other side.
     public var estimatedSeconds: Int {
         let order = setOrder
         let rows = Dictionary(exercises.map { ($0.id, $0) }) { first, _ in first }
         var total = 0
         for (index, set) in order.enumerated() {
             if let row = rows[set.row] {
+                total += startIn(before: set)
                 switch row.plan.target {
                 case let .reps(reps): total += reps * WorkoutSummary.secondsPerRep
-                case let .time(seconds): total += seconds + LiveWorkout.startsIn
+                case let .time(seconds): total += seconds
                 }
             }
             let next = order.indices.contains(index + 1) ? order[index + 1] : nil

@@ -27,7 +27,7 @@ struct WorkoutSummaryTests {
             .reps(10),
             rest: 60,
         )])
-        #expect(workout.estimatedSeconds == 3 * 10 * Self.rep + 2 * 60)
+        #expect(workout.estimatedSeconds == 3 * 10 * Self.rep + 2 * 60 + LiveWorkout.startIn)
     }
 
     @Test("A row's rest after its last set is the way to the next exercise, counted once")
@@ -36,7 +36,8 @@ struct WorkoutSummaryTests {
             Self.row("Goblet squat", sets: 2, .reps(10), rest: 60),
             Self.row("Push-up", sets: 1, .reps(10), rest: 90),
         ])
-        #expect(workout.estimatedSeconds == 3 * 10 * Self.rep + 2 * 60)
+        let startIns = 2 * LiveWorkout.startIn
+        #expect(workout.estimatedSeconds == 3 * 10 * Self.rep + 2 * 60 + startIns)
     }
 
     @Test("A per-side row takes both sides a set, with no rest between them")
@@ -44,10 +45,11 @@ struct WorkoutSummaryTests {
         let row = try Self.row("Bulgarian split squat", sets: 2, .reps(8), rest: 60)
         #expect(row.exercise.isPerSide)
         let workout = Workout(exercises: [row])
-        #expect(workout.estimatedSeconds == 4 * 8 * Self.rep + 60)
+        let startIns = LiveWorkout.startIn + 2 * LiveWorkout.startInSides
+        #expect(workout.estimatedSeconds == 4 * 8 * Self.rep + 60 + startIns)
     }
 
-    @Test("A timed set takes its seconds and the count-in before it")
+    @Test("A timed set takes its seconds and the Start in before it")
     func timed() throws {
         let workout = try Workout(exercises: [Self.row(
             "Plank",
@@ -55,7 +57,7 @@ struct WorkoutSummaryTests {
             .time(seconds: 45),
             rest: 0,
         )])
-        #expect(workout.estimatedSeconds == 45 + LiveWorkout.startsIn)
+        #expect(workout.estimatedSeconds == 45 + LiveWorkout.startIn)
     }
 
     @Test("The estimate is the live workout's own order and rests, a superset included")
@@ -72,8 +74,9 @@ struct WorkoutSummaryTests {
             let row = try #require(workout.exercises.first { $0.id == set.row })
             switch row.plan.target {
             case let .reps(reps): expected += reps * Self.rep
-            case let .time(seconds): expected += seconds + LiveWorkout.startsIn
+            case let .time(seconds): expected += seconds
             }
+            expected += workout.startIn(before: set)
             expected += workout.rest(
                 after: set,
                 before: order.indices

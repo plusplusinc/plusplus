@@ -82,7 +82,7 @@ public struct RestBlock: View {
     /// The time left, its changing digits rolling as `rolls(on:to:)` says. With `turns` off, as
     /// with Reduce Motion, nothing rolls and the figure takes the update's own animation, so
     /// `turns` never goes off in the change that moves the figure (`SetRest.turnsFigure`).
-    /// Always within `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes,
+    /// Always within `shown`: "Start in" reads 0:10 as it comes in and 0:01 until it goes,
     /// never 0:00.
     func countdown(
         size: CGFloat,

@@ -37,24 +37,25 @@ public struct WorkoutKey: Sendable {
         self.isScrolledAway = isScrolledAway
     }
 
-    /// The timed set's count as the key draws it, from the phase alone: "Starts in" or the
+    /// The timed set's count as the key draws it, from the phase and the plan: "Start in" or the
     /// count, at rest on a timed set (`WorkoutPhase.timing`); a timed set just logged and still
     /// drawn, held full for its beat (held, as between a side plank's sides, moving on until the
     /// rows shift, or before its rest shows), as a count, so the key swaps once, from it to
-    /// what follows; out of a rest onto a timed set, its count, which the rest's end began; and
-    /// on the way to a timed set with no rest before it (Start, or a move once the rows shift),
-    /// "Starts in". Nil for a reps set.
+    /// what follows; out of a rest onto a timed set, its "Start in" where one is due, else its
+    /// count, which the rest's end began; and on the way to a timed set with no rest before it
+    /// (Start, or a move once the rows shift), "Start in". Nil for a reps set, whose key logs
+    /// through its "Start in".
     public var drawnCount: CountStage? {
         if let logged = phase.loggedAndDrawn {
             return stored?.loggedCount(of: logged) == nil ? nil : .counting
         }
+        guard let shown, shown.isOnTimedSet else { return nil }
         if let stage = phase.timing {
             return stage
         }
-        guard shown?.isOnTimedSet == true, phase.isMovingOn || phase.isLeavingRest else {
-            return nil
-        }
-        return phase.isLeavingRest ? .counting : .startsIn
+        guard phase.isMovingOn || phase.isLeavingRest else { return nil }
+        guard phase.isLeavingRest, let set = shown.currentSet else { return .startIn }
+        return shown.workout.startIn(before: set) > 0 ? .startIn : .counting
     }
 
     /// What the key is for, as the workout is drawn.
@@ -85,7 +86,7 @@ public struct WorkoutKey: Sendable {
             return .rest
         }
         return switch drawnCount {
-        case .startsIn: .startNow
+        case .startIn: .startNow
         case .counting: .count(String(localized: "Log early"))
         case nil: .log(text)
         }
@@ -142,7 +143,8 @@ public struct WorkoutKey: Sendable {
         if wayBack != nil || isScrolledAway {
             return .back
         }
-        if phase.timing == .startsIn {
+        // A reps set logs through its "Start in"; a timed one starts.
+        if phase.timing == .startIn, stored.isOnTimedSet {
             return .startNow
         }
         guard phase.takesLog else { return .nothing }
@@ -175,7 +177,7 @@ extension WorkoutKey {
         /// During a rest, Skip rest and +15 s in the log key's place: another key, so they swap
         /// with it as any two keys do, never crossfading through it in its place.
         case rest
-        /// During a timed set's "Starts in", the key that starts it now.
+        /// During a timed set's "Start in", the key that starts it now.
         case startNow
         /// A timed set counting: its log key, saying which as `log` does, filling as it counts,
         /// with +15 s beside it. Another key than `log`, which the bar swaps in.

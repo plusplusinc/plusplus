@@ -53,7 +53,7 @@ struct AppSessionCountTests {
         let set = try #require(session.loggedWorkout?.sets.first)
         #expect(set.target == .time(seconds: 18))
         #expect(set.timeAdded == 15)
-        // The next set's "Starts in" waits for the screen to land on it.
+        // The next set's "Start in" waits for the screen to land on it.
         #expect(session.loggedWorkout?.count == nil)
     }
 

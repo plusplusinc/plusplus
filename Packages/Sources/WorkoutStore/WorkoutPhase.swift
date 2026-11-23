@@ -16,8 +16,9 @@ public enum WorkoutPhase: Equatable, Sendable {
     case starting(StartBeat)
     /// A workout, at rest: the key takes a log.
     case running
-    /// A workout at rest on a timed set: its "Starts in" count, then its own, which the key logs
-    /// early. The one value the key, the figures' slot, the set's segment, and the count's watch
+    /// A workout at rest on a set's "Start in" count, reps or timed, then a timed set's own,
+    /// which the key logs early. The one value the key, the figures' slot, the set's segment, and
+    /// the count's watch
     /// read, so they never disagree on where the set is.
     case timing(CountStage)
     /// A set logged that stays on its exercise, not yet shown: the line rolls on after a beat.
@@ -382,11 +383,12 @@ public enum WorkoutPhase: Equatable, Sendable {
         }
     }
 
-    /// Whether the key takes a log: only at rest, and on a timed set once it counts. While a set
+    /// Whether the key takes a log: only at rest, during "Start in" too, where a reps set logs at
+    /// any moment and a timed set's key is "Start now" instead (`WorkoutKey.tap`). While a set
     /// is held, a second tap in its beat, as a double tap would be, is dropped; while the
     /// workout moves on, the stored workout is already past the set drawn as current, and a log
     /// taken then would land on a set, or an exercise, not yet shown.
     public var takesLog: Bool {
-        self == .running || self == .timing(.counting)
+        self == .running || timing != nil
     }
 }

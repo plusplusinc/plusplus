@@ -153,7 +153,7 @@ public final class AppSession {
         guard canStart(on: workout) else { return }
         // The logged workout first: a screen shown at the root reads it as it is made, to open
         // on the current exercise.
-        // A timed first set's "Starts in" begins as the screen lands on it (`beginCount`).
+        // The first set's "Start in" begins as the screen lands on it (`beginCount`).
         change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
         if screen != .workout {
             // A fresh screen at the root, opening on the workout as it is now.

@@ -13,12 +13,12 @@ extension WorkoutPhase {
         return true
     }
 
-    /// "Starts in" is over, by its run to 0 or "Start now": the set counts. Only from
-    /// "Starts in".
+    /// "Start in" is over, by its run to 0 or "Start now": a timed set counts, and a reps set
+    /// stands as one with no "Start in" does. Only from "Start in".
     @discardableResult
-    public mutating func startCount() -> Bool {
-        guard self == .timing(.startsIn) else { return false }
-        self = .timing(.counting)
+    public mutating func startCount(isTimed: Bool = true) -> Bool {
+        guard self == .timing(.startIn) else { return false }
+        self = isTimed ? .timing(.counting) : .running
         return true
     }
 
@@ -44,7 +44,8 @@ extension WorkoutPhase {
     }
 
     /// Coming back to a set out of a rest, whose end began the set's count: within one exercise
-    /// as it swaps back, or on a move from the rest's word. A timed set then already counts.
+    /// as it swaps back, or on a move from the rest's word. A set then is in its "Start in" or,
+    /// timed with none due, already counts.
     public var isLeavingRest: Bool {
         resting?.beat == .returning || move?.isFromRest == true
     }
