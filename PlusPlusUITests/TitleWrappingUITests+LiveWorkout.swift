@@ -22,8 +22,9 @@ extension TitleWrappingUITests {
                     textSize: Self.largestTextSize,
                     arguments: ["-seedSuperset", "0,1"],
                 )
-                // Pushed from the Workouts screen, with a back chevron in the bar for ++.
-                app.openDrawer(andTap: "Workouts")
+                // Pushed from the Workouts screen, with a back chevron in the bar for ++; the
+                // drawer and Workouts are audited on the way, not on a trip of their own.
+                try drawerAtAX5(in: app)
                 app.workoutRows.firstMatch.tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "The workout opened no Start")
                 app.buttons["Start"].tap()
@@ -48,6 +49,21 @@ extension TitleWrappingUITests {
                 app.buttons["Discard workout"].tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "Discard left the workout running")
             }
+    }
+
+    /// The drawer, its places kept whole, and the Workouts screen pass the audit at this size,
+    /// opened with ++ over the workout the launch seeded. Ends on Workouts.
+    private func drawerAtAX5(in app: XCUIApplication) throws {
+        try XCTContext.runActivity(named: "The drawer and the Workouts screen at AX5") { _ in
+            try app.openDrawer(andTap: "Workouts") {
+                attach(named: "drawer-ax5")
+                try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            }
+            let row = app.workoutRows.firstMatch
+            XCTAssertTrue(row.appears(), "The workout isn't listed")
+            attach(named: "workouts-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        }
     }
 
     /// The current exercise's row just under the bar, the key not going back to it.

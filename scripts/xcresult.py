@@ -27,14 +27,38 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR"
 
 # Budgets in seconds on Xcode Cloud. A local run's are these divided by LOCAL_RATIO, the ratio
-# of CI to local times measured in 2026-10 with one test at a time on both.
+# of CI to local times measured in 2026-10 with one test at a time on both, or by the target's
+# own in LOCAL_RATIOS. The UI tests ran 1.34 times as long on Xcode Cloud as on a Mac (run 539,
+# 421.5 s, against 315.0 s locally on the same code, 2026-11-22; #222's relaunch test 93.8 s
+# against 69.3 s), so at 1.25 a run within its local budget was over on Xcode Cloud.
 LOCAL_RATIO = 1.25
+LOCAL_RATIOS = {"PlusPlusUITests": 1.35}
+# The UI tests together get this much a test. Their time is spread over checks that each make
+# a distinct claim (#254's breakdown of run 539), and the app gained screens after 360 s was
+# set for all of them, so the budget follows the tests rather than being raised whenever the
+# suite runs over. Each test's own 90 s rises only when a launch configuration is added.
+PER_UI_TEST = 50
+
+
+def ui_test_count(folder=ROOT / "PlusPlusUITests"):
+    """The XCTest methods in the UI test target's sources, which a run's UI budget is counted from.
+
+    >>> import tempfile
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     _ = (pathlib.Path(d) / "A.swift").write_text(
+    ...         "    func testOne() {}\\n    func testTwo() throws {}\\n    func helper() {}\\n")
+    ...     ui_test_count(pathlib.Path(d))
+    2
+    """
+    return sum(len(re.findall(r"^\s*func test\w*\(", p.read_text(), re.M)) for p in folder.glob("*.swift"))
+
+
 # Per test target: (all its tests, any one of them or None, whether every test is listed).
 TARGETS = {
     "WorkoutStoreTests": (10, None, False),
     "SessionTests": (5, None, False),
     "DesignSystemTests": (30, 2, False),
-    "PlusPlusUITests": (360, 90, True),
+    "PlusPlusUITests": (PER_UI_TEST * ui_test_count(), 90, True),
 }
 # Targets whose tests, over their own budget on Xcode Cloud, are judged by their local time.
 READ_LOCALLY = {"DesignSystemTests"}
@@ -63,6 +87,10 @@ def when(stamp):
     """
     stamp = re.sub(r"\.(\d+)", lambda m: "." + m[1][:6].ljust(6, "0"), stamp)
     return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+
+
+def local_ratio(target):
+    return LOCAL_RATIOS.get(target, LOCAL_RATIO)
 
 
 def over(seconds, budget, overage=None):
@@ -105,7 +133,7 @@ def overage(target, per_test, on_ci):
     decides (.claude/rules/testing.md, Budgets)."""
     if on_ci and target in READ_LOCALLY:
         return (", over on Xcode Cloud: slow if it logs fopen, or reads over "
-                f"{per_test / LOCAL_RATIO:.3g} s in the whole target locally (.claude/rules/testing.md)")
+                f"{per_test / local_ratio(target):.3g} s in the whole target locally (.claude/rules/testing.md)")
     return None
 
 
@@ -122,13 +150,21 @@ def budget_lines(tests, parallel, on_ci):
     ...     print(line)
     DesignSystemTests 3.6 s (budget 24 s)
       A/slow() 3.5 s (budget 1.6 s) OVER BUDGET
+
+    The UI tests' local budgets follow their own ratio: #222's 69.3 s relaunch test, 93.8 s on
+    Xcode Cloud, reads over. Their budget together is PER_UI_TEST for each UI test there is.
+
+    >>> print(budget_lines([("PlusPlusUITests", "A/relaunch()", 69.3)], set(), on_ci=False)[1])
+      A/relaunch() 69.3 s (budget 66.7 s) OVER BUDGET
+    >>> TARGETS["PlusPlusUITests"][0] == PER_UI_TEST * ui_test_count()
+    True
     """
     lines = []
     by_target = bundle_times(tests, parallel)
     order = list(TARGETS)
     for target in sorted(by_target, key=lambda t: order.index(t) if t in order else len(order)):
         total, per_test, lists_all = TARGETS.get(target, (None, None, False))
-        scale = 1 if on_ci else 1 / LOCAL_RATIO
+        scale = 1 if on_ci else 1 / local_ratio(target)
         seconds = by_target[target]
         lines.append(f"{target} {over(seconds, total * scale) if total else f'{seconds:.1f} s'}")
         if not per_test or target in parallel:
