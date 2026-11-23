@@ -55,6 +55,17 @@ struct WorkoutFilterTests {
         #expect(!top.passes(Self.summary(95 * 60, [.legs], [])))
     }
 
+    @Test("Muscle and Length together pass only a workout that passes both")
+    func muscleAndLength() {
+        let filter = WorkoutFilter(
+            muscleGroups: [.legs],
+            length: LengthRange.Preset.twentyToForty.range,
+        )
+        #expect(filter.passes(Self.summary(30 * 60, [.legs], [.dumbbells])))
+        #expect(!filter.passes(Self.summary(30 * 60, [.chest], [])), "In the range, no legs")
+        #expect(!filter.passes(Self.summary(50 * 60, [.legs], [])), "Legs, past the range")
+    }
+
     @Test("A range carries its other end past a crossing, and knows its presets")
     func lengthRange() {
         var range = LengthRange.full
