@@ -16,15 +16,14 @@ public actor Store {
         ))
     }
 
-    /// What the app opens with. A logged workout in progress opens with its workout, or, if
-    /// that is gone, an empty one under its id and name; with more than one, as sync could leave,
-    /// the latest started. Otherwise the workout last opened or edited, unless a logged workout
-    /// finished after that, which opens a new workout (nil). Every stored workout has been
-    /// edited, since an untouched one is never saved and a cleared one is deleted. A weight never
-    /// saved reads as its exercise's default in `weightUnit`.
-    public func launch(weightUnit: WeightUnit) throws
-        -> (workout: Workout?, loggedWorkout: LoggedWorkout?)
-    {
+    /// What the app opens with (`Launch`). A logged workout in progress opens with its workout,
+    /// or, if that is gone, an empty one under its id and name; with more than one, as sync could
+    /// leave, the latest started. Otherwise the workout last opened or edited, unless a logged
+    /// workout finished after that, which opens the Workouts list; with no saved workout, a new
+    /// one. Every stored workout has been edited, since an untouched one is never saved and a
+    /// cleared one is deleted. A weight never saved reads as its exercise's default in
+    /// `weightUnit`.
+    public func launch(weightUnit: WeightUnit) throws -> Launch {
         var inProgress = FetchDescriptor<StoredWorkout>(
             predicate: #Predicate { $0.endedAt == nil },
             sortBy: [SortDescriptor(\.startedAt, order: .reverse), SortDescriptor(\.id)],
@@ -36,20 +35,24 @@ public actor Store {
             let workout = try stored(id: loggedWorkout.workoutID)
                 .map { Self.workout(from: $0, exercises: exercises, weightUnit: weightUnit) }
                 ?? Workout(id: loggedWorkout.workoutID, name: loggedWorkout.workoutName)
-            return (workout, loggedWorkout)
+            return .inProgress(workout, loggedWorkout)
         }
         // Picked here, as the list sorts, so launch opens the workout the list puts first.
         guard let latest = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
             .min(by: Self.isMoreRecent(_:than:))
-        else { return (nil, nil) }
+        else { return .newWorkout }
         var finished = FetchDescriptor<StoredWorkout>(
             predicate: #Predicate { $0.endedAt != nil },
             sortBy: [SortDescriptor(\.endedAt, order: .reverse)],
         )
         finished.fetchLimit = 1
         let lastFinish = try modelContext.fetch(finished).first?.endedAt ?? .distantPast
-        guard lastFinish <= latest.recency else { return (nil, nil) }
-        return try (Self.workout(from: latest, exercises: exercises(), weightUnit: weightUnit), nil)
+        guard lastFinish <= latest.recency else { return .workouts }
+        return try .workout(Self.workout(
+            from: latest,
+            exercises: exercises(),
+            weightUnit: weightUnit,
+        ))
     }
 
     /// Saves the logged workout as it is now, every field. Once it has ended, its workout, if
@@ -101,14 +104,37 @@ public actor Store {
     }
 
     /// Deletes the logged workout, keeping nothing of it, its sets with it, and its workout if
-    /// cleared to nothing while it ran, in one save; nothing if there is none.
+    /// cleared to nothing while it ran, in one save; nothing if there is none. A discard that
+    /// doesn't save is undone, all of it (`saveOrRollback()`).
     public func discardLoggedWorkout(_ id: LoggedWorkout.ID) throws {
         guard let stored = try storedLoggedWorkout(id: id) else { return }
         if let workoutID = stored.routineID {
             try deleteIfCleared(workoutID: workoutID)
         }
         modelContext.delete(stored)
-        try modelContext.save()
+        try saveOrRollback()
+    }
+
+    /// Deletes a finished logged workout and its sets; nothing if there is none, or if it is still
+    /// in progress, which only Discard ends without keeping. Its workout stays, as it holds no
+    /// link to it. A delete that doesn't save is undone (`saveOrRollback()`).
+    public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) throws {
+        guard let stored = try storedLoggedWorkout(id: id), stored.endedAt != nil else { return }
+        modelContext.delete(stored)
+        try saveOrRollback()
+    }
+
+    /// Saves the context, or, when the save fails, undoes every change since the last save and
+    /// rethrows: reads still return what a delete would have deleted, and no later save of
+    /// something else lands it unasked. Called by `deleteWorkout`, `discardLoggedWorkout`,
+    /// `deleteLoggedWorkout`, and `deleteExercise`; the store's other writes save plainly.
+    func saveOrRollback() throws {
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
     }
 
     /// A workout cleared to nothing is kept only while it is in progress; ending the logged
@@ -122,11 +148,12 @@ public actor Store {
     }
 
     /// Deletes the workout and its rows; nothing if there is none. Its logged workouts hold its id
-    /// and name, not a relationship, so they stay stored.
+    /// and name, not a relationship, so they stay stored. A delete that doesn't save is undone
+    /// (`saveOrRollback()`).
     public func deleteWorkout(_ id: Workout.ID) throws {
         guard let workout = try stored(id: id) else { return }
         modelContext.delete(workout)
-        try modelContext.save()
+        try saveOrRollback()
     }
 
     /// Marks the workout opened at `now` and returns it, or nil, storing nothing, if there is

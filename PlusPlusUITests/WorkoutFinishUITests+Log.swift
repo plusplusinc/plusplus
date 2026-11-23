@@ -1,21 +1,20 @@
 import XCTest
 
 /// The finished workout after a relaunch, run last within `testFinishKeyKeepsTheWorkout`:
-/// launch opens a new workout, and Log lists the finished one. What Log reads from the store
-/// and how each row reads are the package's (`StoreLoggedWorkoutTests`, `WorkoutLogTextTests`);
+/// launch opens the Workouts list, and Log lists the finished one. Which launch the store finds
+/// is `StoreLaunchTests`'; what Log reads from the store and how each row reads are the
+/// package's (`StoreLoggedWorkoutTests`, `WorkoutLogTextTests`);
 /// this is what a relaunch brings back to Log, the system push and back of an opened
-/// workout, and the segmented control's wire from each tab to what it shows.
+/// workout, the segmented control's wire from each tab to what it shows, and a row's swipe to
+/// Delete, which ends it on an empty History.
 @MainActor
 extension WorkoutFinishUITests {
     func relaunchKeepsIt(named name: String, title: XCUIElement, in app: XCUIApplication) {
-        XCTContext.runActivity(named: "The logged one was kept: launch opens a new workout") { _ in
-            app.relaunch()
+        XCTContext.runActivity(named: "The logged one was kept: launch opens Workouts") { _ in
+            // Fails on a relaunch that doesn't list the workout on Workouts.
+            app.relaunch(landingOn: app.listedWorkout(named: name))
             XCTAssertFalse(app.workoutTime.exists, "The finished workout came back running")
-            XCTAssertNotEqual(
-                title.value as? String,
-                name,
-                "Launch reopened the workout, as after a discard",
-            )
+            XCTAssertFalse(title.exists, "Launch opened a workout, not the list")
         }
         XCTContext.runActivity(named: "Log lists it after the relaunch, and opens it") { _ in
             app.openDrawer(andTap: "Log")
@@ -68,6 +67,30 @@ extension WorkoutFinishUITests {
                 XCTAssertTrue(groups["Core, 1 set"].appears(), "Balance counts no set for Core")
                 XCTAssertEqual(groups.count, 6, "Balance shows \(groups.count) muscle groups")
                 XCTAssertFalse(line.exists, "Balance still shows Diff's line")
+            }
+        deleteFromHistory(named: name, in: app)
+    }
+
+    /// The system's swipe actions and alert, composed on History's scroll view, show only in the
+    /// running app; what the delete stores and what the log reads after it are
+    /// `AppSessionLogDeleteTests`' and `StoreDeleteTests`'.
+    private func deleteFromHistory(named name: String, in app: XCUIApplication) {
+        XCTContext
+            .runActivity(named: "A History row's swipe asks first, and Delete takes it out") { _ in
+                app.segmentedControls.firstMatch.buttons["History"].tap()
+                let logged = app.buttons.matching(identifier: "log.workout").firstMatch
+                XCTAssertTrue(logged.appears(), "History lists no finished workout")
+                logged.swipeOpen()
+                let delete = app.buttons["Delete"]
+                XCTAssertTrue(delete.appears(), "A swipe did not open the row")
+                delete.tap()
+                let message = app.answerAlert("Delete from Log?", with: "Delete")
+                XCTAssertTrue(message.hasPrefix("\(name), "), "The alert's line reads \(message)")
+                XCTAssertTrue(logged.disappears(), "Delete left the row in History")
+                XCTAssertTrue(
+                    app.buttons["log.goToWorkouts"].appears(),
+                    "History without its one workout shows no Go to Workouts",
+                )
             }
     }
 }

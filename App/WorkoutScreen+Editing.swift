@@ -92,6 +92,7 @@ extension WorkoutScreen {
                         namer: namer,
                         onStored: { showStoredWorkout() },
                         onDelete: { await deleteExercise(exercise, closing: .rowSheet) },
+                        focusesName: opened.namesIt,
                     )
                 },
                 onDelete: { delete(id, footDelay: Self.exerciseSheetGone) },
@@ -103,18 +104,27 @@ extension WorkoutScreen {
     /// Add exercise's sheet. A created exercise is stored before its row is added, so the
     /// workout's save that names it lands after it; then the sheet closes and the row goes in as
     /// a pick's does, even if the sheet was swiped down meanwhile, and once it has landed its own
-    /// sheet opens on Customize (`showCreated()`).
-    var picker: some View {
+    /// sheet opens on Customize (`showCreated()`). Its list starts with the opening's filter,
+    /// and each opening is its own (`AddExerciseSheet.id`), so filters clear as it closes.
+    func picker(_ opening: AddExerciseSheet) -> some View {
         ExercisePicker(
             exercises: leavingExercise.map(session.exercises.removing) ?? session.exercises,
+            filter: opening.filter,
             onPick: addPicked,
-            // Full height with search, in the field's own transaction (decided 2026-11-17).
-            onSearchOpen: { pickerDetent = .large },
-            onCreate: { made in
+            // Full height with search (decided 2026-11-17) and with a filter's tap (decided
+            // 2026-11-22), in the tap's own transaction: at medium height the sheet went out of
+            // sight under a filter's sheet of chips.
+            onExpand: { pickerDetent = .large },
+            onCreate: { made, needsName in
                 let wasIdle = phase == .idle
                 let exercise = await session.create(made)
-                isPicking = false
-                add(exercise) { createdWait = CreatedWait(row: $0, wasIdle: wasIdle) }
+                // Only this opening: swiped down and opened again meanwhile, the new one stays.
+                if session.addExercise?.id == opening.id {
+                    session.closeAddExercise()
+                }
+                add(exercise) {
+                    createdWait = CreatedWait(row: $0, wasIdle: wasIdle, needsName: needsName)
+                }
             },
             deleteMessage: { id in
                 DeleteQuestion.message(
@@ -133,14 +143,26 @@ extension WorkoutScreen {
                 )
             },
         )
+        .id(opening.id)
+        // A fixed set: one worked out from `pickerDetent` was read from the opening before.
+        .presentationDetents([.medium, .large], selection: $pickerDetent)
+    }
+
+    /// Add exercise, up while the session holds an opening; swiped down, it closes there.
+    var addExerciseOpening: Binding<AddExerciseSheet?> {
+        Binding { session.addExercise } set: {
+            if $0 == nil {
+                session.closeAddExercise()
+            }
+        }
     }
 
     /// Shuts the picker and adds what was picked there. A second tap while the sheet goes down
     /// keeps the first. One whose delete is confirmed, still listed until its row's beat, adds
     /// nothing.
     func addPicked(_ exercise: Exercise) {
-        guard isPicking, !session.isDeleting(exercise.id) else { return }
-        isPicking = false
+        guard session.addExercise != nil, !session.isDeleting(exercise.id) else { return }
+        session.closeAddExercise()
         add(exercise)
     }
 
@@ -196,10 +218,10 @@ extension WorkoutScreen {
         guard let wait = createdWait else { return }
         let id = wait.row
         await session.openRowSheet(
-            RowSheet(id: id, opensCustomizing: true),
+            RowSheet(id: id, opensCustomizing: true, namesIt: wait.needsName),
             after: Self.createdHold,
         ) {
-            editing == nil && !isPicking && entering == nil && row(id) != nil
+            editing == nil && session.addExercise == nil && entering == nil && row(id) != nil
                 && (!wait.wasIdle || phase == .idle)
         }
         if !Task.isCancelled, createdWait == wait {
@@ -321,4 +343,6 @@ extension WorkoutScreen {
 struct CreatedWait: Equatable {
     let row: WorkoutExercise.ID
     let wasIdle: Bool
+    /// Made with nothing typed, so Customize opens with its name to type over.
+    var needsName = false
 }

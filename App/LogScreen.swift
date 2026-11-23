@@ -12,7 +12,7 @@ import WorkoutStore
 /// calendar weeks.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
 /// logged workout's row pushes it, read-only, with the system push, as a saved workout is
-/// pushed on Workouts.
+/// pushed on Workouts, and swiped left offers Delete, as a saved workout's row does there.
 struct LogScreen: View {
     @Bindable var session: AppSession
 
@@ -33,6 +33,13 @@ struct LogScreen: View {
     /// View state: it starts on History each time Log opens from the drawer, and holds across a
     /// push and pop, since the stack keeps its root.
     @State var tab = Tab.history
+    /// The logged workout Delete last asked about, kept as the alert goes, so its line keeps the
+    /// name and day.
+    @State var deleting: LoggedWorkout?
+    @State var isAskingToDelete = false
+    /// Logged workouts whose delete is confirmed, left out of History from the confirming tap,
+    /// before the store has taken the delete.
+    @State var leaving: Set<LoggedWorkout.ID> = []
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
@@ -68,6 +75,8 @@ struct LogScreen: View {
             } action: { _, height in
                 visibleHeight = height
             }
+            // One History row open at a time, closed by a scroll or a tap anywhere else.
+            .swipeActionsContainer()
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
             .navigationDestination(item: pushedLoggedWorkout) { id in
@@ -91,7 +100,41 @@ struct LogScreen: View {
                 .sharedBackgroundVisibility(.hidden)
             }
         }
+        // Outside the stack, as Workouts': centered, with the system's colors.
+        // "Delete <name>?", Workouts' words, read here as deleting the workout itself: the title
+        // names Log, and the line under it the one time through.
+        .alert(
+            "Delete from Log?",
+            isPresented: $isAskingToDelete,
+            presenting: deleting,
+        ) { loggedWorkout in
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) { delete(loggedWorkout.id) }
+        } message: { loggedWorkout in
+            let day = loggedWorkout.dayText(locale: locale, calendar: calendar)
+            Text("\(Self.name(of: loggedWorkout)), \(day)")
+        }
         .task { await session.refreshLog() }
+    }
+
+    func askToDelete(_ loggedWorkout: LoggedWorkout) {
+        deleting = loggedWorkout
+        isAskingToDelete = true
+    }
+
+    /// Takes the row out at once, the rows below closing the gap, then deletes the logged
+    /// workout; the log read after it moves the count, the calendar, Diff, and Balance.
+    private func delete(_ id: LoggedWorkout.ID) {
+        withAnimation(.snappy) {
+            _ = leaving.insert(id)
+        }
+        Task {
+            await session.deleteLoggedWorkout(id)
+            // Gone from the log once stored; back in History if the delete failed.
+            withAnimation(.snappy) {
+                _ = leaving.remove(id)
+            }
+        }
     }
 
     /// The period, trailing in the bar. Always there, empty until the log is read, so the bar

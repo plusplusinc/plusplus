@@ -52,6 +52,11 @@ struct ExerciseForm: View {
     @State private var isAskingToDelete = false
     @State private var isAskingToClear = false
     @FocusState private var isNameFocused: Bool
+    /// The name's selection, set only to select the whole name as the form opens to be named.
+    @State private var nameSelection: TextSelection?
+    @State private var hasSelectedName = false
+    /// Opens with the name focused and selected, so typing replaces it.
+    private let focusesName: Bool
     @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
@@ -61,7 +66,9 @@ struct ExerciseForm: View {
         usedIn: [String],
         onSave: @escaping (ExerciseSettings) async -> Void,
         ending: Ending,
+        focusesName: Bool = false,
     ) {
+        self.focusesName = focusesName
         self.id = id
         self.exercises = exercises
         self.usedIn = usedIn
@@ -171,10 +178,21 @@ struct ExerciseForm: View {
         .onChange(of: isNameFocused) { _, isFocused in
             if !isFocused {
                 endNameEdit()
+            } else if focusesName, !hasSelectedName {
+                // Once the field has focus: a selection set before it took focus gave way to
+                // the caret at the end.
+                hasSelectedName = true
+                nameSelection = TextSelection(range: name.startIndex ..< name.endIndex)
             }
         }
         // Going back, or pushing a list, ends the edit too, focus or not.
         .onDisappear { endNameEdit() }
+        .onAppear {
+            // Once: back from a checklist, the name stays as it was left.
+            if focusesName, !hasSelectedName {
+                isNameFocused = true
+            }
+        }
     }
 
     private var usedInSection: some View {
@@ -290,13 +308,18 @@ struct ExerciseForm: View {
                 name = typed
             }
         }
-        return TextField("Name", text: oneLine, axis: wraps ? .vertical : .horizontal)
-            .multilineTextAlignment(wraps ? .leading : .trailing)
-            .submitLabel(.done)
-            .focused($isNameFocused)
-            // A field that wraps takes no label from its title.
-            .accessibilityLabel("Name")
-            .accessibilityIdentifier("customize.name")
+        return TextField(
+            "Name",
+            text: oneLine,
+            selection: $nameSelection,
+            axis: wraps ? .vertical : .horizontal,
+        )
+        .multilineTextAlignment(wraps ? .leading : .trailing)
+        .submitLabel(.done)
+        .focused($isNameFocused)
+        // A field that wraps takes no label from its title.
+        .accessibilityLabel("Name")
+        .accessibilityIdentifier("customize.name")
     }
 }
 

@@ -4,8 +4,9 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// Opens the workout the app launches into before showing it, so the title never shows New
-/// workout and then the saved name.
+/// Opens where the app launches (`Store.Launch`) before showing it: the workout, so the title
+/// never shows New workout and then the saved name, or, after a finish, the Workouts list with
+/// its rows already read.
 struct WorkoutLauncher: View {
     let store: Store?
     let namer: WorkoutNamer
@@ -58,8 +59,7 @@ struct WorkoutLauncher: View {
                 .task {
                     let launch = await launch()
                     let session = await AppSession(
-                        workout: launch.workout,
-                        loggedWorkout: launch.loggedWorkout,
+                        launch: launch,
                         exercises: exercises(),
                         store: store,
                         namer: namer,
@@ -67,9 +67,17 @@ struct WorkoutLauncher: View {
                     // A timed set that ran out while the app was away is logged, before the
                     // screen opens on the workout.
                     session.catchUp(override: WorkoutScreen.restOverride)
-                    self.session = session
-                    // Read ahead, so the Workouts screen's first showing has its list.
-                    await session.refreshRecent(weightUnit: WeightUnit(region: locale))
+                    let weightUnit = WeightUnit(region: locale)
+                    // On the Workouts list, after a finish, the list is read before the first
+                    // frame, so it never shows empty and then fills.
+                    if session.screen == .workouts {
+                        await session.refreshRecent(weightUnit: weightUnit)
+                        self.session = session
+                    } else {
+                        self.session = session
+                        // Read ahead, so the Workouts screen's first showing has its list.
+                        await session.refreshRecent(weightUnit: weightUnit)
+                    }
                     await session.refreshLog()
                 }
         }
@@ -86,8 +94,8 @@ struct WorkoutLauncher: View {
         }
     }
 
-    private func launch() async -> (workout: Workout, loggedWorkout: LoggedWorkout?) {
-        guard let store else { return (Workout(), nil) }
+    private func launch() async -> Store.Launch {
+        guard let store else { return .newWorkout }
         do {
             #if DEBUG
             if resetsStore {
@@ -98,11 +106,10 @@ struct WorkoutLauncher: View {
                 )
             }
             #endif
-            let launch = try await store.launch(weightUnit: WeightUnit(region: locale))
-            return (launch.workout ?? Workout(), launch.loggedWorkout)
+            return try await store.launch(weightUnit: WeightUnit(region: locale))
         } catch {
             Logger.app.error("Opening a new workout: the saved one didn't load: \(error)")
-            return (Workout(), nil)
+            return .newWorkout
         }
     }
 }

@@ -3,11 +3,12 @@ import SwiftUI
 import WorkoutStore
 
 /// The sheet Add exercise opens: the exercise list (`ExerciseListView`) on a stack of its own,
-/// with Close. Picking one hands it back; the presenter closes the sheet. Its inline title and
-/// Close are drawn by the bar's search: Close turns into its field as it opens, which covers the
-/// title, and back as it closes. Opening search takes the sheet to full height, as the system's
-/// search does, whether or not a software keyboard comes up to push it. A swipe down closes the
-/// sheet at any time.
+/// with Close, its filters starting as the opening asks (none from the workout screen's +).
+/// Picking one hands it back; the presenter closes the sheet. Its inline title and Close are
+/// drawn by the bar's search: Close turns into its field as it opens, which covers the title,
+/// and back as it closes. Opening search, or tapping Muscle or Equipment, takes the sheet to
+/// full height, as the system's search does, whether or not a software keyboard comes up to
+/// push it. A swipe down closes the sheet at any time.
 ///
 /// Create stores the exercise and hands it to the presenter, which closes the sheet and adds
 /// its row as a pick does.
@@ -20,11 +21,15 @@ import WorkoutStore
 /// leave the workout behind the sheet (`WorkoutScreen.deleteExercise(_:closing:)`).
 struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
+    /// What the list is narrowed by as it opens (`AddExerciseSheet.filter`).
+    var filter = ExerciseFilter()
     let onPick: (Exercise) -> Void
-    /// Runs as search opens, in the field's own transaction (`ExerciseListView.onSearchOpen`).
-    var onSearchOpen: () -> Void = { }
-    /// Stores the exercise, closes the sheet, and adds its row.
-    let onCreate: (CreatedExercise) async -> Void
+    /// Runs as search opens or a filter's button is tapped, in the tap's own transaction
+    /// (`ExerciseListView.onExpand`).
+    var onExpand: () -> Void = { }
+    /// Stores the exercise, closes the sheet, and adds its row; the flag says whether it still
+    /// needs its name.
+    let onCreate: (CreatedExercise, _ needsName: Bool) async -> Void
     /// Delete's question for the exercise, below its title (`DeleteQuestion`).
     let deleteMessage: (Exercise.ID) -> String
     /// Deletes the created exercise and its rows, from the confirming tap, showing its row
@@ -44,11 +49,12 @@ struct ExercisePicker<Customize: View>: View {
         NavigationStack {
             ExerciseListView(
                 exercises: exercises,
+                filter: filter,
                 onTap: onPick,
                 rowActions: holdMenu,
                 barTitle: "Add exercise",
                 barLeading: closeButton,
-                onSearchOpen: onSearchOpen,
+                onExpand: onExpand,
                 onCreate: onCreate,
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
@@ -131,8 +137,7 @@ private struct HoldMenu: ViewModifier {
 }
 
 #Preview {
-    ExercisePicker(exercises: .builtIn) { _ in } onCreate: {
-        Exercise(created: $0)
+    ExercisePicker(exercises: .builtIn) { _ in } onCreate: { _, _ in
     } deleteMessage: { _ in
         ""
     } onDelete: { _ in

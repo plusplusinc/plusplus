@@ -78,10 +78,11 @@ struct WorkoutLogTextTests {
             == "October 25 to November 21")
     }
 
-    @Test("A workout's line: its day and length, and its sets")
+    @Test("A workout's line: its day and length, and its sets; its day alone, for Delete's alert")
     func loggedWorkoutLine() {
         let loggedWorkout = Fixture.loggedWorkout(daysAgo: 2, [])
         let calendar = Fixture.calendar
+        #expect(loggedWorkout.dayText(locale: locale, calendar: calendar) == "Thu, Nov 19")
         #expect(loggedWorkout.logLine(locale: locale, calendar: calendar)
             == "Thu, Nov 19 · 51 min")
         #expect(loggedWorkout.logLine(sets: 21, locale: locale, calendar: calendar)
