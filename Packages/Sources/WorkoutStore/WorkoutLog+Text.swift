@@ -191,7 +191,8 @@ extension LoggedWorkout {
         return parts.joined(separator: ", ")
     }
 
-    private func dayText(locale: Locale, calendar: Calendar) -> String {
+    /// "Sun, Nov 22", the day it was started: what tells one time through a workout from another.
+    public func dayText(locale: Locale, calendar: Calendar) -> String {
         startedAt.formatted(
             dateStyle(locale: locale, calendar: calendar)
                 .weekday(.abbreviated).month(.abbreviated).day(),

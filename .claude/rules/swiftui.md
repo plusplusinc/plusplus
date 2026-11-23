@@ -52,8 +52,8 @@ Leaf views take plain values and closures so they preview and snapshot without a
 ## Where each feature is described
 
 How each part of the screen looks, moves, sounds, and reads to VoiceOver is in the doc comments
-of the types that draw it, with its timings in named constants. Read them before changing a
-feature, and change them with it.
+of the types that draw it, with its timings in named constants. Read them first, and change them
+with the feature.
 
 - Start, End, and the current exercise: `WorkoutScreen+LiveWorkout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`, `CaptionLine`, `ProgressLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
@@ -75,7 +75,7 @@ feature, and change them with it.
   `AppSession.show(_:throughDrawer:markWait:)`.
 - Log: `LogScreen`, `LogScreen+Tabs.swift`, `LoggedWorkoutScreen`, `DayGrid`, `LogRow`,
   `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
-  `ExerciseForm`, `BarSearchField`.
+  `ExerciseForm`, `BarSearchField`, `FilterBar`, `ChipSheet`.
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
   `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by
@@ -154,9 +154,9 @@ Each of these cost a round; the code at the named spot works around it.
   the growth is reported before the scroll view takes it. Following only growths, the list
   rested short of its end; follow every change short of the end
   once the following has begun (`keepEndInView`, `EndFollow`).
-- A sheet's `.height` detent measures inside its safe area, and a scroll view's container there
-  already excludes the bar and the home indicator: grow it by the content's overflow alone
-  (`ExerciseSheet.fit(_:)`).
+- A sheet's `.height` detent measures inside its safe area: grow it by the content's overflow
+  alone (`ExerciseSheet.fit(_:)`). One floating clear of the home indicator still gets that
+  room, unreported (`ChipSheet.detentRoom`).
 - `ViewThatFits` on the workout screen hung the app as the title took focus; use a small
   `Layout` (`FigureLayout`).
 - A hold on a row in a scroll view is a UIKit long press (`RailLiftGesture`) outside the row's

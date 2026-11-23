@@ -9,7 +9,7 @@
 #   scripts/board.sh add <title> <<'CARD'              # a draft item in Todo; prints its id
 #   scripts/board.sh body <item-id> <<'CARD'           # replace a draft item's body
 #   scripts/board.sh title <item-id> <title>           # rename a draft item
-#   scripts/board.sh state <item-id> <<'STATE'         # replace or append its ## State section
+#   scripts/board.sh state <item-id> [--take] <<'STATE'  # replace or append its ## State section
 #   scripts/board.sh status <item-id> Backlog|Todo|"In Progress"|Done
 #   scripts/board.sh move <item-id> top|<after-item-id>  # place it in the queue /onward works through
 #   scripts/board.sh feature <item-id> <name>|-        # group it under a feature's design; - for a standalone task
@@ -20,6 +20,10 @@
 # an empty-bodied card; `body` and `state` refuse empty input rather than blank the card. `state`
 # takes the section's content without its heading and replaces everything from `## State` to
 # the end of the body, State being the last section, or appends the section when there is none.
+# `body` refuses a body that is only a State section, which would drop the rest of the card.
+# `state` refuses to replace the State of an In Progress card that names one session
+# (`session_...`) with a State that names another: two sessions would lead one card. `--take`
+# says the first session has ended and this one takes the card over.
 # `readme` with no feature writes the README when stdin has text and reads it otherwise; with a
 # feature it only reads, printing that section to the next `## ` heading (the whole README runs
 # to hundreds of lines), and fails with the features' names when none matches. GitHub's item list
@@ -311,6 +315,11 @@ case "$command" in
             echo "no body on stdin; $1 left unchanged" >&2
             exit 1
         fi
+        if [[ $(grep -m 1 '[^[:space:]]' <<< "$body") =~ ^##\ State[[:space:]]*$ ]]; then
+            echo "that body is only a State section, and would replace the whole card with it;" \
+                "$1 left unchanged. state <item-id> replaces the State and keeps the rest." >&2
+            exit 1
+        fi
         draft_card "$1"
         edit_draft "$draft" -f body="$body"
         ;;
@@ -320,6 +329,11 @@ case "$command" in
         edit_draft "$draft" -f title="$2"
         ;;
     state)
+        take=false
+        if [ "${2:-}" = --take ]; then
+            take=true
+            set -- "$1"
+        fi
         [ $# -eq 1 ] || usage
         state=$(stdin_body)
         if [[ ! $state =~ [^[:space:]] ]]; then
@@ -327,6 +341,20 @@ case "$command" in
             exit 1
         fi
         draft_card "$1"
+        # The sessions the card's State names, and the ones the new State does. A card in
+        # progress whose State names none of the new ones is another session's.
+        leading=$(jq -r '.[0] | select(.status.name == "In Progress") | .content.body // ""
+            | (capture("(\\A|\r?\n)## State[ \t\r]*(?<state>\n[\\s\\S]*)\\z").state) // ""' <<< "$card" \
+            | grep -oE 'session_[A-Za-z0-9]+' | sort -u || true)
+        writing=$(grep -oE 'session_[A-Za-z0-9]+' <<< "$state" | sort -u || true)
+        if ! $take && [ -n "$leading" ] && [ -n "$writing" ] && [ -z "$(comm -12 <(echo "$leading") <(echo "$writing"))" ]; then
+            echo "$1 is In Progress and its State names $(paste -sd ' ' - <<< "$leading" | sed 's/ /, /g')" \
+                "as leading it; this State names $(paste -sd ' ' - <<< "$writing" | sed 's/ /, /g')." \
+                "$1 left unchanged. Read it (show $1): a card whose session is still active is left" \
+                "to it (/onward, Start). When that session has ended, take the card over with" \
+                "state $1 --take." >&2
+            exit 1
+        fi
         # The body above its State heading: the whole body when there is none. A body saved from
         # GitHub's web editor ends its lines with \r\n.
         above=$(jq -r '.[0].content.body // "" | sub("(\\A|\r?\n)## State[ \t\r]*(\n[\\s\\S]*)?\\z"; "")' <<< "$card")

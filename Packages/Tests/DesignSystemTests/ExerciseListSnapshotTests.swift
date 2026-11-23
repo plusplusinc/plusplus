@@ -6,7 +6,8 @@ import Testing
 @testable import DesignSystem
 
 /// The parts of Add exercise drawn here: the bar's search, closed and open, with the leading
-/// button it covers, and the checklist Customize pushes. The screens live in the
+/// button it covers, the checklist Customize pushes, and the filters' buttons, chips, count
+/// line, Create row, and Also needs heading. The screens live in the
 /// app, which has no test target; the search's motion, its glass (which a snapshot doesn't
 /// draw), and Add exercise's title (placed from the item's measured frame, which a snapshot
 /// draws before it is measured) are checked on the simulator.
@@ -59,6 +60,77 @@ struct ExerciseListSnapshotTests {
                 ) { $0 }
             }
             .frame(height: 560),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// The filter buttons as Add exercise lays them out: one line that scrolls sideways.
+    private func filterRow(_ labels: [(String, Bool)]) -> some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: Spacing.sm) {
+                ForEach(labels, id: \.0) { FilterLabel($0.0, isOn: $0.1) }
+            }
+            .padding(.horizontal, Spacing.md)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    @Test("The filter buttons, off: three alike, each a capsule with its name and a chevron")
+    func filtersOff() {
+        assertThemedSnapshots(
+            of: filterRow([("Muscle", false), ("Kind", false), ("Equipment", false)])
+                .padding(.vertical, Spacing.sm)
+                .background(Color.pp(.background)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("The filter buttons with choices, light, over the count and Clear, which stack at AX5")
+    func filtersOn() {
+        assertThemedSnapshots(
+            of: VStack(alignment: .leading, spacing: Spacing.sm + Spacing.xs) {
+                filterRow([("Chest, Back", true), ("Stretch", true), ("Dumbbells, Bench", true)])
+                FilterCount("4 exercises") { }
+                    .padding(.horizontal, Spacing.md)
+            }
+            .padding(.vertical, Spacing.sm)
+            .background(Color.pp(.background)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("The equipment chips wrap, the chosen ones light; the title and Done stack at AX5")
+    func equipmentChips() {
+        let items = [
+            "No equipment", "Dumbbells", "Kettlebell", "Barbell", "Medicine ball",
+            "Bench", "Band", "Pull-up bar", "Rings", "Balance board",
+        ]
+        assertThemedSnapshots(
+            of: ChipSheet(
+                title: "Equipment",
+                items: items,
+                chosen: .constant(["No equipment", "Dumbbells"]),
+                name: { $0 },
+                onDone: { },
+            )
+            .background(Color.pp(.surface)),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("Nothing matching: Create with what it carries, over Also needs a bench and its row")
+    func nothingMatching() {
+        assertThemedSnapshots(
+            of: VStack(alignment: .leading, spacing: Spacing.md) {
+                FilterCount("0 exercises") { }
+                CreateLabel(title: "Create exercise", detail: "Chest, Dumbbells")
+                    .font(.ppRowTitle)
+                    .makesSomething()
+                NeedsHeader(title: "Also needs a bench", addTitle: "Bench") { }
+                RowLabel(title: "Dumbbell bench press", detail: "Dumbbells, bench")
+            }
+            .padding(Spacing.md)
+            .background(Color.pp(.background)),
             width: Self.screenWidth,
         )
     }

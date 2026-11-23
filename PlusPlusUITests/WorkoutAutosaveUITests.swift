@@ -47,7 +47,7 @@ final nonisolated class WorkoutAutosaveUITests: XCTestCase {
         XCTContext.runActivity(named: "A typed name stays as exercises change") { _ in
             // The created exercise, back in the picker's list with its equipment after the
             // relaunch.
-            app.addExercise("Ring row with rotation, Bench", searching: "ring row")
+            app.addExercise("Ring row with rotation, Bench, rings", searching: "ring row")
             // The name comes with the row, so it would already have changed.
             XCTAssertEqual(title.value as? String, "Push pull")
             XCTAssertTrue(title.inkIsWhite(against: gray), "The typed name is not white")

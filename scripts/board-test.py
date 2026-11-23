@@ -90,5 +90,82 @@ class Readme(unittest.TestCase):
         self.assertEqual(self.board("Drawer", "Voice").returncode, 64)
 
 
+CARD = "## Problem\nToday nothing.\n\n## State\nLed by session session_0A1b, since 2026-11-20.\nWorktree w.\n"
+
+
+class Card(unittest.TestCase):
+    """`state` and `body` against one draft card, which a write must not take from its session
+    or strip to its State."""
+
+    def setUp(self):
+        self.folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.folder)
+        gh = self.folder / "gh"
+        gh.write_text('#!/bin/bash\necho "$*" >> "$(dirname "$0")/calls.log"\n'
+                      'printf \'HTTP/2.0 200 OK\\r\\n\\r\\n\'\ncat "$(dirname "$0")/response.json"\n')
+        gh.chmod(0o755)
+        self.card(status="In Progress")
+
+    def card(self, status, body=CARD):
+        item = {"id": "PVTI_1", "fullDatabaseId": 1, "status": {"name": status}, "feature": None,
+                "project": {"number": 2, "owner": {"login": "plusplusinc"}},
+                "content": {"id": "DI_1", "title": "A card", "body": body}}
+        (self.folder / "response.json").write_text(json.dumps({"data": {"nodes": [item]}}))
+
+    def board(self, *args, stdin):
+        env = dict(os.environ, PATH=f"{self.folder}:{os.environ['PATH']}")
+        return subprocess.run([str(BOARD), *args], input=stdin, capture_output=True, text=True, env=env)
+
+    def wrote(self):
+        log = self.folder / "calls.log"
+        return log.exists() and "updateProjectV2DraftIssue" in log.read_text()
+
+    def test_another_session_cannot_replace_the_state_of_a_card_in_progress(self):
+        run = self.board("state", "PVTI_1", stdin="Led by session session_9Zz8, since 2026-11-21.\n")
+        self.assertEqual(run.returncode, 1)
+        self.assertIn("names session_0A1b as leading it", run.stderr)
+        self.assertIn("--take", run.stderr)
+        self.assertFalse(self.wrote())
+
+    def test_with_take_it_can(self):
+        run = self.board("state", "PVTI_1", "--take", stdin="Led by session session_9Zz8.\n")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertTrue(self.wrote())
+
+    def test_the_leading_session_rewrites_its_own_state(self):
+        run = self.board("state", "PVTI_1", stdin="Phase: built. Led by session session_0A1b.\n")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertTrue(self.wrote())
+
+    def test_a_state_that_names_no_session_is_written(self):
+        run = self.board("state", "PVTI_1", stdin="Seen again on run 12.\n")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertTrue(self.wrote())
+
+    def test_a_card_not_in_progress_is_free_to_take(self):
+        for status in ("Todo", "Done"):
+            self.card(status=status)
+            run = self.board("state", "PVTI_1", stdin="Led by session session_9Zz8.\n")
+            self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertTrue(self.wrote())
+
+    def test_a_card_in_progress_with_no_state_is_free_to_take(self):
+        self.card(status="In Progress", body="## Problem\nToday nothing.\n")
+        run = self.board("state", "PVTI_1", stdin="Led by session session_9Zz8.\n")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertTrue(self.wrote())
+
+    def test_a_body_that_is_only_a_state_section_is_refused(self):
+        run = self.board("body", "PVTI_1", stdin="\n## State\nLed by session session_0A1b.\n")
+        self.assertEqual(run.returncode, 1)
+        self.assertIn("only a State section", run.stderr)
+        self.assertFalse((self.folder / "calls.log").exists())
+
+    def test_a_whole_body_is_written(self):
+        run = self.board("body", "PVTI_1", stdin=CARD)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertTrue(self.wrote())
+
+
 if __name__ == "__main__":
     unittest.main()

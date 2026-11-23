@@ -17,8 +17,9 @@ public final class AppSession {
     public private(set) var current: Workout
     /// Opened by `openDrawer()`, which a workout in progress refuses; shut by `closeDrawer()`.
     public private(set) var isDrawerOpen = false
-    /// The workout screen's open row sheet, through `openRowSheet(_:)` and `closeRowSheet()`.
+    /// The workout screen's open sheets, a row's and Add exercise, each through its open and close.
     public private(set) var rowSheet: RowSheet?
+    public internal(set) var addExercise: AddExerciseSheet?
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
     /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
@@ -60,7 +61,7 @@ public final class AppSession {
     /// waits its turn: one logged workout's end and the next one's start can both be waiting,
     /// and keeping only the newest would drop the end, leaving the first in progress in the store.
     @ObservationIgnored
-    private let loggedWorkoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
+    let loggedWorkoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
 
     public init(
         workout: Workout,
@@ -333,7 +334,7 @@ public final class AppSession {
     /// wait on it rather than on time.
     func writesLanded() async {
         await finishSaving()
-        await withCheckedContinuation { done in loggedWorkoutWrites.yield(.landed(done)) }
+        await loggedWorkoutWritesLanded()
     }
 }
 

@@ -3,7 +3,8 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// Every saved workout, most recently opened or edited first, each by its name.
+/// Every saved workout, most recently opened or edited first, each by its name. The app launches
+/// here when a finish was the last thing done (`Store.Launch.workouts`).
 /// Tapping one pushes it on the workout screen; + pushes a new one. A line runs under each row,
 /// the last included, as under each row in Add exercise.
 ///
@@ -22,6 +23,10 @@ struct WorkoutsScreen: View {
     @State private var scrollPosition = ScrollPosition()
     /// Whether the title has scrolled out of sight under the bar, for its small copy to show.
     @State private var isTitleUnderBar = false
+    /// Whether the title has been reported in sight. The first report, as the screen first lays
+    /// out, says the title is out of sight, and the next, 15 to 55 ms on, that it is in sight;
+    /// taken, the first showed the small title at launch, fading as the next came.
+    @State private var hasSeenTitle = false
     /// The workout Delete last asked about, kept as the alert goes, so its title keeps the name.
     @State private var deleting: Workout?
     @State private var isAskingToDelete = false
@@ -41,6 +46,10 @@ struct WorkoutsScreen: View {
                         .padding(.horizontal, Spacing.md)
                         .padding(.bottom, Spacing.md)
                         .onScrollVisibilityChange(threshold: 0.01) { isVisible in
+                            if isVisible {
+                                hasSeenTitle = true
+                            }
+                            guard hasSeenTitle else { return }
                             withAnimation(.easeOut(duration: WorkoutScreen.barFade)) {
                                 isTitleUnderBar = !isVisible
                             }
@@ -145,8 +154,9 @@ struct WorkoutsScreen: View {
     }
 
     private static let platter = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
-    /// How far inside its row's end the system draws a swiped action.
-    private static let swipeInset = Spacing.sm
+    /// How far inside its row's end the system draws a swiped action. Log's History rows take it
+    /// too, so their Delete lines up as these do.
+    static let swipeInset = Spacing.sm
 
     private func askToDelete(_ workout: Workout) {
         deleting = workout
