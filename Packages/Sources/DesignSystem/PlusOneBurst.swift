@@ -64,60 +64,61 @@ struct PlusOneSpot: View {
     let trigger: Int
     let key: CGRect?
 
-    @State private var hold = PlusOneHold()
+    /// What was last drawn, kept as the body draws, not in a reaction to it: the update that
+    /// logs a set has to draw the +1 at the place from before it, and an `onChange` over bounds
+    /// that change every frame of the key's move is skipped when two changes share a frame.
+    /// A reference, so recording a draw asks for no other.
+    @State private var record = Record()
+
+    private final class Record {
+        var hold = PlusOneHold()
+    }
 
     var body: some View {
-        let spot = hold.spot(for: key)
+        let spot = record.hold.spot(trigger: trigger, key: key)
         let rect = spot ?? .zero
         PlusOneBurst(trigger: trigger)
             .frame(width: rect.width, height: max(rect.minY, 0), alignment: .bottom)
             .offset(x: rect.minX)
             .opacity(spot == nil ? 0 : 1)
-            .onChange(of: PlusOneHold.Input(trigger: trigger, key: key)) { old, new in
-                // Every frame of a key's move comes through here; only a burst writes.
-                if old.trigger != new.trigger {
-                    hold.follow(from: old, to: new)
-                }
-            }
-            // A burst that follows another starts the wait again.
+            // A burst that follows another starts the wait again. The +1 is unseen by the end,
+            // so nothing has to be drawn as it is let go.
             .task(id: trigger) {
                 do {
-                    try await Task.sleep(for: .seconds(PlusOneBurst.duration))
-                    hold.release()
+                    try await Task.sleep(for: .seconds(PlusOneBurst.duration), tolerance: .zero)
+                    record.hold.release()
                 } catch { }
             }
     }
 }
 
-/// Where a +1 plays: the key's bounds as its burst began, held until the burst is over.
+/// Where a +1 plays: the key's bounds from before its burst began, held until the burst is over.
 struct PlusOneHold {
-    /// What the spot is worked out from: the count of bursts and the key's bounds, nil with no
-    /// key.
-    struct Input: Equatable {
-        let trigger: Int
-        let key: CGRect?
-    }
-
+    /// The count and the key's bounds as last drawn.
+    private var last: (trigger: Int, key: CGRect?)?
     /// The key's bounds as the burst playing began, nil between bursts.
-    private(set) var held: CGRect?
+    private var held: CGRect?
+    /// A burst that began with no key plays unseen, rather than part-way over a key that comes
+    /// in before its end.
+    private var isUnseen = false
 
-    /// Where the +1 is drawn while the key is at `key`.
-    func spot(for key: CGRect?) -> CGRect? {
-        held ?? key
-    }
-
-    /// Holds the key's place when the count goes up: the bounds from before that update, which
-    /// may already have the key on its way out, and through a burst that follows another, the
-    /// place already held.
-    mutating func follow(from old: Input, to new: Input) {
-        if new.trigger != old.trigger {
-            held = held ?? old.key ?? new.key
+    /// Where the +1 is drawn with the count at `trigger` and the key at `key`, nil for nowhere.
+    /// The count going up holds the key's place: the bounds drawn before, since this update may
+    /// already have the key on its way out, and through a burst that follows another, the place
+    /// already held.
+    mutating func spot(trigger: Int, key: CGRect?) -> CGRect? {
+        if let last, last.trigger != trigger, held == nil {
+            held = last.key ?? key
+            isUnseen = held == nil
         }
+        last = (trigger, key)
+        return isUnseen ? nil : held ?? key
     }
 
     /// The burst over, the +1 goes back to the key, unseen.
     mutating func release() {
         held = nil
+        isUnseen = false
     }
 }
 
