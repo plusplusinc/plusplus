@@ -35,7 +35,8 @@ struct WorkoutsScreen: View {
     @State private var leaving: Set<Workout.ID> = []
     /// What the list is narrowed by; it clears as the screen leaves for another place.
     @State private var filter = WorkoutFilter()
-    @State private var isChoosingMuscles = false
+    /// The filter's sheet showing, if any.
+    @State private var choosing: WorkoutsSheet?
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -73,7 +74,7 @@ struct WorkoutsScreen: View {
                     } header: {
                         // Pinned under the bar once the title scrolls away, as Add exercise's.
                         WorkoutsFilterBar(filter: announcedFilter, count: shown.count) {
-                            isChoosingMuscles = true
+                            choosing = $0
                         }
                         .background(Color.pp(.background))
                     }
@@ -126,14 +127,27 @@ struct WorkoutsScreen: View {
                     Task { await session.startNew() }
                 },
             )
-            .sheet(isPresented: $isChoosingMuscles) {
-                ChipSheet(
-                    title: "Muscle",
-                    items: MuscleGroup.allCases,
-                    chosen: announcedFilter.muscleGroups,
-                    name: \.name,
-                    onDone: { isChoosingMuscles = false },
-                )
+            .sheet(item: $choosing) { sheet in
+                switch sheet {
+                case .muscle:
+                    ChipSheet(
+                        title: "Muscle",
+                        items: MuscleGroup.allCases,
+                        chosen: announcedFilter.muscleGroups,
+                        name: \.name,
+                        onDone: { choosing = nil },
+                    )
+                case .equipment:
+                    ChipSheet(
+                        title: "Equipment",
+                        items: EquipmentChoice.allCases,
+                        chosen: announcedFilter.equipment,
+                        name: \.name,
+                        onDone: { choosing = nil },
+                    )
+                case .length:
+                    EmptyView()
+                }
             }
         }
         // Outside the stack, as the picker's: centered, with the system's colors.

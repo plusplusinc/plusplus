@@ -4,8 +4,8 @@ import WorkoutStore
 
 /// The filters' buttons over the Workouts list, on one line that scrolls sideways when their
 /// words don't fit, as Add exercise's (`FilterBar`); under them, while one is on, the count and
-/// Clear. Muscle opens a sheet of chips through `onOpen`. Equipment and Length are still to
-/// come.
+/// Clear. Each button opens its sheet through `onOpen`: Muscle and Equipment of chips, Length
+/// of presets and wheels.
 ///
 /// Its own copy of `FilterBar`'s scrolling shell while that bar changes in another PR; the two
 /// will share one shell once it lands.
@@ -13,19 +13,15 @@ struct WorkoutsFilterBar: View {
     @Binding var filter: WorkoutFilter
     /// How many workouts show, for the count line.
     let count: Int
-    let onOpen: () -> Void
+    let onOpen: (WorkoutsSheet) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView(.horizontal) {
                 HStack(spacing: Spacing.sm) {
-                    Button(action: onOpen) {
-                        FilterLabel(filter.muscleLabel ?? "Muscle", isOn: filter.muscleLabel != nil)
-                            .accessibilityLabel("Muscle")
-                            .accessibilityValue(filter.muscleLabel ?? "")
-                            .accessibilityAddTraits(filter.muscleLabel != nil ? .isSelected : [])
-                    }
-                    .buttonStyle(.plain)
+                    button("Muscle", choice: filter.muscleLabel, opens: .muscle)
+                    button("Equipment", choice: filter.equipmentLabel, opens: .equipment)
+                    button("Length", choice: filter.lengthLabel, opens: .length)
                 }
                 .padding(.horizontal, Spacing.md)
             }
@@ -42,6 +38,29 @@ struct WorkoutsFilterBar: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.bottom, Spacing.sm)
+    }
+
+    /// A filter's button: its choice, or its name while none is chosen, lit while on. VoiceOver
+    /// reads its name, then the choice, and selected while on.
+    private func button(_ name: String, choice: String?, opens sheet: WorkoutsSheet) -> some View {
+        Button { onOpen(sheet) } label: {
+            FilterLabel(choice ?? name, isOn: choice != nil)
+                .accessibilityLabel(name)
+                .accessibilityValue(choice ?? "")
+                .accessibilityAddTraits(choice != nil ? .isSelected : [])
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// The sheet a Workouts filter button opens.
+enum WorkoutsSheet: Identifiable {
+    case muscle
+    case equipment
+    case length
+
+    var id: Self {
+        self
     }
 }
 
