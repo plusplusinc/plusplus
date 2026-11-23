@@ -31,7 +31,7 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     /// In `primaryKeyBar`, how far the key's ledge sits above the screen's bottom, and the key
     /// from its sides: where a tab bar floats, measured on the Files app's on iOS 27.2. Not
     /// concentric with the screen's corners, as a tab bar isn't either.
-    fileprivate static let lowInset: CGFloat = 21
+    static let lowInset: CGFloat = 21
     /// In `primaryKeyBar`, between the key's top and the floating button's bottom.
     fileprivate static let floatingGap = Spacing.md
     /// In `primaryKeyBar`, the room above the key's face, inside the bar.
@@ -226,15 +226,11 @@ private struct PrimaryKeyBar<
     /// content is inset. At the accessibility sizes, as far as content is inset, so its label
     /// has the width to stay on one line.
     private var sideInset: CGFloat {
-        bottomInset > 0 && !dynamicTypeSize.isAccessibilitySize
-            ? PrimaryKeyButtonStyle.lowInset
-            : Spacing.md
+        KeyInsets.side(bottomInset: bottomInset, dynamicTypeSize: dynamicTypeSize)
     }
 
-    /// The ledge's bottom above the screen's bottom: `lowInset`, and with no home indicator, the
-    /// bar's own bottom.
     private var ledgeLift: CGFloat {
-        bottomInset > 0 ? PrimaryKeyButtonStyle.lowInset : 0
+        KeyInsets.ledgeLift(bottomInset: bottomInset)
     }
 
     /// How far below its place in the bar the key is drawn: down to its ledge's place.

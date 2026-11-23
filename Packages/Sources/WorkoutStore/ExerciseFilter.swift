@@ -12,6 +12,15 @@ public enum ExerciseKind: CaseIterable, Sendable {
         case .conditioning: "Conditioning"
         }
     }
+
+    /// The kind as a workout's row reads it: "Stretching" where the menu reads "Stretch".
+    public var workoutWord: String {
+        switch self {
+        case .strength: "Strength"
+        case .stretch: "Stretching"
+        case .conditioning: "Conditioning"
+        }
+    }
 }
 
 extension Exercise {
@@ -21,6 +30,11 @@ extension Exercise {
         case .stretch: .stretch
         case .conditioning: .conditioning
         }
+    }
+
+    /// The groups it mainly works: its own groups and its primary muscles'.
+    public var mainGroups: Set<MuscleGroup> {
+        muscleGroups.union(tags.primary.map(\.group))
     }
 }
 
@@ -121,8 +135,7 @@ public struct ExerciseFilter: Hashable, Sendable {
     /// nil when it doesn't pass.
     fileprivate func muscleMatch(_ exercise: Exercise) -> MuscleMatch? {
         guard !muscleGroups.isEmpty else { return .mainly }
-        let primary = exercise.muscleGroups.union(exercise.tags.primary.map(\.group))
-        if !primary.isDisjoint(with: muscleGroups) {
+        if !exercise.mainGroups.isDisjoint(with: muscleGroups) {
             return .mainly
         }
         if !Set(exercise.tags.secondary.map(\.group)).isDisjoint(with: muscleGroups) {

@@ -54,6 +54,10 @@ extension Font {
     /// A workout's name in a list of workouts: SF Pro, as the name can't be edited there, the
     /// drawer's font, so a row reads the same in both.
     public static let ppWorkoutName = ppDrawerItem
+    /// A workout's length beside its name in a list, "35 min": the name's size, unweighted, its
+    /// number in SF Mono.
+    public static let ppWorkoutLength = Font.system(.body)
+    public static let ppWorkoutLengthNumber = Font.system(.body, design: .monospaced)
     /// The +1 that pops off Start as it is pressed: SF Mono, as numbers are.
     public static let ppPlusOne = Font.system(.title3, design: .monospaced, weight: .bold)
     /// A floating button's icon, such as Add exercise's +.

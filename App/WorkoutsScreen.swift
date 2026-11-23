@@ -33,12 +33,23 @@ struct WorkoutsScreen: View {
     /// Workouts whose delete is confirmed, left out of the list from the confirming tap, in its
     /// animation, before the store has taken the delete.
     @State private var leaving: Set<Workout.ID> = []
+    /// What the list is narrowed by; it clears as the screen leaves for another place.
+    @State private var filter = WorkoutFilter()
+    @State private var isChoosingMuscles = false
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        NavigationStack {
+        // Each workout summarized once per pass, for its row and the filter alike.
+        let summaries = Dictionary(
+            session.recent.compactMap { workout in workout.summary.map { (workout.id, $0) } },
+            uniquingKeysWith: { first, _ in first },
+        )
+        let shown = shown.filter { filter.passes(summaries[$0.id]) }
+        let fullBar = WorkoutSummary.fullBarMinutes(among: shown.compactMap { summaries[$0.id] })
+        return NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
                     Text("Workouts")
                         .ppFixedTitleFont()
                         .foregroundStyle(.pp(.textPrimary))
@@ -54,7 +65,18 @@ struct WorkoutsScreen: View {
                                 isTitleUnderBar = !isVisible
                             }
                         }
-                    ForEach(shown, content: row)
+                    Section {
+                        ForEach(shown) { workout in
+                            row(workout, summary: summaries[workout.id], fullBar: fullBar)
+                        }
+                        FloatingButtonRoom()
+                    } header: {
+                        // Pinned under the bar once the title scrolls away, as Add exercise's.
+                        WorkoutsFilterBar(filter: announcedFilter, count: shown.count) {
+                            isChoosingMuscles = true
+                        }
+                        .background(Color.pp(.background))
+                    }
                 }
                 // The scroll view takes its content's width, so with no row to stretch it the
                 // title alone would set it.
@@ -97,13 +119,21 @@ struct WorkoutsScreen: View {
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("New workout", systemImage: "plus") {
-                        Task { await session.startNew() }
-                    }
-                    .makesSomething()
-                    .hiddenBehindDrawer()
-                }
+            }
+            // Where the workout screen's + sits on an empty workout.
+            .floatingButton(
+                Button("New workout", systemImage: "plus") {
+                    Task { await session.startNew() }
+                },
+            )
+            .sheet(isPresented: $isChoosingMuscles) {
+                ChipSheet(
+                    title: "Muscle",
+                    items: MuscleGroup.allCases,
+                    chosen: announcedFilter.muscleGroups,
+                    name: \.name,
+                    onDone: { isChoosingMuscles = false },
+                )
             }
         }
         // Outside the stack, as the picker's: centered, with the system's colors.
@@ -121,16 +151,38 @@ struct WorkoutsScreen: View {
         }
     }
 
-    private func row(_ workout: Workout) -> some View {
+    /// The filter, written through one place: animated, so rows leave, the rest close up, and
+    /// the bars move to their new scale in one move, and telling VoiceOver how many workouts
+    /// show, as it cannot glance at the list behind a sheet of chips. At the write, not from a
+    /// change of the filter, which can be skipped.
+    private var announcedFilter: Binding<WorkoutFilter> {
+        Binding { filter } set: { changed in
+            if reduceMotion {
+                filter = changed
+            } else {
+                withAnimation(.snappy) { filter = changed }
+            }
+            let count = session.recent.count { changed.passes($0.summary) }
+            AccessibilityNotification.Announcement(WorkoutFilter.countText(count)).post()
+        }
+    }
+
+    private func row(_ workout: Workout, summary: WorkoutSummary?, fullBar: Int) -> some View {
         Button {
             Task { await session.open(workout.id, weightUnit: weightUnit) }
         } label: {
-            NameRow(namer.listedName(of: workout))
-                .padding(.leading, Spacing.md)
-                .padding(.trailing, Spacing.md - Self.swipeInset)
+            WorkoutRow(
+                namer.listedName(of: workout),
+                shape: summary.map { WorkoutRow.Shape($0, fill: $0.fill(of: fullBar)) },
+            )
+            .padding(.leading, Spacing.md)
+            .padding(.trailing, Spacing.md - Self.swipeInset)
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(namer.listedName(of: workout))
+        .accessibilityValue(summary?.spoken ?? "")
+        .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("workouts.row")
         // The system draws a swiped action inset from its row's end, so the row it swipes
         // ends that far short of the screen's edge, and Delete ends in line with the line
