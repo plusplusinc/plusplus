@@ -34,7 +34,7 @@ extension WorkoutDrawerUITests {
         XCTContext.runActivity(named: "A row's hold menu asks first, and Cancel keeps it") { _ in
             let row = app.listedWorkout(named: "Back")
             XCTAssertTrue(row.settles(), "The row kept moving")
-            row.press(forDuration: 1)
+            row.holdForMenu()
             XCTAssertTrue(delete.appears(), "Holding a row opened no menu with Delete")
             attach(named: "workout-held")
             delete.tap()
