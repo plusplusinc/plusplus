@@ -219,15 +219,19 @@ struct SmallCapsuleButton: View {
     let systemImage: String
     let title: String
     let action: () -> Void
+    @Environment(\.touchRoom) private var room
+    static let touchHeight: CGFloat = 44
 
     var body: some View {
-        TouchOutset(minHeight: 44, sides: Spacing.sm) {
+        let outset = TouchOutset(minHeight: Self.touchHeight, sides: Spacing.sm, room: room)
+        outset {
             Button(action: action) {
-                SmallCapsuleLabel(systemImage: systemImage, title: title)
-                    // Fills the room `TouchOutset` places it in, centered, and takes touches
-                    // across all of it.
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(.rect)
+                // Fills the room `TouchOutset` places it in, the capsule on its own spot, and
+                // takes touches across all of it.
+                TouchInset(outset: outset) {
+                    SmallCapsuleLabel(systemImage: systemImage, title: title)
+                }
+                .contentShape(.rect)
             }
             .buttonStyle(.plain)
         }

@@ -5,7 +5,9 @@ import WorkoutStore
 /// The three filters' buttons over Add exercise's list (`ExerciseListView`), alike whatever
 /// they open, on one line that scrolls sideways when their words don't fit (decided
 /// 2026-11-22: the row never wraps); under them, while one is on, the count and Clear
-/// (`FilterCount`). Muscle and Equipment open a sheet of chips through `onOpen`; Kind, which
+/// (`FilterCount`), and under that, while typed words name a filter's choice, the offer line
+/// (`FilterOfferLine`), whose button turns that choice on and takes its words out of the
+/// search (`FilterLines`). Muscle and Equipment open a sheet of chips through `onOpen`; Kind, which
 /// takes one at a time, is the system's menu.
 ///
 /// VoiceOver reads each button by its filter's name, "Muscle", with what is chosen as its
@@ -42,16 +44,12 @@ struct FilterBar: View {
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             if filter.isOn || !offers.isEmpty {
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    if filter.isOn {
-                        FilterCount(Self.countText(count)) {
-                            filter = ExerciseFilter()
-                        }
-                    }
-                    if !offers.isEmpty {
-                        offerLine
-                    }
-                }
+                FilterLines(
+                    count: filter.isOn
+                        ? FilterCount(Self.countText(count)) { filter = ExerciseFilter() }
+                        : nil,
+                    offer: offers.isEmpty ? nil : offerLine,
+                )
                 .padding(.horizontal, Spacing.md)
                 // Clear is a button of its own, so the line stands off the filters' buttons by
                 // more than the gap between two of them.
@@ -64,7 +62,7 @@ struct FilterBar: View {
 
     /// The offer line: "Filter by muscle" for one offer, "Filter by" for several, a button
     /// each.
-    private var offerLine: some View {
+    private var offerLine: FilterOfferLine {
         let text = offers.count == 1
             ? "Filter by \(offers[0].choice.filterName.lowercased())"
             : "Filter by"
