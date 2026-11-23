@@ -16,6 +16,7 @@ public struct FilterOfferLine: View {
     let text: String
     let offers: [Offer]
     @Environment(\.touchRoom) private var room
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var wordsShown = true
 
     /// One offer's button: the choice's name, the filter it joins, and what a tap does.
@@ -73,6 +74,11 @@ public struct FilterOfferLine: View {
             }
         }
         .font(.ppRowDetail)
+        // With Reduce Motion nothing slides: a new set of offers is a new line, which
+        // crossfades, as the filter buttons' row does. Without the identity, the words and the
+        // buttons left slid over to the trailing edge as a taken offer went.
+        .id(reduceMotion ? AnyHashable(offers.map(\.id)) : AnyHashable(0))
+        .transition(.opacity)
     }
 }
 

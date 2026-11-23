@@ -24,11 +24,12 @@ private struct FilterCapsule: ViewModifier {
 /// Every filter's trigger draws this one view, whether it opens a sheet or a menu, so they look
 /// alike. VoiceOver reads the words alone, without the chevron.
 ///
-/// New words replace the old at once and fade in while the fill crossfades and the capsule
-/// eases to their width (`wordsHeld`, `wordsIn`): crossfaded, the two showed overlapped mid-way.
-/// The words
-/// are one `Text` whose string changes, so they ride the capsule as it moves; words that stay
-/// as only the weight changes don't fade.
+/// New words replace the old at once and fade in over the second half of the capsule's easing
+/// to their width (`WordsFade`), while the fill crossfades: crossfaded, the two showed
+/// overlapped mid-way. The words are one `Text` whose string changes, so they ride the capsule
+/// as it moves (a new `Text` showed at its end place while the capsule was still on its way),
+/// cut at the capsule's easing width, so a longer word never runs under the chevron. Words that
+/// stay as only the weight changes don't fade.
 public struct FilterLabel: View {
     let text: String
     let isOn: Bool
@@ -37,26 +38,15 @@ public struct FilterLabel: View {
         self.isOn = isOn
     }
 
-    /// New words held out of sight while the capsule does most of its easing, then fading in:
-    /// shown sooner, a longer word overhung the chevron.
-    static let wordsHeld = 0.08
-    static let wordsIn = 0.15
-
     public var body: some View {
         HStack(spacing: Spacing.xs) {
             Text(text)
                 .fontWeight(isOn ? .semibold : .medium)
-                // At full width while the capsule eases to it, so a longer word isn't cut
-                // short mid-way; mostly faded while it overhangs.
                 .fixedSize()
                 .contentTransition(.identity)
-                .keyframeAnimator(initialValue: 1.0, trigger: text) { words, opacity in
-                    words.opacity(opacity)
-                } keyframes: { _ in
-                    MoveKeyframe(0)
-                    LinearKeyframe(0, duration: Self.wordsHeld)
-                    CubicKeyframe(1, duration: Self.wordsIn)
-                }
+                .modifier(WordsFade(text))
+                // Laid out at full width at once; drawn only as far as the frame has eased.
+                .clipped()
             Image(systemName: "chevron.down")
                 .imageScale(.small)
                 .fontWeight(.semibold)
@@ -68,6 +58,45 @@ public struct FilterLabel: View {
         // scaled minimum stood the row 127 pt tall around a 74 pt capsule.
         .frame(minHeight: 44)
         .contentShape(.rect)
+    }
+}
+
+/// A filter button's new words faded in on the transaction that changes them: hidden from the
+/// first frame drawn with them, in through the second half of the change. A `keyframeAnimator`
+/// triggered by the words starts an update late, and on a change that rebuilt a list the new
+/// words showed whole for a frame or two before going out to fade in.
+///
+/// How far through the change the words are comes from the animation itself: the modifier
+/// animates a number standing for the words, `key`, and its square, from the old words' to the
+/// new. Partway, at `p`, the two are `old + p(new - old)` and `old² + p(new² - old²)`, which
+/// give `p` knowing only the new words' `key`.
+private struct WordsFade: ViewModifier, Animatable {
+    var animatableData: AnimatablePair<Double, Double>
+    let key: Double
+
+    init(_ text: String) {
+        // Any number per words, so long as different words get different numbers; its square
+        // has to stay exact in a `Double`.
+        key = Double(UInt(bitPattern: text.hashValue) % 1_000_003) + 1
+        animatableData = AnimatablePair(key, key * key)
+    }
+
+    /// From 0 as the words change to 1 at the end of the change; 1 at rest.
+    private var progress: Double {
+        let (value, square) = (animatableData.first, animatableData.second)
+        let ahead = key - value
+        guard abs(ahead) > 1e-6 else { return 1 }
+        let span = 2 * key - (key * key - square) / ahead
+        guard abs(span) > 1e-6 else { return 1 }
+        return 1 - ahead / span
+    }
+
+    func body(content: Content) -> some View {
+        // Out of sight for the first half, while the capsule does most of its easing.
+        let opacity = min(max((progress - 0.5) / 0.5, 0), 1)
+        // Set as worked out, frame by frame: animated too, the change's own transaction eased
+        // it from the old words' 1, and the new words showed whole for two frames.
+        return content.animation(nil) { $0.opacity(opacity) }
     }
 }
 
