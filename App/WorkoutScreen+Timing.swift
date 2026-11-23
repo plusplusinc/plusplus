@@ -60,9 +60,10 @@ extension WorkoutScreen {
         )
     }
 
-    /// "Log early" tapped: the fill runs on to full from the tap as the count holds, then the
-    /// log is stored at the tap's time, so a rest after it starts there, and shown, the slot and
-    /// the keys changing together once the key is full.
+    /// "Log early" tapped: the +1 and the phone's tap play at once, and the fill runs on to full
+    /// from the tap as the count holds, then the log is stored at the tap's time, so a rest after
+    /// it starts there, and shown, the slot and the keys changing together once the key is full.
+    /// A sheet opened while the key fills leaves the set counting, its +1 already played.
     func logEarly(
         _ set: PlannedSet,
         of row: WorkoutExercise,
@@ -71,17 +72,18 @@ extension WorkoutScreen {
     ) {
         let tapped = Date.now
         countBeats.earlyLog = tapped
+        // The tap's own answer: waiting for the fill, the +1 and the phone's tap came late.
+        switch impact {
+        case .set, .runOut: setLogs += 1
+        case .side: sideLogs += 1
+        }
         Task {
             try? await Task.sleep(for: .seconds(PrimaryKeyButtonStyle.swapHalf), tolerance: .zero)
             guard countBeats.earlyLog == tapped else { return }
             countBeats.earlyLog = nil
-            // Stored only where it shows: End, a sheet, or a stopped sequence meanwhile moved
+            // Stored only where the log shows: End, a sheet, or a stopped sequence meanwhile moved
             // the screen off rest, where a log is refused, and the store would run ahead of it.
             guard phase.isAtRest, editing == nil else { return }
-            switch impact {
-            case .set, .runOut: setLogs += 1
-            case .side: sideLogs += 1
-            }
             session.log(set, of: row, at: tapped)
             play(set, leadingTo: step)
         }
