@@ -104,12 +104,13 @@ extension WorkoutScreen {
     /// Add exercise's sheet. A created exercise is stored before its row is added, so the
     /// workout's save that names it lands after it; then the sheet closes and the row goes in as
     /// a pick's does, even if the sheet was swiped down meanwhile, and once it has landed its own
-    /// sheet opens on Customize (`showCreated()`). Its list starts with the opening's filter,
-    /// and each opening is its own (`AddExerciseSheet.id`), so filters clear as it closes.
+    /// sheet opens on Customize (`showCreated()`). Its list is narrowed by the open workout's
+    /// kept filter (`AppSession.addExerciseFilter`), written there as it changes; each opening
+    /// is its own otherwise (`AddExerciseSheet.id`), so search starts empty.
     func picker(_ opening: AddExerciseSheet) -> some View {
         ExercisePicker(
             exercises: leavingExercise.map(session.exercises.removing) ?? session.exercises,
-            filter: opening.filter,
+            filter: Binding { session.addExerciseFilter } set: { session.addExerciseFilter = $0 },
             onPick: addPicked,
             // Full height with search (decided 2026-11-17) and with a filter's tap (decided
             // 2026-11-22), in the tap's own transaction: at medium height the sheet went out of

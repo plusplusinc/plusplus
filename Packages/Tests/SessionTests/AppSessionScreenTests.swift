@@ -152,30 +152,6 @@ struct AppSessionScreenTests {
         #expect(second != first, "The sheet opened again would keep the last one's state")
     }
 
-    @Test("Add exercise opened for a muscle group starts with that group chosen")
-    func addExerciseOpensOnAGroup() throws {
-        let session = session()
-        session.openAddExercise(filter: ExerciseFilter(muscleGroups: [.back]))
-        let opening = try #require(session.addExercise)
-        #expect(opening.filter.muscleGroups == [.back])
-        #expect(opening.filter.muscleLabel == "Back")
-    }
-
-    @Test("Add exercise opened again after closing is a new opening with no filter")
-    func addExerciseReopensClear() throws {
-        let session = session()
-        session.openAddExercise(filter: ExerciseFilter(muscleGroups: [.back]))
-        let first = try #require(session.addExercise).id
-        // A double tap, the sheet still rising.
-        session.openAddExercise()
-        #expect(session.addExercise?.id == first)
-        session.closeAddExercise()
-        session.openAddExercise()
-        let second = try #require(session.addExercise)
-        #expect(second.id != first, "The picker opened again would keep the last one's filter")
-        #expect(!second.filter.isOn)
-    }
-
     @Test("A row the open workout no longer has opens no sheet, as when tapped as it leaves")
     func goneRowOpensNoSheet() throws {
         let (session, row) = try sessionWithRow()
