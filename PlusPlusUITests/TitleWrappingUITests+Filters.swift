@@ -6,8 +6,8 @@ import XCTest
 @MainActor
 extension TitleWrappingUITests {
     /// The buttons by their filters' names; a chip selected once chosen; the button's choice as
-    /// its value, and selected; the Muscle sheet and the filtered list with its count line pass
-    /// the audit. Clear leaves no filter on.
+    /// its value, and selected; the Muscle sheet and the filtered list with Clear leading its
+    /// buttons pass the audit. Clear leaves no filter on.
     func filterAtAX5(in app: XCUIApplication) throws {
         let muscle = app.buttons["Muscle"]
         XCTAssertTrue(app.buttons["Kind"].exists && app.buttons["Equipment"].exists)
@@ -18,10 +18,10 @@ extension TitleWrappingUITests {
         XCTAssertTrue(back.appears(), "Muscle opened no sheet of chips")
         // The system draws the floating sheet at about 96% of the size it lays out, so the
         // audit reads its widest words, the title and Shoulders, as clipped where they show
-        // whole; anything else it finds stands. The sheet is its chips' scroll view and the
-        // header over it, whose Done sits level with the title.
+        // whole; anything else it finds stands. The sheet runs from its grabber, at its top
+        // edge, down through its chips' scroll view, under the header.
         let chips = app.scrollViews.containing(NSPredicate(format: "label == 'Back'"))
-            .firstMatch.frame.union(app.buttons["Done"].frame)
+            .firstMatch.frame.union(app.buttons["Sheet Grabber"].frame)
         try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
             guard issue.auditType == .textClipped, let element = issue.element else { return false }
             return ["Muscle", "Shoulders"].contains(element.label) && chips.contains(element.frame)
@@ -33,7 +33,7 @@ extension TitleWrappingUITests {
         XCTAssertEqual(muscle.value(becoming: "Back"), "Back")
         XCTAssertTrue(muscle.isSelected, "Muscle isn't selected with Back chosen")
         let clear = app.buttons["Clear filters"]
-        XCTAssertTrue(clear.exists, "No Clear under the filter")
+        XCTAssertTrue(clear.exists, "No Clear with the filter on")
         attach(named: "picker-filtered-ax5")
         // With the bar in view, as a sheet of chips left it at full height; flagged before any
         // filter too, and with a sheet over the bar, nothing is flagged unnamed.

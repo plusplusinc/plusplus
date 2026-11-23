@@ -78,10 +78,9 @@ extension RenameUITests {
     private func takeTypedFilter(in app: XCUIApplication, keyboard: XCUIElement) {
         XCTContext.runActivity(named: "Taking a typed word's filter keeps the keyboard up") { _ in
             app.search(for: "bench")
-            // The words are the app's to pick, by how many offers and which filter.
             XCTAssertTrue(
-                app.staticTexts["Filter by equipment"].appears(),
-                "One Equipment offer's line does not read \u{201C}Filter by equipment\u{201D}",
+                app.staticTexts["Filter by"].appears(),
+                "The offer line does not read \u{201C}Filter by\u{201D}",
             )
             app.buttons["Add bench to Equipment"].tap()
             XCTAssertEqual(

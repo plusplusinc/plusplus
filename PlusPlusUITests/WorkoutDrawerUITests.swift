@@ -152,7 +152,6 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
                 ["Chest day"],
             )
             XCTAssertEqual(muscle.value as? String, "Chest")
-            XCTAssertTrue(app.staticTexts["1 workout"].exists, "No count under the filter")
             clear.tap()
             XCTAssertTrue(clear.disappears(), "Clear left a filter on")
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: all, within: 2), all)
@@ -164,16 +163,21 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             barbell.tap()
             done.tap()
             XCTAssertTrue(barbell.disappears(), "Done left the chips up")
-            XCTAssertTrue(
-                app.staticTexts["0 workouts"].appears(),
-                "Chest day matched a barbell alone",
-            )
+            // Chest day, a bench short, is listed only under Also needs.
             let addBench = app.buttons["Add bench to Equipment"]
-            XCTAssertTrue(addBench.exists, "Chest day isn't listed as short a bench")
+            XCTAssertTrue(addBench.appears(), "Chest day isn't listed as short a bench")
             addBench.tap()
-            XCTAssertTrue(app.staticTexts["1 workout"].appears(), "+ Bench didn't match Chest day")
-            XCTAssertEqual(app.buttons["Equipment"].value as? String, "Barbell, Bench")
+            XCTAssertEqual(
+                app.buttons["Equipment"].value(becoming: "Barbell, Bench"),
+                "Barbell, Bench",
+            )
             XCTAssertTrue(addBench.disappears(), "Also needs stayed once Bench was added")
+            // Matches list first, over any heading.
+            XCTAssertEqual(
+                app.workoutRowLabels.first,
+                "Chest day",
+                "+ Bench didn't match Chest day",
+            )
             clear.tap()
             XCTAssertTrue(clear.disappears(), "Clear left a filter on")
         }
@@ -189,7 +193,6 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             XCTAssertEqual(length.value(becoming: "25 minutes"), "25 minutes")
             done.tap()
             XCTAssertTrue(upTo20.disappears(), "Done left the Length sheet up")
-            XCTAssertTrue(app.staticTexts["0 workouts"].exists, "A 25 minute filter kept a workout")
             XCTAssertEqual(app.workoutRowLabels, [], "A 25 minute filter kept a workout")
             clear.tap()
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: all, within: 2), all)
