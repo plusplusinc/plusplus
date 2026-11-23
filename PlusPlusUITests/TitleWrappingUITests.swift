@@ -180,6 +180,10 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             let offer = app.buttons["Add arms to Muscle"]
             XCTAssertTrue(offer.appears(), "\u{201C}arm\u{201D} offered no Arms")
             XCTAssertTrue(app.pickerRows["Backward arm circles"].exists)
+            XCTAssertFalse(
+                app.staticTexts["Filter by muscle"].exists,
+                "The offer line's words, dropped at AX5, still reach VoiceOver",
+            )
             attach(named: "picker-offer-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             // Taking it empties the field for the next search; Clear, so Create presets nothing.

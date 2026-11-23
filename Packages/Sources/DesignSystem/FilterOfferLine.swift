@@ -46,9 +46,10 @@ public struct FilterOfferLine: View {
                 // Shrinks to nothing, and draws nothing, where `WordsOrButtons` drops it.
                 .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 .clipped()
-                // A dropped label keeps its text, so VoiceOver would still find it off screen.
+                // A dropped label keeps its text, so VoiceOver would still find it off screen;
+                // in the filter bar, a bar item, only `accessibilityShown` hides it.
                 .onGeometryChange(for: Bool.self) { $0.size.width > 0 } action: { wordsShown = $0 }
-                .accessibilityHidden(!wordsShown)
+                .accessibilityShown(wordsShown)
             OfferButtons(room: room) {
                 ForEach(offers) { offer in
                     SmallCapsuleButton(
