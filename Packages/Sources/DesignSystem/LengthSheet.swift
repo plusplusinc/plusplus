@@ -109,7 +109,7 @@ public struct LengthSheet: View {
     Color.pp(.background)
         .sheet(isPresented: .constant(true)) {
             LengthSheet(
-                presets: ["Under 20 min", "20–40 min", "Over 40 min"],
+                presets: ["< 20 min", "20–40 min", "> 40 min"],
                 lit: lower == 20 && upper == 40 ? 1 : nil,
                 lower: lower,
                 upper: upper,

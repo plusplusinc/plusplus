@@ -125,9 +125,9 @@ public struct LengthRange: Hashable, Sendable {
 
         public var name: String {
             switch self {
-            case .under20: "Under 20 min"
+            case .under20: "< 20 min"
             case .twentyToForty: "20–40 min"
-            case .over40: "Over 40 min"
+            case .over40: "> 40 min"
             }
         }
 
