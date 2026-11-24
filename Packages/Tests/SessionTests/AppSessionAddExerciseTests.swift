@@ -99,10 +99,10 @@ struct AppSessionAddExerciseTests {
             muscleGroups: [.legs],
             equipment: [.piece(.dumbbells)],
         ))
-        await session.takeAddExerciseOnShow(after: .zero)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
         #expect(session.addExercise != nil)
         session.closeAddExercise()
-        await session.takeAddExerciseOnShow(after: .zero)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
         #expect(session.addExercise == nil, "Add exercise rises by itself once, not each arrival")
     }
 
@@ -112,7 +112,7 @@ struct AppSessionAddExerciseTests {
         session.showWorkouts()
         await session.startNew(from: WorkoutFilter(length: LengthRange(lower: 40, upper: nil)))
         #expect(!session.addExerciseFilter.isOn)
-        await session.takeAddExerciseOnShow(after: .zero)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
         #expect(session.addExercise != nil)
     }
 
@@ -121,7 +121,7 @@ struct AppSessionAddExerciseTests {
         let session = try sessionKeepingLegs()
         session.showWorkouts()
         await session.startNew()
-        await session.takeAddExerciseOnShow(after: .zero)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
         #expect(session.addExercise == nil)
     }
 
@@ -132,7 +132,7 @@ struct AppSessionAddExerciseTests {
         await session.startNew(from: listFilter)
         session.openAddExercise()
         session.closeAddExercise()
-        await session.takeAddExerciseOnShow(after: .zero)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
         #expect(session.addExercise == nil)
     }
 
@@ -142,12 +142,35 @@ struct AppSessionAddExerciseTests {
         session.showWorkouts()
         await session.startNew(from: listFilter)
         session.popWorkout()
-        await session.takeAddExerciseOnShow(after: .zero)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
         #expect(session.addExercise == nil, "A raise left armed came up on the next screen")
         await session.open(session.current.id, weightUnit: .pounds)
         session.openAddExercise()
         session.popWorkout()
         #expect(session.addExercise == nil, "A sheet set as the pop ended outlived its workout")
+    }
+
+    @Test("A finger down as the wait ends, a press of Back not yet lifted, spends the raise")
+    func fingerDownSpendsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        await session.takeAddExerciseOnShow(after: .zero) { true }
+        #expect(session.screen == .pushedWorkout, "Back pops only as the finger lifts")
+        #expect(session.addExercise == nil, "The sheet rose under the press and over the pop")
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil, "The raise waited for the lift and rose over the list")
+    }
+
+    @Test("The screen beginning to leave spends the raise before the stack's pop arrives")
+    func leavingSpendsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        session.leaveBeforeAddExercise()
+        #expect(session.screen == .pushedWorkout)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil, "A wait ending as the pop began raised the sheet")
     }
 
     @Test("Another workout shown after New from the filters drops the filter and the raise")
@@ -157,7 +180,7 @@ struct AppSessionAddExerciseTests {
         await session.startNew(from: listFilter)
         session.popWorkout()
         await session.open(saved.id, weightUnit: .pounds)
-        await session.takeAddExerciseOnShow(after: .zero)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
         #expect(session.addExercise == nil)
         #expect(!session.addExerciseFilter.isOn)
     }

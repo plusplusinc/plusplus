@@ -24,7 +24,7 @@ public final class AppSession {
     /// Workouts list's Create workout row makes, which starts on its filters (`startNew(from:)`).
     public var addExerciseFilter = ExerciseFilter()
     /// Set by the Create workout row's New, until the workout screen shows and opens Add
-    /// exercise (`takeAddExerciseOnShow(after:)`).
+    /// exercise (`takeAddExerciseOnShow(after:isTouched:)`).
     @ObservationIgnored var opensAddExerciseOnShow = false
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
@@ -267,7 +267,8 @@ public final class AppSession {
     /// New from the Workouts list's Create workout row, shown while any of its filters is on:
     /// `startNew()`, then Add exercise starts on the list's Muscle and Equipment filters, its
     /// Length carrying nothing, and comes up by itself once the workout screen has arrived and
-    /// the new workout has rested (`takeAddExerciseOnShow(after:)`), with no filter if none
+    /// the new workout has rested (`takeAddExerciseOnShow(after:isTouched:)`), with no filter if
+    /// none
     /// carried.
     public func startNew(from listFilter: WorkoutFilter) async {
         guard !isSwitching else { return }

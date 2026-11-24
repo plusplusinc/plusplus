@@ -358,17 +358,24 @@ struct CreatedWait: Equatable {
 /// sheet rises; a sheet that rose with the push read as too quick. Timed from UIKit's word that
 /// the push is over (`onScreenArrival(_:)`), not from a wait from the push's start, which
 /// under load let the sheet rise while the push still slid in. The wait is the screen's task,
-/// so leaving before it ends opens nothing (`AppSession.takeAddExerciseOnShow(after:)`).
+/// so leaving before it ends opens nothing (`AppSession.takeAddExerciseOnShow`). Leaving counts
+/// from the pop's start, and a finger down as the wait ends opens nothing
+/// either: a press of Back pops only as the finger lifts, and a sheet set while it was down
+/// came up over the Workouts list as the pop ran.
 struct AddExerciseOnArrival: ViewModifier {
     let session: AppSession
     @State private var hasArrived = false
+    @State private var fingers = FingerWatch()
 
     func body(content: Content) -> some View {
         content
-            .onScreenArrival { hasArrived = true }
+            .onScreenArrival { hasArrived = true } leaving: { session.leaveBeforeAddExercise() }
+            .watchesFingers(fingers)
             .task(id: hasArrived) {
                 guard hasArrived else { return }
-                await session.takeAddExerciseOnShow(after: WorkoutScreen.arrivedHold)
+                await session.takeAddExerciseOnShow(after: WorkoutScreen.arrivedHold) {
+                    fingers.isDown
+                }
             }
     }
 }
