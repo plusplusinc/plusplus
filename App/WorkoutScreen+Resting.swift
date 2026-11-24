@@ -24,15 +24,16 @@ import WorkoutStore
 /// After the last round it opens under the last member.
 ///
 /// Through any rest the key at the bottom swaps, as keys swap, for Skip rest, wide, gray, filling
-/// with the done purple from its leading edge as the rest runs (`restKeyFill`), and +15 s beside
-/// it (`CountKeys`), the + above it staying put, full at 0:00. There is no bar under the
-/// countdown. Skip rest cuts the rest at the tap (`skipRest()`), its keys going and its count
-/// holding the time it had left a second, then as it goes, never 0:00
-/// (`WorkoutPhase.skipRest(left:)`), and the screen moves on as at a rest's end; +15 s steps the
-/// fill back and turns the countdown, the dot staying put. A pause grays the countdown and the
-/// fill. Taps on
-/// them while the rest is still coming in, as a double tap's second on Log set, do nothing. With
-/// Reduce Motion, each move is one crossfade, the dot at the word through the rest.
+/// with the done purple from its leading edge as the rest runs (`restKeyFill`), full at 0:00,
+/// and +15 s beside it (`CountKeys`), the + above it staying put. There is no bar under the
+/// countdown. Skip rest cuts the rest at the tap (`skipRest()`): its keys go, the + sitting low
+/// with none (`plusSitsLow`), and its count holds the time it had left a quarter second
+/// (`LiveWorkout.skipHold`), then as it goes, never 0:00 (`WorkoutPhase.skipRest(left:)`), and
+/// the screen moves on as at a rest's end; +15 s steps the fill back and turns the countdown,
+/// the dot staying put. A pause grays the countdown and the fill. Taps on them while the rest is
+/// still coming in, as a double tap's second on Log set, through 0:00's hold, or after a skip,
+/// do nothing. With Reduce Motion, each move is one crossfade, the dot at the word through the
+/// rest.
 ///
 /// Between two sets of one plain exercise, the rest takes the figures' slot (`SetRest`); done one
 /// side at a time, after a set's second side, never between its sides. From the tap, everything

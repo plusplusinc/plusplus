@@ -20,7 +20,7 @@ extension WorkoutPhase {
         public internal(set) var skipLeave: Double?
 
         /// Whether Skip rest and +15 s are its keys: until it ends, or is skipped, where they
-        /// go at the tap through the second its count holds.
+        /// go at the tap, for the moment its count holds.
         public var hasKeys: Bool {
             beat < .returning && skippedLeft == nil
         }

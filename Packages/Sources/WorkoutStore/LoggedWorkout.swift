@@ -76,8 +76,9 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
         return sets.isEmpty ? clock : max(0, clock)
     }
 
-    /// The workout with its time starting at `now`, when it hasn't yet: the first set begun
-    /// before its "Start in" ran out, by a log. Unchanged once the time runs.
+    /// The workout with its time starting at `now`, when it hasn't yet: the first set logged
+    /// before the clock reaches zero. The key takes no log through "Start in", so only a log a
+    /// moment ahead of the clock gets here. Unchanged once the time runs.
     public func startingClock(at now: Date) -> Self {
         guard isInProgress, clock(at: now) < 0 else { return self }
         var started = self
@@ -138,7 +139,7 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     public func logging(_ planned: PlannedSet, of row: WorkoutExercise, at now: Date) -> Self {
         // Once only: a log from a view built before the last one, or a second action, keeps one.
         guard !sets.contains(where: { $0.planned == planned }) else { return self }
-        // The first set logged through its "Start in": the workout's time starts at the log.
+        // The first set logged before the time has started: it starts at the log.
         var logged = startingClock(at: now)
         logged.sets.append(LoggedSet(
             row: row.id,

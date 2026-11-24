@@ -182,8 +182,7 @@ extension LiveWorkout {
     /// The workout as the screen lands on its first set after Start, at `now`: the set's "Start
     /// in" begins there, and the workout's time starts as it ends, where the set begins
     /// (decided 2026-11-23), so the time reads 0:00 through "Start in" and the two turn over
-    /// together. The clock stands below zero until then (`LoggedWorkout.clock(at:)`); a log
-    /// before then starts the time at once (`LoggedWorkout.startingClock(at:)`).
+    /// together. The clock stands below zero until then (`LoggedWorkout.clock(at:)`).
     /// Only a workout with nothing logged, never paused, no count yet, and under a second on
     /// its clock, so its time has shown only 0:00 and none of it is lost: any other, as one
     /// whose landing waited on the phone being unlocked, only begins its count.

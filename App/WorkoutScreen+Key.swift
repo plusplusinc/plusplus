@@ -95,9 +95,9 @@ extension WorkoutScreen {
     }
 
     /// Skip rest: the rest is stored as cut at the tap (`LiveWorkout.skippingRest(override:at:)`),
-    /// its count holding the time it had left at the tap for a second, then ending as one that
-    /// ran out does, as the rest's watch says (`watchRest()`). Its keys go at the tap. Only when
-    /// `WorkoutKey.skipRest` says so.
+    /// its count holding the time it had left at the tap for `LiveWorkout.skipHold`, then ending
+    /// as one that ran out does, as the rest's watch says (`watchRest()`). Its keys go at the
+    /// tap. Only when `WorkoutKey.skipRest` says so.
     private func skipRest() {
         // With the store's change, before `endRest()`'s animated swap: a new figure put in during
         // the swap stood where it ends from its first frame.

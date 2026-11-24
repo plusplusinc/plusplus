@@ -48,8 +48,8 @@ public struct WorkoutRest: Equatable, Sendable {
     /// The clock at the log.
     public let startClock: Double
     /// Where the next set's count, begun at a skip, says the screen moves on, when sooner than
-    /// the stored length does (`LiveWorkout.skippingRest(override:at:)`): a second after the tap,
-    /// to the fraction, which the whole seconds stored can't hold.
+    /// the stored length does (`LiveWorkout.skippingRest(override:at:)`): `LiveWorkout.skipHold`
+    /// after the tap, to the fraction, which the whole seconds stored can't hold.
     public var skipLeaveClock: Double?
 
     /// The clock as the count reaches 0:00.
@@ -57,7 +57,7 @@ public struct WorkoutRest: Equatable, Sendable {
         startClock + Double(length)
     }
 
-    /// The clock as the screen moves on, once 0:00 has held; a skip's, a second after its tap.
+    /// The clock as the screen moves on, once 0:00 has held; a skip's, once its time has.
     public var leaveClock: Double {
         let stored = endClock + LiveWorkout.restHold
         return min(stored, skipLeaveClock ?? stored)
@@ -76,8 +76,8 @@ public struct WorkoutRest: Equatable, Sendable {
 
 extension LiveWorkout {
     /// How long a count holds 0:00 before what follows: a rest before the screen moves on, a
-    /// "Start in" before its set begins; and a skipped rest its time before the screen moves on,
-    /// in seconds (decided 2026-11-23: "show 0 for a full second").
+    /// "Start in" before its set begins, in seconds (decided 2026-11-23: "show 0 for a full
+    /// second").
     public static let restHold = 1.0
     /// How long a skipped rest holds its time before the screen moves on, in seconds: a
     /// quarter of `restHold`, since after a tap a full second read as a hang (the maintainer,
@@ -135,14 +135,13 @@ extension LiveWorkout {
     /// rest does. Its count holds the time at the tap for `skipHold` before the screen moves
     /// on, as one run out holds 0:00, for less time. Where the next set has a
     /// count due, a "Start in" or a timed set's own, it is begun here, to the fraction of a
-    /// second, so the rest moves on exactly a second after the tap
+    /// second, so the rest moves on exactly `skipHold` after the tap
     /// (`WorkoutRest.skipLeaveClock`) and a relaunch finds the count where the screen had it.
     /// The stored adjustment holds the rest taken in whole seconds: rounded up where a count
     /// times the move, so the count's move is never later than the stored one; rounded down
-    /// where none does, a reps set between sets, so the screen's own second after the tap is
-    /// never sooner (`WorkoutPhase.Resting.skipLeave`). Unchanged with no rest running, once it
-    /// reads
-    /// 0:00, or skipped already.
+    /// where none does, a reps set between sets, whose move the screen times
+    /// (`WorkoutPhase.Resting.skipLeave`). Unchanged with no rest running, once it reads 0:00,
+    /// or skipped already.
     public func skippingRest(override: Int? = nil, at now: Date) -> LoggedWorkout {
         let clock = loggedWorkout.clock(at: now)
         guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(override: override),

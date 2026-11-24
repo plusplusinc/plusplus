@@ -14,8 +14,10 @@ import WorkoutStore
 /// + sitting low as with none (`WorkoutKey.waitsToStart`, decided 2026-11-24), and the set's key
 /// comes in as it is up. On a reps set that is its log key, and the set's figures swap back into
 /// the slot. On a timed set the set's time in words stands at the caption line's end; a timed
-/// set with no "Start in" due counts from where the rest before it moved on, a second after a
-/// Skip rest's tap. The set's count then runs in the figures' slot, with no word over
+/// set with no "Start in" due counts from where the rest before it moved on, a quarter second
+/// after a Skip rest's tap (`LiveWorkout.skipHold`). VoiceOver reads "Start in" and its time
+/// left, "0 seconds" through its hold, and finds no key. The set's count then runs in the
+/// figures' slot, with no word over
 /// it, "then rest 0:30" at the caption line's end, the set's segment green, and the key is
 /// "Log early", gray, filling with the done purple from its leading edge,
 /// with +15 s beside it (`CountKeys`). At 0 the set logs itself at its full time, with the
