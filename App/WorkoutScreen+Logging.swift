@@ -324,21 +324,6 @@ extension WorkoutScreen {
         }
     }
 
-    /// Finishes the workout, from the key with no dialog, or from End's Finish: a "++" pops off
-    /// the key over a still screen, and once it has gone the app goes to Log through the drawer,
-    /// the screen's ending playing behind it. With VoiceOver, straight to Log, with no burst.
-    func finish() {
-        guard !voiceOver else {
-            guard end({ session.finish() }) else { return }
-            session.showLog()
-            return
-        }
-        let hold = PrimaryKeyButtonStyle.finishBurst
-        guard end(holdingFor: hold, { session.finish() }) else { return }
-        finishes += 1
-        session.showThroughDrawer(.log, after: .seconds(hold), reduceMotion: reduceMotion)
-    }
-
     /// Where the list lands `next`'s row under the bar once `leaving`, the current row, has
     /// shrunk back: at the row's top, where its label lands just under the bar. A row above
     /// stays where it is; one below rises by what `leaving` gives back, from its pitch now, top

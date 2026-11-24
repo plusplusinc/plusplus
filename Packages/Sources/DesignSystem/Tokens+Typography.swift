@@ -58,8 +58,9 @@ extension Font {
     /// number in SF Mono.
     public static let ppWorkoutLength = Font.system(.body)
     public static let ppWorkoutLengthNumber = Font.system(.body, design: .monospaced)
-    /// The +1 that pops off Start as it is pressed: SF Mono, as numbers are.
-    public static let ppPlusOne = Font.system(.title3, design: .monospaced, weight: .bold)
+    /// Each "+" of the "++" that pops off the key as a workout finishes: SF Mono, as numbers
+    /// are, at the title style's 28 pt.
+    public static let ppPlusOne = Font.system(.title, design: .monospaced, weight: .bold)
     /// A floating button's icon, such as Add exercise's +.
     public static let ppFloatingIcon = Font.system(.title2, weight: .semibold)
     /// A glass bar button's glyph, such as search's magnifying glass and Close's X, at the

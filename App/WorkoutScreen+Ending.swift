@@ -1,6 +1,51 @@
 import DesignSystem
 import SwiftUI
 
+/// The workout's finishes, each popping a "+" off the key on each of two beats: the first with
+/// a medium impact, the second, `PrimaryKeyButtonStyle.finishBeat` later, with a heavy one.
+/// Each count is written at its own beat, so each impact plays then.
+struct FinishBeats {
+    var first = 0
+    var second = 0
+}
+
+extension WorkoutScreen {
+    /// Finishes the workout, from the key with no dialog, or from End's Finish: two "+"s pop
+    /// off the key a beat apart, each with an impact, and meet as "++" over a still screen; once
+    /// they have gone the app goes to Log through the drawer, the screen's ending playing behind
+    /// it. With VoiceOver, straight to Log, with no burst.
+    func finish() {
+        guard !voiceOver else {
+            guard end({ session.finish() }) else { return }
+            session.showLog()
+            return
+        }
+        let hold = PrimaryKeyButtonStyle.finishBurst
+        guard end(holdingFor: hold, { session.finish() }) else { return }
+        finishBeats.first += 1
+        // The burst draws its second "+" on the same constant, from the first's trigger.
+        Task {
+            try? await Task.sleep(for: .seconds(PrimaryKeyButtonStyle.finishBeat), tolerance: .zero)
+            finishBeats.second += 1
+        }
+        session.showThroughDrawer(.log, after: .seconds(hold), reduceMotion: reduceMotion)
+    }
+}
+
+extension View {
+    /// End's dialog on `screen`, and a finish's two impacts.
+    func finishing(_ screen: WorkoutScreen) -> some View {
+        endWorkoutDialog(
+            isPresented: screen.$isConfirmingEnd,
+            session: screen.session,
+            finish: screen.finish,
+            discard: { _ = screen.end(screen.session.discard) },
+        )
+        .sensoryFeedback(.impact(weight: .medium), trigger: screen.finishBeats.first)
+        .sensoryFeedback(.impact(weight: .heavy), trigger: screen.finishBeats.second)
+    }
+}
+
 /// End's motion, once `end(holdingFor:_:)` has set the phase to its ending.
 extension WorkoutScreen {
     /// End's motion from the key leaving, with `change` on the curve the bar moves on.

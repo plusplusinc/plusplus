@@ -57,10 +57,10 @@ struct WorkoutScreen: View {
     /// (`settleWayBack()`); none while it logs.
     @State var keyWayBack: WorkoutKey.WayBack?
     /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
-    /// and the workout's finishes, each popping a "++" off the key.
+    /// and the workout's finishes, each popping a "++" off the key on two beats.
     @State var setLogs = 0
     @State var sideLogs = 0
-    @State var finishes = 0
+    @State var finishBeats = FinishBeats()
     /// Whether the dialog asking how to end the workout shows, and the alert asking to delete it.
     @State var isConfirmingEnd = false
     @State var isAskingToDeleteWorkout = false
@@ -183,12 +183,7 @@ struct WorkoutScreen: View {
             perform: { touchedDownOutsideTitle() },
         )
         .onKeyboardDown(for: $titleTap) { openPicker() }
-        .endWorkoutDialog(
-            isPresented: $isConfirmingEnd,
-            session: session,
-            finish: finish,
-            discard: { end(session.discard) },
-        )
+        .finishing(self)
         .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
         .sensoryFeedback(.impact(weight: .heavy), trigger: restEnds)
@@ -347,7 +342,7 @@ struct WorkoutScreen: View {
             isPresented: showsKey,
             face: liveKey.role,
             keepsRoom: phase.keyGone == .keepingRoom,
-            plusOnes: finishes,
+            plusOnes: finishBeats.first,
             drop: startDrop,
             floatsLow: footShowsEmpty,
         ) { role, isOut in
