@@ -97,7 +97,7 @@ extension AppSession {
                 holdBefore: DrawerWay.holdBefore,
                 holdAfter: DrawerWay.holdAfter,
             ),
-            markWait: DrawerWay.markWait(reduceMotion: reduceMotion),
+            markWait: DrawerWay.markWait(reduceMotion: reduceMotion) + DrawerWay.landedHold,
         )
     }
 }

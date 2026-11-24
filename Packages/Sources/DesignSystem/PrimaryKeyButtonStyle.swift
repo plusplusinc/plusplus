@@ -117,6 +117,9 @@ extension PrimaryKeyButtonStyle {
     /// How long the burst over the key lasts as a workout finishes: the screen holds under it,
     /// and the way to Log starts once it is over.
     public static let finishBurst = PlusOneBurst.duration
+    /// The beat of stillness once the burst has gone, before the drawer opens: without it the
+    /// finish read as too fast (Dave, 2026-11-23).
+    public static let finishRest = 0.3
     /// From the burst's first "+", and its haptic, to the second.
     public static let finishBeat = PlusOneBurst.beat
 }

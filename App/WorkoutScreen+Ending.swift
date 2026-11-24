@@ -20,7 +20,7 @@ extension WorkoutScreen {
             session.showLog()
             return
         }
-        let hold = PrimaryKeyButtonStyle.finishBurst
+        let hold = PrimaryKeyButtonStyle.finishBurst + PrimaryKeyButtonStyle.finishRest
         guard end(holdingFor: hold, { session.finish() }) else { return }
         finishBeats.first += 1
         // The burst draws its second "+" on the same constant, from the first's trigger.

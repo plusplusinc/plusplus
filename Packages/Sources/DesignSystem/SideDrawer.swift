@@ -311,6 +311,10 @@ public enum DrawerWay {
     /// neither: the person chose, and the drawer closes as the mark arrives.
     public static let holdBefore = Duration.milliseconds(200)
     public static let holdAfter = Duration.milliseconds(300)
+    /// On every way, a row tapped included: the mark rests on its new place this long before the
+    /// drawer closes, on top of `holdAfter` where the drawer was opened for the person. Closing
+    /// as the mark arrived read as too fast (Dave, 2026-11-23). The mark's own slide is unchanged.
+    public static let landedHold = Duration.milliseconds(200)
 
     /// How long the mark takes to visibly arrive at its new place, which the drawer waits for
     /// before closing: the slide's duration, not its settle, whose tail is too small to see.
