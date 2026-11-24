@@ -79,6 +79,9 @@ extension LiveWorkout {
     /// "Start in" before its set begins; and a skipped rest its time before the screen moves on,
     /// in seconds (decided 2026-11-23: "show 0 for a full second").
     public static let restHold = 1.0
+    /// How long a skipped rest holds its time before the screen moves on, in seconds: half
+    /// `restHold`, since after a tap a full second read as a hang (the maintainer, 2026-11-24).
+    public static let skipHold = 0.5
 
     /// The rest after the last set logged, while there is one: nil with no gap after it, a set
     /// logged before its clock was kept, or nothing left to do. Whether it is over is the
@@ -128,8 +131,8 @@ extension LiveWorkout {
     }
 
     /// The workout with the rest running after the last set cut short at `now`, as a tap on Skip
-    /// rest does. Its count holds the time at the tap for a second (`restHold`) before the
-    /// screen moves on, as one run out holds 0:00 (decided 2026-11-23). Where the next set has a
+    /// rest does. Its count holds the time at the tap for `skipHold` before the screen moves
+    /// on, as one run out holds 0:00, for less time. Where the next set has a
     /// count due, a "Start in" or a timed set's own, it is begun here, to the fraction of a
     /// second, so the rest moves on exactly a second after the tap
     /// (`WorkoutRest.skipLeaveClock`) and a relaunch finds the count where the screen had it.
@@ -150,7 +153,7 @@ extension LiveWorkout {
         let rested = Int(counts ? taken.rounded(.up) : taken.rounded(.down))
         skipped.sets[skipped.sets.count - 1].restAdjustment += rested - rest.length
         if counts {
-            skipped.count = SetCount(set: rest.next, startClock: clock + Self.restHold + lead)
+            skipped.count = SetCount(set: rest.next, startClock: clock + Self.skipHold + lead)
         }
         return skipped
     }

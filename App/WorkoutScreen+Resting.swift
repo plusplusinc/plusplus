@@ -310,7 +310,13 @@ extension WorkoutScreen {
         guard isResting else { return }
         while let resting {
             guard let loggedWorkout = session.loggedWorkout, !loggedWorkout.isPaused else { return }
-            let leave = max(resting.leaveClock, skipLeave ?? resting.leaveClock)
+            // A skip with no count stored is timed here alone: the rest's own leave, a whole
+            // second past its stored end, came up to half a second after the skip's hold.
+            // Only for this rest's own skip: `skipLeave` keeps the last skip's time.
+            let isSkipped = phase.resting?.skippedLeft != nil
+            let leave = isSkipped && resting.skipLeaveClock == nil
+                ? skipLeave ?? resting.leaveClock
+                : max(resting.leaveClock, skipLeave ?? resting.leaveClock)
             let left = leave - loggedWorkout.clock(at: .now)
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
