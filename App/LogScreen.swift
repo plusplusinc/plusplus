@@ -151,10 +151,11 @@ struct LogScreen: View {
         let start = ContinuousClock.now
         session.takeJustFinished()
         await session.refreshLog()
-        guard arriving != nil else { return }
+        guard let coming = arriving else { return }
         let closed = start + DrawerWay.arrival(reduceMotion: reduceMotion)
         var due = closed + Self.arrivalDelay
-        if session.log?.leavingOut(arriving).loggedWorkouts.isEmpty == true {
+        // Only for a row that will come in: with a log read missing it, the empty part stays.
+        if showsNoLoggedWorkouts, session.log?.loggedWorkout(id: coming) != nil {
             guard await (try? beat(until: closed)) != nil else { return }
             withAnimation(.easeOut(duration: Self.emptyFade / .seconds(1))) {
                 emptyGivesWay = true
@@ -216,7 +217,12 @@ struct LogScreen: View {
     }
 
     private var isHistoryEmpty: Bool {
-        tab == .history && session.log?.leavingOut(arriving).loggedWorkouts.isEmpty == true
+        tab == .history && showsNoLoggedWorkouts
+    }
+
+    /// Whether History lists nothing, the workout yet to come in left out.
+    private var showsNoLoggedWorkouts: Bool {
+        session.log?.leavingOut(arriving).loggedWorkouts.isEmpty == true
     }
 
     /// The pushed logged workout, which the back button and the back swipe pop.

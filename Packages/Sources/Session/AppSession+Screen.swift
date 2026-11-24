@@ -58,8 +58,8 @@ extension AppSession {
         markWait: Duration,
     ) {
         guard throughDrawerPlace == nil else { return }
-        // At the call, not as the drawer opens: a drawer swiped open during a lead marks what
-        // shows, not where a way before went.
+        // Here, since the way's own opening keeps its mark (`startShowingDrawer()`): a mark a way
+        // before left goes, so the drawer opens marking what shows.
         if !isDrawerOpen {
             drawerMark = nil
         }
@@ -156,7 +156,10 @@ extension AppSession {
         throughDrawer?.cancel()
         throughDrawer = nil
         throughDrawerPlace = nil
-        isLeadPending = false
+        // Observed: written only when it changes, so the many ends with no lead redraw nothing.
+        if isLeadPending {
+            isLeadPending = false
+        }
     }
 
     /// Puts `place` under the drawer: a workout is no place the drawer goes, so it changes

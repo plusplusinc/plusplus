@@ -106,9 +106,8 @@ public final class AppSession {
         saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
     }
 
-    /// While a workout is in progress, and through the lead of a way to Log after a finish
-    /// (`isLeadPending`), the drawer stays shut: neither ++ nor a swipe opens it. A drawer
-    /// swiped open during that lead went nowhere until the way began, then closed by itself.
+    /// While a workout is in progress, and through a way's lead, as a finish's before Log
+    /// (`isLeadPending`), the drawer stays shut: neither ++ nor a swipe opens it, only the way.
     public var isDrawerLocked: Bool {
         loggedWorkout != nil || isLeadPending
     }

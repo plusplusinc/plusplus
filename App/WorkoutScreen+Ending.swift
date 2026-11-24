@@ -2,15 +2,14 @@ import DesignSystem
 import SwiftUI
 
 /// The workout's finishes, each popping a "+" off the key on each of two beats: the first with
-/// a medium impact, the second, `PrimaryKeyButtonStyle.finishBeat` later, with a heavy one.
-/// Each count is written at its own beat, so each impact plays then.
+/// a medium impact, the second, `PrimaryKeyButtonStyle.finishBeat` later, with a heavy one
+/// (`finishHaptics(_:)`).
 struct FinishBeats {
-    var first = 0
-    var second = 0
+    private(set) var first = 0
     /// When the first beat played, which the second counts from.
-    var struck: ContinuousClock.Instant?
+    private(set) var struck: ContinuousClock.Instant?
 
-    /// The first beat, now; the second follows on its own (`finishHaptics(_:)`).
+    /// The first beat, now.
     mutating func strike() {
         first += 1
         struck = .now
@@ -51,8 +50,8 @@ extension View {
     }
 
     /// A finish's two impacts, the second `PrimaryKeyButtonStyle.finishBeat` after the first.
-    /// Played above the screens, not on the workout screen: a finish with VoiceOver takes that
-    /// screen away at once, and with it went both impacts, the second's wait cancelled with it.
+    /// Played above the screens, which a finish with VoiceOver takes away at once, so the second
+    /// impact's wait outlives them.
     func finishHaptics(_ beats: Binding<FinishBeats>) -> some View {
         modifier(FinishHaptics(beats: beats))
     }
@@ -60,16 +59,17 @@ extension View {
 
 private struct FinishHaptics: ViewModifier {
     @Binding var beats: FinishBeats
+    @State private var second = 0
 
     func body(content: Content) -> some View {
         content
             .sensoryFeedback(.impact(weight: .medium), trigger: beats.first)
-            .sensoryFeedback(.impact(weight: .heavy), trigger: beats.second)
+            .sensoryFeedback(.impact(weight: .heavy), trigger: second)
             .task(id: beats.first) {
                 guard let struck = beats.struck else { return }
                 let due = struck + .seconds(PrimaryKeyButtonStyle.finishBeat)
                 guard await (try? beat(until: due)) != nil else { return }
-                beats.second += 1
+                second += 1
             }
     }
 }

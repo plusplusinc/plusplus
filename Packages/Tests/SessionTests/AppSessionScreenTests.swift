@@ -119,7 +119,7 @@ struct AppSessionScreenTests {
         #expect(session.justFinished == nil, "taken, it comes in once only")
     }
 
-    /// Workouts tapped in a drawer swiped open during the finish's "++", before its way to Log.
+    /// Workouts tapped in the drawer a finish's way to Log opened, before it closed over Log.
     @Test("Workouts shown before Log takes the workout just finished leaves none for Log")
     func workoutsDropsJustFinished() throws {
         let (session, _) = try sessionWithRow()

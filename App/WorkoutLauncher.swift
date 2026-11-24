@@ -50,6 +50,7 @@ struct WorkoutLauncher: View {
                 }
             }
             .keepsScreenOn(session.loggedWorkout != nil)
+            // A binding, so a finish redraws only the haptics, not this whole view.
             .finishHaptics($finishBeats)
             // A way through the drawer that the app leaves mid-way lands where it was going,
             // closed.
