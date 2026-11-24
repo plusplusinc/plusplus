@@ -93,12 +93,15 @@ extension WorkoutPhaseTests {
         #expect(phase.isStarting, "The key is Start's while the first exercise grows")
         #expect(Self.applying([.fadeIn, .run, .landStart], to: &phase) == [false, false, true])
         #expect(!phase.isStarting)
+        #expect(phase.isOnWayIn, "Landed, the screen is still on its way to the first set")
         #expect(Self.applying([.grow, .run], to: &phase) == [false, true])
         #expect(phase == .running)
+        #expect(!phase.isOnWayIn)
 
         var fading = WorkoutPhase.starting(.pressed)
         #expect(Self.applying([.fadeIn, .landStart], to: &fading) == [true, false])
         #expect(!fading.isStarting)
+        #expect(fading.isOnWayIn)
         #expect(Self.applying([.run], to: &fading) == [true])
         #expect(fading == .running)
     }
