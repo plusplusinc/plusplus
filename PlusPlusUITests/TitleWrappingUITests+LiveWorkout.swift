@@ -112,8 +112,10 @@ extension TitleWrappingUITests {
             isLanded(top),
             "After \(step), the current exercise's top is at \(top), the bar's bottom at \(bar)",
         )
+        // Through "Start in" there is no key, unless it goes back.
+        let key = app.workoutKey
         XCTAssertFalse(
-            app.workoutKey.label.hasPrefix("Go to current exercise"),
+            key.exists && key.label.hasPrefix("Go to current exercise"),
             "The key goes back after \(step)",
         )
     }
