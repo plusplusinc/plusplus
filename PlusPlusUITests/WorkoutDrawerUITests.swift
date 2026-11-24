@@ -152,6 +152,7 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
                 ["Chest day"],
             )
             XCTAssertEqual(muscle.value as? String, "Chest")
+            createWorkoutRaisesAddExercise(in: app)
             clear.tap()
             XCTAssertTrue(clear.disappears(), "Clear left a filter on")
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: all, within: 2), all)
@@ -197,6 +198,22 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             clear.tap()
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: all, within: 2), all)
         }
+    }
+
+    /// With Chest on, Create workout is one button naming it, and pushes a new workout whose Add
+    /// exercise rises by itself on Chest once the push has settled, which only UIKit reports;
+    /// back on Workouts, Chest is still on. What New carries is `AppSessionAddExerciseTests`'.
+    @MainActor
+    private func createWorkoutRaisesAddExercise(in app: XCUIApplication) {
+        let create = app.buttons["workouts.create"]
+        XCTAssertEqual(create.label, "Create workout, Chest")
+        create.tap()
+        XCTAssertTrue(app.searchButton.appears(), "Add exercise didn't rise on the new workout")
+        XCTAssertEqual(app.buttons["Muscle"].value as? String, "Chest", "Chest didn't carry")
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.searchButton.disappears(), "Close left Add exercise up")
+        app.tapBack()
+        XCTAssertEqual(app.buttons["Muscle"].value(becoming: "Chest"), "Chest")
     }
 
     /// On the workout showing, opens its first row's sheet, adds a set, drags the weight ruler,

@@ -153,6 +153,34 @@ struct WorkoutFilterTests {
         #expect(!long.alsoNeeds.flatMap(\.items).map(\.name).contains("Bench"))
     }
 
+    /// The Workouts list's entries under `filter`, each as it reads: a name, "+", or "needs".
+    private static func listed(_ filter: WorkoutFilter) throws -> [String] {
+        try WorkoutsItem.items(filtered(filter), filter: filter).map { item in
+            switch item {
+            case let .workout(workout): workout.name
+            case .create: "+"
+            case let .needs(piece): "needs \(piece)"
+            }
+        }
+    }
+
+    @Test("Create workout ends the matches, before Also needs, only while a filter is on")
+    func createRowPlace() throws {
+        #expect(try !Self.listed(WorkoutFilter()).contains("+"))
+        #expect(try Self.listed(WorkoutFilter(equipment: [.piece(.dumbbells), .piece(.bench)]))
+            .prefix(3) == ["Bench", "Rows", "+"])
+        // Nothing matches: Create comes first, over the sections.
+        #expect(try Self.listed(WorkoutFilter(equipment: [.piece(.dumbbells)])) == [
+            "+", "needs bench", "Bench", "Rows", "needs kettlebell", "Legs",
+        ])
+        // Nothing matches and nothing is a piece short: Create alone.
+        #expect(try Self.listed(WorkoutFilter(muscleGroups: [.chest], equipment: [.none])) == ["+"])
+        // Length counts as a filter on, though it carries nothing to Add exercise.
+        let length = WorkoutFilter(length: LengthRange(lower: 0, upper: 90))
+        #expect(try Self.listed(length).last == "+")
+        #expect(try Self.listed(length).count == Self.workouts().count + 1)
+    }
+
     @Test("No equipment alone has no sections")
     func noEquipmentHasNoSections() throws {
         #expect(try Self.filtered(WorkoutFilter(equipment: [.none])).alsoNeeds.isEmpty)

@@ -319,44 +319,6 @@ struct SmallCapsuleLabel: View {
     }
 }
 
-/// Create's row label: a green + and its title, and under the title, while it carries
-/// anything, what the exercise it makes will start with, as an exercise row's equipment line
-/// reads. At the accessibility sizes the title wraps beside the +, in a column of its own: a
-/// list's label there ran its second line back under the +, past its own frame.
-public struct CreateLabel: View {
-    let title: String
-    let detail: String?
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    public init(title: String, detail: String?) {
-        self.title = title
-        self.detail = detail
-    }
-
-    public var body: some View {
-        if typeSize.isAccessibilitySize {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
-                Image(systemName: "plus")
-                    .accessibilityHidden(true)
-                lines
-            }
-        } else {
-            Label { lines } icon: { Image(systemName: "plus") }
-        }
-    }
-
-    private var lines: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            Text(title)
-            if let detail {
-                Text(detail)
-                    .font(.ppRowDetail)
-                    .foregroundStyle(Color.pp(.textSecondary))
-            }
-        }
-    }
-}
-
 #Preview("Labels") {
     VStack(alignment: .leading, spacing: Spacing.md) {
         FlowLayout(spacing: Spacing.sm) {

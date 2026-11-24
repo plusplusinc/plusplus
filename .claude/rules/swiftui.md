@@ -33,7 +33,7 @@ Leaf views take plain values and closures so they preview and snapshot without a
   its room laid out and fades, so nothing near it moves or rewraps as it comes and goes. Before
   a slice's "When it works" pass, step through the slice's state changes and look at what
   moves.
-- Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;
+- Every tappable element other than a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`, but a view already `.hidden()` gets nothing more: the modifier
   gives the empty view an unlabeled element of its own. A decorative text, such as the key's
@@ -75,7 +75,7 @@ with the feature.
   `AppSession.show(_:throughDrawer:markWait:)`.
 - Log: `LogScreen`, `LogScreen+Tabs.swift`, `LoggedWorkoutScreen`, `DayGrid`, `LogRow`,
   `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
-  `ExerciseForm`, `BarSearchField`, `FilterBar`, `ChipSheet`, `FilterButtonRow` (both lists').
+  `ExerciseForm`, `BarSearchField`, `FilterBar`, `ChipSheet`, `FilterButtonRow`, `CreateLabel` (both lists').
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
   `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by

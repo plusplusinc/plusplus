@@ -157,10 +157,14 @@ extension AppSession {
     }
 
     /// Pops the workout pushed onto the Workouts screen, showing the list again, as its back
-    /// button and back swipe do. A push goes through `open` or `startNew`.
+    /// button and back swipe do. A push goes through `open` or `startNew`. Add exercise goes
+    /// with the workout, and so does New's ask to open it: a sheet set as a back swipe ends,
+    /// with nothing left to show it, would otherwise come up over the next workout shown.
     public func popWorkout() {
         if screen == .pushedWorkout {
             screen = .workouts
+            opensAddExerciseOnShow = false
+            addExercise = nil
         }
     }
 

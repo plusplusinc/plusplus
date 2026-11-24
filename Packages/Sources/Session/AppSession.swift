@@ -20,8 +20,12 @@ public final class AppSession {
     public private(set) var rowSheet: RowSheet?
     public internal(set) var addExercise: AddExerciseSheet?
     /// What Add exercise is narrowed by in the open workout, kept from one opening to the next
-    /// until cleared; a different workout starts with none (`show(_:on:)`).
+    /// until cleared; a different workout starts with none (`show(_:on:)`), except one the
+    /// Workouts list's Create workout row makes, which starts on its filters (`startNew(from:)`).
     public var addExerciseFilter = ExerciseFilter()
+    /// Set by the Create workout row's New, until the workout screen shows and opens Add
+    /// exercise (`takeAddExerciseOnShow(after:isTouched:)`).
+    @ObservationIgnored var opensAddExerciseOnShow = false
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
     /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
@@ -265,6 +269,21 @@ public final class AppSession {
         await switchTo { Workout() }
     }
 
+    /// New from the Workouts list's Create workout row, shown while any of its filters is on:
+    /// `startNew()`, then Add exercise starts on the list's Muscle and Equipment filters, its
+    /// Length carrying nothing, and comes up by itself once the workout screen has arrived and
+    /// the new workout has rested (`takeAddExerciseOnShow(after:isTouched:)`), with no filter if
+    /// none
+    /// carried.
+    public func startNew(from listFilter: WorkoutFilter) async {
+        guard !isSwitching else { return }
+        await startNew()
+        guard current.isEmpty else { return }
+        // After the show, whose reset on a new workout's id would wipe it.
+        addExerciseFilter = listFilter.carried
+        opensAddExerciseOnShow = true
+    }
+
     /// Lets the last edit land, then pushes the workout `next` gives, if any. An edit made while
     /// `next` runs lands before the next workout shows, too. A switch already under way takes
     /// the tap. Internal so a test can hold `next`.
@@ -289,6 +308,7 @@ public final class AppSession {
         if workout.id != current.id {
             addExerciseFilter = ExerciseFilter()
         }
+        opensAddExerciseOnShow = false
         opened = workout
         current = workout
         screen = shown

@@ -271,6 +271,11 @@ extension WorkoutScreen {
     /// node giving up its blue, so the arrival is over before the next thing moves.
     static let createdHold: Duration = .milliseconds(500)
 
+    /// How long a new workout made from the Workouts list's filters rests, once its push has
+    /// settled, before its Add exercise rises by itself (`AddExerciseOnArrival`): about 0.9 s
+    /// from the push's start.
+    static let arrivedHold: Duration = .milliseconds(400)
+
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
     /// with the list's end in view, so the end is where the scroll stays. Not once Start is
@@ -346,4 +351,31 @@ struct CreatedWait: Equatable {
     let wasIdle: Bool
     /// Made with nothing typed, so Customize opens with its name to type over.
     var needsName = false
+}
+
+/// Opens Add exercise on a new workout made from the Workouts list's filters, once its push has
+/// settled and the empty workout has rested `arrivedHold`, so it is seen arrive before the
+/// sheet rises; a sheet that rose with the push read as too quick. Timed from UIKit's word that
+/// the push is over (`onScreenArrival(_:)`), not from a wait from the push's start, which
+/// under load let the sheet rise while the push still slid in. The wait is the screen's task,
+/// so leaving before it ends opens nothing (`AppSession.takeAddExerciseOnShow`). Leaving counts
+/// from the pop's start, and a finger down as the wait ends opens nothing
+/// either: a press of Back pops only as the finger lifts, and a sheet set while it was down
+/// came up over the Workouts list as the pop ran.
+struct AddExerciseOnArrival: ViewModifier {
+    let session: AppSession
+    @State private var hasArrived = false
+    @State private var fingers = FingerWatch()
+
+    func body(content: Content) -> some View {
+        content
+            .onScreenArrival { hasArrived = true } leaving: { session.leaveBeforeAddExercise() }
+            .watchesFingers(fingers)
+            .task(id: hasArrived) {
+                guard hasArrived else { return }
+                await session.takeAddExerciseOnShow(after: WorkoutScreen.arrivedHold) {
+                    fingers.isDown
+                }
+            }
+    }
 }

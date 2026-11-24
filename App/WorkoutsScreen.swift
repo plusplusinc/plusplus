@@ -59,7 +59,7 @@ struct WorkoutsScreen: View {
             uniquingKeysWith: { first, _ in first },
         )
         let filtered = filter.filtered(shown) { summaries[$0.id] }
-        let items = WorkoutsItem.items(filtered)
+        let items = WorkoutsItem.items(filtered, filter: filter)
         // Every row shown sets the scale, a section's included.
         let fullBar = WorkoutSummary.fullBarMinutes(among: items.compactMap {
             $0.workout.flatMap { summaries[$0.id] }
@@ -92,6 +92,8 @@ struct WorkoutsScreen: View {
                                 switch item {
                                 case let .workout(workout):
                                     row(workout, summary: summaries[workout.id], fullBar: fullBar)
+                                case .create:
+                                    createRow
                                 case let .needs(piece):
                                     needsHeader(piece)
                                 }
@@ -339,6 +341,25 @@ struct WorkoutsScreen: View {
         ),
         namer: .muscleGroupsOnly,
     )
+}
+
+extension WorkoutsScreen {
+    /// "Create workout", while any filter is on, after the matches and before "Also needs", as
+    /// Add exercise places its Create row: a new blank workout, whose Add exercise rises by
+    /// itself on the list's Muscle and Equipment filters, which the gray line names as Add
+    /// exercise's Create row names its own. Length carries nothing, so alone it gives no line.
+    private var createRow: some View {
+        Button {
+            Task { await session.startNew(from: filter) }
+        } label: {
+            CreateLabel(title: "Create workout", detail: filter.carried.carriedLine)
+                .listRowRoom()
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("workouts.create")
+    }
 }
 
 extension WorkoutNamer {

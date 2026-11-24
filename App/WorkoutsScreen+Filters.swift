@@ -56,39 +56,6 @@ enum WorkoutsSheet: Identifiable {
     }
 }
 
-/// One entry of the Workouts list under its bar: a workout's row, or an "Also needs" heading.
-enum WorkoutsItem: Identifiable {
-    case workout(Workout)
-    case needs(Equipment)
-
-    enum Key: Hashable {
-        case workout(Workout.ID)
-        case needs(Equipment)
-    }
-
-    var id: Key {
-        switch self {
-        case let .workout(workout): .workout(workout.id)
-        case let .needs(piece): .needs(piece)
-        }
-    }
-
-    var workout: Workout? {
-        if case let .workout(workout) = self {
-            workout
-        } else {
-            nil
-        }
-    }
-
-    /// The matches, then each section under its heading.
-    static func items(_ filtered: FilteredWorkouts) -> [Self] {
-        filtered.matches.map(workout) + filtered.alsoNeeds.flatMap { section in
-            [.needs(section.piece)] + section.items.map(Self.workout)
-        }
-    }
-}
-
 extension WorkoutRow.Shape {
     /// A workout's row shape from its summary, its bar `fill` of the column.
     init(_ summary: WorkoutSummary, fill: Double) {
