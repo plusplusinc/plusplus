@@ -100,10 +100,7 @@ struct WorkoutScreen: View {
     /// that animation has really ended (`listResizes(_:)`).
     @State var resizes = 0
     /// After the last set, the room to land the current exercise, closing as its row does, the
-    /// list's end held where it shows (`keepEndPinned(from:to:)`). Its own value, not derived from
-    /// the phase: it has to change in the close's animated transaction, and a number set to
-    /// the landing and back to 0 in one turn, as a derived one would be, did not change at all,
-    /// so the room went at once and the list jumped to its top.
+    /// list's end held where it shows (`keepEndPinned(from:to:)`); its own value, not derived.
     @State var closingRoomTop: CGFloat?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<WorkoutExercise.ID>?
@@ -337,6 +334,7 @@ struct WorkoutScreen: View {
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
+        .onGeometryChange(for: CGFloat.self, of: ListEnd.barTop(of:)) { listEnd.barTop = $0 }
         .emptyNote("No exercises", isEmpty: workout.exercises.isEmpty)
         // Alongside the taps of what is in the list, which never reach below its end.
         .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
@@ -345,10 +343,10 @@ struct WorkoutScreen: View {
         .primaryKeyBar(
             isPresented: showsKey,
             face: liveKey.role,
-            keepsRoom: phase.keyGone == .keepingRoom,
+            keepsRoom: keyKeepsRoom,
             plusOnes: setLogs + sideLogs + countBeats.ends,
             drop: startDrop,
-            floatsLow: footShowsEmpty,
+            floatsLow: plusSitsLow,
         ) { role, isOut in
             key(role, isOut: isOut)
         } floating: {

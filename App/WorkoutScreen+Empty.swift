@@ -17,10 +17,12 @@ extension WorkoutScreen {
     /// A tap anywhere on an empty workout, or below the last row, opens the picker, once the
     /// keyboard is down if it is up or going down, so the two never cross. One that ended the
     /// title's edit opens it only on an empty workout; below the last row it has only ended the
-    /// edit (`TapPastTitle`).
+    /// edit (`TapPastTitle`). Never in the key's bar, which is the key's even with no key in it,
+    /// as through "Start in": a tap beside the low +, or where a key had just gone, opened the
+    /// picker mid-workout.
     func tappedList(at location: CGPoint) {
         let isEmpty = workout.exercises.isEmpty
-        guard isEmpty || location.y >= listEnd.top else { return }
+        guard isEmpty || (location.y >= listEnd.top && location.y < listEnd.barTop) else { return }
         if titleTap.tap(actsAfterEdit: isEmpty) {
             openPicker()
         }
@@ -63,10 +65,18 @@ extension WorkoutScreen {
     static let exerciseSheetGone: Duration = .milliseconds(370)
 }
 
-/// Where the room under the last row starts, in the window's space. A class, unobserved, so
-/// following it as the list scrolls redraws nothing: only a tap reads it.
+/// Where the room under the last row starts, and where the key's bar starts, in the window's
+/// space. A class, unobserved, so following them as the list scrolls redraws nothing: only a tap
+/// reads them.
 final class ListEnd {
     var top: CGFloat = .infinity
+    var barTop: CGFloat = .infinity
+
+    /// The bar's top, measured on the list inside it: the list's bottom safe area is the bar's
+    /// room and the home indicator's.
+    nonisolated static func barTop(of proxy: GeometryProxy) -> CGFloat {
+        proxy.frame(in: .global).maxY - proxy.safeAreaInsets.bottom
+    }
 }
 
 /// Add exercise's +. While the keyboard is up, as the title is edited, it fades out, keeping its

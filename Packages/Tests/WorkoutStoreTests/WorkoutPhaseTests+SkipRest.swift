@@ -32,6 +32,35 @@ extension WorkoutPhaseTests {
         #expect(phase.move?.skippedLeft == nil)
     }
 
+    @Test("A skip's hold times only its own rest: the next rest, a later workout's too, its own")
+    func skipLeaveStaysWithItsRest() {
+        let rest = WorkoutRest(after: Self.logged, next: Self.logged, length: 30, startClock: 100)
+        var phase = WorkoutPhase.running
+        phase.log(Self.logged, leadingTo: .nextSet, rests: true, moves: true)
+        phase.show()
+        phase.settleRest()
+        // Skipped at 104, with no count stored to time the move: the phase's hold times it.
+        phase.skipRest(left: 26, leave: 104.25)
+        #expect(phase.leaveClock(of: rest) == 104.25)
+        phase.endRest()
+        phase.settleReturn(on: nil)
+        // The next rest, or the first of a workout started again on the same screen, with a
+        // clock that starts again from 0: it moves on as its own 0:00 has held.
+        for next in [phase, .running] {
+            var phase = next
+            phase.log(Self.logged, leadingTo: .nextSet, rests: true, moves: true)
+            #expect(phase.resting != nil)
+            #expect(phase.resting?.skipLeave == nil)
+            let later = WorkoutRest(
+                after: Self.logged,
+                next: Self.logged,
+                length: 30,
+                startClock: 5,
+            )
+            #expect(phase.leaveClock(of: later) == later.leaveClock)
+        }
+    }
+
     @Test("Between two sets, a skipped rest keeps its time as it swaps back, with no second skip")
     func skippedRestBetweenSetsHoldsItsTime() {
         var phase = WorkoutPhase.running

@@ -18,6 +18,9 @@ struct AppSessionCountTests {
         Store(modelContainer: container)
     }
 
+    /// From a count's "Start in" to its set's start: its length and its hold at 0:00.
+    private static let lead = Double(LiveWorkout.startIn) + LiveWorkout.startInHold
+
     private static func at(_ seconds: Double) -> Date {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
@@ -31,16 +34,16 @@ struct AppSessionCountTests {
         return Workout(name: "Core", exercises: [plank])
     }
 
-    @Test("Start, Start now, +15 s, and the log are each stored as the session shows them")
+    @Test("Start, +15 s, and the log are each stored as the session shows them")
     func eachChangeStored() async throws {
         let workout = try Self.planks()
         let row = workout.exercises[0]
         let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
         session.save(workout)
+        // The set begins after its "Start in" and its 0:00 hold, 6 s after the landing.
         let steps: [(name: String, change: () -> Void)] = [
-            ("start", { session.start(on: workout.id, at: Self.at(10)) }),
-            ("landed", { session.beginCount(at: Self.at(10)) }),
-            ("start now", { session.startCountNow(at: Self.at(12)) }),
+            ("start", { session.start(on: workout.id, at: Self.at(6)) }),
+            ("landed", { session.beginCount(at: Self.at(6)) }),
             ("+15 s", { session.extendCount(by: 15, at: Self.at(20)) }),
             ("log", { session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(30)) }),
         ]
@@ -57,16 +60,16 @@ struct AppSessionCountTests {
         #expect(session.loggedWorkout?.count == nil)
     }
 
-    @Test("+15 s and Skip rest on the rest after a set are each stored; reopened, the rest is over")
+    @Test("+15 s and Skip rest on a rest are each stored; reopened, it moves on as the skip held")
     func restTapsStored() async throws {
         var workout = try Self.planks()
         workout.exercises[0].setRest(30)
         let row = workout.exercises[0]
         let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
         session.save(workout)
-        session.start(on: workout.id, at: Self.at(0))
-        session.beginCount(at: Self.at(0))
-        session.startCountNow(at: Self.at(0))
+        // The set begins at 0, after its "Start in" and its hold.
+        session.start(on: workout.id, at: Self.at(-Self.lead))
+        session.beginCount(at: Self.at(-Self.lead))
         // Logged early at 20 s: its rest runs from 20 to 50.
         session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
         let steps: [(name: String, change: () -> Void)] = [
@@ -83,9 +86,12 @@ struct AppSessionCountTests {
         let live = LiveWorkout(workout: workout, loggedWorkout: stored)
         let rest = try #require(live.rest())
         #expect(rest.length == 10)
-        #expect(rest.isOver(atClock: stored.clock(at: Self.at(30))))
-        // The next plank counts from the skip.
-        #expect(stored.count?.startClock == 30)
+        // The next plank, with no "Start in" between sets of one exercise, counts from the
+        // skip's hold, where the rest moves on.
+        let held = 30 + LiveWorkout.skipHold
+        #expect(!rest.isOver(atClock: stored.clock(at: Self.at(30))))
+        #expect(rest.isOver(atClock: stored.clock(at: Self.at(held))))
+        #expect(stored.count?.startClock == stored.clock(at: Self.at(held)))
     }
 
     @Test("Finish mid-count stores the set at the time done, as Log early would have")
@@ -95,7 +101,7 @@ struct AppSessionCountTests {
         session.save(workout)
         session.start(on: workout.id, at: Self.at(0))
         session.beginCount(at: Self.at(0))
-        let lead = Double(LiveWorkout.startIn)
+        let lead = Self.lead
         session.extendCount(by: 15, at: Self.at(lead + 2))
         // Counting from the lead: 18 s done 18 s on.
         session.finish(at: Self.at(lead + 18))
@@ -123,7 +129,7 @@ struct AppSessionCountTests {
         )
         second.catchUp(at: Self.at(300))
         #expect(second.loggedWorkout?.sets.map(\.target) == [.time(seconds: 30)])
-        let lead = Double(LiveWorkout.startIn)
+        let lead = Self.lead
         #expect(second.loggedWorkout?.sets.first?.clockWhenLogged == lead + 30)
         #expect(second.loggedWorkout?.count?.startClock == 300 + lead)
     }
@@ -149,6 +155,6 @@ struct AppSessionCountTests {
         let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
         #expect(relaunched?.count == nil)
         session.beginCount(at: Self.at(20))
-        #expect(session.loggedWorkout?.count?.startClock == 20 + Double(LiveWorkout.startIn))
+        #expect(session.loggedWorkout?.count?.startClock == 20 + Self.lead)
     }
 }

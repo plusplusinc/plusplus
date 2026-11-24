@@ -7,18 +7,21 @@ import XCTest
 /// how the row looks is `WorkoutRailSnapshotTests`'; this is the key's wire to finishing, which
 /// nothing in the app shows afterward, so a break that discarded the sets would go unseen. On
 /// the way, it reads where Start leaves the list, which only the running app's scroll view
-/// shows: on a one-exercise workout, a break left it low in most runs; and that the exercise,
+/// shows: on a one-exercise workout, a break left it low in most runs; that a tap beside the
+/// low + through "Start in" opens nothing, which only the running app's hit testing shows; and
+/// that the exercise,
 /// held until it lifts and let go in place, stays there. Its own test, since it
-/// launches with one exercise seeded and its own name. The exercise is a plank of one 3 s set
-/// (`-seedSets 1`, `-seedTime 3`), which counts down and logs itself after "Start now", with no
-/// tap on its key: only the running app has the count's watch on the real clock and its wire to
+/// launches with one exercise seeded and its own name. The exercise is a plank of one 8 s set
+/// (`-seedSets 1`, `-seedTime 8`), which counts down after its "Start in" and logs itself, with
+/// no tap on its key: long enough for the drag to finish inside the count, never across its
+/// log. Only the running app has the count's watch on the real clock and its wire to
 /// the log, whose rules `TimedSetTests` holds. That one log reaches the workout's end; logs
 /// that stay on an exercise, tapped, are `LiveWorkoutUITests`'.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class WorkoutFinishUITests: XCTestCase {
-    /// One set of 3 s.
-    private static let oneTimedSet = ["-seedSets", "1", "-seedTime", "3"]
+    /// One set of 8 s.
+    private static let oneTimedSet = ["-seedSets", "1", "-seedTime", "8"]
 
     @MainActor
     func testFinishKeyKeepsTheWorkout() {
@@ -33,13 +36,26 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
             XCTAssertTrue(more.disappears(), "••• stayed in the bar during a workout")
-            // Read once the workout's key is up, past Start's hand-off to it: a bottom inset that
-            // changed there left this workout's list 52.7 pt low in most runs.
-            XCTAssertEqual(
-                reading(app.workoutKey.label, becoming: "Start now", within: 3),
-                "Start now",
+            // Through the set's "Start in" there is no key, its room kept, and the + sits low in
+            // it: a tap in that room beside the +, below the one row, opened Add exercise as a
+            // tap below the last row does. Taken inside the wait for the key, so it costs
+            // nothing more.
+            XCTAssertFalse(app.workoutKey.exists, "A key showed through \"Start in\"")
+            let plus = app.buttons["Add exercise"].frame
+            app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: plus.minX / 2, dy: plus.midY)).tap()
+            XCTAssertTrue(
+                app.searchButton.staysAway(),
+                "A tap beside the + through \"Start in\" opened Add exercise",
+            )
+            // Read once the workout's key is up, after the set's "Start in", which shows none: a
+            // bottom inset that changed at the key's hand-off left this workout's list 52.7 pt
+            // low in most runs.
+            XCTAssertTrue(
+                app.workoutKey.appears(within: XCUIApplication.startInWait),
                 "The workout's key never came up",
             )
+            XCTAssertEqual(app.workoutKey.label, "Log early", "The counting set's key")
             // The key comes up near the end of the grow's spring (`WorkoutScreen.keyReturnDelay`,
             // `growBeat`), so read where the row rests once its top holds still, not within a
             // clock's window: on a slow runner one accessibility query can outlast the window.
@@ -67,10 +83,9 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             XCTAssertLessThan(abs(moved), 1, "After the drop, the exercise moved \(moved) pt")
         }
         XCTContext.runActivity(named: "A timed set counts down and logs itself, to Finish") { _ in
-            app.tapWorkoutKey(reading: "Start now")
-            // Its 3 s count, then the log's beats, with no tap.
+            // What is left of its 8 s count, then the log's beats, with no tap.
             XCTAssertEqual(
-                reading(app.workoutKey.label, becoming: "Finish workout", within: 6),
+                reading(app.workoutKey.label, becoming: "Finish workout", within: 11),
                 "Finish workout",
                 "The key did not turn to Finish workout after the last set",
             )

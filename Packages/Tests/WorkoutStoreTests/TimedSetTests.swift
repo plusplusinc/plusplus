@@ -7,6 +7,8 @@ import Testing
 @Suite("Timed set")
 struct TimedSetTests {
     static let start = Date(timeIntervalSinceReferenceDate: 1000)
+    /// From a count's "Start in" to its set's start: its length and its hold at 0:00.
+    static let lead = Double(LiveWorkout.startIn) + LiveWorkout.startInHold
 
     /// `start` plus `seconds`.
     static func at(_ seconds: Double) -> Date {
@@ -57,28 +59,20 @@ struct TimedSetTests {
         )
     }
 
-    @Test("Start on a plank begins a count Start in ahead; then it counts, 30 s left")
+    @Test("Start on a plank begins a count Start in and its 0:00 hold ahead; then 30 s left")
     func startIn() throws {
         let live = try Self.begun(Self.workout())
         let timed = try #require(live.timedSet)
-        let lead = Double(LiveWorkout.startIn)
+        let lead = Self.lead
         #expect(timed.startClock == lead)
+        // "Start in" reads 0:00 its hold ahead of the set, which hasn't begun.
+        let zero = lead - LiveWorkout.startInHold
+        #expect(timed.startIn(atClock: zero) == LiveWorkout.startInHold)
+        #expect(live.countStage(at: Self.at(zero)) == .startIn)
         #expect(live.countStage(at: Self.at(lead - 2)) == .startIn)
         #expect(timed.startIn(atClock: lead - 2) == 2)
         #expect(live.countStage(at: Self.at(lead)) == .counting)
         #expect(timed.remaining(atClock: lead) == 30)
-    }
-
-    @Test("Start now moves the count's start to now; once the set counts it changes nothing")
-    func startNow() throws {
-        let live = try Self.started(Self.workout())
-        let now = LiveWorkout(
-            workout: live.workout,
-            loggedWorkout: live.startingCountNow(at: Self.at(4)),
-        )
-        #expect(now.timedSet?.startClock == 4)
-        let counting = now.startingCountNow(at: Self.at(6))
-        #expect(counting == now.loggedWorkout)
     }
 
     @Test("At zero the set logs its full time, its clock the count's end, however late")
@@ -133,39 +127,26 @@ struct TimedSetTests {
         #expect(after.loggedWorkout.count == nil)
         // Landed 0.75 s after the log: its Start in is all from there, on the clock's nearest
         // whole second, so it turns over with the workout's time.
-        let lead = Double(LiveWorkout.startIn)
+        let lead = Self.lead
         let landed = Self.landed(after, at: 40.75)
         #expect(landed.timedSet?.startClock == 41 + lead)
         #expect(Self.landed(after, at: 41.4).timedSet?.startClock == 41 + lead)
     }
 
-    @Test("A skipped rest ends now: the timed set next counts from the tap")
-    func restSkipped() throws {
-        let live = try Self.started(Self.workout(rest: 30))
-        let after = try Self.logged(live, at: 45)
-        // The rest runs from 40 to 70; skipped at 63.
-        let cut = LiveWorkout(
-            workout: after.workout,
-            loggedWorkout: after.skippingRest(at: Self.at(63)),
-        )
-        let timed = try #require(cut.timedSet, "Begun at the tap, not at the rest's end")
-        #expect(timed.startClock == 63)
-        #expect(cut.countStage(at: Self.at(63)) == .counting)
-        // The screen's own begin, as the rest ends, changes nothing.
-        #expect(cut.beginningCount(at: Self.at(63.1)) == cut.loggedWorkout)
-    }
-
-    @Test("A rest that just ended starts the count at its end; while it runs, none begins")
+    @Test("A rest that just moved on starts the count there; while it runs or holds, none begins")
     func fromRest() throws {
         let live = try Self.started(Self.workout(rest: 20))
         let after = try Self.logged(live, at: 40)
         #expect(after.beginningCount(at: Self.at(50)) == after.loggedWorkout)
+        // 0:00 at 60, held a moment.
+        #expect(after.beginningCount(at: Self.at(60.5)) == after.loggedWorkout)
+        let leave = 60 + LiveWorkout.restHold
         let begun = LiveWorkout(
             workout: after.workout,
-            loggedWorkout: after.beginningCount(at: Self.at(60.5)),
+            loggedWorkout: after.beginningCount(at: Self.at(leave + 0.5)),
         )
-        #expect(begun.timedSet?.startClock == 60)
-        #expect(begun.countStage(at: Self.at(60.5)) == .counting)
+        #expect(begun.timedSet?.startClock == leave)
+        #expect(begun.countStage(at: Self.at(leave + 0.5)) == .counting)
     }
 
     @Test("A rest that ended long ago opens on Start in from now")
@@ -176,7 +157,7 @@ struct TimedSetTests {
             workout: after.workout,
             loggedWorkout: after.beginningCount(at: Self.at(100)),
         )
-        #expect(begun.timedSet?.startClock == 100 + Double(LiveWorkout.startIn))
+        #expect(begun.timedSet?.startClock == 100 + Self.lead)
     }
 
     @Test("Between a set's sides, the right side gets a 5 s Start in as it shows")
@@ -190,7 +171,8 @@ struct TimedSetTests {
         live = try Self.logged(live, at: left.endClock)
         #expect(live.currentSet?.side == .right)
         live = Self.landed(live, at: left.endClock + 0.4)
-        #expect(live.timedSet?.startClock == left.endClock + Double(LiveWorkout.startInSides))
+        let sideLead = Double(LiveWorkout.startInSides) + LiveWorkout.startInHold
+        #expect(live.timedSet?.startClock == left.endClock + sideLead)
     }
 
     @Test("A pause stops the count; resumed, it carries on")
@@ -210,7 +192,7 @@ struct TimedSetTests {
         )
         #expect(caught.loggedWorkout.sets.count == 1)
         #expect(caught.loggedWorkout.sets.first?.clockWhenLogged == 40)
-        #expect(caught.timedSet?.startClock == 300 + Double(LiveWorkout.startIn))
+        #expect(caught.timedSet?.startClock == 300 + Self.lead)
     }
 
     @Test("A count begun for another set is none: the row changed to reps")
@@ -233,7 +215,7 @@ struct TimedSetTests {
             loggedWorkout: live.beginningCount(at: Self.at(20)),
         )
         #expect(begun.currentSet?.row == side.id)
-        #expect(begun.timedSet?.startClock == 20 + Double(LiveWorkout.startIn))
+        #expect(begun.timedSet?.startClock == 20 + Self.lead)
         #expect(begun.countStage(at: Self.at(20)) == .startIn)
     }
 
@@ -281,7 +263,7 @@ struct TimedSetTests {
     @Test("A count's set changed to reps and back opens on Start in from each change")
     func timedAgain() throws {
         var live = try Self.started(Self.workout())
-        let lead = Double(LiveWorkout.startIn)
+        let lead = Self.lead
         for (target, at) in [(SetTarget.reps(10), 60.0), (.time(seconds: 30), 62)] {
             var edited = live.workout
             edited.exercises[0].plan.target = target

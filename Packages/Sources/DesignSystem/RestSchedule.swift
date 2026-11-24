@@ -13,16 +13,26 @@ struct RestSchedule: TimelineSchedule {
         // on 0:01 as the dot left.
         var secondsLeft = max(ends.timeIntervalSince(startDate).rounded(.down), 0)
         var first = true
+        var settled = false
         return AnyIterator {
             if first {
                 first = false
                 return startDate
             }
-            guard secondsLeft >= 0 else { return nil }
+            // One more just past `ends`, for a count that holds 0:00 after it ("Start in"
+            // before its set begins): drawn at `ends` itself, it could still read 0:01.
+            guard secondsLeft >= 0 else {
+                guard !settled, ends > startDate else { return nil }
+                settled = true
+                return ends.addingTimeInterval(Self.settle)
+            }
             defer { secondsLeft -= 1 }
             return ends.addingTimeInterval(-secondsLeft)
         }
     }
+
+    /// How far past `ends` the last entry is drawn.
+    private static let settle = 0.05
 }
 
 /// A countdown to VoiceOver alone, drawing nothing: `label` ("Rest", "Start in", "Time left"),

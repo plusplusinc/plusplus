@@ -14,6 +14,16 @@ extension WorkoutPhase {
         /// Cut by Skip rest, the seconds it had left at the tap, which its count holds as it
         /// goes (`skipRest(left:)`); nil for a rest that runs to 0:00.
         public internal(set) var skippedLeft: Double?
+        /// Cut by Skip rest, the workout's clock as the screen moves on, its time held
+        /// (`LiveWorkout.skipHold`). Here, with the rest it belongs to: kept by the screen, the
+        /// last skip's clock outlived its workout, and a rest in the next one waited for it.
+        public internal(set) var skipLeave: Double?
+
+        /// Whether Skip rest and +15 s are its keys: until it ends, or is skipped, where they
+        /// go at the tap, for the moment its count holds.
+        public var hasKeys: Bool {
+            beat < .returning && skippedLeft == nil
+        }
 
         public enum Beat: Comparable, Sendable {
             /// Logged, and not yet drawn.
@@ -43,7 +53,8 @@ extension WorkoutPhase {
     }
 
     /// Where a screen opening on `live` is, as after a relaunch: out of a workout with none; in
-    /// the rest after its last set, drawn and settled, while one runs at `now`; else at rest on
+    /// the rest after its last set, drawn and settled, while one runs at `now`, its hold at 0:00
+    /// included (`WorkoutRest.isOver(atClock:)`); else at rest on
     /// the next set. `restOverride` as `LiveWorkout.rest(override:)`'s.
     public init(resuming live: LiveWorkout?, restOverride: Int? = nil, at now: Date) {
         guard let live else {
@@ -99,15 +110,26 @@ extension WorkoutPhase {
         return true
     }
 
-    /// Skip rest cuts the rest with `left` seconds to go: its count holds them from here, through
-    /// the swap back or the move on (`Move.skippedLeft`), and goes with the phase. Stored as over
-    /// at the tap, the rest drawn from the store read 0:00 on its way out.
+    /// Skip rest cuts the rest with `left` seconds to go: its count holds them from here until
+    /// the screen moves on at `leave` (`LiveWorkout.skipHold` after the tap), then through the
+    /// swap back or the move on (`Move.skippedLeft`), and goes with the phase. Its keys go at the
+    /// tap. Stored as cut at the tap, the rest drawn from the store read 0:00 on its way out.
     @discardableResult
-    public mutating func skipRest(left: Double) -> Bool {
+    public mutating func skipRest(left: Double, leave: Double? = nil) -> Bool {
         guard case var .resting(rest) = self, rest.beat < .returning else { return false }
         rest.skippedLeft = left
+        rest.skipLeave = leave
         self = .resting(rest)
         return true
+    }
+
+    /// The clock as the screen moves on from `rest`, the stored rest running: its own
+    /// (`WorkoutRest.leaveClock`), or, skipped, never before the skip's hold is up. A skip with
+    /// no count stored is timed by the phase alone: the rest's own leave, a whole second past
+    /// its stored end, came up to three quarters of a second after the hold.
+    public func leaveClock(of rest: WorkoutRest) -> Double {
+        guard let skip = resting?.skipLeave else { return rest.leaveClock }
+        return rest.skipLeaveClock == nil ? skip : max(rest.leaveClock, skip)
     }
 
     /// A rest is over: the move to the next exercise plays from the rest as a move with no rest
@@ -126,7 +148,7 @@ extension WorkoutPhase {
             return true
         }
         guard moves else {
-            self = .fadingOn(rest.set, isShown: true)
+            self = .fadingOn(rest.set, isShown: true, isFromRest: true)
             return true
         }
         // Out of a rest, the next round shows from the start, its words arriving with its
@@ -187,7 +209,7 @@ extension WorkoutPhase {
     public var keySet: PlannedSet? {
         switch self {
         case let .movingOn(move) where !move.hasRolled && !move.isFromRest: move.set
-        case let .closing(set, _), let .fadingOn(set, _): set
+        case let .closing(set, _), let .fadingOn(set, _, false): set
         default: nil
         }
     }
