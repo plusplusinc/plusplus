@@ -309,7 +309,7 @@ public enum DrawerWay {
     /// with the mark still on the place showing once the opening has arrived, and `holdAfter`
     /// with it on the new place once it has landed, before the close. A drawer row tapped holds
     /// neither: the person chose, and the drawer closes as the mark arrives.
-    public static let holdBefore = Duration.milliseconds(200)
+    public static let holdBefore = Duration.milliseconds(450)
     public static let holdAfter = Duration.milliseconds(300)
     /// On every way, a row tapped included: the mark rests on its new place this long before the
     /// drawer closes, on top of `holdAfter` where the drawer was opened for the person. Closing
@@ -332,7 +332,7 @@ public enum DrawerWay {
         reduceMotion ? nil : .timingCurve(0.5, 0, 0.2, 1, duration: markSlideDuration)
     }
 
-    private static let markSlideDuration = 0.25
+    private static let markSlideDuration = 0.12
     /// With Reduce Motion, the new mark held in view before the drawer closes.
     private static let markPause = 0.2
 }
