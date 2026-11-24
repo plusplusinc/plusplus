@@ -25,6 +25,12 @@ public struct WorkoutFilter: Hashable, Sendable {
         !muscleGroups.isEmpty || !equipment.isEmpty || length != .full
     }
 
+    /// What the list's Create workout row carries into the new workout's Add exercise, and names
+    /// on its gray line: Muscle and Equipment. Length has no counterpart there and carries nothing.
+    public var carried: ExerciseFilter {
+        ExerciseFilter(muscleGroups: muscleGroups, equipment: equipment)
+    }
+
     /// The Muscle button's words, as Add exercise's: "Chest, Back", "3 muscles"; nil while off.
     public var muscleLabel: String? {
         ExerciseFilter(muscleGroups: muscleGroups).muscleLabel

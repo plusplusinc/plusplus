@@ -82,6 +82,109 @@ struct AppSessionAddExerciseTests {
         #expect(!session.addExerciseFilter.isOn)
     }
 
+    /// The Workouts list's filters: Legs, Dumbbells, and 40 minutes or more.
+    private let listFilter = WorkoutFilter(
+        muscleGroups: [.legs],
+        equipment: [.piece(.dumbbells)],
+        length: LengthRange(lower: 40, upper: nil),
+    )
+
+    @Test("New from the list's filters carries Muscle and Equipment and raises Add exercise once")
+    func newFromFiltersCarriesAndRaises() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        #expect(session.current.isEmpty)
+        #expect(session.addExerciseFilter == ExerciseFilter(
+            muscleGroups: [.legs],
+            equipment: [.piece(.dumbbells)],
+        ))
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise != nil)
+        session.closeAddExercise()
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil, "Add exercise rises by itself once, not each arrival")
+    }
+
+    @Test("New from Length alone carries no filter and still raises Add exercise")
+    func newFromLengthAloneRaisesClear() async {
+        let session = AppSession(workout: Workout(), store: store, namer: .muscleGroupsOnly)
+        session.showWorkouts()
+        await session.startNew(from: WorkoutFilter(length: LengthRange(lower: 40, upper: nil)))
+        #expect(!session.addExerciseFilter.isOn)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise != nil)
+    }
+
+    @Test("Plain New, the round +, raises nothing by itself")
+    func plainNewRaisesNothing() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew()
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil)
+    }
+
+    @Test("Add exercise opened by hand before the raise spends it, so it never rises twice")
+    func handOpeningSpendsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        session.openAddExercise()
+        session.closeAddExercise()
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil)
+    }
+
+    @Test("Popping the new workout spends the raise and takes Add exercise with it")
+    func popSpendsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        session.popWorkout()
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil, "A raise left armed came up on the next screen")
+        await session.open(session.current.id, weightUnit: .pounds)
+        session.openAddExercise()
+        session.popWorkout()
+        #expect(session.addExercise == nil, "A sheet set as the pop ended outlived its workout")
+    }
+
+    @Test("A finger down as the wait ends, a press of Back not yet lifted, spends the raise")
+    func fingerDownSpendsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        await session.takeAddExerciseOnShow(after: .zero) { true }
+        #expect(session.screen == .pushedWorkout, "Back pops only as the finger lifts")
+        #expect(session.addExercise == nil, "The sheet rose under the press and over the pop")
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil, "The raise waited for the lift and rose over the list")
+    }
+
+    @Test("The screen beginning to leave spends the raise before the stack's pop arrives")
+    func leavingSpendsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        session.leaveBeforeAddExercise()
+        #expect(session.screen == .pushedWorkout)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil, "A wait ending as the pop began raised the sheet")
+    }
+
+    @Test("Another workout shown after New from the filters drops the filter and the raise")
+    func anotherWorkoutDropsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        session.popWorkout()
+        await session.open(saved.id, weightUnit: .pounds)
+        await session.takeAddExerciseOnShow(after: .zero) { false }
+        #expect(session.addExercise == nil)
+        #expect(!session.addExerciseFilter.isOn)
+    }
+
     @Test("Deleting the open workout drops its Add exercise filter")
     func deletingOpenDropsFilter() async throws {
         let session = try sessionKeepingLegs()

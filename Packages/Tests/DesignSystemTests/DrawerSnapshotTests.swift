@@ -110,6 +110,30 @@ struct DrawerSnapshotTests {
         .background(Color.pp(.background))
     }
 
+    /// A filtered Workouts list as `WorkoutsScreen` lays it out: its matches, then Create workout
+    /// in its list row's room, naming the filters it carries.
+    private func filteredList(_ names: [String], carrying detail: String?) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(names, id: \.self) { name in
+                WorkoutRow(name)
+                    .padding(.horizontal, Spacing.md)
+                    .overlay(alignment: .bottom) { RowLine().padding(.horizontal, Spacing.md) }
+            }
+            CreateLabel(title: "Create workout", detail: detail).listRowRoom()
+        }
+        .padding(.vertical, Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.pp(.background))
+    }
+
+    @Test("A filtered Workouts list ends its matches with Create workout, naming the filters")
+    func createWorkoutRow() {
+        assertThemedSnapshots(
+            of: filteredList(["Leg day", "Legs and back"], carrying: "Legs, Dumbbells"),
+            width: Self.screenWidth,
+        )
+    }
+
     @Test("The Workouts screen: a name per row under a line, a long one wrapping")
     func workoutsScreen() {
         assertThemedSnapshots(

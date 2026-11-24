@@ -355,6 +355,7 @@ struct WorkoutScreen: View {
             addButton
         }
         .onDisappear { stopSequence() }
+        .modifier(AddExerciseOnArrival(session: session))
         // Cancelled as the screen goes, so the wait never outlives it.
         .task(id: createdWait) { await showCreated() }
         .task(id: restWatch) { await watchRest() }
