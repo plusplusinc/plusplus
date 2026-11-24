@@ -35,19 +35,19 @@ extension LogScreen {
             // A section break: the list, or the empty line and Go to Workouts, starts a part of
             // its own under the calendar.
             .padding(.bottom, Spacing.lg)
-            // The rows are always there, the empty part laid over their place: the first
-            // workout ever comes in as any other does, and never rides up from where the
-            // empty part sat.
-            ZStack(alignment: .top) {
-                if log.loggedWorkouts.isEmpty {
-                    noLoggedWorkouts
-                        .opacity(emptyGivesWay ? 0 : 1)
-                        .allowsHitTesting(!emptyGivesWay)
-                        .accessibilityHidden(emptyGivesWay)
-                        // Gone at once once faded: its fade is `emptyGivesWay`'s.
-                        .transition(.asymmetric(insertion: .opacity, removal: .identity))
-                }
-                loggedWorkoutRows(log)
+            // The rows are always there, the empty part under their place while they are none:
+            // the first workout ever comes in where History's first row goes, as any other
+            // does, and never rides up from where the empty part sat. Stacked, not laid over
+            // the rows in a ZStack: there, at the largest text sizes, Go to Workouts' label
+            // was cut short on one line rather than wrapping.
+            loggedWorkoutRows(log)
+            if log.loggedWorkouts.isEmpty {
+                noLoggedWorkouts
+                    .opacity(emptyGivesWay ? 0 : 1)
+                    .allowsHitTesting(!emptyGivesWay)
+                    .accessibilityHidden(emptyGivesWay)
+                    // Gone at once once faded: its fade is `emptyGivesWay`'s.
+                    .transition(.asymmetric(insertion: .opacity, removal: .identity))
             }
         }
     }
