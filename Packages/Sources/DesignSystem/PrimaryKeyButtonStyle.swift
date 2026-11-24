@@ -257,9 +257,14 @@ private struct PrimaryKeyBar<
     }
 
     /// The key as things stand, placed but never shown: what holds the bar's room while
-    /// `keepsRoom` does.
+    /// `keepsRoom` does, and where a finish's "++" pops from with no key shown, as through a
+    /// set's "Start in".
     private var unseenKey: some View {
-        placed(key(face, true).buttonStyle(.primaryKey))
+        placed(
+            key(face, true)
+                .buttonStyle(.primaryKey)
+                .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 },
+        )
     }
 
     /// `floating` over an unseen copy of the key it sits over, `shown` (the staged key's
@@ -305,7 +310,7 @@ private struct PrimaryKeyBar<
                         }
                         .transition(KeyBarTransition(below: bottomInset))
                     } else if keepsRoom {
-                        // Only what sizes it: no bounds for the burst, and no drop or swap to run.
+                        // Its room and the burst's place, with no drop or swap to run.
                         unseenKey.hidden()
                     }
                 }

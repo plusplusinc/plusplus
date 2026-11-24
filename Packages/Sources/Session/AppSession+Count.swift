@@ -16,11 +16,6 @@ extension AppSession {
         changeLive { $0.landingStart(at: now, restOverride: override) }
     }
 
-    /// Cuts "Start in" short: the set counts from now.
-    public func startCountNow(at now: Date = .now) {
-        changeLive { $0.startingCountNow(at: now) }
-    }
-
     /// Adds `seconds` to the timed set counting, unless it is over.
     public func extendCount(by seconds: Int, at now: Date = .now) {
         changeLive { $0.extendingCount(by: seconds, at: now) }

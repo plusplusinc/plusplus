@@ -29,8 +29,9 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// shown it.
     case closing(PlannedSet, isShown: Bool)
     /// With no motion, a set logged that moves the workout on, or past its last set, in one
-    /// fade. `isShown` once the fade has shown it.
-    case fadingOn(PlannedSet, isShown: Bool)
+    /// fade. `isShown` once the fade has shown it. `isFromRest` where the fade plays at the end
+    /// of the rest after it, as a move from the rest's word does (`Move.isFromRest`).
+    case fadingOn(PlannedSet, isShown: Bool, isFromRest: Bool = false)
     /// From End's choice until Start has come back up: the workout as it was, for the bar.
     case ending(Ending)
     /// A set logged that moves the workout on to another exercise after a rest: the row left
@@ -186,9 +187,9 @@ public enum WorkoutPhase: Equatable, Sendable {
     public mutating func end(_ loggedWorkout: LoggedWorkout, at date: Date = .now) -> Bool {
         guard canEnd else { return false }
         let hidden: PlannedSet? = switch self {
-        case .idle, .starting, .running, .timing, .closing(_, true), .fadingOn(_, true), .ending:
+        case .idle, .starting, .running, .timing, .closing(_, true), .fadingOn(_, true, _), .ending:
             nil
-        case let .held(set), let .closing(set, false), let .fadingOn(set, false):
+        case let .held(set), let .closing(set, false), let .fadingOn(set, false, _):
             set
         case let .movingOn(move):
             move.beat < .shifting ? move.set : nil
@@ -277,8 +278,8 @@ public enum WorkoutPhase: Equatable, Sendable {
             self = .movingOn(move)
         case let .closing(set, false):
             self = .closing(set, isShown: true)
-        case let .fadingOn(set, false):
-            self = .fadingOn(set, isShown: true)
+        case let .fadingOn(set, false, isFromRest):
+            self = .fadingOn(set, isShown: true, isFromRest: isFromRest)
         case var .resting(rest) where rest.beat == .logged:
             rest.beat = .shown
             self = .resting(rest)
@@ -313,7 +314,7 @@ public enum WorkoutPhase: Equatable, Sendable {
         switch self {
         case let .movingOn(move) where move.hasRolled:
             self = .atRest(on: count)
-        case .closing(_, true), .fadingOn(_, true):
+        case .closing(_, true), .fadingOn(_, true, _):
             self = .atRest(on: count)
         default:
             return false
@@ -356,7 +357,7 @@ public enum WorkoutPhase: Equatable, Sendable {
         switch self {
         case let .held(set): [set]
         case let .movingOn(move) where move.beat == .logged: [move.set]
-        case let .closing(set, false), let .fadingOn(set, false): [set]
+        case let .closing(set, false), let .fadingOn(set, false, _): [set]
         case let .resting(rest) where rest.beat == .logged: [rest.set]
         case let .ending(ending): ending.hidden.map { [$0] } ?? []
         default: []
@@ -387,12 +388,12 @@ public enum WorkoutPhase: Equatable, Sendable {
         }
     }
 
-    /// Whether the key takes a log: only at rest, during "Start in" too, where a reps set logs at
-    /// any moment and a timed set's key is "Start now" instead (`WorkoutKey.tap`). While a set
-    /// is held, a second tap in its beat, as a double tap would be, is dropped; while the
-    /// workout moves on, the stored workout is already past the set drawn as current, and a log
-    /// taken then would land on a set, or an exercise, not yet shown.
+    /// Whether the key takes a log: only at rest, never during "Start in", on a reps set or a
+    /// timed one, since the set hasn't begun (decided 2026-11-23). While a set is held, a second
+    /// tap in its beat, as a double tap would be, is dropped; while the workout moves on, the
+    /// stored workout is already past the set drawn as current, and a log taken then would land
+    /// on a set, or an exercise, not yet shown.
     public var takesLog: Bool {
-        self == .running || timing != nil
+        self == .running || timing == .counting
     }
 }

@@ -1,7 +1,8 @@
 import XCTest
 
-/// The finished workout after a relaunch, run last within `testFinishKeyKeepsTheWorkout`:
-/// launch opens the Workouts list, and Log lists the finished one. Which launch the store finds
+/// The key's finish to Log, then the finished workout after a relaunch, run last within
+/// `testFinishKeyKeepsTheWorkout`: launch opens the Workouts list, and Log lists the finished one.
+/// Which launch the store finds
 /// is `StoreLaunchTests`'; what Log reads from the store and how each row reads are the
 /// package's (`StoreLoggedWorkoutTests`, `WorkoutLogTextTests`);
 /// this is what a relaunch brings back to Log, the system push and back of an opened
@@ -9,6 +10,28 @@ import XCTest
 /// Delete, which ends it on an empty History.
 @MainActor
 extension WorkoutFinishUITests {
+    /// When each beat comes is `AppSessionDrawerWayTests`', and Log's leaving the workout out
+    /// until it comes in is `LogPeriodTests`'; this is the key's wire through the session to
+    /// the drawer and Log, which only the running app composes.
+    func keyFinishGoesToLog(named name: String, in app: XCUIApplication) {
+        XCTContext.runActivity(named: "Finish workout goes to Log by the drawer, no dialog") { _ in
+            app.tapWorkoutKey(reading: "Finish workout")
+            XCTAssertFalse(app.buttons["Discard workout"].exists, "Finish workout asked first")
+            // The "++" and the rest after it, then the drawer, with no tap.
+            XCTAssertTrue(app.drawerTitle.appears(within: 4), "The drawer never opened")
+            XCTAssertTrue(app.drawerTitle.disappears(within: 4), "The drawer never closed")
+            let tabs = app.segmentedControls.firstMatch.buttons
+            XCTAssertTrue(tabs["History"].isSelected, "Log is not on History")
+            XCTAssertTrue(app.buttons["Menu"].exists, "Log shows no ++, as if pushed")
+            // The first workout ever: History's one row takes the empty line's place.
+            let logged = app.buttons.matching(identifier: "log.workout").firstMatch
+            XCTAssertTrue(logged.appears(), "The finished workout never came into History")
+            XCTAssertTrue(logged.label.hasPrefix(name), "History's row reads \(logged.label)")
+            XCTAssertFalse(app.buttons["log.goToWorkouts"].exists, "Go to Workouts stayed")
+            XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")
+        }
+    }
+
     func relaunchKeepsIt(named name: String, title: XCUIElement, in app: XCUIApplication) {
         XCTContext.runActivity(named: "The logged one was kept: launch opens Workouts") { _ in
             // Fails on a relaunch that doesn't list the workout on Workouts.
@@ -118,10 +141,14 @@ extension WorkoutFinishUITests {
                 // The workout slides in as it is pushed.
                 XCTAssertTrue(start.settles(), "Start kept moving")
                 start.tap()
-                app.tapWorkoutKey(reading: "Start now")
-                // The dialog offers Finish only once a set is logged: the 3 s count, with no tap.
+                // The dialog offers Finish only once a set is logged: its "Start in", then the
+                // 8 s count, with no tap.
+                XCTAssertTrue(
+                    app.workoutKey.appears(within: XCUIApplication.startInWait),
+                    "The workout's key never came up",
+                )
                 XCTAssertEqual(
-                    reading(app.workoutKey.label, becoming: "Finish workout", within: 6),
+                    reading(app.workoutKey.label, becoming: "Finish workout", within: 11),
                     "Finish workout",
                     "The timed set never logged itself",
                 )

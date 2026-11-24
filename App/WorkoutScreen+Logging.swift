@@ -351,9 +351,16 @@ extension WorkoutScreen {
     }
 
     /// Whether the key shows, Start or the workout's: with exercises, and not gone for Start's
-    /// grow or a workout's end (`WorkoutPhase.keyGone`).
+    /// grow or a workout's end (`WorkoutPhase.keyGone`), and not while the set waits on its
+    /// "Start in" or its 0:00 hold, where its room stays (`keyKeepsRoom`) and the set's key comes
+    /// in as the set is up (decided 2026-11-24).
     var showsKey: Bool {
-        !footShowsEmpty && phase.keyGone == nil
+        !footShowsEmpty && phase.keyGone == nil && !liveKey.waitsToStart
+    }
+
+    /// Whether the bar keeps the key's room with no key in it, so the list doesn't move.
+    var keyKeepsRoom: Bool {
+        phase.keyGone == .keepingRoom || liveKey.waitsToStart
     }
 }
 

@@ -138,6 +138,10 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
                     "Pull-up did not land under the bar: \(top)",
                 )
                 attach(named: "workout-moved-on")
+                XCTAssertTrue(
+                    app.workoutKey.appears(within: XCUIApplication.startInWait),
+                    "Pull-up's key never came up after its \"Start in\"",
+                )
             }
     }
 

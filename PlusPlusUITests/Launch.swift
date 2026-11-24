@@ -145,10 +145,16 @@ extension XCUIApplication {
         buttons["workout.key"]
     }
 
-    /// Taps the workout's key once it reads `label` and has stopped moving: a key rises, or
-    /// swaps for another, after a role change, and a tap mid-swap does nothing.
+    /// How long a set's key can take to come up: through Start's grow or a move, then the set's
+    /// "Start in" and its hold at 0:00, which show no key (`LiveWorkout.startIn`, 5 s, and
+    /// `startInHold`, 1 s), with room for a slow runner.
+    static let startInWait: TimeInterval = 10
+
+    /// Taps the workout's key once it is up, reads `label`, and has stopped moving: a key rises,
+    /// or swaps for another, after a role change, and a tap mid-swap does nothing.
     func tapWorkoutKey(reading label: String) {
         let key = workoutKey
+        XCTAssertTrue(key.appears(within: Self.startInWait), "No key came up to read \(label)")
         XCTAssertEqual(
             reading(key.label, becoming: label, within: 3),
             label,

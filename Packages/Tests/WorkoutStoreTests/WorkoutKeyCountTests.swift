@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-/// The key on a timed set: "Start now" during "Start in", "Log early" with +15 s while it
-/// counts, and the log its end makes, all from the phase.
+/// The key on a timed set: none during "Start in", "Log early" with +15 s while it counts, and
+/// the log its end makes, all from the phase.
 @Suite("Workout key on a timed set")
 struct WorkoutKeyCountTests {
     private static let start = Date(timeIntervalSinceReferenceDate: 1000)
@@ -42,11 +42,12 @@ struct WorkoutKeyCountTests {
         )
     }
 
-    @Test("During Start in the key is Start now, and its tap starts the set")
+    @Test("During Start in no key shows, and no tap starts or logs the set")
     func startIn() throws {
         let key = try Self.key(Self.live(), phase: .timing(.startIn))
-        #expect(key.role == .startNow)
-        #expect(key.tap == .startNow)
+        #expect(key.waitsToStart)
+        #expect(key.role == .count("Log early"), "The key that comes in as the set is up")
+        #expect(key.tap == .nothing)
         #expect(key.countTap(by: 15) == .nothing)
         #expect(key.runOut == .nothing)
     }
@@ -89,10 +90,11 @@ struct WorkoutKeyCountTests {
         #expect(key.drawnCount == .counting)
         #expect(key.role == .count("Log early"))
         #expect(key.countTap(by: 15) == .nothing)
-        // Rolled on, the next set's "Start in" takes over: one swap, from the count.
+        #expect(!key.waitsToStart, "The set just logged keeps its key until the next shows")
+        // Rolled on, the next set's "Start in" takes over, with no key.
         let next = Self.key(logged, phase: .timing(.startIn))
         #expect(next.drawnCount == .startIn)
-        #expect(next.role == .startNow)
+        #expect(next.waitsToStart)
     }
 
     @Test("On to another timed exercise the key holds the set logged until the rows shift")
@@ -107,7 +109,6 @@ struct WorkoutKeyCountTests {
                 workout: live.workout,
                 loggedWorkout: live.logging(set, of: row, at: at),
             )
-            live = LiveWorkout(workout: live.workout, loggedWorkout: live.startingCountNow(at: at))
             live = LiveWorkout(workout: live.workout, loggedWorkout: live.beginningCount(at: at))
         }
         let last = try #require(live.loggedWorkout.sets.last?.planned)
@@ -118,9 +119,11 @@ struct WorkoutKeyCountTests {
         move.beat = .shifting
         let shifting = Self.key(live, phase: .movingOn(move))
         #expect(shifting.phase.loggedAndDrawn == nil)
-        #expect(shifting.drawnCount == .startIn, "Then Start now, as the move begins")
-        #expect(shifting.role == .startNow)
+        #expect(shifting.drawnCount == .startIn, "Then Start in, as the move begins")
         #expect(shifting.tap == .nothing, "Nothing while the move plays")
+        // Landed, the next set's "Start in" has no key.
+        let landed = Self.key(live, phase: .timing(.startIn))
+        #expect(landed.waitsToStart)
     }
 
     @Test("Moving out of a rest onto the same exercise the key is the count's, the rest's end's")
@@ -146,30 +149,49 @@ struct WorkoutKeyCountTests {
 
     /// After End's choice the store holds no workout in progress, and the screen draws the one
     /// End found until it goes, its key as it was: read from the phase's timing alone, the count's
-    /// keys turned to Log set under a finish's "++".
-    @Test("Ended mid-count or mid-Start in, the key stays the count's until the workout goes")
+    /// keys turned to Log set under a finish's "++", and a "Start in" brought its key in.
+    @Test("Ended mid-count or mid-Start in, the key stays as End found it until the workout goes")
     func endedMidCount() throws {
         let live = try Self.live()
-        for (stage, role) in [
-            (CountStage.counting, WorkoutKey.Role.count("Log early")),
-            (.startIn, .startNow),
-        ] {
-            var phase = WorkoutPhase.timing(stage)
-            let ended = phase.end(live.loggedWorkout, at: Self.start.addingTimeInterval(15))
-            #expect(ended, "End did not take the workout at rest on its count")
-            let key = WorkoutKey(
-                stored: nil,
-                shown: live,
-                phase: phase,
-                wayBack: nil,
-                isScrolledAway: false,
-            )
+        for stage in [CountStage.counting, .startIn] {
+            let key = try Self.ended(live, on: stage)
             #expect(key.drawnCount == stage)
-            #expect(key.role == role)
+            #expect(key.role == .count("Log early"))
+            #expect(key.waitsToStart == (stage == .startIn), "Its key came in or went")
         }
     }
 
-    @Test("A reps set's key is Log set, and logs, through its Start in too")
+    @Test("Ended mid-Start in on a reps set, its key stays away until the workout goes")
+    func endedMidRepsStartIn() throws {
+        let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
+        let loggedWorkout = LoggedWorkout(
+            workoutID: workout.id,
+            workoutName: "Test",
+            startedAt: Self.start,
+        )
+        let key = try Self.ended(
+            LiveWorkout(workout: workout, loggedWorkout: loggedWorkout),
+            on: .startIn,
+        )
+        #expect(key.role == .log("Log set"))
+        #expect(key.waitsToStart, "The log key came in under the finish's \"++\"")
+    }
+
+    /// The key End leaves on `live` at rest on `stage`, with the store holding no workout.
+    private static func ended(_ live: LiveWorkout, on stage: CountStage) throws -> WorkoutKey {
+        var phase = WorkoutPhase.timing(stage)
+        let ended = phase.end(live.loggedWorkout, at: start.addingTimeInterval(15))
+        try #require(ended, "End did not take the workout at rest on its count")
+        return WorkoutKey(
+            stored: nil,
+            shown: live,
+            phase: phase,
+            wayBack: nil,
+            isScrolledAway: false,
+        )
+    }
+
+    @Test("A reps set's key is Log set, and logs, once its Start in is over; none through it")
     func reps() throws {
         let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
         let loggedWorkout = LoggedWorkout(
@@ -180,11 +202,13 @@ struct WorkoutKeyCountTests {
         let live = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
         let set = try #require(live.currentSet)
         let row = try #require(live.currentExercise)
-        for phase in [WorkoutPhase.running, .timing(.startIn)] {
-            let key = Self.key(live, phase: phase)
-            #expect(key.drawnCount == nil)
-            #expect(key.role == .log("Log set"))
-            #expect(key.tap == .log(set, of: row, impact: .set, leadingTo: .nextSet))
-        }
+        let running = Self.key(live, phase: .running)
+        #expect(running.drawnCount == nil)
+        #expect(running.role == .log("Log set"))
+        #expect(!running.waitsToStart)
+        #expect(running.tap == .log(set, of: row, impact: .set, leadingTo: .nextSet))
+        let startIn = Self.key(live, phase: .timing(.startIn))
+        #expect(startIn.waitsToStart)
+        #expect(startIn.tap == .nothing)
     }
 }

@@ -106,6 +106,36 @@ extension WorkoutKeyTests {
         ]
     }
 
+    @Test("Skipped, a rest's keys go at the tap: no key through its hold, and no tap on any")
+    func skippedRestKey() throws {
+        let on = try Seed()
+        let rests = [
+            (logged: 1, phase: Self.resting(on.first, leadingTo: .nextSet, to: .settled)),
+            (logged: 2, phase: Self.resting(on.second, leadingTo: on.toRow, to: .settled)),
+        ]
+        for (logged, rest) in rests {
+            var phase = rest
+            phase.skipRest(left: 20, leave: 100)
+            let key = on.key(logged: logged, phase: phase)
+            #expect(key.role != .rest, "after \(logged)")
+            #expect(key.waitsToStart, "after \(logged)")
+            #expect(key.tap == .nothing, "after \(logged)")
+            #expect(key.skipRest == .nothing, "after \(logged)")
+            #expect(key.extendRest(by: 15) == .nothing, "after \(logged)")
+        }
+    }
+
+    @Test("Out of a rest with no motion, the set logged before it doesn't bring its key back")
+    func restFadesOn() throws {
+        let on = try Seed()
+        var phase = Self.resting(on.second, leadingTo: on.toRow, to: .settled)
+        phase.endRest(moves: false)
+        #expect(phase.isLeavingRest)
+        let key = on.key(logged: 2, phase: phase)
+        #expect(key.waitsToStart, "The next set's Start in, with no key")
+        #expect(key.tap == .nothing)
+    }
+
     /// Ending in a rest: the rest's keys stay while the list draws the workout, taking no tap.
     private static func endingInRest(_ on: Seed) -> [Row] {
         var phase = resting(on.second, leadingTo: on.toRow, to: .settled)
