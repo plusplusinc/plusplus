@@ -176,6 +176,36 @@ extension LiveWorkout {
         return dropped
     }
 
+    /// The workout as the screen lands on its first set after Start, at `now`: the set's "Start
+    /// in" begins there, and the workout's time starts as it ends, where the set begins
+    /// (decided 2026-11-23), so the time reads 0:00 through "Start in" and the two turn over
+    /// together. The clock stands below zero until then (`LoggedWorkout.clock(at:)`); a log or
+    /// "Start now" before then starts the time at once (`LoggedWorkout.startingClock(at:)`).
+    /// Only a workout with nothing logged, never paused, no count yet, and under a second on
+    /// its clock, so its time has shown only 0:00 and none of it is lost: any other, as one
+    /// whose landing waited on the phone being unlocked, only begins its count.
+    public func landingStart(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
+        guard loggedWorkout.isInProgress, loggedWorkout.sets.isEmpty, loggedWorkout.count == nil,
+              loggedWorkout.pausedAt == nil, loggedWorkout.pausedSeconds == 0,
+              loggedWorkout.clock(at: now) < 1
+        else { return beginningCount(at: now, restOverride: restOverride) }
+        var landed = loggedWorkout
+        landed.startedAt = now
+        let begun = LiveWorkout(workout: workout, loggedWorkout: landed)
+            .beginningCount(at: now, restOverride: restOverride)
+        return Self.timeStartingAtCount(begun)
+    }
+
+    /// `begun` with its time starting as its count's "Start in" ends: for a workout whose
+    /// time hasn't started, its first set's count begun at the landing or again after an edit.
+    private static func timeStartingAtCount(_ begun: LoggedWorkout) -> LoggedWorkout {
+        guard let lead = begun.count?.startClock else { return begun }
+        var held = begun
+        held.startedAt = begun.startedAt.addingTimeInterval(lead)
+        held.count?.startClock = 0
+        return held
+    }
+
     /// The workout with the current set's count begun at `now`, when it has none of its own:
     /// with the "Start in" due before it (`Workout.startIn(before:)`) from the end of the rest
     /// before it, when that just ended, else from now. A timed set with none due counts from the
@@ -189,7 +219,7 @@ extension LiveWorkout {
         guard let set = currentSet else { return begun }
         let clock = loggedWorkout.clock(at: now)
         var lead = workout.startIn(before: set)
-        var base = clock
+        var base = loggedWorkout.tick(nearest: now)
         var restJustEnded = false
         if let rest = rest(override: restOverride) {
             guard rest.isOver(atClock: clock) else { return begun }
@@ -203,7 +233,7 @@ extension LiveWorkout {
         }
         guard lead > 0 || isOnTimedSet else { return begun }
         begun.count = SetCount(set: set, startClock: base + Double(lead))
-        return begun
+        return clock < 0 ? Self.timeStartingAtCount(begun) : begun
     }
 
     /// The workout with `set`, a set of `row`, logged at `now`. A set with a count logs the time
@@ -254,8 +284,9 @@ extension LiveWorkout {
         let clock = loggedWorkout.clock(at: now)
         guard loggedWorkout.isInProgress, let timed = timedSet, timed.startIn(atClock: clock) > 0
         else { return loggedWorkout }
-        var started = loggedWorkout
-        started.count?.startClock = clock
+        var started = loggedWorkout.startingClock(at: now)
+        let tick = started.tick(before: now)
+        started.count?.startClock = tick
         return started
     }
 

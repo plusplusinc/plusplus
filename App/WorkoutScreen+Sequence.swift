@@ -42,8 +42,9 @@ extension WorkoutScreen {
     func stopSequence() {
         session.closeRowSheet()
         sequence.cancel()
-        // A timed set the stopped sequence was landing on counts from now.
-        session.beginCount(override: restOverride)
+        // A timed set the stopped sequence was landing on counts from now; stopped within
+        // Start, the first set's "Start in" begins here, as at Start's landing.
+        session.landOnFirstSet(override: restOverride)
         withTransaction(\.disablesAnimations, true) {
             phase.settleAtOnce(resuming: live, restOverride: restOverride, at: .now)
             closingRoomTop = nil
