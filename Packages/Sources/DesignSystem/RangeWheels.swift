@@ -319,6 +319,6 @@ private enum Wheel {
         },
     )
     .padding()
-    .background(Color.pp(.surface))
+    .background(Color.pp(.background))
 }
 #endif

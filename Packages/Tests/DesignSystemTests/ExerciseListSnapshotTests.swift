@@ -152,7 +152,7 @@ struct ExerciseListSnapshotTests {
                 name: { $0 },
                 onDone: { },
             )
-            .background(Color.pp(.surface)),
+            .background(Color.pp(.background)),
             width: Self.screenWidth,
         )
     }

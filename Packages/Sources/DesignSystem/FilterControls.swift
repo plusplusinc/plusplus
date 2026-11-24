@@ -192,6 +192,9 @@ public struct ChipSheet<Item: Hashable>: View {
 /// full height, and the content scrolls under the header, which stays put. Where the title and
 /// the × won't fit side by side, the × goes under the title (`LineOrStack`), which beside it
 /// broke mid-word.
+///
+/// The sheet is the screen's own color (`background`), as the exercise sheet and Add exercise
+/// are: an unchosen chip's `surfaceRaised` stands 1.29:1 from it, and 1.14:1 from `surface`.
 struct FilterSheetFrame<Content: View>: View {
     let title: String
     let onDone: () -> Void
@@ -232,7 +235,7 @@ struct FilterSheetFrame<Content: View>: View {
             selection: $detent,
         )
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.pp(.surface))
+        .presentationBackground(Color.pp(.background))
     }
 
     private var header: some View {

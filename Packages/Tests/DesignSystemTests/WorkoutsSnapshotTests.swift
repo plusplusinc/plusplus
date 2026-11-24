@@ -168,7 +168,7 @@ struct WorkoutsSnapshotTests {
             .padding(-Spacing.xs)
             .padding(Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.pp(.surface)),
+            .background(Color.pp(.background)),
             width: 375,
         )
     }
