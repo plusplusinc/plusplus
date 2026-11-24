@@ -20,13 +20,12 @@ public final class AppSession {
     public private(set) var rowSheet: RowSheet?
     public internal(set) var addExercise: AddExerciseSheet?
     /// What Add exercise is narrowed by in the open workout, kept from one opening to the next
-    /// until cleared; a different workout starts with none (`show(_:on:)`), except one New
-    /// makes, which starts on the Workouts list's filters (`startNew(from:)`).
+    /// until cleared; a different workout starts with none (`show(_:on:)`), except one the
+    /// Workouts list's Create workout row makes, which starts on its filters (`startNew(from:)`).
     public var addExerciseFilter = ExerciseFilter()
-    /// The card of exercises to tap on a new workout New made from the Workouts list's filters,
-    /// while that workout is open and the card has not been emptied or closed
-    /// (`NewWorkoutCard`).
-    public internal(set) var newWorkoutCard: NewWorkoutCard?
+    /// Set by the Create workout row's New, until the workout screen shows and opens Add
+    /// exercise (`takeAddExerciseOnShow(after:)`).
+    @ObservationIgnored var opensAddExerciseOnShow = false
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
     /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
@@ -255,27 +254,30 @@ public final class AppSession {
 
     /// Pushes a new, empty workout onto the Workouts screen; an empty one open already is shown
     /// as it is. Nothing is saved for the new workout until it changes. Either way Add exercise
-    /// starts on the list's Muscle and Equipment filters, its Length carrying nothing: to the
-    /// person, New is a different workout. With either of those on, the workout shows a card of
-    /// the first exercises Add exercise would list for them (`NewWorkoutCard`).
-    public func startNew(from listFilter: WorkoutFilter = WorkoutFilter()) async {
+    /// starts with no filter: to the person, New is a different workout.
+    public func startNew() async {
         guard !isSwitching else { return }
-        if current.isEmpty {
-            show(current)
-        } else {
-            await switchTo { Workout() }
+        addExerciseFilter = ExerciseFilter()
+        guard !current.isEmpty else {
+            return show(current)
         }
+        await switchTo { Workout() }
+    }
+
+    /// New from the Workouts list's Create workout row, shown when its filters match nothing:
+    /// `startNew()`, then Add exercise starts on the list's Muscle and Equipment filters, its
+    /// Length carrying nothing, and comes up by itself once the workout screen shows and the new
+    /// workout has rested (`takeAddExerciseOnShow(after:)`), with no filter if none carried.
+    public func startNew(from listFilter: WorkoutFilter) async {
+        guard !isSwitching else { return }
+        await startNew()
         guard current.isEmpty else { return }
         // After the show, whose reset on a new workout's id would wipe it.
         addExerciseFilter = ExerciseFilter(
             muscleGroups: listFilter.muscleGroups,
             equipment: listFilter.equipment,
         )
-        newWorkoutCard = NewWorkoutCard(
-            workout: current.id,
-            filter: addExerciseFilter,
-            exercises: exercises,
-        )
+        opensAddExerciseOnShow = true
     }
 
     /// Lets the last edit land, then pushes the workout `next` gives, if any. An edit made while
@@ -302,9 +304,7 @@ public final class AppSession {
         if workout.id != current.id {
             addExerciseFilter = ExerciseFilter()
         }
-        if newWorkoutCard?.workout != workout.id {
-            newWorkoutCard = nil
-        }
+        opensAddExerciseOnShow = false
         opened = workout
         current = workout
         screen = shown

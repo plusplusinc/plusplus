@@ -59,7 +59,7 @@ struct WorkoutsScreen: View {
             uniquingKeysWith: { first, _ in first },
         )
         let filtered = filter.filtered(shown) { summaries[$0.id] }
-        let items = WorkoutsItem.items(filtered)
+        let items = WorkoutsItem.items(filtered, filter: filter)
         // Every row shown sets the scale, a section's included.
         let fullBar = WorkoutSummary.fullBarMinutes(among: items.compactMap {
             $0.workout.flatMap { summaries[$0.id] }
@@ -92,6 +92,8 @@ struct WorkoutsScreen: View {
                                 switch item {
                                 case let .workout(workout):
                                     row(workout, summary: summaries[workout.id], fullBar: fullBar)
+                                case .create:
+                                    createRow
                                 case let .needs(piece):
                                     needsHeader(piece)
                                 }
@@ -151,11 +153,10 @@ struct WorkoutsScreen: View {
                     MenuButton(session: session)
                 }
             }
-            // Where the workout screen's + sits on an empty workout. It carries the list's
-            // Muscle and Equipment filters into Add exercise and the new workout's card.
+            // Where the workout screen's + sits on an empty workout.
             .floatingButton(
                 Button("New workout", systemImage: "plus") {
-                    Task { await session.startNew(from: filter) }
+                    Task { await session.startNew() }
                 },
             )
             .sheet(item: $choosing) { sheet in
@@ -340,6 +341,50 @@ struct WorkoutsScreen: View {
         ),
         namer: .muscleGroupsOnly,
     )
+}
+
+extension WorkoutsScreen {
+    /// "Create workout", where the filters match no workout and none is a piece short: a new
+    /// blank workout, whose Add exercise rises by itself on the list's Muscle and Equipment
+    /// filters, which the gray line names as Add exercise's Create row names its own.
+    private var createRow: some View {
+        let detail = ExerciseFilter(
+            muscleGroups: filter.muscleGroups,
+            equipment: filter.equipment,
+        ).carriedLine
+        return Button {
+            Task { await session.startNew(from: filter) }
+        } label: {
+            CreateLabel(title: "Create workout", detail: detail)
+                .labelStyle(ListRowLabelStyle())
+                .font(.ppRowTitle)
+                .makesSomething()
+                .frame(maxWidth: .infinity, minHeight: Self.listRowHeight, alignment: .leading)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm + Spacing.xxs)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("workouts.create")
+    }
+
+    /// The least height of a list's row, as Add exercise's Create row takes in its list.
+    private static let listRowHeight: CGFloat = 44
+}
+
+/// A label drawn as a `List` draws one, outside a list: the icon in its own column, centered on
+/// the lines, and the title past it, so the Create workout row reads as Add exercise's Create row.
+private struct ListRowLabelStyle: LabelStyle {
+    /// The icon column's width, as a list row's on the iOS 27 simulator at the default size.
+    @ScaledMetric(relativeTo: .body) private var iconWidth = 23.0
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: Spacing.md) {
+            configuration.icon.frame(width: iconWidth)
+            configuration.title
+        }
+    }
 }
 
 extension WorkoutNamer {

@@ -5,7 +5,7 @@ import SwiftUI
 /// the same insets, off on the raised surface, on in the light style, so the two are one
 /// height. (A chip sheet that floats clear of the screen's edges is drawn at about 96% by the
 /// system, so its chips measure a point shorter on screen than the buttons behind it.)
-struct FilterCapsule: ViewModifier {
+private struct FilterCapsule: ViewModifier {
     let isOn: Bool
 
     func body(content: Content) -> some View {
