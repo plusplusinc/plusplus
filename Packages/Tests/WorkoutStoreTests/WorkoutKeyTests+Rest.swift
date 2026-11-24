@@ -125,6 +125,17 @@ extension WorkoutKeyTests {
         }
     }
 
+    @Test("Out of a rest with no motion, the set logged before it doesn't bring its key back")
+    func restFadesOn() throws {
+        let on = try Seed()
+        var phase = Self.resting(on.second, leadingTo: on.toRow, to: .settled)
+        phase.endRest(moves: false)
+        #expect(phase.isLeavingRest)
+        let key = on.key(logged: 2, phase: phase)
+        #expect(key.waitsToStart, "The next set's Start in, with no key")
+        #expect(key.tap == .nothing)
+    }
+
     /// Ending in a rest: the rest's keys stay while the list draws the workout, taking no tap.
     private static func endingInRest(_ on: Seed) -> [Row] {
         var phase = resting(on.second, leadingTo: on.toRow, to: .settled)

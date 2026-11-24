@@ -44,17 +44,20 @@ extension WorkoutPhase {
     }
 
     /// Coming back to a set out of a rest, whose end began the set's count: within one exercise
-    /// as it swaps back, or on a move from the rest's word. A set then is in its "Start in" or,
-    /// timed with none due, already counts.
+    /// as it swaps back, or on a move, or with no motion a fade, from the rest's word. A set then
+    /// is in its "Start in" or, timed with none due, already counts.
     public var isLeavingRest: Bool {
-        resting?.beat == .returning || move?.isFromRest == true
+        if case .fadingOn(_, _, true) = self {
+            return true
+        }
+        return resting?.beat == .returning || move?.isFromRest == true
     }
 
     /// The set just logged, still drawn: held, moving on until the rows shift, closing, fading
     /// on, or before its rest shows. A timed one keeps its count where the log stopped it.
     public var loggedAndDrawn: PlannedSet? {
         switch self {
-        case let .held(set), let .closing(set, _), let .fadingOn(set, _): set
+        case let .held(set), let .closing(set, _), let .fadingOn(set, _, false): set
         case let .movingOn(move) where move.beat < .shifting && !move.isFromRest: move.set
         case let .resting(rest) where rest.beat == .logged: rest.set
         default: nil

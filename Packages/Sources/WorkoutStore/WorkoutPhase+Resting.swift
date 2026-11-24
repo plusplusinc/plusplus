@@ -148,7 +148,7 @@ extension WorkoutPhase {
             return true
         }
         guard moves else {
-            self = .fadingOn(rest.set, isShown: true)
+            self = .fadingOn(rest.set, isShown: true, isFromRest: true)
             return true
         }
         // Out of a rest, the next round shows from the start, its words arriving with its
@@ -209,7 +209,7 @@ extension WorkoutPhase {
     public var keySet: PlannedSet? {
         switch self {
         case let .movingOn(move) where !move.hasRolled && !move.isFromRest: move.set
-        case let .closing(set, _), let .fadingOn(set, _): set
+        case let .closing(set, _), let .fadingOn(set, _, false): set
         default: nil
         }
     }
