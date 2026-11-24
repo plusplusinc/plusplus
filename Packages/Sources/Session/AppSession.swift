@@ -157,7 +157,7 @@ public final class AppSession {
         // The logged workout first: a screen shown at the root reads it as it is made, to open
         // on the current exercise.
         // The first set's "Start in" begins as the screen lands on it, and the workout's clock
-        // starts over with it (`landStart`).
+        // starts over with it (`startClockAtLanding`).
         change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
         if screen != .workout {
             // A fresh screen at the root, opening on the workout as it is now.

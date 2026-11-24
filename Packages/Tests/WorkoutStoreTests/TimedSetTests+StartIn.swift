@@ -48,10 +48,18 @@ extension TimedSetTests {
         let live = LiveWorkout(workout: workout, loggedWorkout: landed)
         let logged = try Self.logged(live, at: 20)
         #expect(logged.landingStart(at: Self.at(30)).startedAt == Self.at(0.5))
+        var resumed = made
+        resumed.pausedSeconds = 3
         var paused = made
-        paused.pausedSeconds = 3
-        let resumed = LiveWorkout(workout: workout, loggedWorkout: paused)
-        #expect(resumed.landingStart(at: Self.at(10)).startedAt == Self.at(0))
+        paused.pausedAt = Self.at(0.2)
+        for kept in [resumed, paused] {
+            let live = LiveWorkout(workout: workout, loggedWorkout: kept)
+            #expect(live.landingStart(at: Self.at(10)).startedAt == Self.at(0))
+        }
+        // A landing that waited, as on the phone being unlocked, loses none of the time.
+        let late = LiveWorkout(workout: workout, loggedWorkout: made).landingStart(at: Self.at(180))
+        #expect(late.startedAt == Self.at(0))
+        #expect(late.count?.startClock == 180 + Double(LiveWorkout.startIn))
     }
 
     @Test("After a rest onto another exercise, Start in runs from the rest's end")

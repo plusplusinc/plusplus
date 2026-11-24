@@ -178,13 +178,15 @@ extension LiveWorkout {
 
     /// The workout as the screen lands on its first set after Start, at `now`: its clock starts
     /// over from there, and the first set's count begins with it, so the workout's time and the
-    /// first "Start in" tick together. Start made the workout as the first exercise began to
-    /// grow, about half a second earlier, and counted from the landing, so the two ticked half
-    /// a second apart. Only a workout with nothing logged, never paused, and no count yet: any
-    /// other only begins its count.
+    /// first "Start in" tick together: Start makes the workout as the first exercise begins to
+    /// grow, about half a second before the landing the count runs from. Only a workout with
+    /// nothing logged, never paused, no count yet, and under a second on its clock, so its time
+    /// has shown only 0:00 and none of it is lost: any other, as one whose landing waited on
+    /// the phone being unlocked, only begins its count.
     public func landingStart(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
         guard loggedWorkout.isInProgress, loggedWorkout.sets.isEmpty, loggedWorkout.count == nil,
-              loggedWorkout.pausedAt == nil, loggedWorkout.pausedSeconds == 0
+              loggedWorkout.pausedAt == nil, loggedWorkout.pausedSeconds == 0,
+              loggedWorkout.clock(at: now) < 1
         else { return beginningCount(at: now, restOverride: restOverride) }
         var landed = loggedWorkout
         landed.startedAt = now

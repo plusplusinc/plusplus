@@ -12,7 +12,7 @@ extension AppSession {
 
     /// Start has landed on the first set: the workout's clock starts from now, and the set's
     /// count with it (`LiveWorkout.landingStart(at:restOverride:)`).
-    public func landStart(override: Int? = nil, at now: Date = .now) {
+    public func startClockAtLanding(override: Int? = nil, at now: Date = .now) {
         changeLive { $0.landingStart(at: now, restOverride: override) }
     }
 
