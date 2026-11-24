@@ -130,6 +130,35 @@ struct FloatingFace<Face: Equatable>: PreferenceKey {
     }
 }
 
+/// The bar's floating button going low into the key's row as the key leaves: it takes no tap from
+/// then until it has rested there for a whole swap, `settlesLow`, so a second tap meant for the
+/// key, or for +15 s beside it, never lands on the button arriving where they were. Going back
+/// up it takes taps at once, as a key coming in does. Not on first showing low, as on an empty
+/// workout, where nothing was there before it.
+struct LowSettle: ViewModifier {
+    let isLow: Bool
+    @State private var isSettling = false
+
+    /// From the change: the slowest move that takes the keys away (`SetMotion.restSwap`, `roll`)
+    /// and then a swap's two halves at rest.
+    static var settlesLow: Double {
+        SetMotion.roll + 2 * PrimaryKeyButtonStyle.swapHalf
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .allowsHitTesting(!isSettling)
+            .onChange(of: isLow) { _, isLow in isSettling = isLow }
+            .task(id: isSettling) {
+                guard isSettling else { return }
+                try? await Task.sleep(for: .seconds(Self.settlesLow), tolerance: .zero)
+                if !Task.isCancelled {
+                    isSettling = false
+                }
+            }
+    }
+}
+
 /// The key down out of sight while `isOut`, as far as its height and what lies below it, less
 /// `drawnLower`, how far below its place in the bar it is drawn, in place: the bar keeps its
 /// room. No further, so the key coming in starts up as the one going

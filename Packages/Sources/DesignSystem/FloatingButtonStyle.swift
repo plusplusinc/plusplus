@@ -77,7 +77,8 @@ public struct FloatingButtonRoom: View {
 /// placed from a measurement, which lands after the update, it jumped. While `isLow`, with no
 /// copy, its bottom sits where the key's ledge's bottom would, and it rises to its place above
 /// the key, or comes back down, on the update that brings the key in or takes it away; with
-/// Reduce Motion it fades out of one place and into the other.
+/// Reduce Motion it fades out of one place and into the other. Gone low, it takes no tap until
+/// it has rested there a while (`LowSettle`).
 struct FloatingPlace<Key: View, Floating: View>: View {
     let key: Key
     let floating: Floating
@@ -95,6 +96,8 @@ struct FloatingPlace<Key: View, Floating: View>: View {
                 // Another button in each place, so it crossfades rather than travels.
                 .id(reduceMotion && isLow)
                 .transition(.opacity)
+                // Outside the id, so the crossfade keeps the wait.
+                .modifier(LowSettle(isLow: isLow))
             if !isLow {
                 key.hidden()
             }
