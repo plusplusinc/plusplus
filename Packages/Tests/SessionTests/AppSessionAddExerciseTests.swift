@@ -125,6 +125,31 @@ struct AppSessionAddExerciseTests {
         #expect(session.addExercise == nil)
     }
 
+    @Test("Add exercise opened by hand before the raise spends it, so it never rises twice")
+    func handOpeningSpendsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        session.openAddExercise()
+        session.closeAddExercise()
+        await session.takeAddExerciseOnShow(after: .zero)
+        #expect(session.addExercise == nil)
+    }
+
+    @Test("Popping the new workout spends the raise and takes Add exercise with it")
+    func popSpendsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        session.popWorkout()
+        await session.takeAddExerciseOnShow(after: .zero)
+        #expect(session.addExercise == nil, "A raise left armed came up on the next screen")
+        await session.open(session.current.id, weightUnit: .pounds)
+        session.openAddExercise()
+        session.popWorkout()
+        #expect(session.addExercise == nil, "A sheet set as the pop ended outlived its workout")
+    }
+
     @Test("Another workout shown after New from the filters drops the filter and the raise")
     func anotherWorkoutDropsTheRaise() async throws {
         let session = try sessionKeepingLegs()

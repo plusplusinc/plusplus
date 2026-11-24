@@ -1,3 +1,4 @@
+#if os(iOS)
 import SwiftUI
 import UIKit
 
@@ -6,7 +7,7 @@ extension View {
     /// screen, once the push has slid it fully in. SwiftUI's `onAppear` and `task` start as the
     /// push begins, and it says nothing when the push ends; UIKit tells the screen's view
     /// controller, and with it the controller this adds as its child, in `viewDidAppear(_:)`.
-    func onScreenArrival(_ arrived: @escaping () -> Void) -> some View {
+    public func onScreenArrival(_ arrived: @escaping () -> Void) -> some View {
         background(ScreenArrival(arrived: arrived).accessibilityHidden(true))
     }
 }
@@ -41,3 +42,4 @@ private struct ScreenArrival: UIViewControllerRepresentable {
         }
     }
 }
+#endif

@@ -111,7 +111,7 @@ struct DrawerSnapshotTests {
     }
 
     /// A filtered Workouts list as `WorkoutsScreen` lays it out: its matches, then Create workout
-    /// in `createRow`'s insets and least height, naming the filters it carries.
+    /// in its list row's room, naming the filters it carries.
     private func filteredList(_ names: [String], carrying detail: String?) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(names, id: \.self) { name in
@@ -119,12 +119,7 @@ struct DrawerSnapshotTests {
                     .padding(.horizontal, Spacing.md)
                     .overlay(alignment: .bottom) { RowLine().padding(.horizontal, Spacing.md) }
             }
-            CreateLabel(title: "Create workout", detail: detail)
-                .font(.ppRowTitle)
-                .makesSomething()
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm + Spacing.xxs)
+            CreateLabel(title: "Create workout", detail: detail).listRowRoom()
         }
         .padding(.vertical, Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)

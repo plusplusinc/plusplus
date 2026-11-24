@@ -162,8 +162,6 @@ struct ExerciseListSnapshotTests {
         assertThemedSnapshots(
             of: VStack(alignment: .leading, spacing: Spacing.md) {
                 CreateLabel(title: "Create exercise", detail: "Chest, Dumbbells")
-                    .font(.ppRowTitle)
-                    .makesSomething()
                 NeedsHeader(needed: "a bench", addTitle: "Bench") { }
                 RowLabel(title: "Dumbbell bench press", detail: "Dumbbells, bench")
             }

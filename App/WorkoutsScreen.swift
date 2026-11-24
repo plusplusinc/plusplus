@@ -349,28 +349,17 @@ extension WorkoutsScreen {
     /// itself on the list's Muscle and Equipment filters, which the gray line names as Add
     /// exercise's Create row names its own. Length carries nothing, so alone it gives no line.
     private var createRow: some View {
-        let detail = ExerciseFilter(
-            muscleGroups: filter.muscleGroups,
-            equipment: filter.equipment,
-        ).carriedLine
-        return Button {
+        Button {
             Task { await session.startNew(from: filter) }
         } label: {
-            CreateLabel(title: "Create workout", detail: detail)
-                .font(.ppRowTitle)
-                .makesSomething()
-                .frame(maxWidth: .infinity, minHeight: Self.listRowHeight, alignment: .leading)
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm + Spacing.xxs)
+            CreateLabel(title: "Create workout", detail: filter.carried.carriedLine)
+                .listRowRoom()
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("workouts.create")
     }
-
-    /// The least height of a list's row, as Add exercise's Create row takes in its list.
-    private static let listRowHeight: CGFloat = 44
 }
 
 extension WorkoutNamer {

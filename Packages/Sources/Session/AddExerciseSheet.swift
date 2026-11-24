@@ -14,27 +14,25 @@ public struct AddExerciseSheet: Identifiable {
 
 extension AppSession {
     /// Opens Add exercise on the open workout's kept filter. The same ask while it is open
-    /// changes nothing, so a double tap doesn't build the rising sheet again.
+    /// changes nothing, so a double tap doesn't build the rising sheet again. Opened by hand, it
+    /// takes the place of the opening New asked for (`takeAddExerciseOnShow(after:)`).
     public func openAddExercise() {
+        opensAddExerciseOnShow = false
         guard addExercise == nil else { return }
         addExercise = AddExerciseSheet()
     }
 
     /// Opens Add exercise if New asked for it as it made the workout showing (`startNew(from:)`),
-    /// once, `hold` after the workout screen has finished arriving: the new workout is seen
-    /// arrive and rest before the sheet rises, which at once rose over the push and read as too
-    /// quick. Nothing opens if the wait is cancelled, as when the screen goes and its task with
-    /// it, or the app has shown another screen or workout (which clears the ask) or the drawer
-    /// meanwhile, as a created row's sheet waits (`openRowSheet(_:after:if:)`).
+    /// once, `hold` after the workout screen has finished arriving. The ask is spent however the
+    /// wait ends: nothing opens if the wait is cancelled, as when the screen goes and its task
+    /// with it, if the app has left that screen or workout (`stays(after:)`), if Add exercise was
+    /// opened by hand meanwhile, or if the drawer, a row's sheet, or an exercise came first.
     public func takeAddExerciseOnShow(after hold: Duration) async {
         guard opensAddExerciseOnShow else { return }
-        let screen = screen
-        let workout = opened.id
-        // A sleep that had already ended when it was cancelled resumes without throwing.
-        guard await (try? Task.sleep(for: hold, tolerance: .zero)) != nil, !Task.isCancelled,
-              opensAddExerciseOnShow, self.screen == screen, opened.id == workout,
-              !isDrawerOpen, !isDrawerHeld else { return }
+        let stays = await stays(after: hold)
+        guard opensAddExerciseOnShow else { return }
         opensAddExerciseOnShow = false
+        guard stays, current.isEmpty, rowSheet == nil, !isDrawerOpen, !isDrawerHeld else { return }
         openAddExercise()
     }
 

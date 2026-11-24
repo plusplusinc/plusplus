@@ -306,10 +306,8 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
                 title: needsName ? "Create exercise" : "Create \u{201C}\(typed)\u{201D}",
                 detail: filter.carriedLine,
             )
-            .font(.ppRowTitle)
-            .makesSomething()
-            // A label's separator starts at its title, past the icon; this one starts at
-            // the row's edge, where a result row's does.
+            // A list draws the separator from the row's first text, past the +; this one
+            // starts at the row's edge, where a result row's does.
             .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
         .listRowBackground(Color.pp(.background))

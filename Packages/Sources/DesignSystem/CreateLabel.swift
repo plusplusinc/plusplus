@@ -22,21 +22,25 @@ public struct CreateLabel: View {
     }
 
     public var body: some View {
-        if typeSize.isAccessibilitySize {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
-                Image(systemName: "plus")
-                    .accessibilityHidden(true)
-                lines
-            }
-        } else {
-            HStack(spacing: Spacing.md) {
-                Image(systemName: "plus")
-                    .imageScale(.large)
-                    .frame(width: iconWidth)
-                    .accessibilityHidden(true)
-                lines
+        Group {
+            if typeSize.isAccessibilitySize {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+                    Image(systemName: "plus")
+                        .accessibilityHidden(true)
+                    lines
+                }
+            } else {
+                HStack(spacing: Spacing.md) {
+                    Image(systemName: "plus")
+                        .imageScale(.large)
+                        .frame(width: iconWidth)
+                        .accessibilityHidden(true)
+                    lines
+                }
             }
         }
+        .font(.ppRowTitle)
+        .makesSomething()
     }
 
     private var lines: some View {
@@ -51,14 +55,22 @@ public struct CreateLabel: View {
     }
 }
 
-#Preview {
-    VStack(alignment: .leading, spacing: Spacing.lg) {
-        CreateLabel(title: "Create workout", detail: "Legs, Dumbbells")
-        CreateLabel(title: "Create workout", detail: nil)
+extension View {
+    /// The room a `List` gives a row, for one drawn outside a list, as the Workouts list's Create
+    /// workout row is: at least 44 pt tall, the full width, and a list row's insets.
+    public func listRowRoom() -> some View {
+        frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm + Spacing.xxs)
     }
-    .font(.ppRowTitle)
-    .makesSomething()
-    .padding()
+}
+
+#Preview {
+    VStack(alignment: .leading, spacing: 0) {
+        CreateLabel(title: "Create workout", detail: "Legs, Dumbbells").listRowRoom()
+        CreateLabel(title: "Create workout", detail: nil).listRowRoom()
+    }
+    .padding(.vertical)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(Color.pp(.background))
 }

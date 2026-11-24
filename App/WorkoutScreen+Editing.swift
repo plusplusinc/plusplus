@@ -272,9 +272,8 @@ extension WorkoutScreen {
     static let createdHold: Duration = .milliseconds(500)
 
     /// How long a new workout made from the Workouts list's filters rests, once its push has
-    /// settled, before its Add exercise rises by itself (`AddExerciseOnArrival`). Kept the beat
-    /// the maintainer tried, which waited 0.9 s from the screen's task: UIKit reports the push
-    /// settled 0.5 s after that task starts (iOS 27 simulator).
+    /// settled, before its Add exercise rises by itself (`AddExerciseOnArrival`): about 0.9 s
+    /// from the push's start.
     static let arrivedHold: Duration = .milliseconds(400)
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a

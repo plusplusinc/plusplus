@@ -33,11 +33,19 @@ extension AppSession {
         after hold: Duration,
         if wanted: () -> Bool,
     ) async {
+        guard await stays(after: hold, if: wanted) else { return }
+        openRowSheet(sheet)
+    }
+
+    /// Waits out `hold` and says whether `wanted()` still holds and the app is still on the
+    /// screen and workout it was on: false if the wait was cancelled, as when the screen that
+    /// waits goes and its task with it. `wanted()` is read first, so a change it makes counts.
+    func stays(after hold: Duration, if wanted: () -> Bool = { true }) async -> Bool {
         let screen = screen
         let workout = opened.id
         // A sleep that had already ended when it was cancelled resumes without throwing.
-        guard await (try? Task.sleep(for: hold, tolerance: .zero)) != nil, !Task.isCancelled,
-              wanted(), self.screen == screen, opened.id == workout else { return }
-        openRowSheet(sheet)
+        guard await (try? Task.sleep(for: hold, tolerance: .zero)) != nil, !Task.isCancelled
+        else { return false }
+        return wanted() && self.screen == screen && opened.id == workout
     }
 }

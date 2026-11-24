@@ -274,10 +274,7 @@ public final class AppSession {
         await startNew()
         guard current.isEmpty else { return }
         // After the show, whose reset on a new workout's id would wipe it.
-        addExerciseFilter = ExerciseFilter(
-            muscleGroups: listFilter.muscleGroups,
-            equipment: listFilter.equipment,
-        )
+        addExerciseFilter = listFilter.carried
         opensAddExerciseOnShow = true
     }
 
