@@ -96,8 +96,8 @@ public struct WorkoutKey: Sendable {
         }
     }
 
-    /// Whether the key is the next set's own, waiting on it: dimmed, in place, and taking no tap
-    /// (decided 2026-11-23). Through a set's "Start in", lit at 0 with no swap of keys; through a
+    /// Whether the key is the next set's own, waiting on it: not shown, its room kept, and taking
+    /// no tap (decided 2026-11-24). Through a set's "Start in", in at 0; through a
     /// rest's "Start in", or its hold at 0:00 or a skip's, and the move on from it, until the set
     /// is ready as the screen comes to rest on it. A timed set's is "Log early" with +15 s, empty;
     /// a reps set's, its log key. Only for the current set's key, not a set just logged still

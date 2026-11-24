@@ -295,6 +295,8 @@ private struct RestRoom: View, Animatable {
                 color: block.isPaused ? .textSecondary : .textPrimary,
             )
             .figureBox(size: size)
+            // The rest running, or closing with its time: the figure a move at 0:05 carries.
+            .carriedSlot(.leaving, isOn: block.stage == .open || block.pausedLeft != nil)
             .padding(.top, Spacing.md)
             .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
             .coming(countdown)

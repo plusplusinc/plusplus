@@ -217,8 +217,16 @@ extension WorkoutScreen {
         restEnds += 1
         // Its room closes holding the seconds it moved on with, the "Start in" taking them on in
         // the exercise's slot: closed as an empty rest, it read 0:00 as it went.
+        // Run out to 0:05, the countdown is carried over the rows to the "Start in" as one figure
+        // ticking on, the rows' own hidden (`FigureCarry`); a skip's jumps, so it is not.
         if rest.skippedLeft == nil, let resting {
             phase.skipRest(left: resting.remaining(atClock: loggedWorkout.clock(at: .now)))
+            if !reduceMotion {
+                figureCarry = FigureCarry(
+                    ends: loggedWorkout.date(ofClock: resting.endClock),
+                    run: (figureCarry?.run ?? 0) + 1,
+                )
+            }
         }
         // From the rest's height, not the row's pitch at rest, which a relaunch into the rest never
         // measured (the list landed in a second motion). Before a superset's next round the rest
@@ -236,7 +244,12 @@ extension WorkoutScreen {
         // The next exercise opens as the dot leaves the word; the list scrolls it under the bar
         // once the dot has landed: from the tap, the dot rose under the bar and came back down.
         withAnimation(SetMotion.aroundRest(.down)) { phase.endRest() }
-        withAnimation(SetMotion.moving(.down)) { growthLift = 0 }
+        // Carrying the count, the list scrolls as the rest closes and the exercise opens, on their
+        // curve, so the "Start in" slot comes to the carried figure rather than passing under it
+        // and back up the shift's later scroll.
+        withAnimation(figureCarry == nil ? SetMotion.moving(.down) : SetMotion.aroundRest(.down)) {
+            growthLift = 0
+        }
         railPulse = RailPulse(
             from: .rest(in: restRow(of: rest, in: loggedWorkout) ?? rest.set.row),
             to: .node(next.row),

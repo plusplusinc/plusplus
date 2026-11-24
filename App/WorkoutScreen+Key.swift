@@ -35,10 +35,8 @@ extension WorkoutScreen {
             )
         } else if case let .count(text) = role {
             countKeys(text, isOut: isOut)
-                .keyWaits(liveKey.waitsToStart)
         } else {
             mainKey(role, isOut: isOut)
-                .keyWaits(liveKey.waitsToStart)
         }
     }
 

@@ -10,8 +10,8 @@ import WorkoutStore
 /// `WorkoutRest.startInClock`), and a Skip rest leaves it its full 5 s from the tap. With no
 /// rest before it, the exercise opens on it held at its full count, and the count starts as the
 /// screen comes to rest on the set (`arrivingCount()`); as it reaches 0 the phone taps lightly.
-/// Nothing skips it (decided 2026-11-23): through it the key is the set's own, dimmed in place
-/// and taking no tap (`WorkoutKey.waitsToStart`), lit at 0 with no swap. On a reps set that is
+/// Nothing skips it (decided 2026-11-23): through it and its 0:00 hold there is no key, its
+/// room kept (`WorkoutKey.waitsToStart`), and the set's comes in as it is up. On a reps set that is
 /// its log key, and at 0 the set's figures swap back into the slot. On a timed set the set's
 /// time in words stands at the caption line's end, and the key is "Log early", empty, with
 /// +15 s; a timed set with no "Start in" due counts from the end of the rest before it, or at

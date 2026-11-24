@@ -114,18 +114,9 @@ extension PrimaryKeyButtonStyle {
     /// Each half of a bar's key swapping for another: the key going down and out, then the next
     /// coming up and in.
     public static let swapHalf = 0.2
-    /// A key waiting to be used, as a set's through its "Start in": dimmed to this, in place.
-    static let waitingOpacity = 0.4
 }
 
 extension View {
-    /// A key, or a key with +15 s beside it, that `waits`: dimmed in place, lit again as the
-    /// wait ends, on the screen's own animation. What a tap on it does is the screen's: it
-    /// still takes the tap, so none goes through to the list under it.
-    public func keyWaits(_ waits: Bool) -> some View {
-        opacity(waits ? PrimaryKeyButtonStyle.waitingOpacity : 1)
-    }
-
     /// A screen's primary key in a bar at its bottom while `isPresented`, sliding up in from
     /// below the screen's edge and down out of it as it fades, or with Reduce Motion fading in
     /// and out. The key sits above the home indicator, with nothing behind it: a scroll view's
