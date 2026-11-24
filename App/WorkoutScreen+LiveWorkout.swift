@@ -195,11 +195,14 @@ extension WorkoutScreen {
     /// as it was from the phase (`WorkoutPhase.drawnLoggedWorkout`) until it shrinks or crossfades
     /// out of it. `change` takes the curve the bar's End and time would have moved on with it.
     ///
-    /// With a `hold`, in seconds, as under a finish's "++": `change` is made at once, and the
-    /// screen holds still for `hold`, the key up and the bar as it was (`WorkoutPhase.isEndBegun`),
-    /// before the motion plays. Returns false when a second End is refused.
+    /// `holdingStill`, as after a finish: `change` is made at once, and the screen holds still
+    /// until it goes, the key up, the bar as it was (`WorkoutPhase.isEndBegun`), the list as
+    /// drawn, so through the "++" and the way through the drawer nothing in it moves, as under a
+    /// drawer opened by hand. None of the motion plays: Log replaces the screen under the
+    /// closing drawer, and its going settles the phase with no animation (`stopSequence()`), so
+    /// the workout next opens at rest. Returns false when a second End is refused.
     @discardableResult
-    func end(holdingFor hold: Double = 0, _ change: () -> Void) -> Bool {
+    func end(holdingStill: Bool = false, _ change: () -> Void) -> Bool {
         // Once only: a second End is refused.
         var ended = phase
         guard let loggedWorkout = session.loggedWorkout, ended.end(loggedWorkout) else {
@@ -216,15 +219,11 @@ extension WorkoutScreen {
                 railPulse = nil
             }
         }
-        guard hold > 0 else {
+        guard holdingStill else {
             playEnding(tookOver: tookOver, change)
             return true
         }
         change()
-        sequence.run {
-            try await beat(until: .now + .seconds(hold))
-            playEnding(tookOver: tookOver) { }
-        }
         return true
     }
 

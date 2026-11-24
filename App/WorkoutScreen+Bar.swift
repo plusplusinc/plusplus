@@ -43,7 +43,7 @@ extension WorkoutScreen {
         // and only faded its glass. The glass changes size on the frame: it grows at Start
         // before the crossfade, and shrinks at End once the time has faded out.
         ToolbarItem(placement: .topBarTrailing) {
-            let timed = session.loggedWorkout ?? phase.endingLoggedWorkout
+            let timed = session.loggedWorkout ?? endingTime
             // Trailing, where ••• sits in its own glass, so it holds still as the glass changes.
             ZStack(alignment: .trailing) {
                 // Always there, faded rather than put in or taken out. While the item holds only
@@ -72,6 +72,16 @@ extension WorkoutScreen {
     /// "++", where the store has already ended it, so the bar changes only as the ending plays.
     private var barShowsWorkout: Bool {
         session.loggedWorkout != nil || phase.isEndBegun
+    }
+
+    /// The ending workout's time, stopped at End while a finish holds the screen still, so it
+    /// stops counting. One paused keeps its pause, so it looks the same.
+    private var endingTime: LoggedWorkout? {
+        guard var ending = phase.endingLoggedWorkout else { return nil }
+        if phase.isEndBegun, let end = phase.drawnEnd, !ending.isPaused {
+            ending.endedAt = end
+        }
+        return ending
     }
 
     /// •••, the workout's own actions: Delete, red, dimmed while the workout has nothing saved.

@@ -12,8 +12,9 @@ struct FinishBeats {
 extension WorkoutScreen {
     /// Finishes the workout, from the key with no dialog, or from End's Finish: two "+"s pop
     /// off the key a beat apart, each with an impact, and meet as "++" over a still screen; once
-    /// they have gone the app goes to Log through the drawer, the screen's ending playing behind
-    /// it. With VoiceOver, straight to Log, with no burst.
+    /// they have gone the app goes to Log through the drawer, the screen holding still behind it
+    /// until Log replaces it (`end(holdingStill:_:)`). With VoiceOver, straight to Log, with no
+    /// burst.
     func finish() {
         guard !voiceOver else {
             guard end({ session.finish() }) else { return }
@@ -21,7 +22,7 @@ extension WorkoutScreen {
             return
         }
         let hold = PrimaryKeyButtonStyle.finishBurst + PrimaryKeyButtonStyle.finishRest
-        guard end(holdingFor: hold, { session.finish() }) else { return }
+        guard end(holdingStill: true, { session.finish() }) else { return }
         finishBeats.first += 1
         // The burst draws its second "+" on the same constant, from the first's trigger.
         Task {
@@ -46,7 +47,7 @@ extension View {
     }
 }
 
-/// End's motion, once `end(holdingFor:_:)` has set the phase to its ending.
+/// End's motion, once `end(holdingStill:_:)` has set the phase to its ending.
 extension WorkoutScreen {
     /// End's motion from the key leaving, with `change` on the curve the bar moves on.
     func playEnding(tookOver: Bool, _ change: () -> Void) {
