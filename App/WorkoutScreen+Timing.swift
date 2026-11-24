@@ -9,8 +9,9 @@ import WorkoutStore
 /// runs first, and "Start in" counts from where the rest moved on (`endRest()`), a full 5 s,
 /// after a Skip rest too. With no rest before it, the exercise opens on it held at its full
 /// count, and the count starts as the screen comes to rest on the set (`arrivingCount()`). It
-/// reaches 0:00 and holds it a second (`LiveWorkout.startInHold`); as it reaches 0 the phone taps
-/// lightly. Nothing skips it (decided 2026-11-23): through it and its hold there is no key, the
+/// reaches 0:00 and holds it a second (`LiveWorkout.startInHold`); as the hold ends and the set
+/// begins, the phone taps lightly. Nothing skips it (decided 2026-11-23): through it and its hold
+/// there is no key, the
 /// + sitting low as with none (`WorkoutKey.waitsToStart`, decided 2026-11-24), and the set's key
 /// comes in as it is up. On a reps set that is its log key, and the set's figures swap back into
 /// the slot. On a timed set the set's time in words stands at the caption line's end; a timed

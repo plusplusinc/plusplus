@@ -7,7 +7,8 @@ import Testing
 
 /// A timed set in a workout, the current exercise over the keys at the bottom, as the workout
 /// screen composes them, each held still (`pausedLeft`): "Start in" over its count, the set's
-/// time at the caption line's end, over "Start now"; the set's own count where the figures stand,
+/// time at the caption line's end, over the key's room kept empty, since no key shows through
+/// it; the set's own count where the figures stand,
 /// "then rest" at the line's end, over "Log early", gray, filling with purple from its leading
 /// edge, its label dark over the purple and light over the gray, beside "+15 s"; and paused, the
 /// count and the fill gray. At AX5, both keys' words whole.
@@ -80,7 +81,7 @@ struct TimedSetSnapshotTests {
         )
     }
 
-    @Test("Start in: 0:05, the set's time beside the side though its rest wraps, and Start now")
+    @Test("Start in: 0:05, the set's time beside the side though its rest wraps, and no key")
     func startIn() {
         var focus = Self.plank(after: "30 seconds", side: "Left")
         focus.place = SetPlace(word: "Round", number: 1, total: 3)
@@ -97,7 +98,7 @@ struct TimedSetSnapshotTests {
                 kind: .startIn(time: "30 seconds"),
             ),
         )
-        let key = Button("Start now") { }.buttonStyle(.primaryKey)
+        let key = countKeys(left: 30).hidden()
         assertThemedSnapshots(of: screen([plank, next], keys: key), width: Self.width)
     }
 

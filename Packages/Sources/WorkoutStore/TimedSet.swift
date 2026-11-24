@@ -51,7 +51,8 @@ public struct TimedSet: Equatable, Sendable {
         startClock + Double(length)
     }
 
-    /// Seconds of "Start in" left at `clock`; 0 once the set counts.
+    /// Seconds to the set's start at `clock`: what "Start in" has left, with its 0:00 hold
+    /// (`LiveWorkout.startInHold`); 0 once the set counts.
     public func startIn(atClock clock: Double) -> Double {
         max(0, startClock - clock)
     }
@@ -142,7 +143,7 @@ extension LiveWorkout {
     }
 
     /// The seconds of "Start in" due before the current set, or, with none due, the one a timed
-    /// set opens on after time away (`beginningCount(at:restOverride:fresh:)`).
+    /// set opens on after time away (`beginningCount(at:restOverride:)`).
     public var startInLength: Int {
         let due = currentSet.map { workout.startIn(before: $0) } ?? 0
         return due > 0 ? due : Self.startIn
@@ -234,11 +235,9 @@ extension LiveWorkout {
         if !restJustEnded, lead == 0, isOnTimedSet {
             lead = Self.startIn
         }
-        if lead > 0 {
-            lead += Int(Self.startInHold)
-        }
         guard lead > 0 || isOnTimedSet else { return begun }
-        begun.count = SetCount(set: set, startClock: base + Double(lead))
+        let held = lead > 0 ? Double(lead) + Self.startInHold : 0
+        begun.count = SetCount(set: set, startClock: base + held)
         return clock < 0 ? Self.timeStartingAtCount(begun) : begun
     }
 
@@ -250,9 +249,8 @@ extension LiveWorkout {
     /// the count, the phone locked or the app gone, so a pause resumed inside it isn't expected;
     /// one would put the time of day late by its length. The key takes no log during a set's
     /// "Start in" (`WorkoutPhase.takesLog`). The next set's count is not begun here: with no rest
-    /// before it, its
-    /// "Start in" begins as the screen lands on it, so all of it is seen
-    /// (`beginningCount(at:restOverride:fresh:)`).
+    /// before it, its "Start in" begins as the screen lands on it, so all of it is seen
+    /// (`beginningCount(at:restOverride:)`).
     public func logging(_ set: PlannedSet, of row: WorkoutExercise, at now: Date) -> LoggedWorkout {
         let clock = loggedWorkout.clock(at: now)
         let timed = timedSet.flatMap { $0.set == set ? $0 : nil }

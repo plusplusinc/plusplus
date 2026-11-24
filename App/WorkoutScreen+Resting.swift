@@ -305,8 +305,8 @@ extension WorkoutScreen {
 
     /// Sleeps to where the screen moves on (`WorkoutPhase.leaveClock(of:)`), once 0:00 has held
     /// a second, or a skip's time a quarter second, then ends the rest; never while paused. A rest
-    /// gone while the
-    /// screen rests, its row's rest set to 0 or the row deleted, ends at once. The rest's end is
+    /// gone while the screen rests, its row's rest set to 0 or the row deleted, ends at once. The
+    /// rest's end is
     /// on the workout's clock, which runs on the wall clock, and the sleep on the device's: woken
     /// with time left, as after the wall clock stepped back, it sleeps on to the end.
     func watchRest() async {

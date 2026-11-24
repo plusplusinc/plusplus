@@ -97,18 +97,20 @@ extension WorkoutScreen {
     /// Skip rest: the rest is stored as cut at the tap (`LiveWorkout.skippingRest(override:at:)`),
     /// its count holding the time it had left at the tap for `LiveWorkout.skipHold`, then ending
     /// as one that ran out does, as the rest's watch says (`watchRest()`). Its keys go at the
-    /// tap. Only when `WorkoutKey.skipRest` says so.
+    /// tap. Only when `WorkoutKey.skipRest` says so, and nothing once 0:00 holds, as the store
+    /// skips nothing then: skipped in the phase alone, the screen moved on before the stored
+    /// rest was over, and the next set's count was never begun.
     private func skipRest() {
+        let now = Date.now
+        guard let resting, let loggedWorkout = session.loggedWorkout else { return }
+        let clock = loggedWorkout.clock(at: now)
+        let left = resting.remaining(atClock: clock)
+        guard left > 0 else { return }
         // With the store's change, before `endRest()`'s animated swap: a new figure put in during
         // the swap stood where it ends from its first frame.
         restSkips += 1
-        if let resting, let loggedWorkout = session.loggedWorkout,
-           let left = Self.times(of: resting, on: loggedWorkout, stopped: true).pausedLeft
-        {
-            let leave = loggedWorkout.clock(at: .now) + LiveWorkout.skipHold
-            phase.skipRest(left: left, leave: leave)
-        }
-        session.skipRest(override: restOverride)
+        phase.skipRest(left: left, leave: clock + LiveWorkout.skipHold)
+        session.skipRest(override: restOverride, at: now)
     }
 
     /// Whether the + sits low, at the screen's bottom, with no key under it: with no exercises,
@@ -116,7 +118,7 @@ extension WorkoutScreen {
     /// that isn't there (decided 2026-11-24). It goes down and comes back up on the update that
     /// takes the key away or brings it in (`FloatingPlace`).
     var plusSitsLow: Bool {
-        footShowsEmpty || (keyKeepsRoom && !showsKey)
+        footShowsEmpty || keyKeepsRoom
     }
 
     /// The fill of Skip rest: running while the rest runs, gray and held while paused; held where
