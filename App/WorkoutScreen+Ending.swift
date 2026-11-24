@@ -20,7 +20,8 @@ extension WorkoutScreen {
     /// Finishes the workout, from the key with no dialog, or from End's Finish: two "+"s pop
     /// off the key a beat apart, each with an impact, and meet as "++" over a still screen; once
     /// they have gone the app goes to Log through the drawer, the screen holding still behind it
-    /// until Log replaces it (`end(holdingStill:_:)`). With VoiceOver, straight to Log, with no
+    /// until Log replaces it (`end(holdingStill:_:)`). Until the drawer opens, no touch reaches
+    /// the app (`windowTouchesOff(_:)`). With VoiceOver, straight to Log, with no
     /// burst, the two impacts still playing a beat apart.
     func finish() {
         guard !voiceOver else {

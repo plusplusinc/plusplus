@@ -49,6 +49,9 @@ struct WorkoutLauncher: View {
                     LogScreen(session: session)
                 }
             }
+            // A finish's hold before its way to Log is still: no touch reaches the screen, its
+            // bar, or the drawer until the way opens the drawer.
+            .windowTouchesOff(session.isLeadPending)
             .keepsScreenOn(session.loggedWorkout != nil)
             // A binding, so a finish redraws only the haptics, not this whole view.
             .finishHaptics($finishBeats)

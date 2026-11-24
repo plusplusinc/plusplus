@@ -36,8 +36,9 @@ public final class AppSession {
     @ObservationIgnored var throughDrawer: Task<Void, Never>?
     @ObservationIgnored var throughDrawerPlace: Showing?
     /// A way's lead is under way (`show(_:after:throughDrawer:markWait:)`): the drawer is locked
-    /// until the way opens it, or whatever ends the way ends the lead.
-    var isLeadPending = false
+    /// until the way opens it, or whatever ends the way ends the lead. The app takes no touches
+    /// meanwhile: a finish's hold is still.
+    public internal(set) var isLeadPending = false
     /// The clock those beats sleep on: a test steps its own.
     @ObservationIgnored var beatClock: any Clock<Duration> = ContinuousClock()
     /// Where the app is, under the drawer (`Screen`).
