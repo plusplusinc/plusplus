@@ -26,7 +26,8 @@ public struct RestBlock: View {
     /// The rest's length.
     let length: Int
     let ends: Date
-    /// While paused, or closing as the workout ends, the seconds left; nil while running.
+    /// While paused, closing as the workout ends, or cut by Skip rest, the seconds left; nil
+    /// while running.
     let pausedLeft: Double?
     /// Held by a pause: the count is gray, as Skip rest's fill is. Held by End, it stays white.
     let isPaused: Bool
@@ -128,7 +129,7 @@ public struct RestBlock: View {
                 }
                 // A cut figure is a new one, put in and the old taken out at once, with any roll
                 // in flight: a cut landing on a second's roll, its change at once, carried the
-                // roll on to the new digits as the count went, toward 0:00 on Skip rest.
+                // roll on to the new digits as the count went. Skip rest's holds the time left.
                 .transition(.identity)
                 .id(figureKey(skips: skips))
                 .accessibilityElement(children: .ignore)
@@ -168,9 +169,9 @@ public struct RestBlock: View {
 
     /// Whether the figure rolls to `seconds` on `change`: a second going by while the count
     /// runs, and +15 s while it is open, paused included. A held count, paused, ended, or
-    /// leaving, never ticks. A change to 0:00, at the run-out or on Skip rest, is at once:
-    /// rolling, 0:00 came in half a second after the dot had left, and a cut to 0:00 rolled down
-    /// as it shrank away.
+    /// leaving, never ticks. A change to 0:00, at the run-out, is at once: rolling, 0:00 came in
+    /// half a second after the dot had left. A rest cut by Skip rest never reads 0:00: it goes
+    /// holding the time it had left at the tap.
     func rolls(on change: Change, to seconds: Double) -> Bool {
         guard seconds > 0 else { return false }
         return switch change {
