@@ -14,6 +14,14 @@ extension WorkoutPhase {
         /// Cut by Skip rest, the seconds it had left at the tap, which its count holds as it
         /// goes (`skipRest(left:)`); nil for a rest that runs to 0:00.
         public internal(set) var skippedLeft: Double?
+        /// Its keys have gone for the next set's own, dimmed (`startInRest()`): between sets, as
+        /// it reads 0:00 and holds it before the swap back.
+        public internal(set) var isStartingIn = false
+
+        /// Whether Skip rest and +15 s are its keys: until it is skipped or gives way.
+        public var hasKeys: Bool {
+            beat < .returning && !isStartingIn && skippedLeft == nil
+        }
 
         public enum Beat: Comparable, Sendable {
             /// Logged, and not yet drawn.
@@ -43,7 +51,8 @@ extension WorkoutPhase {
     }
 
     /// Where a screen opening on `live` is, as after a relaunch: out of a workout with none; in
-    /// the rest after its last set, drawn and settled, while one runs at `now`; else at rest on
+    /// the rest after its last set, drawn and settled, while one runs at `now`, its "Start in" and
+    /// its hold at 0:00 included (`WorkoutRest.isOver(atClock:)`); else at rest on
     /// the next set. `restOverride` as `LiveWorkout.rest(override:)`'s.
     public init(resuming live: LiveWorkout?, restOverride: Int? = nil, at now: Date) {
         guard let live else {
@@ -99,13 +108,26 @@ extension WorkoutPhase {
         return true
     }
 
-    /// Skip rest cuts the rest with `left` seconds to go: its count holds them from here, through
-    /// the swap back or the move on (`Move.skippedLeft`), and goes with the phase. Stored as over
-    /// at the tap, the rest drawn from the store read 0:00 on its way out.
+    /// Skip rest cuts the rest with `left` seconds to go: its count holds them from here, for a
+    /// second (`LiveWorkout.restHold`), then through the swap back or the move on
+    /// (`Move.skippedLeft`), and goes with the phase. Its keys go at the tap. Stored as cut at the
+    /// tap, the rest drawn from the store read 0:00 on its way out.
     @discardableResult
     public mutating func skipRest(left: Double) -> Bool {
         guard case var .resting(rest) = self, rest.beat < .returning else { return false }
         rest.skippedLeft = left
+        self = .resting(rest)
+        return true
+    }
+
+    /// The rest's keys go at `WorkoutRest.keysGoClock`: between two sets of one exercise, as it
+    /// reads 0:00, which it holds until the swap back. At any beat of the rest before its end,
+    /// once.
+    @discardableResult
+    public mutating func startInRest() -> Bool {
+        guard case var .resting(rest) = self, rest.beat < .returning, !rest.isStartingIn
+        else { return false }
+        rest.isStartingIn = true
         self = .resting(rest)
         return true
     }

@@ -254,8 +254,8 @@ private struct KindSwap: ViewModifier, Animatable {
             ))
         } else {
             content.going(RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
-                // Going, its count holds where it stood: still ticking, "Start in" cut short by
-                // "Start now" read one second less as it went.
+                // Going, its count holds where it stood: still ticking, a count cut short read
+                // one second less as it went.
                 .environment(\.waitLeaves, swap > 0)
         }
     }
@@ -302,12 +302,13 @@ extension EnvironmentValues {
 }
 
 extension SetRest.Kind {
-    /// The seconds left a countdown of this kind shows, `length` long. "Start in" reads 0:01
-    /// through its last second until it goes, never 0:00; and at most its length, as it counts
-    /// from after the slot has come in, so its 0:05 shows a full second at full strength.
+    /// The seconds left a countdown of this kind shows, `length` long. "Start in" reads at most
+    /// its length, as it counts from after the slot has come in, so its 0:05 shows a full second
+    /// at full strength; it reaches 0:00 and holds it a second before its set begins
+    /// (`LiveWorkout.startInHold`).
     func shown(length: Int) -> ClosedRange<Double> {
         if case .startIn = self {
-            0.001 ... Double(length)
+            0 ... Double(length)
         } else {
             0 ... .infinity
         }

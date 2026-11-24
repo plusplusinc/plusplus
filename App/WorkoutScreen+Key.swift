@@ -35,8 +35,10 @@ extension WorkoutScreen {
             )
         } else if case let .count(text) = role {
             countKeys(text, isOut: isOut)
+                .keyWaits(liveKey.waitsToStart)
         } else {
             mainKey(role, isOut: isOut)
+                .keyWaits(liveKey.waitsToStart)
         }
     }
 
@@ -59,7 +61,7 @@ extension WorkoutScreen {
         case let .back(exercise, isAbove):
             // Whole, wrapping at the largest text sizes rather than cut short.
             Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
-        case .log, .finish, .rest, .startNow, .count:
+        case .log, .finish, .rest, .count:
             // One branch, so words that stay are the same view: a branch per role crossfaded
             // "Log last set" into itself as the last set's row closed, which dimmed it.
             Text(verbatim: spokenKey(role))
@@ -70,7 +72,6 @@ extension WorkoutScreen {
         switch role {
         case .start: String(localized: "Start")
         case let .log(text), let .count(text): text
-        case .startNow: String(localized: "Start now")
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
         case .finish: String(localized: "Finish workout")
         case .rest: String(localized: "Skip rest")
@@ -95,9 +96,10 @@ extension WorkoutScreen {
         }
     }
 
-    /// Skip rest: the rest is stored as ended at the tap, then ends as one that ran out does
-    /// (`endRest()`), its count holding the time it had left at the tap as it goes, never 0:00.
-    /// Only when `WorkoutKey.skipRest` says so.
+    /// Skip rest: the rest is stored as cut at the tap (`LiveWorkout.skippingRest(override:at:)`),
+    /// its count holding the time it had left at the tap for a second, then giving way to its
+    /// "Start in" before another exercise, or swapping back between sets, as the rest's watch
+    /// says (`watchRest()`). Its keys go at the tap. Only when `WorkoutKey.skipRest` says so.
     private func skipRest() {
         // With the store's change, before `endRest()`'s animated swap: a new figure put in during
         // the swap stood where it ends from its first frame.
@@ -108,7 +110,6 @@ extension WorkoutScreen {
             phase.skipRest(left: left)
         }
         session.skipRest(override: restOverride)
-        endRest()
     }
 
     /// The fill of Skip rest: running while the rest runs, gray and held while paused; held where
@@ -123,13 +124,15 @@ extension WorkoutScreen {
         }
         guard let rest = phase.drawnRest, rest.beat < .returning,
               let (resting, loggedWorkout) = drawnResting,
-              !resting.isOver(atClock: loggedWorkout.clock(at: .now))
+              !resting.hasGivenWay(atClock: loggedWorkout.clock(at: .now))
         else { return .over }
+        // Full as the keys go, with the next set's "Start in" still to run.
         let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
+        let startIn = resting.endClock - resting.keysGoClock
         return KeyFill(
-            length: Double(resting.length),
-            ends: ends,
-            pausedLeft: pausedLeft,
+            length: resting.keysGoClock - resting.startClock,
+            ends: ends.addingTimeInterval(-startIn),
+            pausedLeft: pausedLeft.map { max(0, $0 - startIn) },
             isPaused: loggedWorkout.isPaused,
         )
     }
@@ -151,13 +154,6 @@ extension WorkoutScreen {
             skipRest()
         case let .extendRest(seconds):
             extendRest(by: seconds)
-        case .startNow:
-            // The count, the key, and the segment all change from the tap, on the slot's swap.
-            withAnimation(SetMotion.restSwap) {
-                session.startCountNow()
-                // "Start now" is the key only on a timed set.
-                phase.startCount(isTimed: true)
-            }
         case let .extendCount(seconds):
             session.extendCount(by: seconds)
         case .nothing:

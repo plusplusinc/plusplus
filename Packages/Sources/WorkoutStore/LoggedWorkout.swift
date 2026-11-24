@@ -77,7 +77,7 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     }
 
     /// The workout with its time starting at `now`, when it hasn't yet: the first set begun
-    /// before its "Start in" ran out, by a log or "Start now". Unchanged once the time runs.
+    /// before its "Start in" ran out, by a log. Unchanged once the time runs.
     public func startingClock(at now: Date) -> Self {
         guard isInProgress, clock(at: now) < 0 else { return self }
         var started = self
@@ -94,7 +94,7 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     }
 
     /// The whole second of the clock at or before `now`, where what is in effect at once
-    /// begins: the rest at a set's log, and a timed set's count at "Start now" or Skip rest.
+    /// begins: the rest at a set's log, and the next set's count at Skip rest.
     /// Never ahead of `now`, so nothing reads it as not yet begun; its first second runs short.
     public func tick(before now: Date) -> Double {
         clock(at: now).rounded(.down)

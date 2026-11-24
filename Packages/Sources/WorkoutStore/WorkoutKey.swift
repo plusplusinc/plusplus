@@ -43,8 +43,8 @@ public struct WorkoutKey: Sendable {
     /// rows shift, or before its rest shows), as a count, so the key swaps once, from it to
     /// what follows; out of a rest onto a timed set, its "Start in" where one is due, else its
     /// count, which the rest's end began; and on the way to a timed set with no rest before it
-    /// (Start, or a move once the rows shift), "Start in". Nil for a reps set, whose key logs
-    /// through its "Start in".
+    /// (Start, or a move once the rows shift), "Start in". Nil for a reps set, whose wait
+    /// `waitsToStart` says.
     public var drawnCount: CountStage? {
         if let logged = phase.loggedAndDrawn {
             return stored?.loggedCount(of: logged) == nil ? nil : .counting
@@ -53,8 +53,13 @@ public struct WorkoutKey: Sendable {
         if let stage = phase.timing {
             return stage
         }
+        // A rest that has given way, or been skipped, waits on the set: its key, empty.
+        if let rest = phase.drawnRest, rest.beat < .returning {
+            return .startIn
+        }
         guard phase.isMovingOn || phase.isLeavingRest else { return nil }
         guard phase.isLeavingRest, let set = shown.currentSet else { return .startIn }
+        // Out of a rest that held the "Start in", the count begins as the move lands.
         return shown.workout.startIn(before: set) > 0 ? .startIn : .counting
     }
 
@@ -79,17 +84,43 @@ public struct WorkoutKey: Sendable {
     }
 
     /// The log key saying `text`, or during a rest Skip rest and +15 s in its place: from the log
-    /// of a set with a rest after it until the rest ends, and through End's leaving of a rest.
+    /// of a set with a rest after it until the rest is skipped or gives way
+    /// (`WorkoutPhase.Resting.hasKeys`), and through End's leaving of a rest.
     private func logRole(_ text: String) -> Role {
-        let isResting = phase.drawnRest.map { $0.beat < .returning } ?? false
-        if isResting {
+        if phase.drawnRest?.hasKeys == true {
             return .rest
         }
         return switch drawnCount {
-        case .startIn: .startNow
-        case .counting: .count(String(localized: "Log early"))
+        case .startIn, .counting: .count(String(localized: "Log early"))
         case nil: .log(text)
         }
+    }
+
+    /// Whether the key is the next set's own, waiting on it: dimmed, in place, and taking no tap
+    /// (decided 2026-11-23). Through a set's "Start in", lit at 0 with no swap of keys; through a
+    /// rest's "Start in", or its hold at 0:00 or a skip's, and the move on from it, until the set
+    /// is ready as the screen comes to rest on it. A timed set's is "Log early" with +15 s, empty;
+    /// a reps set's, its log key. Only for the current set's key, not a set just logged still
+    /// drawn, nor a rest's keys.
+    public var waitsToStart: Bool {
+        guard let shown, let set = shown.currentSet, phase.keySet == nil,
+              phase.loggedAndDrawn == nil
+        else { return false }
+        switch role {
+        case .log, .count: break
+        default: return false
+        }
+        if let rest = phase.drawnRest, rest.beat < .returning {
+            return true
+        }
+        if shown.isOnTimedSet {
+            return drawnCount == .startIn
+        }
+        if let stage = phase.timing {
+            return stage == .startIn
+        }
+        guard phase.isMovingOn || phase.isLeavingRest else { return false }
+        return shown.workout.startIn(before: set) > 0
     }
 
     /// What a tap on +15 s does: adds to the set counting, once it counts.
@@ -124,7 +155,7 @@ public struct WorkoutKey: Sendable {
 
     private var isRestIn: Bool {
         guard let rest = phase.resting else { return false }
-        return rest.beat < .returning && rest.beat >= (rest.isWithinExercise ? .settled : .landed)
+        return rest.hasKeys && rest.beat >= (rest.isWithinExercise ? .settled : .landed)
     }
 
     /// What a tap on the key does, as the workout is stored. Out of a workout, Start. After the
@@ -143,10 +174,7 @@ public struct WorkoutKey: Sendable {
         if wayBack != nil || isScrolledAway {
             return .back
         }
-        // A reps set logs through its "Start in"; a timed one starts.
-        if phase.timing == .startIn, stored.isOnTimedSet {
-            return .startNow
-        }
+        // Nothing through "Start in", on a reps set or a timed one.
         guard phase.takesLog else { return .nothing }
         return .log(
             set,
@@ -177,10 +205,9 @@ extension WorkoutKey {
         /// During a rest, Skip rest and +15 s in the log key's place: another key, so they swap
         /// with it as any two keys do, never crossfading through it in its place.
         case rest
-        /// During a timed set's "Start in", the key that starts it now.
-        case startNow
-        /// A timed set counting: its log key, saying which as `log` does, filling as it counts,
-        /// with +15 s beside it. Another key than `log`, which the bar swaps in.
+        /// A timed set counting, or waiting through its "Start in" (`waitsToStart`): its log
+        /// key, saying which as `log` does, filling as it counts, with +15 s beside it. Another
+        /// key than `log`, which the bar swaps in.
         case count(String)
 
         /// Which key this is: a change of kind swaps the key for another, a change within one,
@@ -191,7 +218,6 @@ extension WorkoutKey {
             case back
             case finish
             case rest
-            case startNow
             case count
         }
 
@@ -202,7 +228,6 @@ extension WorkoutKey {
             case .back: .back
             case .finish: .finish
             case .rest: .rest
-            case .startNow: .startNow
             case .count: .count
             }
         }
@@ -226,8 +251,6 @@ extension WorkoutKey {
         case skipRest
         /// +15 s: the rest running gets `by` seconds more.
         case extendRest(by: Int)
-        /// "Start now": the timed set counts from now.
-        case startNow
         /// +15 s: the timed set counting gets `by` seconds more.
         case extendCount(by: Int)
         case nothing

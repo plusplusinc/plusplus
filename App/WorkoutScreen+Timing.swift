@@ -6,13 +6,16 @@ import WorkoutStore
 /// workout's first set, on to another exercise, between a superset's members in every round),
 /// and before a set's other side, the figures' slot shows "Start in" over a 5 s count
 /// (`Workout.startIn(before:)`); between two sets of one exercise, none. A rest before it
-/// runs first, and "Start in" counts from the rest's end (`endRest()`). The exercise opens on
-/// it held at its full count, and the count starts as the screen comes to rest on the set
-/// (`arrivingCount()`); as it reaches 0 the phone taps lightly. On a reps set the key logs
-/// through it, and at 0 the set's figures swap back into the slot. On a timed set the set's
-/// time in words stands at the caption line's end, and the key is "Start now"; a timed set
-/// with no "Start in" due counts from the end of the rest before it, or at the tap on Skip
-/// rest. The set's count then runs in the figures' slot, with no word over
+/// holds it as its last seconds: the rest gives way to it with 0:05 left (`endRest()`,
+/// `WorkoutRest.startInClock`), and a Skip rest leaves it its full 5 s from the tap. With no
+/// rest before it, the exercise opens on it held at its full count, and the count starts as the
+/// screen comes to rest on the set (`arrivingCount()`); as it reaches 0 the phone taps lightly.
+/// Nothing skips it (decided 2026-11-23): through it the key is the set's own, dimmed in place
+/// and taking no tap (`WorkoutKey.waitsToStart`), lit at 0 with no swap. On a reps set that is
+/// its log key, and at 0 the set's figures swap back into the slot. On a timed set the set's
+/// time in words stands at the caption line's end, and the key is "Log early", empty, with
+/// +15 s; a timed set with no "Start in" due counts from the end of the rest before it, or at
+/// the tap on Skip rest. The set's count then runs in the figures' slot, with no word over
 /// it, "then rest 0:30" at the caption line's end, the set's segment green, and the key is
 /// "Log early", gray, filling with the done purple from its leading edge,
 /// with +15 s beside it (`CountKeys`). At 0 the set logs itself at its full time, with the
@@ -52,6 +55,10 @@ extension WorkoutScreen {
                 ends: .distantPast,
                 pausedLeft: timed.remaining(atClock: shown.loggedWorkout.clock(at: .now)),
             )
+        }
+        // Through "Start in", empty, waiting to run from 0.
+        if phase.loggedAndDrawn == nil, liveKey.drawnCount == .startIn {
+            return KeyFill(length: 1, ends: .distantFuture, pausedLeft: 1)
         }
         guard countBeats.earlyLog == nil, phase.loggedAndDrawn == nil,
               liveKey.drawnCount == .counting,
@@ -183,8 +190,10 @@ extension WorkoutScreen {
             return SetRest(
                 isRunning: true,
                 length: length,
-                ends: loggedWorkout.date(ofClock: timed.startClock),
-                pausedLeft: holds ? timed.startIn(atClock: clock) : nil,
+                // Reading 0:00 for its hold before the set begins.
+                ends: loggedWorkout.date(ofClock: timed.startClock - LiveWorkout.startInHold),
+                pausedLeft: holds
+                    ? max(0, timed.startIn(atClock: clock) - LiveWorkout.startInHold) : nil,
                 turns: true,
                 kind: .startIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
                 isPaused: loggedWorkout.isPaused,
@@ -232,18 +241,20 @@ extension WorkoutScreen {
         }
         let loggedWorkout = shown.loggedWorkout
         let holds = loggedWorkout.isPaused || phase.endingCount != nil
+        // Reading 0:00 for its hold before the set begins.
+        let zero = count.startClock - LiveWorkout.startInHold
         return SetRest(
             isRunning: true,
             length: length,
-            ends: loggedWorkout.date(ofClock: count.startClock),
-            pausedLeft: holds ? max(0, count.startClock - loggedWorkout.clock(at: .now)) : nil,
+            ends: loggedWorkout.date(ofClock: zero),
+            pausedLeft: holds ? max(0, zero - loggedWorkout.clock(at: .now)) : nil,
             turns: true,
             kind: .startIn(),
             isPaused: loggedWorkout.isPaused,
         )
     }
 
-    /// What the count's watch waits on: the phase's count, a new count, "Start now", +15 s, a
+    /// What the count's watch waits on: the phase's count, a new count, +15 s, a
     /// pause, or a resume starts it again. On a reps set, its "Start in" alone.
     var countWatch: CountWatch? {
         guard let stage = phase.timing, let live, let count = live.setCount,

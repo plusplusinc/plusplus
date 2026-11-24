@@ -386,12 +386,12 @@ public enum WorkoutPhase: Equatable, Sendable {
         }
     }
 
-    /// Whether the key takes a log: only at rest, during "Start in" too, where a reps set logs at
-    /// any moment and a timed set's key is "Start now" instead (`WorkoutKey.tap`). While a set
-    /// is held, a second tap in its beat, as a double tap would be, is dropped; while the
-    /// workout moves on, the stored workout is already past the set drawn as current, and a log
-    /// taken then would land on a set, or an exercise, not yet shown.
+    /// Whether the key takes a log: only at rest, never during "Start in", on a reps set or a
+    /// timed one, since the set hasn't begun (decided 2026-11-23). While a set is held, a second
+    /// tap in its beat, as a double tap would be, is dropped; while the workout moves on, the
+    /// stored workout is already past the set drawn as current, and a log taken then would land
+    /// on a set, or an exercise, not yet shown.
     public var takesLog: Bool {
-        self == .running || timing != nil
+        self == .running || timing == .counting
     }
 }

@@ -11,9 +11,11 @@ import WorkoutStore
 /// shows its equipment (`nextUp`), all still by the time the pulse, shooting down, reaches the
 /// word "Rest", where it plops and wiggles (`SetMotion.aroundRest(_:)`), short of the next
 /// exercise's node. Through the rest the dot waits there, the current node's size and steady
-/// green, with nothing on the rail to mark the place (`restDotRow`). As the countdown reaches 0
-/// the same move plays from the rest to the next exercise's node, the rest closing and the
-/// exercise opening at once.
+/// green, with nothing on the rail to mark the place (`restDotRow`). The rest's last 5 s are the
+/// next exercise's "Start in" (`WorkoutRest.startIn`): as the countdown reaches 0:05 the same
+/// move plays from the rest to the next exercise's node, the rest closing and the exercise
+/// opening at once on "Start in" at 0:05, and the set begins at the rest's end. A rest of 5 s
+/// or less runs none: the move goes straight on to the exercise's "Start in".
 ///
 /// In a superset only a round's last member rests. With a round left, the rest opens above the
 /// first member (`restRow(of:in:)`): the pulse runs up the loop and on up the rail to the word,
@@ -24,9 +26,11 @@ import WorkoutStore
 ///
 /// Through any rest the key at the bottom swaps, as keys swap, for Skip rest, wide, gray, filling
 /// with the done purple from its leading edge as the rest runs (`restKeyFill`), and +15 s beside
-/// it (`CountKeys`), the + above it staying put. There is no bar under the countdown. Skip rest
-/// ends the rest at the tap as running out does (`skipRest()`), its count holding the time it had
-/// left as it goes, never 0:00 (`WorkoutPhase.skipRest(left:)`); +15 s steps the fill back and
+/// it (`CountKeys`), the + above it staying put, full as "Start in" begins, where they go. There
+/// is no bar under the countdown. Skip rest ends the rest at the tap as running out does
+/// (`skipRest()`), its count holding the time it had left as it goes, never 0:00
+/// (`WorkoutPhase.skipRest(left:)`), and before another exercise its "Start in" runs its full
+/// 5 s from the tap; +15 s steps the fill back and
 /// turns the countdown, the dot staying put. A pause grays the countdown and the fill. Taps on
 /// them while the rest is still coming in, as a double tap's second on Log set, do nothing. With
 /// Reduce Motion, each move is one crossfade, the dot at the word through the rest.
@@ -185,7 +189,8 @@ extension WorkoutScreen {
               let next = live?.currentSet,
               resting?.isOver(atClock: loggedWorkout.clock(at: .now)) ?? true
         else { return }
-        // A timed set next counts from the rest's end, in the same update as the rest ends.
+        // In the same update as the rest ends: before another exercise, its "Start in" runs on
+        // from the rest's last seconds; between sets, a timed set counts from here.
         session.beginCount(override: restOverride)
         if rest.isWithinExercise {
             // The next set's figures swap back into their slot as the line rolls on, and Log set
@@ -210,6 +215,11 @@ extension WorkoutScreen {
         // Not again while its fade waits for its turn to start.
         guard rest.beat == .settled, !isCrossfading else { return }
         restEnds += 1
+        // Its room closes holding the seconds it moved on with, the "Start in" taking them on in
+        // the exercise's slot: closed as an empty rest, it read 0:00 as it went.
+        if rest.skippedLeft == nil, let resting {
+            phase.skipRest(left: resting.remaining(atClock: loggedWorkout.clock(at: .now)))
+        }
         // From the rest's height, not the row's pitch at rest, which a relaunch into the rest never
         // measured (the list landed in a second motion). Before a superset's next round the rest
         // closes above
@@ -294,15 +304,23 @@ extension WorkoutScreen {
         return RestWatch(endClock: resting.endClock, isPaused: loggedWorkout.isPaused)
     }
 
-    /// Sleeps to the rest's end, then ends it; never while paused. A rest gone while the screen
-    /// rests, its row's rest set to 0 or the row deleted, ends at once. The rest's end is on the
-    /// workout's clock, which runs on the wall clock, and the sleep on the device's: woken with
-    /// time left, as after the wall clock stepped back, it sleeps on to the end.
+    /// Sleeps to where the rest's keys go (`WorkoutRest.keysGoClock`) and lets them
+    /// (`WorkoutPhase.startInRest()`), the next set's coming dimmed; then to where the screen
+    /// moves on (`leaveClock`): before another exercise with its "Start in"'s seconds left,
+    /// between sets once 0:00 has held a second. Never while paused. A rest gone while the screen
+    /// rests, its row's rest set to 0 or the row deleted, ends at once. The rest's times are on
+    /// the workout's clock, which runs on the wall clock, and the sleeps on the device's: woken
+    /// with time left, as after the wall clock stepped back, each sleeps on.
     func watchRest() async {
         guard isResting else { return }
         while let resting {
             guard let loggedWorkout = session.loggedWorkout, !loggedWorkout.isPaused else { return }
-            let left = resting.remaining(atClock: loggedWorkout.clock(at: .now))
+            let clock = loggedWorkout.clock(at: .now)
+            let hasGivenWay = resting.hasGivenWay(atClock: clock)
+            if hasGivenWay, phase.resting?.isStartingIn == false {
+                withTransaction(\.disablesAnimations, true) { phase.startInRest() }
+            }
+            let left = (hasGivenWay ? resting.leaveClock : resting.keysGoClock) - clock
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }

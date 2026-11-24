@@ -13,7 +13,7 @@ extension WorkoutPhase {
         return true
     }
 
-    /// "Start in" is over, by its run to 0 or "Start now": a timed set counts, and a reps set
+    /// "Start in" has run to 0: a timed set counts, and a reps set
     /// stands as one with no "Start in" does. Only from "Start in".
     @discardableResult
     public mutating func startCount(isTimed: Bool) -> Bool {
