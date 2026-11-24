@@ -133,8 +133,9 @@ extension WorkoutPhase {
         self == .starting(.pressed) || self == .starting(.growing)
     }
 
-    /// From Start's press until the workout's key comes up, the beat after the first exercise
-    /// has landed included: the screen is on its way to the first set, not yet at rest on it.
+    /// Every beat of Start, from its press until the workout's key comes up: wider than
+    /// `isStarting`, with the beat after the first exercise has landed and, with no motion, the
+    /// crossfade. The screen is on its way to the first set, not yet at rest on it.
     public var isOnWayIn: Bool {
         guard case .starting = self else { return false }
         return true

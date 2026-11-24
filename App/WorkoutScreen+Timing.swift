@@ -211,8 +211,9 @@ extension WorkoutScreen {
         else { return nil }
         let length = shown.startInLength
         guard drawnStage(in: shown) == .startIn, let count = shown.setCount else {
-            // Through all of Start, the beat between the landing and the key coming up included:
-            // without it the set's figures showed for that beat, then "Start in" came back.
+            // Through all of Start, the beat between the landing and the key coming up, and the
+            // crossfade with no motion, included: without them the set's figures showed for that
+            // beat, then "Start in" came back.
             guard phase.isOnWayIn || phase.isMovingOn, shown.workout.startIn(before: set) > 0
             else { return nil }
             return SetRest(
