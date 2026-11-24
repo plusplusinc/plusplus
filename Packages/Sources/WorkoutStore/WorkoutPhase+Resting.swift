@@ -133,6 +133,14 @@ extension WorkoutPhase {
         self == .starting(.pressed) || self == .starting(.growing)
     }
 
+    /// Every beat of Start, from its press until the workout's key comes up: wider than
+    /// `isStarting`, with the beat after the first exercise has landed and, with no motion, the
+    /// crossfade. The screen is on its way to the first set, not yet at rest on it.
+    public var isOnWayIn: Bool {
+        guard case .starting = self else { return false }
+        return true
+    }
+
     /// The set logged that stays on its exercise, shown as still to do until the line rolls on.
     public var held: PlannedSet? {
         guard case let .held(set) = self else { return nil }
