@@ -20,6 +20,14 @@ extension AppSession {
         addExercise = AddExerciseSheet()
     }
 
+    /// Opens Add exercise if New asked for it as it made the workout showing (`startNew(from:)`),
+    /// once: the workout screen calls it as it shows.
+    public func takeAddExerciseOnShow() {
+        guard opensAddExerciseOnShow else { return }
+        opensAddExerciseOnShow = false
+        openAddExercise()
+    }
+
     public func closeAddExercise() {
         addExercise = nil
     }

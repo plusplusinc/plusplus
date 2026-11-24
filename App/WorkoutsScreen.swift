@@ -151,10 +151,11 @@ struct WorkoutsScreen: View {
                     MenuButton(session: session)
                 }
             }
-            // Where the workout screen's + sits on an empty workout.
+            // Where the workout screen's + sits on an empty workout. It carries the list's
+            // Muscle and Equipment filters into Add exercise, which then comes up by itself.
             .floatingButton(
                 Button("New workout", systemImage: "plus") {
-                    Task { await session.startNew() }
+                    Task { await session.startNew(from: filter) }
                 },
             )
             .sheet(item: $choosing) { sheet in

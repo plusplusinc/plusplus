@@ -20,8 +20,12 @@ public final class AppSession {
     public private(set) var rowSheet: RowSheet?
     public internal(set) var addExercise: AddExerciseSheet?
     /// What Add exercise is narrowed by in the open workout, kept from one opening to the next
-    /// until cleared; a different workout starts with none (`show(_:on:)`).
+    /// until cleared; a different workout starts with none (`show(_:on:)`), except one New
+    /// makes, which starts on the Workouts list's filters (`startNew(from:)`).
     public var addExerciseFilter = ExerciseFilter()
+    /// Set by New with a filter carried over, until the workout screen shows and opens Add
+    /// exercise (`takeAddExerciseOnShow()`).
+    @ObservationIgnored var opensAddExerciseOnShow = false
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
     /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
@@ -250,14 +254,23 @@ public final class AppSession {
 
     /// Pushes a new, empty workout onto the Workouts screen; an empty one open already is shown
     /// as it is. Nothing is saved for the new workout until it changes. Either way Add exercise
-    /// starts with no filter: to the person, New is a different workout.
-    public func startNew() async {
+    /// starts on the list's Muscle and Equipment filters, its Length carrying nothing: to the
+    /// person, New is a different workout. With either of those on, Add exercise comes up by
+    /// itself once the workout screen shows (`takeAddExerciseOnShow()`).
+    public func startNew(from listFilter: WorkoutFilter = WorkoutFilter()) async {
         guard !isSwitching else { return }
-        addExerciseFilter = ExerciseFilter()
-        guard !current.isEmpty else {
-            return show(current)
+        if current.isEmpty {
+            show(current)
+        } else {
+            await switchTo { Workout() }
         }
-        await switchTo { Workout() }
+        guard current.isEmpty else { return }
+        // After the show, whose reset on a new workout's id would wipe it.
+        addExerciseFilter = ExerciseFilter(
+            muscleGroups: listFilter.muscleGroups,
+            equipment: listFilter.equipment,
+        )
+        opensAddExerciseOnShow = addExerciseFilter.isOn
     }
 
     /// Lets the last edit land, then pushes the workout `next` gives, if any. An edit made while
@@ -284,6 +297,7 @@ public final class AppSession {
         if workout.id != current.id {
             addExerciseFilter = ExerciseFilter()
         }
+        opensAddExerciseOnShow = false
         opened = workout
         current = workout
         screen = shown
