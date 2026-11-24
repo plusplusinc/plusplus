@@ -21,10 +21,10 @@ extension AppSession {
     }
 
     /// Opens Add exercise if New asked for it as it made the workout showing (`startNew(from:)`),
-    /// once, `hold` after the workout screen starts to show: the new workout is seen arrive and
-    /// rest before the sheet rises, which at once rose over the push and read as too quick.
-    /// Nothing opens if the wait is cancelled, as when the screen goes and its task with it, or
-    /// the app has shown another screen or workout (which clears the ask) or the drawer
+    /// once, `hold` after the workout screen has finished arriving: the new workout is seen
+    /// arrive and rest before the sheet rises, which at once rose over the push and read as too
+    /// quick. Nothing opens if the wait is cancelled, as when the screen goes and its task with
+    /// it, or the app has shown another screen or workout (which clears the ask) or the drawer
     /// meanwhile, as a created row's sheet waits (`openRowSheet(_:after:if:)`).
     public func takeAddExerciseOnShow(after hold: Duration) async {
         guard opensAddExerciseOnShow else { return }

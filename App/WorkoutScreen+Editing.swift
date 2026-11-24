@@ -271,15 +271,11 @@ extension WorkoutScreen {
     /// node giving up its blue, so the arrival is over before the next thing moves.
     static let createdHold: Duration = .milliseconds(500)
 
-    /// From a new workout starting to show, pushed from the Workouts list's filters, to its Add
-    /// exercise rising by itself: the push slides in (`pushGone`), then the empty workout rests
-    /// as a created row does (`createdHold`) before the sheet comes up.
-    static let newWorkoutHold = pushGone + createdHold
-
-    /// From a workout starting to show, as its `.task` starts, to the push having settled: on the
-    /// iOS 27 simulator the task started about 0.1 s into the push, and the push's last sliver
-    /// of the list left the screen 0.3 to 0.4 s after it began.
-    static let pushGone: Duration = .milliseconds(400)
+    /// How long a new workout made from the Workouts list's filters rests, once its push has
+    /// settled, before its Add exercise rises by itself (`AddExerciseOnArrival`). Kept the beat
+    /// the maintainer tried, which waited 0.9 s from the screen's task: UIKit reports the push
+    /// settled 0.5 s after that task starts (iOS 27 simulator).
+    static let arrivedHold: Duration = .milliseconds(400)
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
@@ -356,4 +352,24 @@ struct CreatedWait: Equatable {
     let wasIdle: Bool
     /// Made with nothing typed, so Customize opens with its name to type over.
     var needsName = false
+}
+
+/// Opens Add exercise on a new workout made from the Workouts list's filters, once its push has
+/// settled and the empty workout has rested `arrivedHold`, so it is seen arrive before the
+/// sheet rises; a sheet that rose with the push read as too quick. Timed from UIKit's word that
+/// the push is over (`onScreenArrival(_:)`), not from a wait from the push's start, which
+/// under load let the sheet rise while the push still slid in. The wait is the screen's task,
+/// so leaving before it ends opens nothing (`AppSession.takeAddExerciseOnShow(after:)`).
+struct AddExerciseOnArrival: ViewModifier {
+    let session: AppSession
+    @State private var hasArrived = false
+
+    func body(content: Content) -> some View {
+        content
+            .onScreenArrival { hasArrived = true }
+            .task(id: hasArrived) {
+                guard hasArrived else { return }
+                await session.takeAddExerciseOnShow(after: WorkoutScreen.arrivedHold)
+            }
+    }
 }

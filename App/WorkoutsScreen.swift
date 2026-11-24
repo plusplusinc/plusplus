@@ -344,9 +344,10 @@ struct WorkoutsScreen: View {
 }
 
 extension WorkoutsScreen {
-    /// "Create workout", where the filters match no workout and none is a piece short: a new
-    /// blank workout, whose Add exercise rises by itself on the list's Muscle and Equipment
-    /// filters, which the gray line names as Add exercise's Create row names its own.
+    /// "Create workout", while any filter is on, after the matches and before "Also needs", as
+    /// Add exercise places its Create row: a new blank workout, whose Add exercise rises by
+    /// itself on the list's Muscle and Equipment filters, which the gray line names as Add
+    /// exercise's Create row names its own. Length carries nothing, so alone it gives no line.
     private var createRow: some View {
         let detail = ExerciseFilter(
             muscleGroups: filter.muscleGroups,

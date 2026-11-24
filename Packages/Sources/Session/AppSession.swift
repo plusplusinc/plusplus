@@ -264,10 +264,11 @@ public final class AppSession {
         await switchTo { Workout() }
     }
 
-    /// New from the Workouts list's Create workout row, shown when its filters match nothing:
+    /// New from the Workouts list's Create workout row, shown while any of its filters is on:
     /// `startNew()`, then Add exercise starts on the list's Muscle and Equipment filters, its
-    /// Length carrying nothing, and comes up by itself once the workout screen shows and the new
-    /// workout has rested (`takeAddExerciseOnShow(after:)`), with no filter if none carried.
+    /// Length carrying nothing, and comes up by itself once the workout screen has arrived and
+    /// the new workout has rested (`takeAddExerciseOnShow(after:)`), with no filter if none
+    /// carried.
     public func startNew(from listFilter: WorkoutFilter) async {
         guard !isSwitching else { return }
         await startNew()
