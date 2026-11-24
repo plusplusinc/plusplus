@@ -314,7 +314,11 @@ extension WorkoutScreen {
     /// What the rest's watch waits on: +15 s, a skip, a pause, or a resume starts it again.
     var restWatch: RestWatch? {
         guard let resting, let loggedWorkout = session.loggedWorkout else { return nil }
-        return RestWatch(endClock: resting.endClock, isPaused: loggedWorkout.isPaused)
+        return RestWatch(
+            endClock: resting.endClock,
+            leaveClock: max(resting.leaveClock, skipLeave ?? resting.leaveClock),
+            isPaused: loggedWorkout.isPaused,
+        )
     }
 
     /// Sleeps to where the rest's keys go (`WorkoutRest.keysGoClock`) and lets them
@@ -333,7 +337,8 @@ extension WorkoutScreen {
             if hasGivenWay, phase.resting?.isStartingIn == false {
                 withTransaction(\.disablesAnimations, true) { phase.startInRest() }
             }
-            let left = (hasGivenWay ? resting.leaveClock : resting.keysGoClock) - clock
+            let leave = max(resting.leaveClock, skipLeave ?? resting.leaveClock)
+            let left = (hasGivenWay ? leave : resting.keysGoClock) - clock
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }
@@ -344,5 +349,6 @@ extension WorkoutScreen {
 
 struct RestWatch: Equatable {
     let endClock: Double
+    let leaveClock: Double
     let isPaused: Bool
 }

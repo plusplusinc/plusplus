@@ -66,8 +66,7 @@ struct WorkoutScreen: View {
     @State var isAskingToDeleteWorkout = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
-    /// With Reduce Motion, how many times the list has crossfaded into or out of a workout, or
-    /// to a deleted exercise's rows gone: each a new view, the old fading out as the new comes.
+    /// With Reduce Motion, the list's crossfades (in or out of a workout, a delete): each a view.
     @State var listChanges = 0
     /// A created exercise being deleted, which Add exercise stops listing on its beat, before
     /// the store takes the delete (`deleteExercise(_:closing:)`).
@@ -88,8 +87,7 @@ struct WorkoutScreen: View {
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?
-    /// The list's height between the bars, 0 until the list first has one. Read only in actions,
-    /// never in `body`, so its writes as the screen lays out don't run the screen again.
+    /// The list's height between the bars, 0 until it has one; read only in actions, not `body`.
     @State var listHeight: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
@@ -98,13 +96,14 @@ struct WorkoutScreen: View {
     /// that animation has really ended (`listResizes(_:)`).
     @State var resizes = 0
     /// After the last set, the room to land the current exercise, closing as its row does, the
-    /// list's end held where it shows (`keepEndPinned(from:to:)`). Its own value, not derived from
-    /// the phase, as swiftui.md's Pitfalls say (`closingRoomTop`).
+    /// list's end held where it shows (`keepEndPinned(from:to:)`); its own value, not derived.
     @State var closingRoomTop: CGFloat?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<WorkoutExercise.ID>?
     /// The rest's countdown carried to the next exercise's "Start in" through the move at 0:05.
     @State var figureCarry: FigureCarry?
+    /// A second after the last tap on Skip rest, on the clock (`LiveWorkout.skippingRest`).
+    @State var skipLeave: Double?
     /// Counts the moves landed on another exercise's node, each with a tick lighter than a log's.
     @State var landings = 0
     /// Counts the rests run to their end, each with a heavy tap, felt with the phone set down;

@@ -136,6 +136,11 @@ private struct CarriedFigurePlace: View, Animatable {
             RestBlock(stage: .open, length: 0, ends: ends)
                 .countdown(size: size, locale: locale, turns: true, skips: 0)
                 .figureBox(size: size)
+                // The next exercise's name and detail line rise through the figure's place as it
+                // drops: on one column they have to cross, so they pass under it, the digits'
+                // own box drawn in the screen's color over them, and no frame draws the two over
+                // each other. A box no wider than the digits, so the words above and below stay.
+                .background(Color.pp(.background))
                 .frame(width: rect.width, height: rect.height, alignment: .topLeading)
                 .offset(x: rect.minX, y: rect.minY - lift)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
