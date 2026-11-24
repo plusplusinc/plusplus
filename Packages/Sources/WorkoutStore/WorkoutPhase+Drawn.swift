@@ -1,6 +1,12 @@
 import Foundation
 
 extension WorkoutPhase {
+    /// Whether an ending has begun and holds with the key still up, as under a finish's "++".
+    public var isEndBegun: Bool {
+        guard case let .ending(ending) = self else { return false }
+        return ending.beat == .began
+    }
+
     /// The logged workout End took from the store, while the list still draws it.
     public var drawnLoggedWorkout: LoggedWorkout? {
         guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }
@@ -12,6 +18,13 @@ extension WorkoutPhase {
     public var drawnEnd: Date? {
         guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }
         return ending.date
+    }
+
+    /// The moment a drawn clock reads: End's while the list still draws the workout it took,
+    /// so a count holds where End found it; else now. Read at each redraw instead, a count
+    /// ticked on under a finish's "++".
+    public var drawnMoment: Date {
+        drawnEnd ?? .now
     }
 
     /// The rest the screen draws: the one under way, or the one End came in, while the list still

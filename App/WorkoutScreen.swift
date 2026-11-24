@@ -56,10 +56,12 @@ struct WorkoutScreen: View {
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleWayBack()`); none while it logs.
     @State var keyWayBack: WorkoutKey.WayBack?
-    /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
-    /// each log pops a +1 off the key.
+    /// The key's logs of a set, each with a medium impact, and of a side, each with a light one.
     @State var setLogs = 0
     @State var sideLogs = 0
+    /// The workout's finishes, each popping a "++" off the key on two beats, an impact on each,
+    /// held above the screen, which plays the impacts (`finishHaptics(_:)`).
+    @Binding var finishBeats: FinishBeats
     /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
     /// Whether the alert asking to delete the workout shows.
@@ -122,10 +124,17 @@ struct WorkoutScreen: View {
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) var voiceOver
     static let defaultName = String(localized: "New workout")
 
     /// Shows the workout the session opened. A switch to another gives a new screen.
-    init(session: AppSession, namer: WorkoutNamer, isPushed: Bool = false) {
+    init(
+        session: AppSession,
+        namer: WorkoutNamer,
+        finishBeats: Binding<FinishBeats>,
+        isPushed: Bool = false,
+    ) {
+        _finishBeats = finishBeats
         _shownWorkout = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
         _phase = State(initialValue: WorkoutPhase(
@@ -180,11 +189,7 @@ struct WorkoutScreen: View {
             perform: { touchedDownOutsideTitle() },
         )
         .onKeyboardDown(for: $titleTap) { openPicker() }
-        .endWorkoutDialog(
-            isPresented: $isConfirmingEnd,
-            session: session,
-            end: end,
-        )
+        .finishing(self)
         .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
         .sensoryFeedback(.impact(weight: .heavy), trigger: restEnds)
@@ -198,7 +203,6 @@ struct WorkoutScreen: View {
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
         let shown = shown
-        let currentSet = shown?.currentSet
         let rows = rowParts(in: shown, current: currentID)
         let tracksRows = shown != nil || isStarting
         let underBar = underBarCut
@@ -245,37 +249,13 @@ struct WorkoutScreen: View {
                         onMove: move,
                         regroup: regroup,
                     ) { item in
-                        rowContent(item, current: currentID, on: currentSet, parts: rows[item.id])
-                            .environment(\.exerciseMoveWay, moveWay)
-                            .environment(\.restSkips, restSkips)
-                            .id(item.id)
-                            .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
-                            // Only while it is read: as the list scrolls, every change redraws the
-                            // screen.
-                            .reportingPlace(item.id == growingID && tracksRows, to: placeCurrent)
-                            // Until an added row has entered it takes no taps, and its frame is
-                            // where it will be rather than where it is drawn, so VoiceOver and the
-                            // UI tests find it once it has. On the label, the row's one element:
-                            // on the row, `false` would un-hide the rail's node.
-                            .accessibilityHidden(item.id == entering)
-                            .railRow()
-                            .reportingRailPitch(
-                                isOn: notesRestingPitch(of: item.id, current: currentID),
-                            ) { restingContent(item, in: shown) } to: {
-                                rowFrames.restingPitch[item.id] = $0
-                            }
-                            // The whole row, its insets included, as the rail stacks it.
-                            .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
-                            .contentShape(.rect)
-                            .onTapGesture {
-                                guard item.id != entering else { return }
-                                session.openRowSheet(RowSheet(id: item.id))
-                            }
-                            // Outermost, as the system's swipe actions are, or their Remove is
-                            // folded into the row's accessibility element, where VoiceOver and
-                            // the UI tests never find it. The row's tap stays on where the swipe
-                            // is off.
-                            .swipeToDelete(item.id, isOn: item.id != currentID) { delete($0) }
+                        listRow(
+                            item,
+                            current: currentID,
+                            parts: rows[item.id],
+                            in: shown,
+                            tracksRows: tracksRows,
+                        )
                     } end: {
                         FloatingButtonRoom()
                             .onGeometryChange(for: CGFloat.self) {
@@ -344,7 +324,7 @@ struct WorkoutScreen: View {
             isPresented: showsKey,
             face: liveKey.role,
             keepsRoom: keyKeepsRoom,
-            plusOnes: setLogs + sideLogs + countBeats.ends,
+            finishes: finishBeats.first,
             drop: startDrop,
             floatsLow: plusSitsLow,
         ) { role, isOut in
@@ -394,5 +374,6 @@ extension WorkoutScreen {
     WorkoutScreen(
         session: AppSession(workout: Workout(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
+        finishBeats: .constant(FinishBeats()),
     )
 }

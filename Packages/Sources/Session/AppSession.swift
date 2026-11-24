@@ -14,7 +14,8 @@ public final class AppSession {
     public private(set) var opened: Workout
     /// The open workout as it is now, edits included.
     public private(set) var current: Workout
-    /// Opened by `openDrawer()`, which a workout in progress refuses; shut by `closeDrawer()`.
+    /// Opened by `openDrawer()`, which a locked drawer refuses (`isDrawerLocked`); shut by
+    /// `closeDrawer()`.
     public private(set) var isDrawerOpen = false
     /// The workout screen's open sheets, a row's and Add exercise, each through its open and close.
     public private(set) var rowSheet: RowSheet?
@@ -28,12 +29,16 @@ public final class AppSession {
     @ObservationIgnored var opensAddExerciseOnShow = false
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
-    /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
-    /// until the drawer next shows; nil otherwise, when it marks what showed as it opened.
+    /// Where `show(_:after:throughDrawer:markWait:)` moved the drawer's mark, kept through the
+    /// close until the drawer next shows; nil otherwise, when it marks what showed as it opened.
     public internal(set) var drawerMark: Showing?
     /// A way through the drawer's beats under way, which whatever closes it ends, and its place.
     @ObservationIgnored var throughDrawer: Task<Void, Never>?
     @ObservationIgnored var throughDrawerPlace: Showing?
+    /// A way's lead is under way (`show(_:after:throughDrawer:markWait:)`): the drawer is locked
+    /// until the way opens it, or whatever ends the way ends the lead. The app takes no touches
+    /// meanwhile: a finish's hold is still.
+    public internal(set) var isLeadPending = false
     /// The clock those beats sleep on: a test steps its own.
     @ObservationIgnored var beatClock: any Clock<Duration> = ContinuousClock()
     /// Where the app is, under the drawer (`Screen`).
@@ -42,6 +47,10 @@ public final class AppSession {
     public internal(set) var log: WorkoutLog?
     /// The logged workout in progress on the open workout, from Start until Finish or Discard.
     public private(set) var loggedWorkout: LoggedWorkout?
+    /// The workout just finished, which Log has yet to bring into History; taken by Log as it
+    /// shows (`takeJustFinished()`). Unobserved: nothing is drawn from it, it only seeds Log's
+    /// arrival, and observed, Log taking it redrew the drawer's content as it closed.
+    @ObservationIgnored public internal(set) var justFinished: LoggedWorkout.ID?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
     /// The exercises whose delete is confirmed and not yet stored
@@ -98,9 +107,10 @@ public final class AppSession {
         saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
     }
 
-    /// While a workout is in progress, the drawer stays shut: neither ++ nor a swipe opens it.
+    /// While a workout is in progress, and through a way's lead, as a finish's before Log
+    /// (`isLeadPending`), the drawer stays shut: neither ++ nor a swipe opens it, only the way.
     public var isDrawerLocked: Bool {
-        loggedWorkout != nil
+        loggedWorkout != nil || isLeadPending
     }
 
     /// Opens the drawer, unless one in progress keeps it shut or a row's sheet has been asked for.
@@ -144,8 +154,9 @@ public final class AppSession {
         rowSheet = nil
     }
 
-    /// Closes the drawer. Mid-way through `show(_:throughDrawer:markWait:)`, as at its end or
-    /// as a tap beside the drawer or a swipe closes it, the place it was going to swaps in first.
+    /// Closes the drawer. Mid-way through `show(_:after:throughDrawer:markWait:)`, its lead
+    /// included, as at its end or as a tap beside the drawer or a swipe closes it, the place it
+    /// was going to swaps in first.
     public func closeDrawer() {
         if let place = throughDrawerPlace {
             endThroughDrawer()
@@ -179,26 +190,8 @@ public final class AppSession {
     }
 
     /// The name the open workout shows, which its logged workout keeps: empty for New workout.
-    private var shownName: String {
+    var shownName: String {
         namer.shownName(of: current) ?? ""
-    }
-
-    /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
-    /// set counting logged at the time done (`LiveWorkout.finishing(at:)`).
-    public func finish(at now: Date = .now) {
-        guard let loggedWorkout else { return }
-        var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
-            .finishing(at: now)
-        finished.workoutName = shownName
-        change(.save(finished))
-        deleteIfCleared()
-    }
-
-    /// Ends the workout keeping nothing of it, as if Start never ran.
-    public func discard() {
-        guard let loggedWorkout else { return }
-        change(.discard(loggedWorkout.id))
-        deleteIfCleared()
     }
 
     /// The one way the logged workout changes: to what `write` stores, sent to be stored in the
@@ -214,7 +207,7 @@ public final class AppSession {
 
     /// A workout cleared to nothing while in progress was kept; once it ends, it is deleted, as
     /// any cleared workout is.
-    private func deleteIfCleared() {
+    func deleteIfCleared() {
         if current.isEmpty {
             saves.yield(WorkoutSave(workout: current, keepsEmpty: false))
         }

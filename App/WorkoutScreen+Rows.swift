@@ -1,8 +1,49 @@
 import DesignSystem
+import Session
 import SwiftUI
 import WorkoutStore
 
 extension WorkoutScreen {
+    /// One row of the rail as the list draws it: its content, where it reports its place and
+    /// frame, its tap, and its swipe. `current`, `parts`, `shown`, and `tracksRows` are the
+    /// values the rows' closure holds (`screen`).
+    func listRow(
+        _ item: WorkoutExercise,
+        current currentID: WorkoutExercise.ID?,
+        parts: RowParts?,
+        in shown: LiveWorkout?,
+        tracksRows: Bool,
+    ) -> some View {
+        rowContent(item, current: currentID, on: shown?.currentSet, parts: parts)
+            .environment(\.exerciseMoveWay, moveWay)
+            .environment(\.restSkips, restSkips)
+            .id(item.id)
+            .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
+            // Only while it is read: as the list scrolls, every change redraws the screen.
+            .reportingPlace(item.id == growingID && tracksRows, to: placeCurrent)
+            // Until an added row has entered it takes no taps, and its frame is where it will be
+            // rather than where it is drawn, so VoiceOver and the UI tests find it once it has. On
+            // the label, the row's one element: on the row, `false` would un-hide the rail's node.
+            .accessibilityHidden(item.id == entering)
+            .railRow()
+            .reportingRailPitch(
+                isOn: notesRestingPitch(of: item.id, current: currentID),
+            ) { restingContent(item, in: shown) } to: {
+                rowFrames.restingPitch[item.id] = $0
+            }
+            // The whole row, its insets included, as the rail stacks it.
+            .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
+            .contentShape(.rect)
+            .onTapGesture {
+                guard item.id != entering else { return }
+                session.openRowSheet(RowSheet(id: item.id))
+            }
+            // Outermost, as the system's swipe actions are, or their Remove is folded into the
+            // row's accessibility element, where VoiceOver and the UI tests never find it. The
+            // row's tap stays on where the swipe is off.
+            .swipeToDelete(item.id, isOn: item.id != currentID) { delete($0) }
+    }
+
     /// A row's content: its label, and under it its rest, as part of the row, so the row's own
     /// stretch of rail runs through the room it opens. A rest between sets, drawn inside the
     /// label, reads to VoiceOver as its own element after it (`SetRest.spoken`).

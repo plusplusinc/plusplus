@@ -1,11 +1,11 @@
 import XCTest
 
-/// After the last planned set, the key at the bottom reads Finish workout and finishes at once,
-/// with no "End this workout?" dialog, and keeps the workout: a relaunch then opens a new
-/// workout, where after Discard it reopens this one (`StoreLoggedWorkoutTests` holds both
-/// launch rules and every saved field). Which set comes next is `WorkoutLoggingTests`', and
-/// how the row looks is `WorkoutRailSnapshotTests`'; this is the key's wire to finishing, which
-/// nothing in the app shows afterward, so a break that discarded the sets would go unseen. On
+/// After the last planned set, the key at the bottom reads Finish workout and finishes with no
+/// "End this workout?" dialog, going to Log by the drawer, where the workout comes into
+/// History; and keeps it: a relaunch then opens the Workouts list, where after Discard it
+/// reopens this one (`StoreLoggedWorkoutTests` holds both launch rules and every saved field).
+/// Which set comes next is `WorkoutLoggingTests`', and how the row looks is
+/// `WorkoutRailSnapshotTests`'; this is the key's wire to finishing and to Log. On
 /// the way, it reads where Start leaves the list, which only the running app's scroll view
 /// shows: on a one-exercise workout, a break left it low in most runs; that a tap beside the
 /// low + through "Start in" opens nothing, which only the running app's hit testing shows; and
@@ -29,8 +29,9 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
         let name = "Finish check"
         let title = app.launchSeeding(["plank"], named: name, arguments: Self.oneTimedSet)
         let row = app.exerciseRows.element(boundBy: 0)
-        // The bar's ••• gives its place to the workout's time, and takes it back after: the bar
-        // draws its items itself, so only the running app shows which one is there.
+        // The bar's ••• gives its place to the workout's time (and takes it back after,
+        // `LiveWorkoutUITests`): the bar draws its items itself, so only the running app shows
+        // which one is there.
         let more = app.buttons["workout.more"]
         XCTContext.runActivity(named: "Start leaves the list resting on the exercise") { _ in
             app.buttons["Start"].tap()
@@ -94,13 +95,7 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                 "Add exercise went with the last set",
             )
         }
-        XCTContext.runActivity(named: "Finish workout ends at once, with no dialog") { _ in
-            app.tapWorkoutKey(reading: "Finish workout")
-            XCTAssertTrue(app.buttons["Start"].appears(), "Finish workout left the workout running")
-            XCTAssertFalse(app.buttons["Discard workout"].exists, "Finish workout asked first")
-            XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")
-            XCTAssertTrue(more.appears(), "••• did not come back after the workout")
-        }
+        keyFinishGoesToLog(named: name, in: app)
         relaunchKeepsIt(named: name, title: title, in: app)
     }
 }

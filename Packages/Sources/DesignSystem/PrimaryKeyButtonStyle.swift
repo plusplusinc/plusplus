@@ -123,9 +123,10 @@ extension View {
     /// content runs on under the key, beside and below it, with the bottom scroll edge effect
     /// hidden, which a `safeAreaBar` would otherwise draw behind the bar. It sits where a tab bar
     /// floats: its ledge's bottom 21 pt above the screen's bottom, and its sides 21 pt from the
-    /// screen's. Each time `plusOnes` goes up, a +1 pops off the key's top and plays on
-    /// there, whatever the key does next (`PlusOneSpot`). `drop` moves the key
-    /// down by that much, at least off the screen, which an animation carries it along at its own
+    /// screen's. Each time `finishes` goes up, the finish's "++" pops off the key's top
+    /// (`FinishBurst`); the key holds still under it, so it plays at the key's bounds as they
+    /// are drawn, unseen with no key. `drop` moves the key down by that much, at least off the
+    /// screen, which an animation carries it along at its own
     /// pace. The keyboard covers the key, and the screen with it, rather than lifting them.
     ///
     /// `floating`, a button drawn in the `floating` style, floats above the key's right end, its
@@ -154,7 +155,7 @@ extension View {
         isPresented: Bool,
         face: Face,
         keepsRoom: Bool = false,
-        plusOnes: Int = 0,
+        finishes: Int = 0,
         drop: CGFloat = 0,
         floatsLow: Bool = false,
         @ViewBuilder key: @escaping (Face, _ isOut: Bool) -> Key,
@@ -164,7 +165,7 @@ extension View {
             isPresented: isPresented,
             face: face,
             keepsRoom: keepsRoom,
-            plusOnes: plusOnes,
+            finishes: finishes,
             drop: drop,
             floatsLow: floatsLow,
             key: key,
@@ -176,7 +177,7 @@ extension View {
     public func primaryKeyBar(
         isPresented: Bool,
         keepsRoom: Bool = false,
-        plusOnes: Int = 0,
+        finishes: Int = 0,
         drop: CGFloat = 0,
         floatsLow: Bool = false,
         @ViewBuilder key: () -> some View,
@@ -187,7 +188,7 @@ extension View {
             isPresented: isPresented,
             face: OneFace(),
             keepsRoom: keepsRoom,
-            plusOnes: plusOnes,
+            finishes: finishes,
             drop: drop,
             floatsLow: floatsLow,
             key: { _, _ in key },
@@ -211,7 +212,7 @@ private struct PrimaryKeyBar<
     let isPresented: Bool
     let face: Face
     let keepsRoom: Bool
-    let plusOnes: Int
+    let finishes: Int
     let drop: CGFloat
     let floatsLow: Bool
     let key: (Face, _ isOut: Bool) -> Key
@@ -256,9 +257,14 @@ private struct PrimaryKeyBar<
     }
 
     /// The key as things stand, placed but never shown: what holds the bar's room while
-    /// `keepsRoom` does.
+    /// `keepsRoom` does, and where a finish's "++" pops from with no key shown, as through a
+    /// set's "Start in".
     private var unseenKey: some View {
-        placed(key(face, true).buttonStyle(.primaryKey))
+        placed(
+            key(face, true)
+                .buttonStyle(.primaryKey)
+                .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 },
+        )
     }
 
     /// `floating` over an unseen copy of the key it sits over, `shown` (the staged key's
@@ -304,7 +310,7 @@ private struct PrimaryKeyBar<
                         }
                         .transition(KeyBarTransition(below: bottomInset))
                     } else if keepsRoom {
-                        // Only what sizes it: no bounds for the +1, and no drop or swap to run.
+                        // Its room and the burst's place, with no drop or swap to run.
                         unseenKey.hidden()
                     }
                 }
@@ -317,7 +323,16 @@ private struct PrimaryKeyBar<
             // Over the screen rather than in the bar, so it can rise above the bar's room.
             .overlayPreferenceValue(PrimaryKeyBounds.self) { key in
                 GeometryReader { proxy in
-                    PlusOneSpot(trigger: plusOnes, key: key.map { proxy[$0] })
+                    if let key {
+                        let bounds = proxy[key]
+                        FinishBurst(trigger: finishes)
+                            .frame(
+                                width: bounds.width,
+                                height: max(bounds.minY, 0),
+                                alignment: .bottom,
+                            )
+                            .offset(x: bounds.minX)
+                    }
                 }
                 .allowsHitTesting(false)
             }
@@ -360,7 +375,7 @@ private struct KeyDrop: ViewModifier, Animatable {
     }
 }
 
-/// Where the primary key is, for the +1 that pops off its top.
+/// Where the primary key is, for the "++" that pops off its top.
 private struct PrimaryKeyBounds: PreferenceKey {
     static let defaultValue: Anchor<CGRect>? = nil
 

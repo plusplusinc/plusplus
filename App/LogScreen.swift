@@ -8,8 +8,9 @@ import WorkoutStore
 /// changed since the period's first day; and Balance, each muscle group's sets. "Log" is the
 /// bar's own inline title, centered, with ++ leading and the period trailing, once for all
 /// three tabs: "Oct 25 – Nov 21", plain secondary text, not a control.
-/// It opens on History each time the drawer shows it. The period is `LogPeriod`'s four
-/// calendar weeks.
+/// It opens on History each time the drawer shows it, and after a finish, which goes there
+/// through the drawer: the workout just finished comes into History once the drawer has closed
+/// (`bringIn()`). The period is `LogPeriod`'s four calendar weeks.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
 /// logged workout's row pushes it, read-only, with the system push, as a saved workout is
 /// pushed on Workouts, and swiped left offers Delete, as a saved workout's row does there.
@@ -40,11 +41,34 @@ struct LogScreen: View {
     /// Logged workouts whose delete is confirmed, left out of History from the confirming tap,
     /// before the store has taken the delete.
     @State var leaving: Set<LoggedWorkout.ID> = []
+    /// The workout just finished, left out of History until it comes in, a moment after the
+    /// drawer has closed over Log (`bringIn()`). Held here, not on the session, so it goes with
+    /// the screen and no path can leave the workout missing from History.
+    @State var arriving: LoggedWorkout.ID?
+    /// History's empty line and Go to Workouts fading out ahead of the first workout ever, which
+    /// comes in only once they have gone, so its text never shows over theirs.
+    @State var emptyGivesWay = false
+    /// With Reduce Motion, the workout just finished, in History at its place but not yet faded
+    /// in: the rows take their new places at once, and only this one fades (`fadesIn(_:)`).
+    @State var fadingIn: LoggedWorkout.ID?
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+
+    /// How long after the drawer has closed over Log a workout just finished comes into History.
+    static let arrivalDelay = Duration.milliseconds(330)
+    /// How long History's empty line and Go to Workouts take to fade out, from the drawer having
+    /// closed, ahead of the first workout ever: within `arrivalDelay`, so that row comes in on
+    /// the same beat as any other.
+    static let emptyFade = Duration.milliseconds(250)
+
+    /// Seeded from the session, so the first frame already leaves a workout just finished out.
+    init(session: AppSession) {
+        self.session = session
+        _arriving = State(initialValue: session.justFinished)
+    }
 
     var body: some View {
         NavigationStack {
@@ -114,7 +138,42 @@ struct LogScreen: View {
             let day = loggedWorkout.dayText(locale: locale, calendar: calendar)
             Text("\(Self.name(of: loggedWorkout)), \(day)")
         }
-        .task { await session.refreshLog() }
+        .task { await bringIn() }
+    }
+
+    /// Reads the log, and brings a workout just finished into History once the drawer has
+    /// closed and `arrivalDelay` has passed: its row opens to its height as it fades in, the rows
+    /// under it moving down, the count and today's square following. Log always shows with the
+    /// drawer already told to close, so its arrival counts from here.
+    ///
+    /// The first workout ever finds History empty: its empty line and Go to Workouts fade out
+    /// first, from the drawer having closed (`emptyFade`), and the row comes in once they have
+    /// gone, where History's first row goes. Crossfaded together, the row's text showed over
+    /// theirs for about a quarter second.
+    private func bringIn() async {
+        let start = ContinuousClock.now
+        session.takeJustFinished()
+        await session.refreshLog()
+        guard let coming = arriving else { return }
+        let closed = start + DrawerWay.arrival(reduceMotion: reduceMotion)
+        var due = closed + Self.arrivalDelay
+        // Only for a row that will come in: with a log read missing it, the empty part stays.
+        if showsNoLoggedWorkouts, session.log?.loggedWorkout(id: coming) != nil {
+            guard await (try? beat(until: closed)) != nil else { return }
+            withAnimation(.easeOut(duration: Self.emptyFade / .seconds(1))) {
+                emptyGivesWay = true
+            }
+            // A slow read of the log: the row still waits for the fade to end.
+            due = max(due, .now + Self.emptyFade)
+        }
+        guard await (try? beat(until: due)) != nil else { return }
+        withAnimation(.snappy) {
+            if reduceMotion {
+                fadingIn = coming
+            }
+            arriving = nil
+            emptyGivesWay = false
+        }
     }
 
     func askToDelete(_ loggedWorkout: LoggedWorkout) {
@@ -157,14 +216,19 @@ struct LogScreen: View {
     @ViewBuilder
     private func tabContent(_ log: WorkoutLog) -> some View {
         switch tab {
-        case .history: historyTab(log)
+        case .history: historyTab(log.leavingOut(arriving))
         case .diff: diffTab(log)
         case .balance: balanceTab(log)
         }
     }
 
     private var isHistoryEmpty: Bool {
-        tab == .history && session.log?.loggedWorkouts.isEmpty == true
+        tab == .history && showsNoLoggedWorkouts
+    }
+
+    /// Whether History lists nothing, the workout yet to come in left out.
+    private var showsNoLoggedWorkouts: Bool {
+        session.log?.leavingOut(arriving).loggedWorkouts.isEmpty == true
     }
 
     /// The pushed logged workout, which the back button and the back swipe pop.
@@ -189,10 +253,10 @@ struct LogScreen: View {
     }
 
     /// Workouts at the root, never pushed onto Log, by way of the drawer: a quick version of
-    /// opening it and tapping Workouts (`AppSession.show(_:throughDrawer:markWait:)`): it opens
-    /// at the ++ button's pace, holds a moment, its mark slides from Log to Workouts, it holds
-    /// again, and it closes over Workouts (`DrawerWay`). With VoiceOver it goes straight there:
-    /// a drawer passing by unasked reads as noise.
+    /// opening it and tapping Workouts (`AppSession.show(_:after:throughDrawer:markWait:)`): it
+    /// opens at the ++ button's pace, holds a moment, its mark slides from Log to Workouts, it
+    /// holds again, and it closes over Workouts (`DrawerWay`). With VoiceOver it goes straight
+    /// there: a drawer passing by unasked reads as noise.
     func goToWorkouts() {
         guard !voiceOver else {
             session.showWorkouts()

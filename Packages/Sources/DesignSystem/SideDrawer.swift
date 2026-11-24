@@ -294,9 +294,10 @@ extension EnvironmentValues {
 }
 
 /// Going to a place by way of the drawer: the mark of the place showing slides to the place
-/// chosen, and the drawer closes as it lands, so the change is seen before the drawer goes. A
-/// drawer row tapped starts at the slide; Log's Go to Workouts first opens the drawer with its
-/// own motion. The beats a keeper of the drawer sleeps to, from the start.
+/// chosen and rests there, and then the drawer closes, so the change is seen before the drawer
+/// goes. A drawer row tapped starts at the slide; Log's Go to Workouts, and a finish once its
+/// "++" has gone, first open the drawer with its own motion. The beats a keeper of the drawer
+/// sleeps to, from the start.
 public enum DrawerWay {
     /// When the drawer's opening has visibly arrived: its slide's duration, after which the
     /// spring's tail is too small to see, or with Reduce Motion its fade's.
@@ -308,9 +309,13 @@ public enum DrawerWay {
     /// pace both ways, long enough to read where the mark was and where it went: `holdBefore`
     /// with the mark still on the place showing once the opening has arrived, and `holdAfter`
     /// with it on the new place once it has landed, before the close. A drawer row tapped holds
-    /// neither: the person chose, and the drawer closes as the mark arrives.
-    public static let holdBefore = Duration.milliseconds(200)
-    public static let holdAfter = Duration.milliseconds(300)
+    /// neither: the person chose, and the drawer closes once the mark has rested `landedHold`.
+    public static let holdBefore = Duration.milliseconds(450)
+    public static let holdAfter = Duration.milliseconds(400)
+    /// On every way, a row tapped included: the mark rests on its new place this long before the
+    /// drawer closes, on top of `holdAfter` where the drawer was opened for the person. Closing
+    /// as the mark arrived read as too fast (Dave, 2026-11-23).
+    public static let landedHold = Duration.milliseconds(270)
 
     /// How long the mark takes to visibly arrive at its new place, which the drawer waits for
     /// before closing: the slide's duration, not its settle, whose tail is too small to see.
@@ -328,7 +333,7 @@ public enum DrawerWay {
         reduceMotion ? nil : .timingCurve(0.5, 0, 0.2, 1, duration: markSlideDuration)
     }
 
-    private static let markSlideDuration = 0.25
+    private static let markSlideDuration = 0.12
     /// With Reduce Motion, the new mark held in view before the drawer closes.
     private static let markPause = 0.2
 }

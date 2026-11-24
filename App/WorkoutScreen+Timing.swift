@@ -22,7 +22,7 @@ import WorkoutStore
 /// it, "then rest 0:30" at the caption line's end, the set's segment green, and the key is
 /// "Log early", gray, filling with the done purple from its leading edge,
 /// with +15 s beside it (`CountKeys`). At 0 the set logs itself at its full time, with the
-/// heavy tap and the +1, and whatever follows begins: a rest, or the next set's "Start in". A
+/// heavy tap, and whatever follows begins: a rest, or the next set's "Start in". A
 /// tap on "Log early" mid-count logs the time done, the fill running on to full and the count
 /// holding where it stopped; +15 s adds to this set only. Finish mid-count logs the time done,
 /// as "Log early" then would; Finish during a timed set's "Start in" logs nothing for the set
@@ -56,7 +56,8 @@ extension WorkoutScreen {
             return KeyFill(
                 length: Double(timed.length),
                 ends: .distantPast,
-                pausedLeft: timed.remaining(atClock: shown.loggedWorkout.clock(at: .now)),
+                pausedLeft: timed
+                    .remaining(atClock: shown.loggedWorkout.clock(at: phase.drawnMoment)),
             )
         }
         guard countBeats.earlyLog == nil, phase.loggedAndDrawn == nil,
@@ -73,10 +74,10 @@ extension WorkoutScreen {
         )
     }
 
-    /// "Log early" tapped: the +1 and the phone's tap play at once, and the fill runs on to full
-    /// from the tap as the count holds, then the log is stored at the tap's time, so a rest after
-    /// it starts there, and shown, the slot and the keys changing together once the key is full.
-    /// A sheet opened while the key fills leaves the set counting, its +1 already played.
+    /// "Log early" tapped: the phone's tap plays at once, and the fill runs on to full from the
+    /// tap as the count holds, then the log is stored at the tap's time, so a rest after it
+    /// starts there, and shown, the slot and the keys changing together once the key is full.
+    /// A sheet opened while the key fills leaves the set counting, its tap already played.
     func logEarly(
         _ set: PlannedSet,
         of row: WorkoutExercise,
@@ -85,7 +86,7 @@ extension WorkoutScreen {
     ) {
         let tapped = Date.now
         countBeats.earlyLog = tapped
-        // The tap's own answer: waiting for the fill, the +1 and the phone's tap came late.
+        // The tap's own answer: waiting for the fill, the phone's tap came late.
         switch impact {
         case .set, .runOut: setLogs += 1
         case .side: sideLogs += 1
@@ -180,9 +181,9 @@ extension WorkoutScreen {
             )
         }
         let loggedWorkout = shown.loggedWorkout
-        // Held: paused, or ended, as the workout's time holds; or logged early, where the tap
-        // stopped it, as its fill runs on.
-        let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? .now)
+        // Held: paused; or ended, where End found it (`drawnMoment`), as the workout's time
+        // holds; or logged early, where the tap stopped it, as its fill runs on.
+        let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? phase.drawnMoment)
         let holds = loggedWorkout.isPaused || phase.endingCount != nil || countBeats.earlyLog != nil
         switch stage {
         case .startIn:
@@ -213,7 +214,7 @@ extension WorkoutScreen {
     /// Where the current set's count stands as drawn: the phase's at rest on it, End's as it
     /// found it, and out of a rest, the stored count's, which the rest's end began.
     private func drawnStage(in shown: LiveWorkout) -> CountStage? {
-        phase.timing ?? phase.endingCount
+        phase.drawnCount
             ?? (phase.isLeavingRest ? shown.countStage(at: .now) ?? .counting : nil)
     }
 
@@ -246,7 +247,7 @@ extension WorkoutScreen {
             isRunning: true,
             length: length,
             ends: loggedWorkout.date(ofClock: zero),
-            pausedLeft: holds ? max(0, zero - loggedWorkout.clock(at: .now)) : nil,
+            pausedLeft: holds ? max(0, zero - loggedWorkout.clock(at: phase.drawnMoment)) : nil,
             turns: true,
             kind: .startIn(),
             isPaused: loggedWorkout.isPaused,
@@ -328,7 +329,7 @@ struct CountSubject: Equatable {
 }
 
 /// The beats of a set the screen plays: "Start in" reaching 0, with a light tap, and the
-/// set's own end, with the heavy one and the +1.
+/// set's own end, with the heavy one.
 struct CountBeats {
     var starts = 0
     var ends = 0
@@ -345,12 +346,6 @@ struct CountWatch: Equatable {
 }
 
 extension WorkoutPhase {
-    /// The count End came in, drawn as it stood until the workout goes.
-    var endingCount: CountStage? {
-        guard case let .ending(ending) = self else { return nil }
-        return ending.count
-    }
-
     /// The set logged and not yet drawn when End came, which it keeps hidden.
     var endingHidden: PlannedSet? {
         guard case let .ending(ending) = self else { return nil }

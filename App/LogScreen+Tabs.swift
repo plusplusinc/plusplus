@@ -35,10 +35,19 @@ extension LogScreen {
             // A section break: the list, or the empty line and Go to Workouts, starts a part of
             // its own under the calendar.
             .padding(.bottom, Spacing.lg)
+            // The rows are always there, the empty part under their place while they are none:
+            // the first workout ever comes in where History's first row goes, as any other
+            // does, and never rides up from where the empty part sat. Stacked, not laid over
+            // the rows in a ZStack: there, at the largest text sizes, Go to Workouts' label
+            // was cut short on one line rather than wrapping.
+            loggedWorkoutRows(log)
             if log.loggedWorkouts.isEmpty {
                 noLoggedWorkouts
-            } else {
-                loggedWorkoutRows(log)
+                    .opacity(emptyGivesWay ? 0 : 1)
+                    .allowsHitTesting(!emptyGivesWay)
+                    .accessibilityHidden(emptyGivesWay)
+                    // Gone at once once faded: its fade is `emptyGivesWay`'s.
+                    .transition(.asymmetric(insertion: .opacity, removal: .identity))
             }
         }
     }
@@ -99,7 +108,22 @@ extension LogScreen {
                 Button("Delete", role: .destructive) { askToDelete(loggedWorkout) }
             }
             .padding(.trailing, -overhang)
+            .opacity(loggedWorkout.id == fadingIn ? 0 : 1)
+            .onAppear { fadesIn(loggedWorkout.id) }
         } }
+        // With Reduce Motion a workout coming in moves nothing: the rows take their places at
+        // once, and the new one fades in from its own.
+        .transaction(value: arriving) {
+            if reduceMotion {
+                $0.animation = nil
+            }
+        }
+    }
+
+    /// Fades in the workout just finished, with Reduce Motion, once its row is in place.
+    private func fadesIn(_ id: LoggedWorkout.ID) {
+        guard id == fadingIn else { return }
+        withAnimation(.snappy) { fadingIn = nil }
     }
 
     func diffTab(_ log: WorkoutLog) -> some View {

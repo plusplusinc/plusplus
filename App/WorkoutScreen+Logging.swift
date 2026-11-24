@@ -324,11 +324,6 @@ extension WorkoutScreen {
         }
     }
 
-    /// Finishes the workout from the key, at once, with no dialog, as End's Finish does.
-    func finish() {
-        end { session.finish() }
-    }
-
     /// Where the list lands `next`'s row under the bar once `leaving`, the current row, has
     /// shrunk back: at the row's top, where its label lands just under the bar. A row above
     /// stays where it is; one below rises by what `leaving` gives back, from its pitch now, top

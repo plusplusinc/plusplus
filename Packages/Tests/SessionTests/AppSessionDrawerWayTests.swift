@@ -3,7 +3,8 @@ import Testing
 @testable import Session
 @testable import WorkoutStore
 
-/// Going to a place by way of the drawer (`show(_:throughDrawer:markWait:)`): its beats in order
+/// Going to a place by way of the drawer (`show(_:after:throughDrawer:markWait:)`): its beats in
+/// order
 /// on a stepped clock, and what ends it early. The durations are this test's own, not the app's.
 @Suite("Workout session: a place by way of the drawer")
 struct AppSessionDrawerWayTests {
@@ -144,6 +145,107 @@ struct AppSessionDrawerWayTests {
         await way.value
         #expect(session.screen == .pushedWorkout)
         #expect(session.throughDrawer == nil)
+    }
+
+    private let lead = Duration.seconds(5)
+
+    /// A session that has just finished a workout pushed from the Workouts list, its beats on
+    /// the stepped clock.
+    private func finishedSession() async throws -> AppSession {
+        let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
+        let session = AppSession(workout: Workout(), store: nil, namer: .muscleGroupsOnly)
+        session.beatClock = clock
+        session.showWorkouts()
+        await session.startNew()
+        var workout = session.current
+        workout.exercises = [WorkoutExercise(exercise: exercise, weightUnit: .pounds)]
+        session.save(workout)
+        session.start(on: workout.id)
+        session.finish()
+        return session
+    }
+
+    @Test(
+        "With a lead, as after a finish, the drawer stays shut until it passes, then plays to Log",
+    )
+    func lead() async throws {
+        let session = try await finishedSession()
+        let finished = try #require(session.justFinished)
+        session.show(.log, after: lead, throughDrawer: opening, markWait: markWait)
+        #expect(!session.isDrawerOpen, "the drawer waits out the lead")
+        await clock.sleeper()
+        clock.advance(by: lead - .milliseconds(1))
+        #expect(!session.isDrawerOpen)
+        #expect(session.screen == .workout)
+
+        clock.advance(by: .milliseconds(1))
+        await clock.sleeper()
+        #expect(session.isDrawerOpen)
+        #expect(session.drawerMark == nil, "the drawer marks the workout showing, on Workouts")
+        let way = try #require(session.throughDrawer)
+        clock.advance(by: .seconds(3))
+        await clock.sleeper()
+        #expect(session.drawerMark == .log)
+        clock.advance(by: .seconds(7))
+        await way.value
+        #expect(session.screen == .log)
+        #expect(!session.screen.isPushed, "Log shows no back button")
+        #expect(!session.isDrawerOpen)
+        #expect(session.justFinished == finished, "Log has yet to bring the workout in")
+    }
+
+    @Test("A close or the app leaving during the lead lands on Log at once, closed")
+    func endedDuringLead() async throws {
+        for end in [AppSession.closeDrawer, AppSession.finishThroughDrawer] {
+            let session = try await finishedSession()
+            session.show(.log, after: lead, throughDrawer: opening, markWait: markWait)
+            let wait = try #require(session.throughDrawer)
+            await clock.sleeper()
+            end(session)()
+            await wait.value
+            #expect(session.screen == .log)
+            #expect(!session.isDrawerOpen)
+            #expect(session.throughDrawer == nil)
+            #expect(!clock.hasSleeper, "no beat is left to open the drawer")
+            #expect(session.justFinished != nil, "Log still brings the workout in")
+        }
+    }
+
+    @Test("Through a finish's lead the drawer is locked: only the way opens it")
+    func lockedDuringLead() async throws {
+        let session = try await finishedSession()
+        #expect(!session.isDrawerLocked, "a finished workout leaves the drawer unlocked")
+        session.show(.log, after: lead, throughDrawer: opening, markWait: markWait)
+        #expect(session.isDrawerLocked)
+        session.openDrawer()
+        #expect(!session.isDrawerOpen, "++ and a swipe open nothing during the lead")
+
+        await clock.sleeper()
+        clock.advance(by: lead)
+        await clock.sleeper()
+        #expect(session.isDrawerOpen, "the way opens it")
+        #expect(!session.isDrawerLocked)
+    }
+
+    @Test("Whatever ends a finish's lead leaves the drawer unlocked")
+    func leadEndersUnlock() async throws {
+        let enders: [(AppSession) -> Void] = [
+            { $0.closeDrawer() },
+            { $0.finishThroughDrawer() },
+            { $0.showWorkouts() },
+            { $0.showLog() },
+        ]
+        for end in enders {
+            let session = try await finishedSession()
+            session.show(.log, after: lead, throughDrawer: opening, markWait: markWait)
+            let wait = try #require(session.throughDrawer)
+            await clock.sleeper()
+            end(session)
+            await wait.value
+            #expect(!session.isDrawerLocked)
+            session.openDrawer()
+            #expect(session.isDrawerOpen)
+        }
     }
 
     @Test("Where the drawer is kept shut, as under a row's sheet, it goes straight there")

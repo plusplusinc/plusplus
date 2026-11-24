@@ -13,13 +13,17 @@ struct WorkoutLauncher: View {
     let resetsStore: Bool
 
     @State private var session: AppSession?
+    /// A finish's two impacts, held here so they outlive the workout screen, which a finish
+    /// with VoiceOver takes away at once.
+    @State private var finishBeats = FinishBeats()
     @Environment(\.locale) private var locale
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         if let session {
             // A workout pushed onto the Workouts screen takes the edge swipe back, and one in
-            // progress, or a row's sheet asked for, keeps the drawer shut: the swipe never begins,
+            // progress, a finish's hold before its way to Log, or a row's sheet asked for, keeps
+            // the drawer shut: the swipe never begins,
             // and the session refuses any other open. A swipe under way keeps a row's sheet out.
             SideDrawer(
                 isOpen: Binding {
@@ -37,15 +41,20 @@ struct WorkoutLauncher: View {
                 case .workout:
                     // A switch to another workout gives a fresh screen: scroll, sheets,
                     // and title.
-                    WorkoutScreen(session: session, namer: namer)
+                    WorkoutScreen(session: session, namer: namer, finishBeats: $finishBeats)
                         .id(session.opened.id)
                 case .workouts, .pushedWorkout:
-                    WorkoutsScreen(session: session, namer: namer)
+                    WorkoutsScreen(session: session, namer: namer, finishBeats: $finishBeats)
                 case .log, .loggedWorkout:
                     LogScreen(session: session)
                 }
             }
+            // A finish's hold before its way to Log is still: no touch reaches the screen, its
+            // bar, or the drawer until the way opens the drawer.
+            .windowTouchesOff(session.isLeadPending)
             .keepsScreenOn(session.loggedWorkout != nil)
+            // A binding, so a finish redraws only the haptics, not this whole view.
+            .finishHaptics($finishBeats)
             // A way through the drawer that the app leaves mid-way lands where it was going,
             // closed.
             .onChange(of: scenePhase) { _, phase in

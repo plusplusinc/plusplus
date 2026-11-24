@@ -27,12 +27,18 @@ extension AppSession {
     /// in progress. A delete that fails is logged, and the read leaves the workout listed.
     public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) async {
         loggedWorkoutWrites.yield(.delete(id))
-        await loggedWorkoutWritesLanded()
         await refreshLog()
     }
 
-    /// Reads the finished logged workouts again, for Log. A read that fails leaves the last one.
+    /// Log has taken the workout just finished, to bring it into History itself.
+    public func takeJustFinished() {
+        justFinished = nil
+    }
+
+    /// Reads the finished logged workouts again, for Log, once the logged workout's writes have
+    /// landed, so a Log shown just after a finish lists it. A read that fails leaves the last one.
     public func refreshLog() async {
+        await loggedWorkoutWritesLanded()
         guard let store else { return }
         do {
             log = try await WorkoutLog(loggedWorkouts: store.finishedLoggedWorkouts())

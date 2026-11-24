@@ -74,7 +74,8 @@ public enum WorkoutPhase: Equatable, Sendable {
 
         /// An ending's beats, in order.
         public enum Beat: Comparable, Sendable {
-            /// Begun: the key still in its bar.
+            /// Begun: the key still in its bar. A finish rests here, under its "++" and the way
+            /// to Log, until the screen goes (`isEndBegun`).
             case began
             /// The key leaving, its room with it.
             case keyLeaving

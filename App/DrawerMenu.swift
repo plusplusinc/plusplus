@@ -8,15 +8,16 @@ import WorkoutStore
 /// workout is one of them, so a drawer never opens with no place marked.
 ///
 /// The mark is taken as the drawer starts to show. A tap on another place slides the mark to it
-/// (`DrawerWay.markSlide`), one mark moving, and the drawer closes as it lands, the place
-/// swapping under the closing drawer (`AppSession.show(_:throughDrawer:markWait:)`); Log's Go to
-/// Workouts plays the same slide in a drawer it opens, held open a moment before and after the
-/// slide (`DrawerWay.holdBefore`, `holdAfter`). A tap on the place showing closes the
-/// drawer at once, and so does Workouts from an open workout, with the list under it: the mark
-/// is already there. A row shows no press (`DrawerButtonStyle`). The mark is then held until the
-/// drawer has fully closed. With Reduce Motion
-/// the mark changes rows at once and the drawer waits a moment before closing; with VoiceOver a
-/// tap goes straight to the place, as the drawer has always done.
+/// (`DrawerWay.markSlide`), one mark moving, which rests there a moment (`DrawerWay.landedHold`)
+/// before the drawer closes, the place swapping under the closing drawer
+/// (`AppSession.show(_:after:throughDrawer:markWait:)`); Log's Go to Workouts, and a finish once
+/// its "++" has gone, play the same slide in a drawer they open, held open a moment longer
+/// before and after the slide (`DrawerWay.holdBefore`, `holdAfter`). A tap on the place showing
+/// closes the drawer at once, and so does Workouts from an open workout, with the list under it:
+/// the mark is already there. A row shows no press (`DrawerButtonStyle`). The mark is then held
+/// until the drawer has fully closed. With Reduce Motion the mark changes rows at once and the
+/// drawer waits a moment before closing; with VoiceOver a tap goes straight to the place, as the
+/// drawer has always done.
 struct DrawerMenu: View {
     let session: AppSession
 
@@ -87,16 +88,18 @@ struct DrawerMenu: View {
 }
 
 extension AppSession {
-    /// `show(_:throughDrawer:markWait:)` on the drawer's own beats (`DrawerWay`).
-    func showThroughDrawer(_ place: Showing, reduceMotion: Bool) {
+    /// `show(_:after:throughDrawer:markWait:)` on the drawer's own beats (`DrawerWay`): the
+    /// mark's wait is its slide and its rest on the new place.
+    func showThroughDrawer(_ place: Showing, after lead: Duration = .zero, reduceMotion: Bool) {
         show(
             place,
+            after: lead,
             throughDrawer: DrawerOpening(
                 arrival: DrawerWay.arrival(reduceMotion: reduceMotion),
                 holdBefore: DrawerWay.holdBefore,
                 holdAfter: DrawerWay.holdAfter,
             ),
-            markWait: DrawerWay.markWait(reduceMotion: reduceMotion),
+            markWait: DrawerWay.markWait(reduceMotion: reduceMotion) + DrawerWay.landedHold,
         )
     }
 }

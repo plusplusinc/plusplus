@@ -43,6 +43,17 @@ extension WorkoutPhase {
         return stage
     }
 
+    /// The count End came in, drawn as it stood until the workout goes.
+    public var endingCount: CountStage? {
+        guard case let .ending(ending) = self else { return nil }
+        return ending.count
+    }
+
+    /// The count as drawn: at rest on it, or as End found it until the workout goes.
+    public var drawnCount: CountStage? {
+        timing ?? endingCount
+    }
+
     /// Coming back to a set out of a rest, whose end began the set's count: within one exercise
     /// as it swaps back, or on a move, or with no motion a fade, from the rest's word. A set then
     /// is in its "Start in" or, timed with none due, already counts.

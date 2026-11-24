@@ -147,6 +147,50 @@ struct WorkoutKeyCountTests {
         #expect(key.role == .count("Log early"))
     }
 
+    /// After End's choice the store holds no workout in progress, and the screen draws the one
+    /// End found until it goes, its key as it was: read from the phase's timing alone, the count's
+    /// keys turned to Log set under a finish's "++", and a "Start in" brought its key in.
+    @Test("Ended mid-count or mid-Start in, the key stays as End found it until the workout goes")
+    func endedMidCount() throws {
+        let live = try Self.live()
+        for stage in [CountStage.counting, .startIn] {
+            let key = try Self.ended(live, on: stage)
+            #expect(key.drawnCount == stage)
+            #expect(key.role == .count("Log early"))
+            #expect(key.waitsToStart == (stage == .startIn), "Its key came in or went")
+        }
+    }
+
+    @Test("Ended mid-Start in on a reps set, its key stays away until the workout goes")
+    func endedMidRepsStartIn() throws {
+        let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
+        let loggedWorkout = LoggedWorkout(
+            workoutID: workout.id,
+            workoutName: "Test",
+            startedAt: Self.start,
+        )
+        let key = try Self.ended(
+            LiveWorkout(workout: workout, loggedWorkout: loggedWorkout),
+            on: .startIn,
+        )
+        #expect(key.role == .log("Log set"))
+        #expect(key.waitsToStart, "The log key came in under the finish's \"++\"")
+    }
+
+    /// The key End leaves on `live` at rest on `stage`, with the store holding no workout.
+    private static func ended(_ live: LiveWorkout, on stage: CountStage) throws -> WorkoutKey {
+        var phase = WorkoutPhase.timing(stage)
+        let ended = phase.end(live.loggedWorkout, at: start.addingTimeInterval(15))
+        try #require(ended, "End did not take the workout at rest on its count")
+        return WorkoutKey(
+            stored: nil,
+            shown: live,
+            phase: phase,
+            wayBack: nil,
+            isScrolledAway: false,
+        )
+    }
+
     @Test("A reps set's key is Log set, and logs, once its Start in is over; none through it")
     func reps() throws {
         let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])

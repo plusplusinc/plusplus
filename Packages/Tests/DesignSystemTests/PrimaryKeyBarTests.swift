@@ -116,17 +116,17 @@ struct PrimaryKeyBarTests {
         #expect(low.maxX == key.maxX, "the right edges differ")
     }
 
-    /// The +1 that pops off the key is only seen. Marked `accessibilityHidden`, it still stood in
-    /// the tree as a "+1" text over the key between bursts, at opacity 0, where automation and
-    /// `axe describe-ui` read it. The key, a plain button, is the bar's only node.
-    @Test("At rest, the key's +1 puts nothing in the accessibility tree")
-    func plusOneLeavesNoNodeAtRest() throws {
+    /// The finish's "++" that pops off the key is only seen. Marked `accessibilityHidden`, the
+    /// burst still stood in the tree as text over the key between bursts, at opacity 0, where
+    /// automation and `axe describe-ui` read it. The key, a plain button, is the bar's only node.
+    @Test("At rest, the key's finish burst puts nothing in the accessibility tree")
+    func finishBurstLeavesNoNodeAtRest() throws {
         let leaves = try AccessibilityTree.leaves(
             of: Text(verbatim: "Bench press").frame(maxHeight: .infinity)
-                .primaryKeyBar(isPresented: true, plusOnes: 3) { Button("Log set") { } },
+                .primaryKeyBar(isPresented: true, finishes: 3) { Button("Finish workout") { } },
         )
         let labels = leaves.map { $0.accessibilityLabel ?? "unlabeled at \($0.accessibilityFrame)" }
-        #expect(labels == ["Bench press", "Log set"])
+        #expect(labels == ["Bench press", "Finish workout"])
     }
 }
 
