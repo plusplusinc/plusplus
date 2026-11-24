@@ -9,16 +9,10 @@ import SwiftUI
 /// as it swaps. The time is SF Mono, so its digits hold still as they tick.
 public struct WorkoutTimeLabel: View {
     private let text: String
-    private let seconds: Double
     private let isPaused: Bool
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// `seconds`, the time as a number: by it the changing digits roll up as a second goes, as
-    /// a countdown's roll down (`RestBlock.countdown`), on the same curve.
-    public init(_ text: String, seconds: Double = 0, isPaused: Bool) {
+    public init(_ text: String, isPaused: Bool) {
         self.text = text
-        self.seconds = seconds
         self.isPaused = isPaused
     }
 
@@ -37,8 +31,6 @@ public struct WorkoutTimeLabel: View {
             .accessibilityHidden(true)
             Text(text)
                 .foregroundStyle(.pp(isPaused ? .textSecondary : .textPrimary))
-                .contentTransition(reduceMotion ? .identity : .numericText(value: seconds))
-                .animation(reduceMotion ? nil : SetMotion.restRoll, value: text)
         }
         .font(.ppWorkoutTime)
         .padding(.horizontal, Spacing.xs)
