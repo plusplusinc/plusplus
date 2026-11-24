@@ -7,6 +7,14 @@ import SwiftUI
 struct FinishBeats {
     var first = 0
     var second = 0
+    /// When the first beat played, which the second counts from.
+    var struck: ContinuousClock.Instant?
+
+    /// The first beat, now; the second follows on its own (`finishHaptics(_:)`).
+    mutating func strike() {
+        first += 1
+        struck = .now
+    }
 }
 
 extension WorkoutScreen {
@@ -14,30 +22,25 @@ extension WorkoutScreen {
     /// off the key a beat apart, each with an impact, and meet as "++" over a still screen; once
     /// they have gone the app goes to Log through the drawer, the screen holding still behind it
     /// until Log replaces it (`end(holdingStill:_:)`). With VoiceOver, straight to Log, with no
-    /// burst.
+    /// burst, the two impacts still playing a beat apart.
     func finish() {
         guard !voiceOver else {
             guard end({ session.finish() }) else { return }
+            finishBeats.strike()
             session.showLog()
             return
         }
         let hold = PrimaryKeyButtonStyle.finishBurst + PrimaryKeyButtonStyle.finishRest
         guard end(holdingStill: true, { session.finish() }) else { return }
-        finishBeats.first += 1
-        // The second impact on the screen's sequence, which plays nothing else once the workout
-        // has ended and which the screen going away cancels. The burst draws its second "+" on
-        // the same constant, from the first's trigger.
-        let tap = ContinuousClock.now
-        sequence.run {
-            try await beat(until: tap + .seconds(PrimaryKeyButtonStyle.finishBeat))
-            finishBeats.second += 1
-        }
+        // The burst draws its second "+" on the same constant as the second impact, from the
+        // first's trigger.
+        finishBeats.strike()
         session.showThroughDrawer(.log, after: .seconds(hold), reduceMotion: reduceMotion)
     }
 }
 
 extension View {
-    /// End's dialog on `screen`, and a finish's two impacts.
+    /// End's dialog on `screen`.
     func finishing(_ screen: WorkoutScreen) -> some View {
         endWorkoutDialog(
             isPresented: screen.$isConfirmingEnd,
@@ -45,8 +48,29 @@ extension View {
             finish: screen.finish,
             discard: { _ = screen.end(screen.session.discard) },
         )
-        .sensoryFeedback(.impact(weight: .medium), trigger: screen.finishBeats.first)
-        .sensoryFeedback(.impact(weight: .heavy), trigger: screen.finishBeats.second)
+    }
+
+    /// A finish's two impacts, the second `PrimaryKeyButtonStyle.finishBeat` after the first.
+    /// Played above the screens, not on the workout screen: a finish with VoiceOver takes that
+    /// screen away at once, and with it went both impacts, the second's wait cancelled with it.
+    func finishHaptics(_ beats: Binding<FinishBeats>) -> some View {
+        modifier(FinishHaptics(beats: beats))
+    }
+}
+
+private struct FinishHaptics: ViewModifier {
+    @Binding var beats: FinishBeats
+
+    func body(content: Content) -> some View {
+        content
+            .sensoryFeedback(.impact(weight: .medium), trigger: beats.first)
+            .sensoryFeedback(.impact(weight: .heavy), trigger: beats.second)
+            .task(id: beats.first) {
+                guard let struck = beats.struck else { return }
+                let due = struck + .seconds(PrimaryKeyButtonStyle.finishBeat)
+                guard await (try? beat(until: due)) != nil else { return }
+                beats.second += 1
+            }
     }
 }
 

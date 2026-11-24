@@ -13,6 +13,9 @@ struct WorkoutLauncher: View {
     let resetsStore: Bool
 
     @State private var session: AppSession?
+    /// A finish's two impacts, held here so they outlive the workout screen, which a finish
+    /// with VoiceOver takes away at once.
+    @State private var finishBeats = FinishBeats()
     @Environment(\.locale) private var locale
     @Environment(\.scenePhase) private var scenePhase
 
@@ -38,15 +41,16 @@ struct WorkoutLauncher: View {
                 case .workout:
                     // A switch to another workout gives a fresh screen: scroll, sheets,
                     // and title.
-                    WorkoutScreen(session: session, namer: namer)
+                    WorkoutScreen(session: session, namer: namer, finishBeats: $finishBeats)
                         .id(session.opened.id)
                 case .workouts, .pushedWorkout:
-                    WorkoutsScreen(session: session, namer: namer)
+                    WorkoutsScreen(session: session, namer: namer, finishBeats: $finishBeats)
                 case .log, .loggedWorkout:
                     LogScreen(session: session)
                 }
             }
             .keepsScreenOn(session.loggedWorkout != nil)
+            .finishHaptics($finishBeats)
             // A way through the drawer that the app leaves mid-way lands where it was going,
             // closed.
             .onChange(of: scenePhase) { _, phase in

@@ -59,8 +59,9 @@ struct WorkoutScreen: View {
     /// The key's logs of a set, each with a medium impact, and of a side, each with a light one.
     @State var setLogs = 0
     @State var sideLogs = 0
-    /// The workout's finishes, each popping a "++" off the key on two beats, an impact on each.
-    @State var finishBeats = FinishBeats()
+    /// The workout's finishes, each popping a "++" off the key on two beats, an impact on each,
+    /// held above the screen, which plays the impacts (`finishHaptics(_:)`).
+    @Binding var finishBeats: FinishBeats
     /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
     /// Whether the alert asking to delete the workout shows.
@@ -130,7 +131,13 @@ struct WorkoutScreen: View {
     static let defaultName = String(localized: "New workout")
 
     /// Shows the workout the session opened. A switch to another gives a new screen.
-    init(session: AppSession, namer: WorkoutNamer, isPushed: Bool = false) {
+    init(
+        session: AppSession,
+        namer: WorkoutNamer,
+        finishBeats: Binding<FinishBeats>,
+        isPushed: Bool = false,
+    ) {
+        _finishBeats = finishBeats
         _shownWorkout = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
         _phase = State(initialValue: WorkoutPhase(
@@ -369,5 +376,6 @@ extension WorkoutScreen {
     WorkoutScreen(
         session: AppSession(workout: Workout(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
+        finishBeats: .constant(FinishBeats()),
     )
 }

@@ -28,6 +28,8 @@ import WorkoutStore
 struct WorkoutsScreen: View {
     @Bindable var session: AppSession
     let namer: WorkoutNamer
+    /// A pushed workout's finishes, whose impacts play above this screen.
+    @Binding var finishBeats: FinishBeats
 
     /// The order the rows are drawn in, taken only while the list is out of sight or as it
     /// shows, so a workout opened from it moves to the top unseen, not as it slides away.
@@ -126,8 +128,13 @@ struct WorkoutsScreen: View {
             .onDisappear(perform: takeOrder)
             .navigationDestination(isPresented: isWorkoutPushed) {
                 // Each workout opened gives a fresh screen: scroll, sheets, and title.
-                WorkoutScreen(session: session, namer: namer, isPushed: true)
-                    .id(session.opened.id)
+                WorkoutScreen(
+                    session: session,
+                    namer: namer,
+                    finishBeats: $finishBeats,
+                    isPushed: true,
+                )
+                .id(session.opened.id)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -340,6 +347,7 @@ struct WorkoutsScreen: View {
             namer: .muscleGroupsOnly,
         ),
         namer: .muscleGroupsOnly,
+        finishBeats: .constant(FinishBeats()),
     )
 }
 
