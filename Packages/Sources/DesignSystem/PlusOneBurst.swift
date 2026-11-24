@@ -25,7 +25,7 @@ struct PlusOneBurst: View {
     }
 
     var body: some View {
-        Text(verbatim: "+1")
+        Text(verbatim: "++")
             .font(.ppPlusOne)
             .foregroundStyle(.pp(.accent))
             .fixedSize()

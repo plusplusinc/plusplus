@@ -40,11 +40,24 @@ struct LogScreen: View {
     /// Logged workouts whose delete is confirmed, left out of History from the confirming tap,
     /// before the store has taken the delete.
     @State var leaving: Set<LoggedWorkout.ID> = []
+    /// The workout just finished, left out of History until it comes in, a moment after the
+    /// drawer has closed over Log (`bringIn()`). Held here, not on the session, so it goes with
+    /// the screen and no path can leave the workout missing from History.
+    @State var arriving: LoggedWorkout.ID?
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+
+    /// How long after the drawer has closed over Log a workout just finished comes into History.
+    static let arrivalDelay = Duration.milliseconds(330)
+
+    /// Seeded from the session, so the first frame already leaves a workout just finished out.
+    init(session: AppSession) {
+        self.session = session
+        _arriving = State(initialValue: session.justFinished)
+    }
 
     var body: some View {
         NavigationStack {
@@ -114,7 +127,25 @@ struct LogScreen: View {
             let day = loggedWorkout.dayText(locale: locale, calendar: calendar)
             Text("\(Self.name(of: loggedWorkout)), \(day)")
         }
-        .task { await session.refreshLog() }
+        .task { await bringIn() }
+    }
+
+    /// Reads the log, and brings a workout just finished into History once the drawer has
+    /// closed and `arrivalDelay` has passed: its row opens to its height as it fades in, the rows
+    /// under it moving down, the count and today's square following. Log always shows with the
+    /// drawer already told to close, so its arrival counts from here.
+    private func bringIn() async {
+        let start = ContinuousClock.now
+        session.takeJustFinished()
+        await session.refreshLog()
+        guard arriving != nil else { return }
+        let due = start + DrawerWay.arrival(reduceMotion: reduceMotion) + Self.arrivalDelay
+        do {
+            try await Task.sleep(until: due, tolerance: .zero, clock: .continuous)
+        } catch {
+            return
+        }
+        withAnimation(.snappy) { arriving = nil }
     }
 
     func askToDelete(_ loggedWorkout: LoggedWorkout) {
@@ -157,14 +188,14 @@ struct LogScreen: View {
     @ViewBuilder
     private func tabContent(_ log: WorkoutLog) -> some View {
         switch tab {
-        case .history: historyTab(log)
+        case .history: historyTab(log.leavingOut(arriving))
         case .diff: diffTab(log)
         case .balance: balanceTab(log)
         }
     }
 
     private var isHistoryEmpty: Bool {
-        tab == .history && session.log?.loggedWorkouts.isEmpty == true
+        tab == .history && session.log?.leavingOut(arriving).loggedWorkouts.isEmpty == true
     }
 
     /// The pushed logged workout, which the back button and the back swipe pop.

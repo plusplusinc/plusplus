@@ -22,6 +22,13 @@ public struct WorkoutLog: Equatable, Sendable {
             }
     }
 
+    /// The log without `id`'s logged workout, as History shows it until a workout just finished
+    /// comes in; the whole log with none.
+    public func leavingOut(_ id: LoggedWorkout.ID?) -> Self {
+        guard let id else { return self }
+        return Self(loggedWorkouts: loggedWorkouts.filter { $0.id != id })
+    }
+
     public func loggedWorkout(id: LoggedWorkout.ID) -> LoggedWorkout? {
         loggedWorkouts.first { $0.id == id }
     }

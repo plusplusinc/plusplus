@@ -18,18 +18,24 @@ extension WorkoutScreen {
         }
         // One item, its key changing in a crossfade: the bar put one in or took one out on
         // the frame.
-        if session.loggedWorkout != nil || !isPushed {
+        let barIsLive = barShowsWorkout
+        if barIsLive || !isPushed {
             ToolbarItem(placement: .topBarLeading) {
                 ZStack {
-                    if session.loggedWorkout != nil {
-                        EndButton { isConfirmingEnd = true }
-                            .transition(.opacity)
+                    if barIsLive {
+                        EndButton {
+                            // Under a finish's "++" the workout has ended: nothing to ask.
+                            if session.loggedWorkout != nil {
+                                isConfirmingEnd = true
+                            }
+                        }
+                        .transition(.opacity)
                     } else {
                         MenuButton(session: session)
                             .transition(.opacity)
                     }
                 }
-                .animation(.easeOut(duration: Self.barFade), value: session.loggedWorkout == nil)
+                .animation(.easeOut(duration: Self.barFade), value: barIsLive)
             }
         }
         // One item, as leading's: ••• outside a workout and its time during one, crossfading
@@ -48,18 +54,24 @@ extension WorkoutScreen {
                 // where it sat before the glass grew.
                 moreMenu
                     .fixedSize()
-                    .opacity(session.loggedWorkout == nil ? 1 : 0)
+                    .opacity(barIsLive ? 0 : 1)
                     .allowsHitTesting(timed == nil)
                     .accessibilityShown(timed == nil)
                 if let timed {
                     WorkoutTimeKey(session: session, loggedWorkout: timed)
-                        .opacity(session.loggedWorkout == nil ? 0 : 1)
+                        .opacity(barIsLive ? 1 : 0)
                         .transition(.opacity)
                 }
             }
-            .animation(.easeOut(duration: Self.barFade), value: session.loggedWorkout == nil)
+            .animation(.easeOut(duration: Self.barFade), value: barIsLive)
             .animation(.easeOut(duration: Self.barFade), value: timed == nil)
         }
+    }
+
+    /// Whether the bar draws the workout in progress: End and its time. Held under a finish's
+    /// "++", where the store has already ended it, so the bar changes only as the ending plays.
+    private var barShowsWorkout: Bool {
+        session.loggedWorkout != nil || phase.isEndBegun
     }
 
     /// •••, the workout's own actions: Delete, red, dimmed while the workout has nothing saved.

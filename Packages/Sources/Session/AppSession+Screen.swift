@@ -43,21 +43,53 @@ extension AppSession {
     /// One plays at a time; another asked for meanwhile is ignored. Anything that closes the
     /// drawer mid-way, a tap beside it or a swipe, ends it on `place` (`closeDrawer()`). Where
     /// the drawer is kept shut it goes straight there.
+    ///
+    /// With a `lead`, as after a finish's "++", the way waits that long before the drawer opens,
+    /// `place` pending from the call, so whatever ends a way ends the wait too.
     public func show(
         _ place: Showing,
+        after lead: Duration = .zero,
         throughDrawer opening: DrawerOpening,
         markWait: Duration,
     ) {
         guard throughDrawerPlace == nil else { return }
-        if !isDrawerOpen {
-            drawerMark = nil
-        }
         throughDrawerPlace = place
+        guard lead > .zero else {
+            openWay(to: place, opening: opening, markWait: markWait)
+            return
+        }
+        throughDrawer = wait(lead, on: beatClock) { [weak self] in
+            self?.openWay(to: place, opening: opening, markWait: markWait)
+        }
+    }
+
+    /// Runs `then` once `lead` has passed on `clock`, unless cancelled first.
+    private func wait(
+        _ lead: Duration,
+        on clock: some Clock<Duration>,
+        then: @escaping @MainActor () -> Void,
+    ) -> Task<Void, Never> {
+        let wake = clock.now.advanced(by: lead)
+        return Task {
+            do {
+                try await clock.sleep(until: wake, tolerance: .zero)
+                try Task.checkCancellation()
+                then()
+            } catch {
+                // Cancelled: what ended the way has put the app where it goes.
+            }
+        }
+    }
+
+    /// The way's start, once any lead is over: the drawer opens if it is shut, and its beats
+    /// begin.
+    private func openWay(to place: Showing, opening: DrawerOpening, markWait: Duration) {
         var markAt = Duration.zero
         var closeAt = markWait
         // From an open drawer the mark moves on the beats' first turn, as from a closed one,
         // so both starts take one path.
         if !isDrawerOpen {
+            drawerMark = nil
             openDrawer()
             guard isDrawerOpen else {
                 closeDrawer()

@@ -88,9 +88,10 @@ struct DrawerMenu: View {
 
 extension AppSession {
     /// `show(_:throughDrawer:markWait:)` on the drawer's own beats (`DrawerWay`).
-    func showThroughDrawer(_ place: Showing, reduceMotion: Bool) {
+    func showThroughDrawer(_ place: Showing, after lead: Duration = .zero, reduceMotion: Bool) {
         show(
             place,
+            after: lead,
             throughDrawer: DrawerOpening(
                 arrival: DrawerWay.arrival(reduceMotion: reduceMotion),
                 holdBefore: DrawerWay.holdBefore,

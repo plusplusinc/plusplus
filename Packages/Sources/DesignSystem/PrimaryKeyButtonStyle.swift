@@ -114,6 +114,9 @@ extension PrimaryKeyButtonStyle {
     /// Each half of a bar's key swapping for another: the key going down and out, then the next
     /// coming up and in.
     public static let swapHalf = 0.2
+    /// How long the burst over the key lasts as a workout finishes: the screen holds under it,
+    /// and the way to Log starts once it is over.
+    public static let finishBurst = PlusOneBurst.duration
 }
 
 extension View {

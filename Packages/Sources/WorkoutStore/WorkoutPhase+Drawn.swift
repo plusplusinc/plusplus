@@ -1,6 +1,12 @@
 import Foundation
 
 extension WorkoutPhase {
+    /// Whether an ending has begun and holds with the key still up, as under a finish's "++".
+    public var isEndBegun: Bool {
+        guard case let .ending(ending) = self else { return false }
+        return ending.beat == .began
+    }
+
     /// The logged workout End took from the store, while the list still draws it.
     public var drawnLoggedWorkout: LoggedWorkout? {
         guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }

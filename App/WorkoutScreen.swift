@@ -57,12 +57,12 @@ struct WorkoutScreen: View {
     /// (`settleWayBack()`); none while it logs.
     @State var keyWayBack: WorkoutKey.WayBack?
     /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
-    /// each log pops a +1 off the key.
+    /// and the workout's finishes, each popping a "++" off the key.
     @State var setLogs = 0
     @State var sideLogs = 0
-    /// Whether the dialog asking how to end the workout shows.
+    @State var finishes = 0
+    /// Whether the dialog asking how to end the workout shows, and the alert asking to delete it.
     @State var isConfirmingEnd = false
-    /// Whether the alert asking to delete the workout shows.
     @State var isAskingToDeleteWorkout = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
@@ -109,8 +109,7 @@ struct WorkoutScreen: View {
     @State var railPulse: RailPulse<WorkoutExercise.ID>?
     /// Counts the moves landed on another exercise's node, each with a tick lighter than a log's.
     @State var landings = 0
-    /// Counts the rests run to their end, each with a heavy tap, felt with the phone set down;
-    /// and the taps on Skip rest, each a new count figure (`RestBlock.figureKey(skips:)`).
+    /// Counts the rests run to their end, each with a heavy tap, and the taps on Skip rest.
     @State var restEnds = 0
     @State var restSkips = 0
     /// A set's beats: "Start in" ending, and the set running out (`WorkoutScreen+Timing`).
@@ -125,6 +124,7 @@ struct WorkoutScreen: View {
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) var voiceOver
     static let defaultName = String(localized: "New workout")
 
     /// Shows the workout the session opened. A switch to another gives a new screen.
@@ -186,7 +186,8 @@ struct WorkoutScreen: View {
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,
-            end: end,
+            finish: finish,
+            discard: { end(session.discard) },
         )
         .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
@@ -346,7 +347,7 @@ struct WorkoutScreen: View {
             isPresented: showsKey,
             face: liveKey.role,
             keepsRoom: phase.keyGone == .keepingRoom,
-            plusOnes: setLogs + sideLogs + countBeats.ends,
+            plusOnes: finishes,
             drop: startDrop,
             floatsLow: footShowsEmpty,
         ) { role, isOut in

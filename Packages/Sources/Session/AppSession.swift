@@ -38,6 +38,9 @@ public final class AppSession {
     public internal(set) var log: WorkoutLog?
     /// The logged workout in progress on the open workout, from Start until Finish or Discard.
     public private(set) var loggedWorkout: LoggedWorkout?
+    /// The workout just finished, which Log has yet to bring into History; taken by Log as it
+    /// shows (`takeJustFinished()`).
+    public internal(set) var justFinished: LoggedWorkout.ID?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
     /// The exercises whose delete is confirmed and not yet stored
@@ -187,6 +190,7 @@ public final class AppSession {
             .finishing(at: now)
         finished.workoutName = shownName
         change(.save(finished))
+        justFinished = finished.id
         deleteIfCleared()
     }
 

@@ -16,14 +16,15 @@ struct EndButton: View {
 }
 
 extension View {
-    /// Asks whether to finish the workout and keep it, or discard it, with `end` running the
-    /// choice in the screen's sequence; the scratch app's dialog. Attached to the whole screen,
+    /// Asks whether to finish the workout and keep it, or discard it, with `finish` and
+    /// `discard` the screen's; the scratch app's dialog. Attached to the whole screen,
     /// navigation stack included, so iOS shows it centered: attached to Finish or to the stack's
     /// content, it came as a popover with an arrow.
     func endWorkoutDialog(
         isPresented: Binding<Bool>,
         session: AppSession,
-        end: @escaping (@escaping () -> Void) -> Void,
+        finish: @escaping () -> Void,
+        discard: @escaping () -> Void,
     ) -> some View {
         confirmationDialog(
             "End this workout?",
@@ -32,13 +33,9 @@ extension View {
         ) {
             // Only with something to keep: until a set is done, it can only be discarded.
             if session.loggedWorkout?.offersFinish == true {
-                Button("Finish workout") {
-                    end { session.finish() }
-                }
+                Button("Finish workout", action: finish)
             }
-            Button("Discard workout", role: .destructive) {
-                end(session.discard)
-            }
+            Button("Discard workout", role: .destructive, action: discard)
             Button("Keep going", role: .cancel) { }
         } message: {
             // Read with the buttons: it names Finish only when Finish shows.
