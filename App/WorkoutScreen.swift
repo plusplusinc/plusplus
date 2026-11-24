@@ -334,6 +334,7 @@ struct WorkoutScreen: View {
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
+        .onGeometryChange(for: CGFloat.self, of: ListEnd.barTop(of:)) { listEnd.barTop = $0 }
         .emptyNote("No exercises", isEmpty: workout.exercises.isEmpty)
         // Alongside the taps of what is in the list, which never reach below its end.
         .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in

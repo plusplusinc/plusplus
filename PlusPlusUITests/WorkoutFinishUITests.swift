@@ -7,7 +7,9 @@ import XCTest
 /// how the row looks is `WorkoutRailSnapshotTests`'; this is the key's wire to finishing, which
 /// nothing in the app shows afterward, so a break that discarded the sets would go unseen. On
 /// the way, it reads where Start leaves the list, which only the running app's scroll view
-/// shows: on a one-exercise workout, a break left it low in most runs; and that the exercise,
+/// shows: on a one-exercise workout, a break left it low in most runs; that a tap beside the
+/// low + through "Start in" opens nothing, which only the running app's hit testing shows; and
+/// that the exercise,
 /// held until it lifts and let go in place, stays there. Its own test, since it
 /// launches with one exercise seeded and its own name. The exercise is a plank of one 8 s set
 /// (`-seedSets 1`, `-seedTime 8`), which counts down after its "Start in" and logs itself, with
@@ -34,6 +36,18 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
             XCTAssertTrue(more.disappears(), "••• stayed in the bar during a workout")
+            // Through the set's "Start in" there is no key, its room kept, and the + sits low in
+            // it: a tap in that room beside the +, below the one row, opened Add exercise as a
+            // tap below the last row does. Taken inside the wait for the key, so it costs
+            // nothing more.
+            XCTAssertFalse(app.workoutKey.exists, "A key showed through \"Start in\"")
+            let plus = app.buttons["Add exercise"].frame
+            app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: plus.minX / 2, dy: plus.midY)).tap()
+            XCTAssertTrue(
+                app.searchButton.staysAway(),
+                "A tap beside the + through \"Start in\" opened Add exercise",
+            )
             // Read once the workout's key is up, after the set's "Start in", which shows none: a
             // bottom inset that changed at the key's hand-off left this workout's list 52.7 pt
             // low in most runs.
