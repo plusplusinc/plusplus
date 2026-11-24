@@ -23,9 +23,10 @@ public final class AppSession {
     /// until cleared; a different workout starts with none (`show(_:on:)`), except one New
     /// makes, which starts on the Workouts list's filters (`startNew(from:)`).
     public var addExerciseFilter = ExerciseFilter()
-    /// Set by New with a filter carried over, until the workout screen shows and opens Add
-    /// exercise (`takeAddExerciseOnShow()`).
-    @ObservationIgnored var opensAddExerciseOnShow = false
+    /// The card of exercises to tap on a new workout New made from the Workouts list's filters,
+    /// while that workout is open and the card has not been emptied or closed
+    /// (`NewWorkoutCard`).
+    public internal(set) var newWorkoutCard: NewWorkoutCard?
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
     /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
@@ -255,8 +256,8 @@ public final class AppSession {
     /// Pushes a new, empty workout onto the Workouts screen; an empty one open already is shown
     /// as it is. Nothing is saved for the new workout until it changes. Either way Add exercise
     /// starts on the list's Muscle and Equipment filters, its Length carrying nothing: to the
-    /// person, New is a different workout. With either of those on, Add exercise comes up by
-    /// itself once the workout screen shows (`takeAddExerciseOnShow()`).
+    /// person, New is a different workout. With either of those on, the workout shows a card of
+    /// the first exercises Add exercise would list for them (`NewWorkoutCard`).
     public func startNew(from listFilter: WorkoutFilter = WorkoutFilter()) async {
         guard !isSwitching else { return }
         if current.isEmpty {
@@ -270,7 +271,11 @@ public final class AppSession {
             muscleGroups: listFilter.muscleGroups,
             equipment: listFilter.equipment,
         )
-        opensAddExerciseOnShow = addExerciseFilter.isOn
+        newWorkoutCard = NewWorkoutCard(
+            workout: current.id,
+            filter: addExerciseFilter,
+            exercises: exercises,
+        )
     }
 
     /// Lets the last edit land, then pushes the workout `next` gives, if any. An edit made while
@@ -297,7 +302,9 @@ public final class AppSession {
         if workout.id != current.id {
             addExerciseFilter = ExerciseFilter()
         }
-        opensAddExerciseOnShow = false
+        if newWorkoutCard?.workout != workout.id {
+            newWorkoutCard = nil
+        }
         opened = workout
         current = workout
         screen = shown

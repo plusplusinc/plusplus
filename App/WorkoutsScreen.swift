@@ -152,7 +152,7 @@ struct WorkoutsScreen: View {
                 }
             }
             // Where the workout screen's + sits on an empty workout. It carries the list's
-            // Muscle and Equipment filters into Add exercise, which then comes up by itself.
+            // Muscle and Equipment filters into Add exercise and the new workout's card.
             .floatingButton(
                 Button("New workout", systemImage: "plus") {
                     Task { await session.startNew(from: filter) }

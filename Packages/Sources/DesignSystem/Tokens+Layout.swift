@@ -15,4 +15,6 @@ public enum Radius {
     public static let sm: CGFloat = 8
     /// A key-shaped button.
     public static let key: CGFloat = 11
+    /// A card that sits among a list's rows, such as a new workout's card of exercises.
+    public static let card: CGFloat = 20
 }

@@ -280,10 +280,7 @@ struct WorkoutScreen: View {
                             // is off.
                             .swipeToDelete(item.id, isOn: item.id != currentID) { delete($0) }
                     } end: {
-                        FloatingButtonRoom()
-                            .onGeometryChange(for: CGFloat.self) {
-                                $0.frame(in: .global).minY
-                            } action: { listEnd.top = $0 }
+                        railEnd
                     }
                 }
                 .padding(.horizontal, Spacing.md)
@@ -337,7 +334,10 @@ struct WorkoutScreen: View {
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
-        .emptyNote("No exercises", isEmpty: workout.exercises.isEmpty)
+        .emptyNote(
+            "No exercises",
+            isEmpty: workout.exercises.isEmpty && session.newWorkoutCard == nil,
+        )
         // Alongside the taps of what is in the list, which never reach below its end.
         .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
             tappedList(at: tap.location)
@@ -355,7 +355,6 @@ struct WorkoutScreen: View {
             addButton
         }
         .onDisappear { stopSequence() }
-        .task { await session.takeAddExerciseOnShow(after: Self.newWorkoutHold) }
         // Cancelled as the screen goes, so the wait never outlives it.
         .task(id: createdWait) { await showCreated() }
         .task(id: restWatch) { await watchRest() }

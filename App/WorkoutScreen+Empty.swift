@@ -19,7 +19,8 @@ extension WorkoutScreen {
     /// title's edit opens it only on an empty workout; below the last row it has only ended the
     /// edit (`TapPastTitle`).
     func tappedList(at location: CGPoint) {
-        let isEmpty = workout.exercises.isEmpty
+        // With the new workout's card up, only below it: a tap on the card is the card's.
+        let isEmpty = workout.exercises.isEmpty && session.newWorkoutCard == nil
         guard isEmpty || location.y >= listEnd.top else { return }
         if titleTap.tap(actsAfterEdit: isEmpty) {
             openPicker()
