@@ -26,8 +26,8 @@ public struct SetRest {
     let isPaused: Bool
 
     /// Whether the countdown's figure turns: once it is up (`turns`), and over, as it goes. Not
-    /// turning in the change that ends it, the figure took the swap's animation and rolled down
-    /// to 0:00 as it went, where its last change is at once.
+    /// turning in the change that ends it, a rest run out took the swap's animation and rolled
+    /// down to 0:00 as it went, where its last change is at once. Skip rest's holds its time.
     var turnsFigure: Bool {
         turns || isOver
     }

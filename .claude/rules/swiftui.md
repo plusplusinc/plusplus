@@ -65,8 +65,8 @@ with the feature.
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
   Where a workout is and what a log leads to are `LiveWorkout`'s, and where the screen is in
   showing a log `WorkoutPhase`'s, both in `WorkoutStore`; its timed beats run on the screen's
-  one `SequenceTask` (`WorkoutScreen+Sequence.swift`).
-- Rests: `WorkoutScreen+Resting.swift`, `RestBlock`, `SetRest`, `WorkoutRest`. "Start in"
+  `SequenceTask` (`WorkoutScreen+Sequence.swift`).
+- Rests: `WorkoutScreen+Resting.swift`, `+RestDrawn.swift`, `RestBlock`, `SetRest`, `WorkoutRest`. "Start in"
   and a timed set's count: `WorkoutScreen+Timing.swift`, `TimedSet`; keys, `CountKeys`.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.

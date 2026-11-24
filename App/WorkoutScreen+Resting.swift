@@ -25,7 +25,8 @@ import WorkoutStore
 /// Through any rest the key at the bottom swaps, as keys swap, for Skip rest, wide, gray, filling
 /// with the done purple from its leading edge as the rest runs (`restKeyFill`), and +15 s beside
 /// it (`CountKeys`), the + above it staying put. There is no bar under the countdown. Skip rest
-/// ends the rest at the tap as running out does (`skipRest()`); +15 s steps the fill back and
+/// ends the rest at the tap as running out does (`skipRest()`), its count holding the time it had
+/// left as it goes, never 0:00 (`WorkoutPhase.skipRest(left:)`); +15 s steps the fill back and
 /// turns the countdown, the dot staying put. A pause grays the countdown and the fill. Taps on
 /// them while the rest is still coming in, as a double tap's second on Log set, do nothing. With
 /// Reduce Motion, each move is one crossfade, the dot at the word through the rest.
@@ -247,9 +248,16 @@ extension WorkoutScreen {
     func restRow(of rest: WorkoutPhase.Resting, in loggedWorkout: LoggedWorkout)
         -> WorkoutExercise.ID?
     {
-        rest.isBack
+        restRow(after: rest.set, isBack: rest.isBack, in: loggedWorkout)
+    }
+
+    /// The same, for the rest after `set`, as a move out of one names it.
+    func restRow(after set: PlannedSet, isBack: Bool, in loggedWorkout: LoggedWorkout)
+        -> WorkoutExercise.ID?
+    {
+        isBack
             ? LiveWorkout(workout: workout, loggedWorkout: loggedWorkout).currentSet?.row
-            : rest.set.row
+            : set.row
     }
 
     /// What follows `set` at its caption line's end, before it is logged: "then rest 1:00" where

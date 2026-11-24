@@ -25,9 +25,16 @@ extension WorkoutScreen {
         // Skipped, its room closes with the move on showing the time it had at the tap: closed
         // as a rest that ran out is, on an empty rest, it read 0:00 as it went.
         if let move = phase.move, let left = move.skippedLeft,
-           let row = move.isBack ? shown?.currentSet?.row : move.set.row
+           let loggedWorkout = session.loggedWorkout,
+           let row = restRow(after: move.set, isBack: move.isBack, in: loggedWorkout)
         {
-            let block = RestBlock(stage: .none, length: 0, pausedLeft: left)
+            // Gray still where the skip came in a pause.
+            let block = RestBlock(
+                stage: .none,
+                length: 0,
+                pausedLeft: left,
+                isPaused: loggedWorkout.isPaused,
+            )
             return DrawnRestBlock(row: row, above: move.isBack, block: block)
         }
         // Ended mid-rest, its room closes with the list showing the time it had.
