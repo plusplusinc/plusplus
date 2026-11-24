@@ -13,8 +13,8 @@ public struct SetRest {
     let length: Int
     let ends: Date
     let pausedLeft: Double?
-    /// Over, and swapping back: the countdown reads 0:00 and holds still as it goes, never
-    /// rolling its last figure.
+    /// Over, and swapping back: the countdown holds still as it goes, never rolling its last
+    /// figure, at 0:00, or, cut short by Skip rest, at the time it had left (`pausedLeft`).
     let isOver: Bool
     /// Whether each second and +15 s turn the countdown's figure: once it is up. Turning as it
     /// came in, its end set at the log, it rolled from its length to itself.
@@ -26,8 +26,8 @@ public struct SetRest {
     let isPaused: Bool
 
     /// Whether the countdown's figure turns: once it is up (`turns`), and over, as it goes. Not
-    /// turning in the change that cuts it to 0:00, as Skip rest's, the figure took the swap's
-    /// animation and rolled down to 0:00 as it went, where its last change is at once.
+    /// turning in the change that ends it, the figure took the swap's animation and rolled down
+    /// to 0:00 as it went, where its last change is at once.
     var turnsFigure: Bool {
         turns || isOver
     }
@@ -103,7 +103,7 @@ public struct SetRest {
             stage: isRunning ? .open : .none,
             length: length,
             ends: ends,
-            pausedLeft: isOver ? 0 : pausedLeft,
+            pausedLeft: isOver ? pausedLeft ?? 0 : pausedLeft,
             isPaused: isPaused,
         )
     }
