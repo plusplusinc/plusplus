@@ -79,9 +79,10 @@ extension LiveWorkout {
     /// "Start in" before its set begins; and a skipped rest its time before the screen moves on,
     /// in seconds (decided 2026-11-23: "show 0 for a full second").
     public static let restHold = 1.0
-    /// How long a skipped rest holds its time before the screen moves on, in seconds: half
-    /// `restHold`, since after a tap a full second read as a hang (the maintainer, 2026-11-24).
-    public static let skipHold = 0.5
+    /// How long a skipped rest holds its time before the screen moves on, in seconds: a
+    /// quarter of `restHold`, since after a tap a full second read as a hang (the maintainer,
+    /// 2026-11-24).
+    public static let skipHold = 0.25
 
     /// The rest after the last set logged, while there is one: nil with no gap after it, a set
     /// logged before its clock was kept, or nothing left to do. Whether it is over is the
