@@ -211,6 +211,43 @@ struct AppSessionDrawerWayTests {
         }
     }
 
+    @Test("Through a finish's lead the drawer is locked: only the way opens it")
+    func lockedDuringLead() async throws {
+        let session = try await finishedSession()
+        #expect(!session.isDrawerLocked, "a finished workout leaves the drawer unlocked")
+        session.show(.log, after: lead, throughDrawer: opening, markWait: markWait)
+        #expect(session.isDrawerLocked)
+        session.openDrawer()
+        #expect(!session.isDrawerOpen, "++ and a swipe open nothing during the lead")
+
+        await clock.sleeper()
+        clock.advance(by: lead)
+        await clock.sleeper()
+        #expect(session.isDrawerOpen, "the way opens it")
+        #expect(!session.isDrawerLocked)
+    }
+
+    @Test("Whatever ends a finish's lead leaves the drawer unlocked")
+    func leadEndersUnlock() async throws {
+        let enders: [(AppSession) -> Void] = [
+            { $0.closeDrawer() },
+            { $0.finishThroughDrawer() },
+            { $0.showWorkouts() },
+            { $0.showLog() },
+        ]
+        for end in enders {
+            let session = try await finishedSession()
+            session.show(.log, after: lead, throughDrawer: opening, markWait: markWait)
+            let wait = try #require(session.throughDrawer)
+            await clock.sleeper()
+            end(session)
+            await wait.value
+            #expect(!session.isDrawerLocked)
+            session.openDrawer()
+            #expect(session.isDrawerOpen)
+        }
+    }
+
     @Test("Where the drawer is kept shut, as under a row's sheet, it goes straight there")
     func drawerKeptShut() throws {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))

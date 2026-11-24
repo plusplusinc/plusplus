@@ -14,7 +14,8 @@ public final class AppSession {
     public private(set) var opened: Workout
     /// The open workout as it is now, edits included.
     public private(set) var current: Workout
-    /// Opened by `openDrawer()`, which a workout in progress refuses; shut by `closeDrawer()`.
+    /// Opened by `openDrawer()`, which a locked drawer refuses (`isDrawerLocked`); shut by
+    /// `closeDrawer()`.
     public private(set) var isDrawerOpen = false
     /// The workout screen's open sheets, a row's and Add exercise, each through its open and close.
     public private(set) var rowSheet: RowSheet?
@@ -34,6 +35,9 @@ public final class AppSession {
     /// A way through the drawer's beats under way, which whatever closes it ends, and its place.
     @ObservationIgnored var throughDrawer: Task<Void, Never>?
     @ObservationIgnored var throughDrawerPlace: Showing?
+    /// A way's lead is under way (`show(_:after:throughDrawer:markWait:)`): the drawer is locked
+    /// until the way opens it, or whatever ends the way ends the lead.
+    var isLeadPending = false
     /// The clock those beats sleep on: a test steps its own.
     @ObservationIgnored var beatClock: any Clock<Duration> = ContinuousClock()
     /// Where the app is, under the drawer (`Screen`).
@@ -102,9 +106,11 @@ public final class AppSession {
         saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
     }
 
-    /// While a workout is in progress, the drawer stays shut: neither ++ nor a swipe opens it.
+    /// While a workout is in progress, and through the lead of a way to Log after a finish
+    /// (`isLeadPending`), the drawer stays shut: neither ++ nor a swipe opens it. A drawer
+    /// swiped open during that lead went nowhere until the way began, then closed by itself.
     public var isDrawerLocked: Bool {
-        loggedWorkout != nil
+        loggedWorkout != nil || isLeadPending
     }
 
     /// Opens the drawer, unless one in progress keeps it shut or a row's sheet has been asked for.

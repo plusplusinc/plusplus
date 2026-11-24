@@ -49,7 +49,8 @@ extension AppSession {
     /// the drawer is kept shut it goes straight there.
     ///
     /// With a `lead`, as after a finish's "++", the way waits that long before the drawer opens,
-    /// `place` pending from the call, so whatever ends a way ends the wait too.
+    /// `place` pending from the call, so whatever ends a way ends the wait too. Through the lead
+    /// the drawer is locked (`isDrawerLocked`), so only the way opens it.
     public func show(
         _ place: Showing,
         after lead: Duration = .zero,
@@ -67,6 +68,7 @@ extension AppSession {
             openWay(to: place, opening: opening, markWait: markWait)
             return
         }
+        isLeadPending = true
         throughDrawer = wait(lead, on: beatClock) { [weak self] in
             self?.openWay(to: place, opening: opening, markWait: markWait)
         }
@@ -93,6 +95,7 @@ extension AppSession {
     /// The way's start, once any lead is over: the drawer opens if it is shut, and its beats
     /// begin.
     private func openWay(to place: Showing, opening: DrawerOpening, markWait: Duration) {
+        isLeadPending = false
         var markAt = Duration.zero
         var closeAt = markWait
         // From an open drawer the mark moves on the beats' first turn, as from a closed one,
@@ -153,6 +156,7 @@ extension AppSession {
         throughDrawer?.cancel()
         throughDrawer = nil
         throughDrawerPlace = nil
+        isLeadPending = false
     }
 
     /// Puts `place` under the drawer: a workout is no place the drawer goes, so it changes

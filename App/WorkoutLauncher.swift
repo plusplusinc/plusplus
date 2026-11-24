@@ -19,7 +19,8 @@ struct WorkoutLauncher: View {
     var body: some View {
         if let session {
             // A workout pushed onto the Workouts screen takes the edge swipe back, and one in
-            // progress, or a row's sheet asked for, keeps the drawer shut: the swipe never begins,
+            // progress, a finish's hold before its way to Log, or a row's sheet asked for, keeps
+            // the drawer shut: the swipe never begins,
             // and the session refuses any other open. A swipe under way keeps a row's sheet out.
             SideDrawer(
                 isOpen: Binding {
