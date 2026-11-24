@@ -187,7 +187,7 @@ extension WorkoutScreen {
         guard let rest = phase.resting, let loggedWorkout = session.loggedWorkout,
               let next = live?.currentSet,
               // By the watch's own clock: a skip's hold can be up before the stored rest's leave.
-              resting.map({ loggedWorkout.clock(at: .now) >= leaveClock(of: $0) }) ?? true
+              resting.map({ loggedWorkout.clock(at: .now) >= phase.leaveClock(of: $0) }) ?? true
         else { return }
         // A timed set next counts from the rest's end, in the same update as the rest ends.
         session.beginCount(override: restOverride)
@@ -297,22 +297,14 @@ extension WorkoutScreen {
         guard let resting, let loggedWorkout = session.loggedWorkout else { return nil }
         return RestWatch(
             endClock: resting.endClock,
-            leaveClock: leaveClock(of: resting),
+            leaveClock: phase.leaveClock(of: resting),
             isPaused: loggedWorkout.isPaused,
         )
     }
 
-    /// The clock as the screen moves on from `resting`: its own (`WorkoutRest.leaveClock`), or,
-    /// skipped, never before the skip's hold is up. A skip with no count stored is timed by the
-    /// phase alone: the rest's own leave, a whole second past its stored end, came up to
-    /// three quarters of a second after the hold.
-    func leaveClock(of resting: WorkoutRest) -> Double {
-        guard let skip = phase.resting?.skipLeave else { return resting.leaveClock }
-        return resting.skipLeaveClock == nil ? skip : max(resting.leaveClock, skip)
-    }
-
-    /// Sleeps to where the screen moves on (`WorkoutRest.leaveClock`), once 0:00, or a skip's
-    /// time, has held a second, then ends the rest; never while paused. A rest gone while the
+    /// Sleeps to where the screen moves on (`WorkoutPhase.leaveClock(of:)`), once 0:00 has held
+    /// a second, or a skip's time a quarter second, then ends the rest; never while paused. A rest
+    /// gone while the
     /// screen rests, its row's rest set to 0 or the row deleted, ends at once. The rest's end is
     /// on the workout's clock, which runs on the wall clock, and the sleep on the device's: woken
     /// with time left, as after the wall clock stepped back, it sleeps on to the end.
@@ -320,7 +312,7 @@ extension WorkoutScreen {
         guard isResting else { return }
         while let resting {
             guard let loggedWorkout = session.loggedWorkout, !loggedWorkout.isPaused else { return }
-            let left = leaveClock(of: resting) - loggedWorkout.clock(at: .now)
+            let left = phase.leaveClock(of: resting) - loggedWorkout.clock(at: .now)
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }

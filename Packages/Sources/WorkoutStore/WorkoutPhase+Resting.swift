@@ -110,10 +110,10 @@ extension WorkoutPhase {
         return true
     }
 
-    /// Skip rest cuts the rest with `left` seconds to go: its count holds them from here, for a
-    /// second (`LiveWorkout.restHold`), then through the swap back or the move on
-    /// (`Move.skippedLeft`), and goes with the phase. Its keys go at the tap. Stored as cut at the
-    /// tap, the rest drawn from the store read 0:00 on its way out.
+    /// Skip rest cuts the rest with `left` seconds to go: its count holds them from here until
+    /// the screen moves on at `leave` (`LiveWorkout.skipHold` after the tap), then through the
+    /// swap back or the move on (`Move.skippedLeft`), and goes with the phase. Its keys go at the
+    /// tap. Stored as cut at the tap, the rest drawn from the store read 0:00 on its way out.
     @discardableResult
     public mutating func skipRest(left: Double, leave: Double? = nil) -> Bool {
         guard case var .resting(rest) = self, rest.beat < .returning else { return false }
@@ -121,6 +121,15 @@ extension WorkoutPhase {
         rest.skipLeave = leave
         self = .resting(rest)
         return true
+    }
+
+    /// The clock as the screen moves on from `rest`, the stored rest running: its own
+    /// (`WorkoutRest.leaveClock`), or, skipped, never before the skip's hold is up. A skip with
+    /// no count stored is timed by the phase alone: the rest's own leave, a whole second past
+    /// its stored end, came up to three quarters of a second after the hold.
+    public func leaveClock(of rest: WorkoutRest) -> Double {
+        guard let skip = resting?.skipLeave else { return rest.leaveClock }
+        return rest.skipLeaveClock == nil ? skip : max(rest.leaveClock, skip)
     }
 
     /// A rest is over: the move to the next exercise plays from the rest as a move with no rest
