@@ -60,7 +60,7 @@ extension Font {
     public static let ppWorkoutLengthNumber = Font.system(.body, design: .monospaced)
     /// Each "+" of the "++" that pops off the key as a workout finishes: SF Mono, as numbers
     /// are, at the title style's 28 pt.
-    public static let ppPlusOne = Font.system(.title, design: .monospaced, weight: .bold)
+    public static let ppFinishBurst = Font.system(.title, design: .monospaced, weight: .bold)
     /// A floating button's icon, such as Add exercise's +.
     public static let ppFloatingIcon = Font.system(.title2, weight: .semibold)
     /// A glass bar button's glyph, such as search's magnifying glass and Close's X, at the

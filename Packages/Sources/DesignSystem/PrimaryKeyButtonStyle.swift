@@ -114,14 +114,6 @@ extension PrimaryKeyButtonStyle {
     /// Each half of a bar's key swapping for another: the key going down and out, then the next
     /// coming up and in.
     public static let swapHalf = 0.2
-    /// How long the burst over the key lasts as a workout finishes: the screen holds under it,
-    /// and the way to Log starts once it is over.
-    public static let finishBurst = PlusOneBurst.duration
-    /// The beat of stillness once the burst has gone, before the drawer opens: without it the
-    /// finish read as too fast (Dave, 2026-11-23).
-    public static let finishRest = 0.3
-    /// From the burst's first "+", and its haptic, to the second.
-    public static let finishBeat = PlusOneBurst.beat
 }
 
 extension View {
@@ -131,8 +123,9 @@ extension View {
     /// content runs on under the key, beside and below it, with the bottom scroll edge effect
     /// hidden, which a `safeAreaBar` would otherwise draw behind the bar. It sits where a tab bar
     /// floats: its ledge's bottom 21 pt above the screen's bottom, and its sides 21 pt from the
-    /// screen's. Each time `plusOnes` goes up, a +1 pops off the key's top and plays on
-    /// there, whatever the key does next (`PlusOneSpot`). `drop` moves the key
+    /// screen's. Each time `finishes` goes up, the finish's "++" pops off the key's top
+    /// (`FinishBurst`); the key holds still under it, so it plays at the key's bounds as they
+    /// are drawn, unseen with no key. `drop` moves the key
     /// down by that much, at least off the screen, which an animation carries it along at its own
     /// pace. The keyboard covers the key, and the screen with it, rather than lifting them.
     ///
@@ -162,7 +155,7 @@ extension View {
         isPresented: Bool,
         face: Face,
         keepsRoom: Bool = false,
-        plusOnes: Int = 0,
+        finishes: Int = 0,
         drop: CGFloat = 0,
         floatsLow: Bool = false,
         @ViewBuilder key: @escaping (Face, _ isOut: Bool) -> Key,
@@ -172,7 +165,7 @@ extension View {
             isPresented: isPresented,
             face: face,
             keepsRoom: keepsRoom,
-            plusOnes: plusOnes,
+            finishes: finishes,
             drop: drop,
             floatsLow: floatsLow,
             key: key,
@@ -184,7 +177,7 @@ extension View {
     public func primaryKeyBar(
         isPresented: Bool,
         keepsRoom: Bool = false,
-        plusOnes: Int = 0,
+        finishes: Int = 0,
         drop: CGFloat = 0,
         floatsLow: Bool = false,
         @ViewBuilder key: () -> some View,
@@ -195,7 +188,7 @@ extension View {
             isPresented: isPresented,
             face: OneFace(),
             keepsRoom: keepsRoom,
-            plusOnes: plusOnes,
+            finishes: finishes,
             drop: drop,
             floatsLow: floatsLow,
             key: { _, _ in key },
@@ -219,7 +212,7 @@ private struct PrimaryKeyBar<
     let isPresented: Bool
     let face: Face
     let keepsRoom: Bool
-    let plusOnes: Int
+    let finishes: Int
     let drop: CGFloat
     let floatsLow: Bool
     let key: (Face, _ isOut: Bool) -> Key
@@ -312,7 +305,7 @@ private struct PrimaryKeyBar<
                         }
                         .transition(KeyBarTransition(below: bottomInset))
                     } else if keepsRoom {
-                        // Only what sizes it: no bounds for the +1, and no drop or swap to run.
+                        // Only what sizes it: no bounds for the burst, and no drop or swap to run.
                         unseenKey.hidden()
                     }
                 }
@@ -325,7 +318,16 @@ private struct PrimaryKeyBar<
             // Over the screen rather than in the bar, so it can rise above the bar's room.
             .overlayPreferenceValue(PrimaryKeyBounds.self) { key in
                 GeometryReader { proxy in
-                    PlusOneSpot(trigger: plusOnes, key: key.map { proxy[$0] })
+                    if let key {
+                        let bounds = proxy[key]
+                        FinishBurst(trigger: finishes)
+                            .frame(
+                                width: bounds.width,
+                                height: max(bounds.minY, 0),
+                                alignment: .bottom,
+                            )
+                            .offset(x: bounds.minX)
+                    }
                 }
                 .allowsHitTesting(false)
             }
@@ -368,7 +370,7 @@ private struct KeyDrop: ViewModifier, Animatable {
     }
 }
 
-/// Where the primary key is, for the +1 that pops off its top.
+/// Where the primary key is, for the "++" that pops off its top.
 private struct PrimaryKeyBounds: PreferenceKey {
     static let defaultValue: Anchor<CGRect>? = nil
 

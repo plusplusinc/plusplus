@@ -56,13 +56,14 @@ struct WorkoutScreen: View {
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleWayBack()`); none while it logs.
     @State var keyWayBack: WorkoutKey.WayBack?
-    /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
-    /// and the workout's finishes, each popping a "++" off the key on two beats.
+    /// The key's logs of a set, each with a medium impact, and of a side, each with a light one.
     @State var setLogs = 0
     @State var sideLogs = 0
+    /// The workout's finishes, each popping a "++" off the key on two beats, an impact on each.
     @State var finishBeats = FinishBeats()
-    /// Whether the dialog asking how to end the workout shows, and the alert asking to delete it.
+    /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
+    /// Whether the alert asking to delete the workout shows.
     @State var isAskingToDeleteWorkout = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
@@ -109,7 +110,8 @@ struct WorkoutScreen: View {
     @State var railPulse: RailPulse<WorkoutExercise.ID>?
     /// Counts the moves landed on another exercise's node, each with a tick lighter than a log's.
     @State var landings = 0
-    /// Counts the rests run to their end, each with a heavy tap, and the taps on Skip rest.
+    /// Counts the rests run to their end, each with a heavy tap, felt with the phone set down;
+    /// and the taps on Skip rest, each a new count figure (`RestBlock.figureKey(skips:)`).
     @State var restEnds = 0
     @State var restSkips = 0
     /// A set's beats: "Start in" ending, and the set running out (`WorkoutScreen+Timing`).
@@ -197,7 +199,6 @@ struct WorkoutScreen: View {
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
         let shown = shown
-        let currentSet = shown?.currentSet
         let rows = rowParts(in: shown, current: currentID)
         let tracksRows = shown != nil || isStarting
         let underBar = underBarCut
@@ -244,37 +245,13 @@ struct WorkoutScreen: View {
                         onMove: move,
                         regroup: regroup,
                     ) { item in
-                        rowContent(item, current: currentID, on: currentSet, parts: rows[item.id])
-                            .environment(\.exerciseMoveWay, moveWay)
-                            .environment(\.restSkips, restSkips)
-                            .id(item.id)
-                            .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
-                            // Only while it is read: as the list scrolls, every change redraws the
-                            // screen.
-                            .reportingPlace(item.id == growingID && tracksRows, to: placeCurrent)
-                            // Until an added row has entered it takes no taps, and its frame is
-                            // where it will be rather than where it is drawn, so VoiceOver and the
-                            // UI tests find it once it has. On the label, the row's one element:
-                            // on the row, `false` would un-hide the rail's node.
-                            .accessibilityHidden(item.id == entering)
-                            .railRow()
-                            .reportingRailPitch(
-                                isOn: notesRestingPitch(of: item.id, current: currentID),
-                            ) { restingContent(item, in: shown) } to: {
-                                rowFrames.restingPitch[item.id] = $0
-                            }
-                            // The whole row, its insets included, as the rail stacks it.
-                            .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
-                            .contentShape(.rect)
-                            .onTapGesture {
-                                guard item.id != entering else { return }
-                                session.openRowSheet(RowSheet(id: item.id))
-                            }
-                            // Outermost, as the system's swipe actions are, or their Remove is
-                            // folded into the row's accessibility element, where VoiceOver and
-                            // the UI tests never find it. The row's tap stays on where the swipe
-                            // is off.
-                            .swipeToDelete(item.id, isOn: item.id != currentID) { delete($0) }
+                        listRow(
+                            item,
+                            current: currentID,
+                            parts: rows[item.id],
+                            in: shown,
+                            tracksRows: tracksRows,
+                        )
                     } end: {
                         FloatingButtonRoom()
                             .onGeometryChange(for: CGFloat.self) {
@@ -342,7 +319,7 @@ struct WorkoutScreen: View {
             isPresented: showsKey,
             face: liveKey.role,
             keepsRoom: phase.keyGone == .keepingRoom,
-            plusOnes: finishBeats.first,
+            finishes: finishBeats.first,
             drop: startDrop,
             floatsLow: footShowsEmpty,
         ) { role, isOut in

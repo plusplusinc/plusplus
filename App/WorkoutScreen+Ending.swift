@@ -24,9 +24,12 @@ extension WorkoutScreen {
         let hold = PrimaryKeyButtonStyle.finishBurst + PrimaryKeyButtonStyle.finishRest
         guard end(holdingStill: true, { session.finish() }) else { return }
         finishBeats.first += 1
-        // The burst draws its second "+" on the same constant, from the first's trigger.
-        Task {
-            try? await Task.sleep(for: .seconds(PrimaryKeyButtonStyle.finishBeat), tolerance: .zero)
+        // The second impact on the screen's sequence, which plays nothing else once the workout
+        // has ended and which the screen going away cancels. The burst draws its second "+" on
+        // the same constant, from the first's trigger.
+        let tap = ContinuousClock.now
+        sequence.run {
+            try await beat(until: tap + .seconds(PrimaryKeyButtonStyle.finishBeat))
             finishBeats.second += 1
         }
         session.showThroughDrawer(.log, after: .seconds(hold), reduceMotion: reduceMotion)
