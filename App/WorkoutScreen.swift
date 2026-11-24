@@ -104,8 +104,6 @@ struct WorkoutScreen: View {
     @State var closingRoomTop: CGFloat?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<WorkoutExercise.ID>?
-    /// A second after the last tap on Skip rest, on the clock (`LiveWorkout.skippingRest`).
-    @State var skipLeave: Double?
     /// Counts the moves landed on another exercise's node, each with a tick lighter than a log's.
     @State var landings = 0
     /// Counts the rests run to their end, each with a heavy tap, felt with the phone set down;

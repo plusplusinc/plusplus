@@ -105,8 +105,8 @@ extension WorkoutScreen {
         if let resting, let loggedWorkout = session.loggedWorkout,
            let left = Self.times(of: resting, on: loggedWorkout, stopped: true).pausedLeft
         {
-            phase.skipRest(left: left)
-            skipLeave = loggedWorkout.clock(at: .now) + LiveWorkout.skipHold
+            let leave = loggedWorkout.clock(at: .now) + LiveWorkout.skipHold
+            phase.skipRest(left: left, leave: leave)
         }
         session.skipRest(override: restOverride)
     }

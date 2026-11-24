@@ -140,7 +140,8 @@ extension LiveWorkout {
     /// The stored adjustment holds the rest taken in whole seconds: rounded up where a count
     /// times the move, so the count's move is never later than the stored one; rounded down
     /// where none does, a reps set between sets, so the screen's own second after the tap is
-    /// never sooner (`WorkoutScreen.skipLeave`). Unchanged with no rest running, once it reads
+    /// never sooner (`WorkoutPhase.Resting.skipLeave`). Unchanged with no rest running, once it
+    /// reads
     /// 0:00, or skipped already.
     public func skippingRest(override: Int? = nil, at now: Date) -> LoggedWorkout {
         let clock = loggedWorkout.clock(at: now)

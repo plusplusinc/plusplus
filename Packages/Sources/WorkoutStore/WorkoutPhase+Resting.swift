@@ -14,6 +14,10 @@ extension WorkoutPhase {
         /// Cut by Skip rest, the seconds it had left at the tap, which its count holds as it
         /// goes (`skipRest(left:)`); nil for a rest that runs to 0:00.
         public internal(set) var skippedLeft: Double?
+        /// Cut by Skip rest, the workout's clock as the screen moves on, its time held
+        /// (`LiveWorkout.skipHold`). Here, with the rest it belongs to: kept by the screen, the
+        /// last skip's clock outlived its workout, and a rest in the next one waited for it.
+        public internal(set) var skipLeave: Double?
 
         /// Whether Skip rest and +15 s are its keys: until it ends, or is skipped, where they
         /// go at the tap through the second its count holds.
@@ -111,9 +115,10 @@ extension WorkoutPhase {
     /// (`Move.skippedLeft`), and goes with the phase. Its keys go at the tap. Stored as cut at the
     /// tap, the rest drawn from the store read 0:00 on its way out.
     @discardableResult
-    public mutating func skipRest(left: Double) -> Bool {
+    public mutating func skipRest(left: Double, leave: Double? = nil) -> Bool {
         guard case var .resting(rest) = self, rest.beat < .returning else { return false }
         rest.skippedLeft = left
+        rest.skipLeave = leave
         self = .resting(rest)
         return true
     }

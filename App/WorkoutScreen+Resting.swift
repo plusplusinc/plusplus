@@ -186,7 +186,8 @@ extension WorkoutScreen {
     func endRest() {
         guard let rest = phase.resting, let loggedWorkout = session.loggedWorkout,
               let next = live?.currentSet,
-              resting?.isOver(atClock: loggedWorkout.clock(at: .now)) ?? true
+              // By the watch's own clock: a skip's hold can be up before the stored rest's leave.
+              resting.map({ loggedWorkout.clock(at: .now) >= leaveClock(of: $0) }) ?? true
         else { return }
         // A timed set next counts from the rest's end, in the same update as the rest ends.
         session.beginCount(override: restOverride)
@@ -296,9 +297,18 @@ extension WorkoutScreen {
         guard let resting, let loggedWorkout = session.loggedWorkout else { return nil }
         return RestWatch(
             endClock: resting.endClock,
-            leaveClock: max(resting.leaveClock, skipLeave ?? resting.leaveClock),
+            leaveClock: leaveClock(of: resting),
             isPaused: loggedWorkout.isPaused,
         )
+    }
+
+    /// The clock as the screen moves on from `resting`: its own (`WorkoutRest.leaveClock`), or,
+    /// skipped, never before the skip's hold is up. A skip with no count stored is timed by the
+    /// phase alone: the rest's own leave, a whole second past its stored end, came up to
+    /// three quarters of a second after the hold.
+    func leaveClock(of resting: WorkoutRest) -> Double {
+        guard let skip = phase.resting?.skipLeave else { return resting.leaveClock }
+        return resting.skipLeaveClock == nil ? skip : max(resting.leaveClock, skip)
     }
 
     /// Sleeps to where the screen moves on (`WorkoutRest.leaveClock`), once 0:00, or a skip's
@@ -310,14 +320,7 @@ extension WorkoutScreen {
         guard isResting else { return }
         while let resting {
             guard let loggedWorkout = session.loggedWorkout, !loggedWorkout.isPaused else { return }
-            // A skip with no count stored is timed here alone: the rest's own leave, a whole
-            // second past its stored end, came up to half a second after the skip's hold.
-            // Only for this rest's own skip: `skipLeave` keeps the last skip's time.
-            let isSkipped = phase.resting?.skippedLeft != nil
-            let leave = isSkipped && resting.skipLeaveClock == nil
-                ? skipLeave ?? resting.leaveClock
-                : max(resting.leaveClock, skipLeave ?? resting.leaveClock)
-            let left = leave - loggedWorkout.clock(at: .now)
+            let left = leaveClock(of: resting) - loggedWorkout.clock(at: .now)
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }
