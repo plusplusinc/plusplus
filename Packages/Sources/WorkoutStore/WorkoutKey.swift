@@ -38,11 +38,11 @@ public struct WorkoutKey: Sendable {
     }
 
     /// The timed set's count as the key draws it, from the phase and the plan: "Start in" or the
-    /// count, at rest on a timed set (`WorkoutPhase.timing`) or ended on one (`endingCount`);
-    /// a timed set just logged and still
-    /// drawn, held full for its beat (held, as between a side plank's sides, moving on until the
-    /// rows shift, or before its rest shows), as a count, so the key swaps once, from it to
-    /// what follows; out of a rest onto a timed set, its "Start in" where one is due, else its
+    /// count, at rest on a timed set or ended on one (`WorkoutPhase.drawnCount`); a timed set
+    /// just logged and still drawn, held full for its beat (held, as between a side plank's
+    /// sides, moving on until the rows shift, or before its rest shows), as a count, so the key
+    /// swaps once, from it to what follows; out of a rest onto a timed set, its "Start in" where
+    /// one is due, else its
     /// count, which the rest's end began; and on the way to a timed set with no rest before it
     /// (Start, or a move once the rows shift), "Start in". Nil for a reps set, whose key logs
     /// through its "Start in".
@@ -53,7 +53,7 @@ public struct WorkoutKey: Sendable {
         guard let shown, shown.isOnTimedSet else { return nil }
         // Ended mid-count, the count's keys stay as End found them until the workout goes: read
         // from the phase's timing alone, they turned to Log set under a finish's "++".
-        if let stage = phase.timing ?? phase.endingCount {
+        if let stage = phase.drawnCount {
             return stage
         }
         guard phase.isMovingOn || phase.isLeavingRest else { return nil }

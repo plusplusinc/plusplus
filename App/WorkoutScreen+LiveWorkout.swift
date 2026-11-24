@@ -219,11 +219,11 @@ extension WorkoutScreen {
                 railPulse = nil
             }
         }
-        guard holdingStill else {
+        if holdingStill {
+            change()
+        } else {
             playEnding(tookOver: tookOver, change)
-            return true
         }
-        change()
         return true
     }
 

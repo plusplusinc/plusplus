@@ -20,6 +20,13 @@ extension WorkoutPhase {
         return ending.date
     }
 
+    /// The moment a drawn clock reads: End's while the list still draws the workout it took,
+    /// so a count holds where End found it; else now. Read at each redraw instead, a count
+    /// ticked on under a finish's "++".
+    public var drawnMoment: Date {
+        drawnEnd ?? .now
+    }
+
     /// The rest the screen draws: the one under way, or the one End came in, while the list still
     /// draws the workout, so End shrinks the list from the rest as drawn. Dropped at End, the
     /// rest went on the frame and the next exercise stood grown before it shrank.

@@ -11,14 +11,13 @@ import WorkoutStore
 /// (`DrawerWay.markSlide`), one mark moving, which rests there a moment (`DrawerWay.landedHold`)
 /// before the drawer closes, the place swapping under the closing drawer
 /// (`AppSession.show(_:after:throughDrawer:markWait:)`); Log's Go to Workouts, and a finish once
-/// its
-/// "++" has gone, play the same slide in a drawer they open, held open a moment longer before
-/// and after the slide (`DrawerWay.holdBefore`, `holdAfter`). A tap on the place showing closes the
-/// drawer at once, and so does Workouts from an open workout, with the list under it: the mark
-/// is already there. A row shows no press (`DrawerButtonStyle`). The mark is then held until the
-/// drawer has fully closed. With Reduce Motion
-/// the mark changes rows at once and the drawer waits a moment before closing; with VoiceOver a
-/// tap goes straight to the place, as the drawer has always done.
+/// its "++" has gone, play the same slide in a drawer they open, held open a moment longer
+/// before and after the slide (`DrawerWay.holdBefore`, `holdAfter`). A tap on the place showing
+/// closes the drawer at once, and so does Workouts from an open workout, with the list under it:
+/// the mark is already there. A row shows no press (`DrawerButtonStyle`). The mark is then held
+/// until the drawer has fully closed. With Reduce Motion the mark changes rows at once and the
+/// drawer waits a moment before closing; with VoiceOver a tap goes straight to the place, as the
+/// drawer has always done.
 struct DrawerMenu: View {
     let session: AppSession
 

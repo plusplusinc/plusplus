@@ -24,9 +24,12 @@ extension AppSession {
         }
     }
 
-    /// Shows the Workouts screen and closes the drawer.
+    /// Shows the Workouts screen and closes the drawer. A finish's way to Log that this cuts
+    /// short leaves no workout for Log to bring in: kept, a Log days later left it out of
+    /// History, then brought it in.
     public func showWorkouts() {
         endThroughDrawer()
+        justFinished = nil
         screen = .workouts
         closeDrawer()
     }

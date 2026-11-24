@@ -43,8 +43,9 @@ public final class AppSession {
     /// The logged workout in progress on the open workout, from Start until Finish or Discard.
     public private(set) var loggedWorkout: LoggedWorkout?
     /// The workout just finished, which Log has yet to bring into History; taken by Log as it
-    /// shows (`takeJustFinished()`).
-    public internal(set) var justFinished: LoggedWorkout.ID?
+    /// shows (`takeJustFinished()`). Unobserved: nothing is drawn from it, it only seeds Log's
+    /// arrival, and observed, Log taking it redrew the drawer's content as it closed.
+    @ObservationIgnored public internal(set) var justFinished: LoggedWorkout.ID?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
     /// The exercises whose delete is confirmed and not yet stored

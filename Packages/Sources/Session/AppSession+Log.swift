@@ -27,7 +27,6 @@ extension AppSession {
     /// in progress. A delete that fails is logged, and the read leaves the workout listed.
     public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) async {
         loggedWorkoutWrites.yield(.delete(id))
-        await loggedWorkoutWritesLanded()
         await refreshLog()
     }
 

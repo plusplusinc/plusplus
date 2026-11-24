@@ -141,11 +141,7 @@ struct LogScreen: View {
         await session.refreshLog()
         guard arriving != nil else { return }
         let due = start + DrawerWay.arrival(reduceMotion: reduceMotion) + Self.arrivalDelay
-        do {
-            try await Task.sleep(until: due, tolerance: .zero, clock: .continuous)
-        } catch {
-            return
-        }
+        guard await (try? beat(until: due)) != nil else { return }
         withAnimation(.snappy) { arriving = nil }
     }
 
@@ -224,8 +220,7 @@ struct LogScreen: View {
     /// opening it and tapping Workouts (`AppSession.show(_:after:throughDrawer:markWait:)`): it
     /// opens at the ++ button's pace, holds a moment, its mark slides from Log to Workouts, it
     /// holds again, and it closes over Workouts (`DrawerWay`). With VoiceOver it goes straight
-    /// there:
-    /// a drawer passing by unasked reads as noise.
+    /// there: a drawer passing by unasked reads as noise.
     func goToWorkouts() {
         guard !voiceOver else {
             session.showWorkouts()

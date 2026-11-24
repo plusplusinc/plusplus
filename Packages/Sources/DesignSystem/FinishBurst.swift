@@ -72,9 +72,9 @@ struct FinishBurst: View {
             if let heldAt {
                 Self.pluses(at: heldAt, spacing: spacing, still: still)
             } else {
-                // One track, the time into the burst, from which both "+"s are worked out: a
-                // keyframe of no length, the first's wait, ahead of a cubic one left the first
-                // undrawn until the two met. The animator's own view only carries the timeline.
+                // One linear track, the time into the burst, from which both "+"s are worked out
+                // (`plus(at:after:still:)`), so the second's delay and the two meeting come from
+                // one clock. The animator's own view only carries the timeline.
                 Color.clear.keyframeAnimator(initialValue: 0.0, trigger: trigger) { _, time in
                     Self.pluses(at: time, spacing: spacing, still: still)
                 } keyframes: { _ in

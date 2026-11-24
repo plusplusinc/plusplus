@@ -125,8 +125,8 @@ extension View {
     /// floats: its ledge's bottom 21 pt above the screen's bottom, and its sides 21 pt from the
     /// screen's. Each time `finishes` goes up, the finish's "++" pops off the key's top
     /// (`FinishBurst`); the key holds still under it, so it plays at the key's bounds as they
-    /// are drawn, unseen with no key. `drop` moves the key
-    /// down by that much, at least off the screen, which an animation carries it along at its own
+    /// are drawn, unseen with no key. `drop` moves the key down by that much, at least off the
+    /// screen, which an animation carries it along at its own
     /// pace. The keyboard covers the key, and the screen with it, rather than lifting them.
     ///
     /// `floating`, a button drawn in the `floating` style, floats above the key's right end, its

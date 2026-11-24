@@ -50,9 +50,8 @@ extension WorkoutScreen {
             return KeyFill(
                 length: Double(timed.length),
                 ends: .distantPast,
-                pausedLeft: timed.remaining(
-                    atClock: shown.loggedWorkout.clock(at: phase.drawnEnd ?? .now),
-                ),
+                pausedLeft: timed
+                    .remaining(atClock: shown.loggedWorkout.clock(at: phase.drawnMoment)),
             )
         }
         guard countBeats.earlyLog == nil, phase.loggedAndDrawn == nil,
@@ -176,10 +175,9 @@ extension WorkoutScreen {
             )
         }
         let loggedWorkout = shown.loggedWorkout
-        // Held: paused; or ended, where End found it, as the workout's time holds (read at each
-        // redraw, it ticked on under a finish's "++"); or logged early, where the tap stopped
-        // it, as its fill runs on.
-        let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? phase.drawnEnd ?? .now)
+        // Held: paused; or ended, where End found it (`drawnMoment`), as the workout's time
+        // holds; or logged early, where the tap stopped it, as its fill runs on.
+        let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? phase.drawnMoment)
         let holds = loggedWorkout.isPaused || phase.endingCount != nil || countBeats.earlyLog != nil
         switch stage {
         case .startIn:
@@ -208,7 +206,7 @@ extension WorkoutScreen {
     /// Where the current set's count stands as drawn: the phase's at rest on it, End's as it
     /// found it, and out of a rest, the stored count's, which the rest's end began.
     private func drawnStage(in shown: LiveWorkout) -> CountStage? {
-        phase.timing ?? phase.endingCount
+        phase.drawnCount
             ?? (phase.isLeavingRest ? shown.countStage(at: .now) ?? .counting : nil)
     }
 
@@ -240,7 +238,7 @@ extension WorkoutScreen {
             length: length,
             ends: loggedWorkout.date(ofClock: count.startClock),
             pausedLeft: holds
-                ? max(0, count.startClock - loggedWorkout.clock(at: phase.drawnEnd ?? .now))
+                ? max(0, count.startClock - loggedWorkout.clock(at: phase.drawnMoment))
                 : nil,
             turns: true,
             kind: .startIn(),
