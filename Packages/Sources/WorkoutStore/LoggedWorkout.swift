@@ -71,6 +71,14 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
         return max(0, end.timeIntervalSince(startedAt) - pausedSeconds)
     }
 
+    /// The whole second of the clock nearest `now`: where everything timed in a workout begins
+    /// (a rest at a set's log, a set's "Start in", a timed set's count), so each count turns
+    /// over on the same ticks as the workout's time. A count's first second so runs from half
+    /// a second to a second and a half.
+    public func tick(nearest now: Date) -> Double {
+        clock(at: now).rounded()
+    }
+
     /// When the clock reads `clock`, while it runs on from now with no pause.
     public func date(ofClock clock: Double) -> Date {
         clockStart.addingTimeInterval(clock)
@@ -122,7 +130,7 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
             plannedWeight: row.shownWeight,
             loggedAt: now,
         ))
-        logged.sets[logged.sets.count - 1].clockWhenLogged = clock(at: now)
+        logged.sets[logged.sets.count - 1].clockWhenLogged = tick(nearest: now)
         return logged
     }
 

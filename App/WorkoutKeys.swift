@@ -97,6 +97,7 @@ struct WorkoutTimeKey: View {
         let elapsed = loggedWorkout.elapsed(at: date)
         return WorkoutTimeLabel(
             LoggedWorkout.elapsedText(elapsed, locale: locale),
+            seconds: Double(elapsed.components.seconds),
             isPaused: loggedWorkout.isPaused,
         )
         .accessibilityElement(children: .ignore)

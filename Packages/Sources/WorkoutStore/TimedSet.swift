@@ -207,7 +207,7 @@ extension LiveWorkout {
         guard let set = currentSet else { return begun }
         let clock = loggedWorkout.clock(at: now)
         var lead = workout.startIn(before: set)
-        var base = clock
+        var base = loggedWorkout.tick(nearest: now)
         var restJustEnded = false
         if let rest = rest(override: restOverride) {
             guard rest.isOver(atClock: clock) else { return begun }
@@ -273,7 +273,7 @@ extension LiveWorkout {
         guard loggedWorkout.isInProgress, let timed = timedSet, timed.startIn(atClock: clock) > 0
         else { return loggedWorkout }
         var started = loggedWorkout
-        started.count?.startClock = clock
+        started.count?.startClock = loggedWorkout.tick(nearest: now)
         return started
     }
 
