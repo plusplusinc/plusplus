@@ -69,6 +69,7 @@ extension WorkoutFinishUITests {
                 XCTAssertFalse(line.exists, "Balance still shows Diff's line")
             }
         deleteFromHistory(named: name, in: app)
+        dialogFinishGoesToLog(named: name, in: app)
     }
 
     /// The system's swipe actions and alert, composed on History's scroll view, show only in the
@@ -91,6 +92,57 @@ extension WorkoutFinishUITests {
                     app.buttons["log.goToWorkouts"].appears(),
                     "History without its one workout shows no Go to Workouts",
                 )
+            }
+    }
+
+    /// Run last, from the empty History the delete leaves. That a finish goes to Log by the
+    /// drawer and that a started workout is at the root are `AppSessionDrawerWayTests`' and
+    /// `AppSessionScreenTests`'; this is the wire from the system dialog's Finish workout, which
+    /// only the running app composes, to the same finish as the key's, on a workout opened from
+    /// the Workouts list.
+    func dialogFinishGoesToLog(named name: String, in app: XCUIApplication) {
+        XCTContext
+            .runActivity(named: "End's Finish, on a workout from the list, goes to Log") { _ in
+                let goToWorkouts = app.buttons["log.goToWorkouts"]
+                XCTAssertTrue(goToWorkouts.settles(), "Go to Workouts kept moving")
+                goToWorkouts.tap()
+                let listed = app.listedWorkout(named: name)
+                XCTAssertTrue(listed.appears(within: 5), "Go to Workouts showed no list")
+                // The list comes in under the closing drawer.
+                XCTAssertTrue(app.drawerTitle.disappears(within: 4), "The drawer stayed open")
+                XCTAssertTrue(listed.settles(), "The list kept moving")
+                listed.tap()
+                let start = app.buttons["Start"]
+                XCTAssertTrue(start.appears(), "The row opened no workout")
+                XCTAssertTrue(app.buttons["BackButton"].exists, "The workout isn't pushed")
+                // The workout slides in as it is pushed.
+                XCTAssertTrue(start.settles(), "Start kept moving")
+                start.tap()
+                app.tapWorkoutKey(reading: "Start now")
+                // The dialog offers Finish only once a set is logged: the 3 s count, with no tap.
+                XCTAssertEqual(
+                    reading(app.workoutKey.label, becoming: "Finish workout", within: 6),
+                    "Finish workout",
+                    "The timed set never logged itself",
+                )
+                app.openEndDialog(withSetsLogged: true)
+                let finish = app.buttons
+                    .matching(NSPredicate(
+                        format: "label == %@ AND identifier != %@",
+                        "Finish workout",
+                        "workout.key",
+                    ))
+                    .firstMatch
+                XCTAssertTrue(finish.settles(), "The dialog kept moving")
+                finish.tap()
+                // The "++" and the rest after it, then the drawer, with no tap.
+                XCTAssertTrue(app.drawerTitle.appears(within: 4), "The drawer never opened")
+                XCTAssertTrue(app.drawerTitle.disappears(within: 4), "The drawer never closed")
+                let logged = app.buttons.matching(identifier: "log.workout").firstMatch
+                XCTAssertTrue(logged.appears(), "The finished workout never came into History")
+                XCTAssertTrue(logged.label.hasPrefix(name), "History's row reads \(logged.label)")
+                XCTAssertTrue(app.buttons["Menu"].exists, "Log shows no ++")
+                XCTAssertFalse(app.buttons["BackButton"].exists, "Log shows a back button")
             }
     }
 }
