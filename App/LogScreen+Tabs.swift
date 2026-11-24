@@ -108,7 +108,22 @@ extension LogScreen {
                 Button("Delete", role: .destructive) { askToDelete(loggedWorkout) }
             }
             .padding(.trailing, -overhang)
+            .opacity(loggedWorkout.id == fadingIn ? 0 : 1)
+            .onAppear { fadesIn(loggedWorkout.id) }
         } }
+        // With Reduce Motion a workout coming in moves nothing: the rows take their places at
+        // once, and the new one fades in from its own.
+        .transaction(value: arriving) {
+            if reduceMotion {
+                $0.animation = nil
+            }
+        }
+    }
+
+    /// Fades in the workout just finished, with Reduce Motion, once its row is in place.
+    private func fadesIn(_ id: LoggedWorkout.ID) {
+        guard id == fadingIn else { return }
+        withAnimation(.snappy) { fadingIn = nil }
     }
 
     func diffTab(_ log: WorkoutLog) -> some View {

@@ -48,10 +48,13 @@ struct LogScreen: View {
     /// History's empty line and Go to Workouts fading out ahead of the first workout ever, which
     /// comes in only once they have gone, so its text never shows over theirs.
     @State var emptyGivesWay = false
+    /// With Reduce Motion, the workout just finished, in History at its place but not yet faded
+    /// in: the rows take their new places at once, and only this one fades (`fadesIn(_:)`).
+    @State var fadingIn: LoggedWorkout.ID?
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
     /// How long after the drawer has closed over Log a workout just finished comes into History.
@@ -165,6 +168,9 @@ struct LogScreen: View {
         }
         guard await (try? beat(until: due)) != nil else { return }
         withAnimation(.snappy) {
+            if reduceMotion {
+                fadingIn = coming
+            }
             arriving = nil
             emptyGivesWay = false
         }
