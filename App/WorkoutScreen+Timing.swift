@@ -34,6 +34,13 @@ extension WorkoutScreen {
         return live?.countStage(at: .now)
     }
 
+    /// As `arrivingCount()`, for Start's landing on the first set: the workout's clock starts
+    /// from here too, so its time and the first "Start in" tick together.
+    func startingCount() -> CountStage? {
+        session.landStart(override: restOverride)
+        return live?.countStage(at: .now)
+    }
+
     /// The key's fill: running while the set counts at rest or out of a rest; else full, as a
     /// set just logged holds it, early or run out, and as the count's keys leave in the bar's
     /// swap.

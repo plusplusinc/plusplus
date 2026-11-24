@@ -32,6 +32,28 @@ extension TimedSetTests {
         #expect(leads == [first, side, 0, side, first, first, first, first], "\(leads)")
     }
 
+    @Test("Landing after Start, the workout's clock and the first Start in begin together")
+    func landingStartsClock() throws {
+        let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
+        let workout = Workout(exercises: [push])
+        let made = LoggedWorkout(workoutID: workout.id, workoutName: "Test", startedAt: Self.at(0))
+        let landed = LiveWorkout(workout: workout, loggedWorkout: made)
+            .landingStart(at: Self.at(0.5))
+        #expect(landed.clock(at: Self.at(0.5)) == 0)
+        #expect(landed.count?.startClock == Double(LiveWorkout.startIn))
+        // The workout's time reaches a second as "Start in" has a second less left.
+        #expect(landed.clock(at: Self.at(1.5)) == 1)
+
+        // Under way, a landing only begins a count: the clock is never set back.
+        let live = LiveWorkout(workout: workout, loggedWorkout: landed)
+        let logged = try Self.logged(live, at: 20)
+        #expect(logged.landingStart(at: Self.at(30)).startedAt == Self.at(0.5))
+        var paused = made
+        paused.pausedSeconds = 3
+        let resumed = LiveWorkout(workout: workout, loggedWorkout: paused)
+        #expect(resumed.landingStart(at: Self.at(10)).startedAt == Self.at(0))
+    }
+
     @Test("After a rest onto another exercise, Start in runs from the rest's end")
     func startInAfterRest() throws {
         var plank = try WorkoutExercise.builtIn("Plank") { $0.sets = 1 }
