@@ -177,7 +177,6 @@ struct SetRoom: View, Animatable {
                             label: rest.kind.spokenAs,
                         )
                         .figureBox(size: size)
-                        .carriedSlot(.arriving, isOn: rest.kind.swapID == 1)
                     }
                     .id(rest.kind.swapID)
                     .transition(Self.kindSwap)

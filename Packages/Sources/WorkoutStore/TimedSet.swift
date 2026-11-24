@@ -211,11 +211,10 @@ extension LiveWorkout {
 
     /// The workout with the current set's count begun at `now`, when it has none of its own:
     /// with the "Start in" due before it (`Workout.startIn(before:)`) from where the rest before
-    /// it moved on (`WorkoutRest.leaveClock`), its last seconds, while that "Start in" is still
-    /// running or just ended, so a relaunch opens where the clock says; else from now. A timed
-    /// set with none due counts from the rest's move on, when that just happened, else opens on
-    /// `startIn` from now; a reps set with none due begins nothing. Every "Start in" holds 0:00
-    /// for `restHold` before the set begins (`startInHold`). A count kept for no set goes. The
+    /// it moved on, its 0:00 held (`WorkoutRest.leaveClock`), when that just happened, else from
+    /// now. A timed set with none due counts from the rest's move on, when that just happened,
+    /// else opens on `startIn` from now; a reps set with none due begins nothing. Every "Start
+    /// in" holds 0:00 for `startInHold` before the set begins. A count kept for no set goes. The
     /// rest of the workout is unchanged until the rest before the set moves on.
     public func beginningCount(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
         guard loggedWorkout.isInProgress, setCount == nil else { return loggedWorkout }
@@ -228,8 +227,7 @@ extension LiveWorkout {
         var restJustEnded = false
         if let rest = rest(override: restOverride) {
             guard rest.isOver(atClock: clock) else { return begun }
-            let ends = rest.startIn > 0 ? rest.endClock + Self.restHold : rest.leaveClock
-            restJustEnded = clock - ends <= Self.missedBy
+            restJustEnded = clock - rest.leaveClock <= Self.missedBy
             if restJustEnded {
                 base = rest.leaveClock
             }

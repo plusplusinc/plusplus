@@ -6,16 +6,16 @@ import WorkoutStore
 /// workout's first set, on to another exercise, between a superset's members in every round),
 /// and before a set's other side, the figures' slot shows "Start in" over a 5 s count
 /// (`Workout.startIn(before:)`); between two sets of one exercise, none. A rest before it
-/// holds it as its last seconds: the rest gives way to it with 0:05 left (`endRest()`,
-/// `WorkoutRest.startInClock`), and a Skip rest leaves it its full 5 s from the tap. With no
-/// rest before it, the exercise opens on it held at its full count, and the count starts as the
-/// screen comes to rest on the set (`arrivingCount()`); as it reaches 0 the phone taps lightly.
-/// Nothing skips it (decided 2026-11-23): through it and its 0:00 hold there is no key, its
-/// room kept (`WorkoutKey.waitsToStart`), and the set's comes in as it is up. On a reps set that is
-/// its log key, and at 0 the set's figures swap back into the slot. On a timed set the set's
-/// time in words stands at the caption line's end, and the key is "Log early", empty, with
-/// +15 s; a timed set with no "Start in" due counts from the end of the rest before it, or at
-/// the tap on Skip rest. The set's count then runs in the figures' slot, with no word over
+/// runs first, and "Start in" counts from where the rest moved on (`endRest()`), a full 5 s,
+/// after a Skip rest too. With no rest before it, the exercise opens on it held at its full
+/// count, and the count starts as the screen comes to rest on the set (`arrivingCount()`). It
+/// reaches 0:00 and holds it a second (`LiveWorkout.startInHold`); as it reaches 0 the phone taps
+/// lightly. Nothing skips it (decided 2026-11-23): through it and its hold there is no key, the
+/// + sitting low as with none (`WorkoutKey.waitsToStart`, decided 2026-11-24), and the set's key
+/// comes in as it is up. On a reps set that is its log key, and the set's figures swap back into
+/// the slot. On a timed set the set's time in words stands at the caption line's end; a timed
+/// set with no "Start in" due counts from where the rest before it moved on, a second after a
+/// Skip rest's tap. The set's count then runs in the figures' slot, with no word over
 /// it, "then rest 0:30" at the caption line's end, the set's segment green, and the key is
 /// "Log early", gray, filling with the done purple from its leading edge,
 /// with +15 s beside it (`CountKeys`). At 0 the set logs itself at its full time, with the
@@ -55,10 +55,6 @@ extension WorkoutScreen {
                 ends: .distantPast,
                 pausedLeft: timed.remaining(atClock: shown.loggedWorkout.clock(at: .now)),
             )
-        }
-        // Through "Start in", empty, waiting to run from 0.
-        if phase.loggedAndDrawn == nil, liveKey.drawnCount == .startIn {
-            return KeyFill(length: 1, ends: .distantFuture, pausedLeft: 1)
         }
         guard countBeats.earlyLog == nil, phase.loggedAndDrawn == nil,
               liveKey.drawnCount == .counting,

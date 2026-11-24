@@ -36,25 +36,17 @@ extension Workout {
 
 /// The rest running after a set, on the workout's clock (`LoggedWorkout.clock(at:)`), so a pause
 /// stops it. It holds no date: it changes only with a log, a +15 s tap, a skip, or an edit to
-/// the workout. Its count runs from the log to 0:00 at `endClock`. Where a "Start in" is due
-/// before the next set (`Workout.startIn(before:)`, as another exercise comes up), its last
-/// `startIn` seconds are that "Start in": the screen moves on to the next exercise with them
-/// left (`leaveClock`), and its "Start in" counts them down in the exercise's figures' slot to
-/// 0:00 at `endClock`, which it holds for `LiveWorkout.restHold` before the set begins
-/// (decided 2026-11-23). Between two sets of one exercise, none: the count holds 0:00 that long,
-/// then the screen swaps back.
+/// the workout. Its count runs from the log to 0:00 at `endClock`, holds 0:00 for
+/// `LiveWorkout.restHold`, and the screen moves on at `leaveClock` (decided 2026-11-23).
 public struct WorkoutRest: Equatable, Sendable {
     /// The set it follows.
     public let after: PlannedSet
     /// The set it leads to.
     public let next: PlannedSet
-    /// The workout's rest, with this rest's taps, in seconds: from the log to 0:00, its "Start
-    /// in" included.
+    /// The workout's rest, with this rest's taps, in seconds.
     public let length: Int
     /// The clock at the log.
     public let startClock: Double
-    /// The seconds of "Start in" its end holds: 0 between two sets of one exercise.
-    public var startIn = 0
     /// Where the next set's count, begun at a skip, says the screen moves on, when sooner than
     /// the stored length does (`LiveWorkout.skippingRest(override:at:)`): a second after the tap,
     /// to the fraction, which the whole seconds stored can't hold.
@@ -65,29 +57,15 @@ public struct WorkoutRest: Equatable, Sendable {
         startClock + Double(length)
     }
 
-    /// The clock as the screen moves on: on to the next exercise with `startIn` seconds left,
-    /// or, between sets, back to the set once 0:00 has held; a skip's, a second after its tap.
+    /// The clock as the screen moves on, once 0:00 has held; a skip's, a second after its tap.
     public var leaveClock: Double {
-        let stored = startIn > 0
-            ? max(startClock, endClock - Double(startIn))
-            : endClock + LiveWorkout.restHold
+        let stored = endClock + LiveWorkout.restHold
         return min(stored, skipLeaveClock ?? stored)
-    }
-
-    /// The clock as its keys go: as it leaves, or between sets at 0:00.
-    public var keysGoClock: Double {
-        min(leaveClock, endClock)
     }
 
     /// Seconds the count has left at `clock`, never below 0.
     public func remaining(atClock clock: Double) -> Double {
         max(0, endClock - clock)
-    }
-
-    /// Whether its keys have gone at `clock` (`keysGoClock`): +15 s and Skip rest change
-    /// nothing from then.
-    public func hasGivenWay(atClock clock: Double) -> Bool {
-        clock >= keysGoClock
     }
 
     /// Whether the screen moves on at `clock` (`leaveClock`).
@@ -97,52 +75,52 @@ public struct WorkoutRest: Equatable, Sendable {
 }
 
 extension LiveWorkout {
-    /// How long a count holds 0:00 before what follows: a rest before the swap back, a "Start
-    /// in" before its set begins; and a skipped rest its time before the screen moves on, in
-    /// seconds (decided 2026-11-23: "show 0 for a full second").
+    /// How long a count holds 0:00 before what follows: a rest before the screen moves on, a
+    /// "Start in" before its set begins; and a skipped rest its time before the screen moves on,
+    /// in seconds (decided 2026-11-23: "show 0 for a full second").
     public static let restHold = 1.0
 
     /// The rest after the last set logged, while there is one: nil with no gap after it, a set
     /// logged before its clock was kept, or nothing left to do. Whether it is over is the
     /// caller's, at its moment. `override`, for the UI tests, replaces every rest's length where
-    /// the workout has one, never where it has none, as between a set's sides. A rest no longer
-    /// than the "Start in" due before the next set is none: the move goes straight on, and that
-    /// "Start in" is all of it.
+    /// the workout has one, never where it has none, as between a set's sides.
     public func rest(override: Int? = nil) -> WorkoutRest? {
         guard let last = loggedWorkout.sets.last, let start = last.clockWhenLogged,
               let next = currentSet
         else { return nil }
         let stored = workout.rest(after: last.planned, before: next)
         let gap = stored > 0 ? override ?? stored : 0
-        let length = max(0, gap + last.restAdjustment)
-        let startIn = workout.startIn(before: next)
-        guard gap > 0, length > startIn else { return nil }
+        guard gap > 0 else { return nil }
         var rest = WorkoutRest(
             after: last.planned,
             next: next,
-            length: length,
+            length: max(0, gap + last.restAdjustment),
             startClock: start,
-            startIn: startIn,
         )
         // A count for the next set begun before the rest moves on is a skip's: it moves on as
         // that count's "Start in" begins. One begun at or after the move puts it no sooner.
         if let count = setCount {
-            let lead = startIn > 0 ? Double(startIn) + Self.startInHold : 0
-            rest.skipLeaveClock = count.startClock - lead
+            rest.skipLeaveClock = count.startClock - countLead(before: next)
         }
         return rest
     }
 
+    /// How long before `set` begins its count's "Start in" does, with its hold; 0 for none.
+    private func countLead(before set: PlannedSet) -> Double {
+        let startIn = workout.startIn(before: set)
+        return startIn > 0 ? Double(startIn) + Self.startInHold : 0
+    }
+
     /// The workout with the rest running after the last set made longer by `seconds`, as a +15 s
-    /// tap does, at `now`. Unchanged with no rest running, or once it has given way, so a tap
-    /// landing as its keys go brings nothing back.
+    /// tap does, at `now`. Unchanged with no rest running, once it reads 0:00, or once skipped,
+    /// so a tap landing as it ends brings nothing back.
     public func extendingRest(
         by seconds: Int,
         override: Int? = nil,
         at now: Date,
     ) -> LoggedWorkout {
         guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(override: override),
-              !rest.hasGivenWay(atClock: loggedWorkout.clock(at: now))
+              rest.remaining(atClock: loggedWorkout.clock(at: now)) > 0
         else { return loggedWorkout }
         var extended = loggedWorkout
         extended.sets[extended.sets.count - 1].restAdjustment += seconds
@@ -151,28 +129,26 @@ extension LiveWorkout {
 
     /// The workout with the rest running after the last set cut short at `now`, as a tap on Skip
     /// rest does. Its count holds the time at the tap for a second (`restHold`) before the
-    /// screen moves on: between two sets of one exercise, back to the set; before another
-    /// exercise, on to it, with its "Start in" whole (decided 2026-11-23). Where the next set
-    /// has a count due, a "Start in" or a timed set's own, it is begun here, to the fraction of
-    /// a second, so the rest moves on exactly a second after the tap
-    /// (`WorkoutRest.skipLeaveClock`) and a relaunch finds its "Start in" where the screen had it.
+    /// screen moves on, as one run out holds 0:00 (decided 2026-11-23). Where the next set has a
+    /// count due, a "Start in" or a timed set's own, it is begun here, to the fraction of a
+    /// second, so the rest moves on exactly a second after the tap
+    /// (`WorkoutRest.skipLeaveClock`) and a relaunch finds the count where the screen had it.
     /// The stored adjustment holds the rest taken in whole seconds: rounded up where a count
     /// times the move, so the count's move is never later than the stored one; rounded down
     /// where none does, a reps set between sets, so the screen's own second after the tap is
-    /// never sooner (`WorkoutScreen.skipLeave`). Unchanged with no rest running, once its keys
-    /// have gone, or skipped already.
+    /// never sooner (`WorkoutScreen.skipLeave`). Unchanged with no rest running, once it reads
+    /// 0:00, or skipped already.
     public func skippingRest(override: Int? = nil, at now: Date) -> LoggedWorkout {
         let clock = loggedWorkout.clock(at: now)
         guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(override: override),
-              !rest.hasGivenWay(atClock: clock)
+              rest.remaining(atClock: clock) > 0
         else { return loggedWorkout }
         var skipped = loggedWorkout
-        let lead = rest.startIn > 0 ? Double(rest.startIn) + Self.startInHold : 0
+        let lead = countLead(before: rest.next)
         let counts = lead > 0 || isOnTimedSet
         let taken = clock - rest.startClock
         let rested = Int(counts ? taken.rounded(.up) : taken.rounded(.down))
-        let held = rest.startIn > 0 ? Int(Self.restHold) + rest.startIn : 0
-        skipped.sets[skipped.sets.count - 1].restAdjustment += rested + held - rest.length
+        skipped.sets[skipped.sets.count - 1].restAdjustment += rested - rest.length
         if counts {
             skipped.count = SetCount(set: rest.next, startClock: clock + Self.restHold + lead)
         }
@@ -189,25 +165,21 @@ extension LiveWorkout {
     }
 
     /// The seconds of rest logging `set` leading to `step` runs, 0 for none, which a screen can
-    /// promise before the log: `rests(after:leadingTo:override:)`'s rule. None where it is no
-    /// longer than the next set's "Start in" (`rest(override:)`).
+    /// promise before the log: `rests(after:leadingTo:override:)`'s rule.
     public func restLength(
         after set: PlannedSet,
         leadingTo step: Step,
         override: Int? = nil,
     ) -> Int {
         let stored: Int
-        var startIn = 0
         switch step {
         case let .nextExercise(next, isBack, _) where !isBack || workout.isInSuperset(set.row):
             stored = workout.rest(after: set, before: next)
-            startIn = workout.startIn(before: next)
         case .nextSet:
             stored = workout.restBetweenSets(after: set) ?? 0
         default:
             return 0
         }
-        let length = stored > 0 ? override ?? stored : 0
-        return length > startIn ? length : 0
+        return stored > 0 ? override ?? stored : 0
     }
 }

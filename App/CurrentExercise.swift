@@ -162,8 +162,7 @@ struct GrowthLift: ViewModifier, Animatable {
 
     func body(content: Content) -> some View {
         shown.value = lift
-        // Read on each frame by a figure carried over the rows (`FigureCarry`).
-        return content.offset(y: lift).environment(\.listLift, lift)
+        return content.offset(y: lift)
     }
 }
 

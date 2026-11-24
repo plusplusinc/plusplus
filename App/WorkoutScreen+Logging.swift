@@ -282,8 +282,6 @@ extension WorkoutScreen {
             }
             try await beat(until: start + .seconds(SetMotion.move(way)))
             phase.settle(on: arrivingCount())
-            // At once, the figure carried from a rest standing where the slot's own does.
-            withTransaction(\.disablesAnimations, true) { figureCarry = nil }
             letRoomGo()
             if target == nil {
                 withAnimation(.snappy(duration: SetMotion.roll), scrollToCurrent)
@@ -365,7 +363,7 @@ extension WorkoutScreen {
         !footShowsEmpty && phase.keyGone == nil && !liveKey.waitsToStart
     }
 
-    /// Whether the bar keeps the key's room with no key in it, so nothing above moves.
+    /// Whether the bar keeps the key's room with no key in it, so the list doesn't move.
     var keyKeepsRoom: Bool {
         phase.keyGone == .keepingRoom || liveKey.waitsToStart
     }

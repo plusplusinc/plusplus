@@ -53,13 +53,12 @@ public struct WorkoutKey: Sendable {
         if let stage = phase.timing {
             return stage
         }
-        // A rest that has given way, or been skipped, waits on the set: its key, empty.
-        if let rest = phase.drawnRest, rest.beat < .returning {
+        // A skipped rest, holding its time, waits on the set.
+        if let rest = phase.drawnRest, rest.beat < .returning, rest.skippedLeft != nil {
             return .startIn
         }
         guard phase.isMovingOn || phase.isLeavingRest else { return nil }
         guard phase.isLeavingRest, let set = shown.currentSet else { return .startIn }
-        // Out of a rest that held the "Start in", the count begins as the move lands.
         return shown.workout.startIn(before: set) > 0 ? .startIn : .counting
     }
 
@@ -84,7 +83,7 @@ public struct WorkoutKey: Sendable {
     }
 
     /// The log key saying `text`, or during a rest Skip rest and +15 s in its place: from the log
-    /// of a set with a rest after it until the rest is skipped or gives way
+    /// of a set with a rest after it until the rest ends or is skipped
     /// (`WorkoutPhase.Resting.hasKeys`), and through End's leaving of a rest.
     private func logRole(_ text: String) -> Role {
         if phase.drawnRest?.hasKeys == true {
@@ -96,12 +95,12 @@ public struct WorkoutKey: Sendable {
         }
     }
 
-    /// Whether the key is the next set's own, waiting on it: not shown, its room kept, and taking
-    /// no tap (decided 2026-11-24). Through a set's "Start in", in at 0; through a
-    /// rest's "Start in", or its hold at 0:00 or a skip's, and the move on from it, until the set
-    /// is ready as the screen comes to rest on it. A timed set's is "Log early" with +15 s, empty;
-    /// a reps set's, its log key. Only for the current set's key, not a set just logged still
-    /// drawn, nor a rest's keys.
+    /// Whether the key is the next set's own, waiting on it: not shown, the + sitting low as with
+    /// no key, and taking no tap (decided 2026-11-24). Through a set's "Start in" and its 0:00
+    /// hold, in as the set is up; through a skipped rest's held second, and the move on from a
+    /// rest to a set with a "Start in" due, until the screen comes to rest on it. A timed set's
+    /// is "Log early" with +15 s; a reps set's, its log key. Only for the current set's key, not
+    /// a set just logged still drawn, nor a rest's keys.
     public var waitsToStart: Bool {
         guard let shown, let set = shown.currentSet, phase.keySet == nil,
               phase.loggedAndDrawn == nil

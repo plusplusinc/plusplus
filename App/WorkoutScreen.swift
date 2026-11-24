@@ -66,14 +66,17 @@ struct WorkoutScreen: View {
     @State var isAskingToDeleteWorkout = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
-    /// With Reduce Motion, the list's crossfades (in or out of a workout, a delete): each a view.
+    /// With Reduce Motion, how many times the list has crossfaded into or out of a workout, or
+    /// to a deleted exercise's rows gone: each a new view, so the old one fades out as the new
+    /// one fades in.
     @State var listChanges = 0
     /// A created exercise being deleted, which Add exercise stops listing on its beat, before
     /// the store takes the delete (`deleteExercise(_:closing:)`).
     @State var leavingExercise: Exercise.ID?
     /// While the list crossfades, when nothing in it animates but its fade.
     @State var isCrossfading = false
-    /// Crossfading up to the list's top, how much of the list going out was under the bar.
+    /// Crossfading up to the list's top, how much of the list going out was under the bar, which
+    /// is cut away as it fades.
     @State var underBarCut: CGFloat = 0
     /// At Start, how far the list's content is drawn below where it is scrolled to, run down to 0.
     @State var growthLift: CGFloat = 0
@@ -87,7 +90,8 @@ struct WorkoutScreen: View {
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?
-    /// The list's height between the bars, 0 until it has one; read only in actions, not `body`.
+    /// The list's height between the bars, 0 until the list first has one. Read only in actions,
+    /// never in `body`, so its writes as the screen lays out don't run the screen again.
     @State var listHeight: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
@@ -100,8 +104,6 @@ struct WorkoutScreen: View {
     @State var closingRoomTop: CGFloat?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<WorkoutExercise.ID>?
-    /// The rest's countdown carried to the next exercise's "Start in" through the move at 0:05.
-    @State var figureCarry: FigureCarry?
     /// A second after the last tap on Skip rest, on the clock (`LiveWorkout.skippingRest`).
     @State var skipLeave: Double?
     /// Counts the moves landed on another exercise's node, each with a tick lighter than a log's.
@@ -248,7 +250,6 @@ struct WorkoutScreen: View {
                         rowContent(item, current: currentID, on: currentSet, parts: rows[item.id])
                             .environment(\.exerciseMoveWay, moveWay)
                             .environment(\.restSkips, restSkips)
-                            .environment(\.figureCarried, figureCarry != nil)
                             .id(item.id)
                             .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
@@ -294,7 +295,6 @@ struct WorkoutScreen: View {
                 .roomBelow(isMakingRoom)
                 // Outside the rail and the room under the list, which both read it.
                 .listResizes(resizes)
-                .carryingFigure(figureCarry)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
@@ -347,7 +347,7 @@ struct WorkoutScreen: View {
             keepsRoom: keyKeepsRoom,
             plusOnes: setLogs + sideLogs + countBeats.ends,
             drop: startDrop,
-            floatsLow: footShowsEmpty,
+            floatsLow: plusSitsLow,
         ) { role, isOut in
             key(role, isOut: isOut)
         } floating: {

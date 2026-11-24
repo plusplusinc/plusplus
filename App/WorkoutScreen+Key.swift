@@ -95,9 +95,9 @@ extension WorkoutScreen {
     }
 
     /// Skip rest: the rest is stored as cut at the tap (`LiveWorkout.skippingRest(override:at:)`),
-    /// its count holding the time it had left at the tap for a second, then giving way to its
-    /// "Start in" before another exercise, or swapping back between sets, as the rest's watch
-    /// says (`watchRest()`). Its keys go at the tap. Only when `WorkoutKey.skipRest` says so.
+    /// its count holding the time it had left at the tap for a second, then ending as one that
+    /// ran out does, as the rest's watch says (`watchRest()`). Its keys go at the tap. Only when
+    /// `WorkoutKey.skipRest` says so.
     private func skipRest() {
         // With the store's change, before `endRest()`'s animated swap: a new figure put in during
         // the swap stood where it ends from its first frame.
@@ -109,6 +109,14 @@ extension WorkoutScreen {
             skipLeave = loggedWorkout.clock(at: .now) + LiveWorkout.restHold
         }
         session.skipRest(override: restOverride)
+    }
+
+    /// Whether the + sits low, at the screen's bottom, with no key under it: with no exercises,
+    /// and in a workout wherever the key's room is kept empty, so it never floats over a key
+    /// that isn't there (decided 2026-11-24). It goes down and comes back up on the update that
+    /// takes the key away or brings it in (`FloatingPlace`).
+    var plusSitsLow: Bool {
+        footShowsEmpty || (keyKeepsRoom && !showsKey)
     }
 
     /// The fill of Skip rest: running while the rest runs, gray and held while paused; held where
@@ -123,15 +131,13 @@ extension WorkoutScreen {
         }
         guard let rest = phase.drawnRest, rest.beat < .returning,
               let (resting, loggedWorkout) = drawnResting,
-              !resting.hasGivenWay(atClock: loggedWorkout.clock(at: .now))
+              resting.remaining(atClock: loggedWorkout.clock(at: .now)) > 0
         else { return .over }
-        // Full as the keys go, with the next set's "Start in" still to run.
         let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
-        let startIn = resting.endClock - resting.keysGoClock
         return KeyFill(
-            length: resting.keysGoClock - resting.startClock,
-            ends: ends.addingTimeInterval(-startIn),
-            pausedLeft: pausedLeft.map { max(0, $0 - startIn) },
+            length: Double(resting.length),
+            ends: ends,
+            pausedLeft: pausedLeft,
             isPaused: loggedWorkout.isPaused,
         )
     }
