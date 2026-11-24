@@ -191,7 +191,6 @@ extension LiveWorkout {
         else { return beginningCount(at: now, restOverride: restOverride) }
         var landed = loggedWorkout
         landed.startedAt = now
-        landed.startedAt = now
         let begun = LiveWorkout(workout: workout, loggedWorkout: landed)
             .beginningCount(at: now, restOverride: restOverride)
         return Self.timeStartingAtCount(begun)
@@ -286,7 +285,7 @@ extension LiveWorkout {
         guard loggedWorkout.isInProgress, let timed = timedSet, timed.startIn(atClock: clock) > 0
         else { return loggedWorkout }
         var started = loggedWorkout.startingClock(at: now)
-        let tick = started.tick(nearest: now)
+        let tick = started.tick(before: now)
         started.count?.startClock = tick
         return started
     }

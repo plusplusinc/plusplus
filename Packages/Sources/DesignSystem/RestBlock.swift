@@ -61,10 +61,8 @@ public struct RestBlock: View {
     /// The seconds the countdown shows at `date`, kept within `shown`. Closing with a time
     /// given, as a workout ended mid-rest, it holds that time.
     func left(at date: Date, within shown: ClosedRange<Double> = 0 ... .infinity) -> Double {
-        // Never over its length: a count begins on the workout clock's nearest whole second
-        // (`LoggedWorkout.tick(nearest:)`), up to half a second after it is first drawn.
-        let running = min(Double(length), max(0, ends.timeIntervalSince(date)))
-        let left = pausedLeft ?? (stage == .open ? running : Double(length))
+        let left = pausedLeft
+            ?? (stage == .open ? max(0, ends.timeIntervalSince(date)) : Double(length))
         return min(shown.upperBound, max(shown.lowerBound, left))
     }
 

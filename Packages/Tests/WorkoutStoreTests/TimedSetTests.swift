@@ -99,8 +99,9 @@ struct TimedSetTests {
         let live = try Self.started(Self.workout())
         let after = try Self.logged(live, at: 10 + 12.5)
         #expect(after.loggedWorkout.sets.first?.target == .time(seconds: 12))
-        // The rest after it begins on the clock's nearest whole second, as every count does.
-        #expect(after.loggedWorkout.sets.first?.clockWhenLogged == 23)
+        // The rest after it begins on the clock's whole second at the log, never ahead of it,
+        // so it turns over with the workout's time.
+        #expect(after.loggedWorkout.sets.first?.clockWhenLogged == 22)
     }
 
     @Test("+15 s adds to this set only, never during Start in or once over")

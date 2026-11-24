@@ -63,6 +63,25 @@ extension TimedSetTests {
         #expect(now.startedAt == Self.at(2.5))
         #expect(now.count?.startClock == 0)
 
+        // Skip rest a moment after a log: the rest is over at the tap, none of it negative.
+        let skipped = LiveWorkout(
+            workout: workout,
+            loggedWorkout: logged.loggedWorkout.logging(
+                PlannedSet(row: push.id, round: 9),
+                of: push,
+                at: Self.at(13.1),
+            ),
+        )
+        let over = LiveWorkout(
+            workout: workout,
+            loggedWorkout: skipped.skippingRest(at: Self.at(13.3)),
+        )
+        #expect(over.rest()?.isOver(atClock: over.loggedWorkout.clock(at: Self.at(13.3))) == true)
+        #expect(over.rest()?.length == 0)
+
+        // A device clock set back under way never reads as a time not started.
+        #expect(logged.loggedWorkout.clock(at: Self.at(-100)) == 0)
+
         // Under way, a landing only begins a count: the clock is never set back.
         #expect(logged.landingStart(at: Self.at(30)).startedAt == Self.at(2.5))
         var resumed = made
