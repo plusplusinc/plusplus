@@ -45,6 +45,9 @@ struct LogScreen: View {
     /// drawer has closed over Log (`bringIn()`). Held here, not on the session, so it goes with
     /// the screen and no path can leave the workout missing from History.
     @State var arriving: LoggedWorkout.ID?
+    /// History's empty line and Go to Workouts fading out ahead of the first workout ever, which
+    /// comes in only once they have gone, so its text never shows over theirs.
+    @State var emptyGivesWay = false
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
@@ -53,6 +56,10 @@ struct LogScreen: View {
 
     /// How long after the drawer has closed over Log a workout just finished comes into History.
     static let arrivalDelay = Duration.milliseconds(330)
+    /// How long History's empty line and Go to Workouts take to fade out, from the drawer having
+    /// closed, ahead of the first workout ever: within `arrivalDelay`, so that row comes in on
+    /// the same beat as any other.
+    static let emptyFade = Duration.milliseconds(250)
 
     /// Seeded from the session, so the first frame already leaves a workout just finished out.
     init(session: AppSession) {
@@ -135,14 +142,31 @@ struct LogScreen: View {
     /// closed and `arrivalDelay` has passed: its row opens to its height as it fades in, the rows
     /// under it moving down, the count and today's square following. Log always shows with the
     /// drawer already told to close, so its arrival counts from here.
+    ///
+    /// The first workout ever finds History empty: its empty line and Go to Workouts fade out
+    /// first, from the drawer having closed (`emptyFade`), and the row comes in once they have
+    /// gone, where History's first row goes. Crossfaded together, the row's text showed over
+    /// theirs for about a quarter second.
     private func bringIn() async {
         let start = ContinuousClock.now
         session.takeJustFinished()
         await session.refreshLog()
         guard arriving != nil else { return }
-        let due = start + DrawerWay.arrival(reduceMotion: reduceMotion) + Self.arrivalDelay
+        let closed = start + DrawerWay.arrival(reduceMotion: reduceMotion)
+        var due = closed + Self.arrivalDelay
+        if session.log?.leavingOut(arriving).loggedWorkouts.isEmpty == true {
+            guard await (try? beat(until: closed)) != nil else { return }
+            withAnimation(.easeOut(duration: Self.emptyFade / .seconds(1))) {
+                emptyGivesWay = true
+            }
+            // A slow read of the log: the row still waits for the fade to end.
+            due = max(due, .now + Self.emptyFade)
+        }
         guard await (try? beat(until: due)) != nil else { return }
-        withAnimation(.snappy) { arriving = nil }
+        withAnimation(.snappy) {
+            arriving = nil
+            emptyGivesWay = false
+        }
     }
 
     func askToDelete(_ loggedWorkout: LoggedWorkout) {
