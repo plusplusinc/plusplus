@@ -17,14 +17,14 @@ extension WorkoutScreen {
                 stage: .open,
                 length: resting.length,
                 ends: ends,
-                pausedLeft: heldLeft(after: rest.set) ?? pausedLeft,
+                pausedLeft: rest.skippedLeft ?? pausedLeft,
                 isPaused: loggedWorkout.isPaused,
             )
             return DrawnRestBlock(row: row, above: rest.isBack, block: block)
         }
         // Skipped, its room closes with the move on showing the time it had at the tap: closed
         // as a rest that ran out is, on an empty rest, it read 0:00 as it went.
-        if let move = phase.move, move.isFromRest, let left = heldLeft(after: move.set),
+        if let move = phase.move, let left = move.skippedLeft,
            let row = move.isBack ? shown?.currentSet?.row : move.set.row
         {
             let block = RestBlock(stage: .none, length: 0, pausedLeft: left)
@@ -46,12 +46,6 @@ extension WorkoutScreen {
             return DrawnRestBlock(row: row, above: rest.isBack, block: block)
         }
         return nil
-    }
-
-    /// The seconds the rest after `set` holds on its count once Skip rest has cut it: what it had
-    /// left at the tap. Nil for a rest not skipped, which runs to 0:00.
-    func heldLeft(after set: PlannedSet) -> Double? {
-        restSkips.last.flatMap { $0.set == set ? $0.left : nil }
     }
 
     /// When `rest` ends, on `workout`'s clock running on from now, and the seconds it has left
@@ -89,7 +83,7 @@ extension WorkoutScreen {
                 isRunning: !isOver,
                 length: resting.length,
                 ends: ends,
-                pausedLeft: heldLeft(after: within.set) ?? pausedLeft,
+                pausedLeft: within.skippedLeft ?? pausedLeft,
                 isOver: isOver,
                 turns: within.beat == .settled,
                 isPaused: loggedWorkout.isPaused,
@@ -108,19 +102,5 @@ struct DrawnRestBlock {
     /// The block in `id`'s row, under its label or `above` it: this one there, else closed.
     func block(in id: WorkoutExercise.ID, above: Bool) -> RestBlock {
         id == row && above == self.above ? block : .closed
-    }
-}
-
-/// The taps on Skip rest: how many, each a new count figure (`RestBlock.figureKey(skips:)`), and
-/// the rest the last one cut, whose count holds the time it had left at the tap as it goes
-/// (`heldLeft(after:)`): stored as over at the tap, it read 0:00 on its way out.
-struct RestSkips: Equatable {
-    var count = 0
-    var last: Skipped?
-
-    /// A rest cut by Skip rest: the set it followed, and the seconds it had left at the tap.
-    struct Skipped: Equatable {
-        let set: PlannedSet
-        let left: Double
     }
 }

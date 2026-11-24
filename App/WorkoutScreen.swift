@@ -110,9 +110,9 @@ struct WorkoutScreen: View {
     /// Counts the moves landed on another exercise's node, each with a tick lighter than a log's.
     @State var landings = 0
     /// Counts the rests run to their end, each with a heavy tap, felt with the phone set down;
-    /// and the taps on Skip rest, with the rest the last one cut (`RestSkips`).
+    /// and the taps on Skip rest, each a new count figure (`RestBlock.figureKey(skips:)`).
     @State var restEnds = 0
-    @State var restSkips = RestSkips()
+    @State var restSkips = 0
     /// A set's beats: "Start in" ending, and the set running out (`WorkoutScreen+Timing`).
     @State var countBeats = CountBeats()
     /// Where the workout is in its sequence: out of one, starting, at rest, showing a set just
@@ -250,7 +250,7 @@ struct WorkoutScreen: View {
                     ) { item in
                         rowContent(item, current: currentID, on: currentSet, parts: rows[item.id])
                             .environment(\.exerciseMoveWay, moveWay)
-                            .environment(\.restSkips, restSkips.count)
+                            .environment(\.restSkips, restSkips)
                             .id(item.id)
                             .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the

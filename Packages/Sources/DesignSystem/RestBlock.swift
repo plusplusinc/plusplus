@@ -26,7 +26,8 @@ public struct RestBlock: View {
     /// The rest's length.
     let length: Int
     let ends: Date
-    /// While paused, or closing as the workout ends, the seconds left; nil while running.
+    /// While paused, closing as the workout ends, or cut by Skip rest, the seconds left; nil
+    /// while running.
     let pausedLeft: Double?
     /// Held by a pause: the count is gray, as Skip rest's fill is. Held by End, it stays white.
     let isPaused: Bool

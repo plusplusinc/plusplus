@@ -223,6 +223,35 @@ struct WorkoutPhaseTests {
         #expect(Self.after([.settle], from: phase) == .running)
     }
 
+    @Test("A skipped rest keeps the time it had left through its way out, and no longer")
+    func skippedRestHoldsItsTime() {
+        var phase = WorkoutPhase.running
+        let skippedWithNoRest = phase.skipRest(left: 42)
+        #expect(!skippedWithNoRest)
+        phase.log(Self.logged, leadingTo: Self.down, rests: true, moves: true)
+        phase.show()
+        phase.landRest()
+        #expect(phase.resting?.skippedLeft == nil)
+        // Skipped before the move into it is over, it holds until its end can play.
+        phase.skipRest(left: 42)
+        let endedEarly = phase.endRest()
+        #expect(!endedEarly)
+        #expect(phase.resting?.skippedLeft == 42)
+        phase.settleRest()
+        phase.endRest()
+        #expect(phase.move?.skippedLeft == 42)
+        // The next rest starts unskipped.
+        phase = .running
+        phase.log(Self.logged, leadingTo: Self.down, rests: true, moves: true)
+        #expect(phase.resting?.skippedLeft == nil)
+        phase.show()
+        phase.landRest()
+        phase.settleRest()
+        phase.endRest()
+        #expect(phase.move?.isFromRest == true)
+        #expect(phase.move?.skippedLeft == nil)
+    }
+
     @Test("Stopped at once, the phase follows the store: at rest in a workout, out of one without")
     func settleAtOnce() {
         for phase in Self.everyPhase + Self.startAndEnd {

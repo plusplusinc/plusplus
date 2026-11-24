@@ -101,10 +101,11 @@ extension WorkoutScreen {
     private func skipRest() {
         // With the store's change, before `endRest()`'s animated swap: a new figure put in during
         // the swap stood where it ends from its first frame.
-        restSkips.count += 1
-        if let rest = phase.resting, let resting, let loggedWorkout = session.loggedWorkout {
-            let left = resting.remaining(atClock: loggedWorkout.clock(at: .now))
-            restSkips.last = RestSkips.Skipped(set: rest.set, left: left)
+        restSkips += 1
+        if let resting, let loggedWorkout = session.loggedWorkout,
+           let left = Self.times(of: resting, on: loggedWorkout, stopped: true).pausedLeft
+        {
+            phase.skipRest(left: left)
         }
         session.skipRest(override: restOverride)
         endRest()

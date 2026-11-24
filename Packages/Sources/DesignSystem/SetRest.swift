@@ -103,7 +103,7 @@ public struct SetRest {
             stage: isRunning ? .open : .none,
             length: length,
             ends: ends,
-            pausedLeft: isOver ? pausedLeft ?? 0 : pausedLeft,
+            pausedLeft: pausedLeft ?? (isOver ? 0 : nil),
             isPaused: isPaused,
         )
     }
