@@ -112,7 +112,7 @@ extension LiveWorkout {
         skipped.sets[skipped.sets.count - 1].restAdjustment += rested - rest.length
         let next = LiveWorkout(workout: workout, loggedWorkout: skipped)
         if next.isOnTimedSet, let set = next.currentSet {
-            skipped.count = SetCount(set: set, startClock: clock)
+            skipped.count = SetCount(set: set, startClock: loggedWorkout.tick(before: now))
         }
         return skipped
     }

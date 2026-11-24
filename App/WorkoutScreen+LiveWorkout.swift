@@ -66,7 +66,7 @@ extension WorkoutScreen {
                 // measured, the list stayed put (13 Starts, 2026-11-01).
                 phase.fadeIn()
             }
-            return keyReturns { phase.run(on: arrivingCount()) }
+            return keyReturns { phase.run(on: startingCount()) }
         }
         try await bringFirstIntoView()
         try check(pressed)
@@ -87,7 +87,7 @@ extension WorkoutScreen {
         // reactions run, so the bar draws it back from what it already holds
         // (`KeyStage.dropped`).
         try await laterTurn()
-        keyReturns { phase.run(on: arrivingCount()) }
+        keyReturns { phase.run(on: startingCount()) }
     }
 
     /// If the first exercise is scrolled away, scrolls the list to its top, then gives the

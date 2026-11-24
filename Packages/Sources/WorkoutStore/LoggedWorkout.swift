@@ -59,16 +59,45 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     }
 
     /// The time spent working out at `now`, pauses left out, in whole seconds rounded down.
-    /// Fixed once paused or finished; never below zero, as with a clock set back.
+    /// Fixed once paused or finished; never below zero, as through the first set's "Start in"
+    /// and with a clock set back.
     public func elapsed(at now: Date) -> Duration {
-        .seconds(clock(at: now).rounded(.down))
+        .seconds(max(0, clock(at: now)).rounded(.down))
     }
 
     /// The seconds spent working out at `now`, pauses left out, not rounded: the clock a rest
-    /// runs on, so a pause stops it. Never below zero.
+    /// runs on, so a pause stops it. Below zero only before the workout's time starts, with
+    /// nothing logged: through the first set's "Start in", which counts up to zero, where the
+    /// set and the time begin (`LiveWorkout.landingStart(at:restOverride:)`). Once a set is
+    /// logged, never below zero, as with a device clock set back.
     public func clock(at now: Date) -> Double {
         let end = endedAt ?? pausedAt ?? now
-        return max(0, end.timeIntervalSince(startedAt) - pausedSeconds)
+        let clock = end.timeIntervalSince(startedAt) - pausedSeconds
+        return sets.isEmpty ? clock : max(0, clock)
+    }
+
+    /// The workout with its time starting at `now`, when it hasn't yet: the first set begun
+    /// before its "Start in" ran out, by a log or "Start now". Unchanged once the time runs.
+    public func startingClock(at now: Date) -> Self {
+        guard isInProgress, clock(at: now) < 0 else { return self }
+        var started = self
+        started.startedAt = (pausedAt ?? now).addingTimeInterval(-pausedSeconds)
+        return started
+    }
+
+    /// The whole second of the clock nearest `now`, where a set's "Start in" begins, so it
+    /// turns over on the same ticks as the workout's time: everything timed in a workout begins
+    /// on a whole second of its clock. Up to half a second ahead of `now`, where "Start in"
+    /// holds at its full count; its first second so runs from half a second to one and a half.
+    public func tick(nearest now: Date) -> Double {
+        clock(at: now).rounded()
+    }
+
+    /// The whole second of the clock at or before `now`, where what is in effect at once
+    /// begins: the rest at a set's log, and a timed set's count at "Start now" or Skip rest.
+    /// Never ahead of `now`, so nothing reads it as not yet begun; its first second runs short.
+    public func tick(before now: Date) -> Double {
+        clock(at: now).rounded(.down)
     }
 
     /// When the clock reads `clock`, while it runs on from now with no pause.
@@ -109,7 +138,8 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     public func logging(_ planned: PlannedSet, of row: WorkoutExercise, at now: Date) -> Self {
         // Once only: a log from a view built before the last one, or a second action, keeps one.
         guard !sets.contains(where: { $0.planned == planned }) else { return self }
-        var logged = self
+        // The first set logged through its "Start in": the workout's time starts at the log.
+        var logged = startingClock(at: now)
         logged.sets.append(LoggedSet(
             row: row.id,
             exerciseID: row.exercise.id,
@@ -122,7 +152,7 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
             plannedWeight: row.shownWeight,
             loggedAt: now,
         ))
-        logged.sets[logged.sets.count - 1].clockWhenLogged = clock(at: now)
+        logged.sets[logged.sets.count - 1].clockWhenLogged = logged.tick(before: now)
         return logged
     }
 

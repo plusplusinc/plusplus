@@ -99,7 +99,9 @@ struct TimedSetTests {
         let live = try Self.started(Self.workout())
         let after = try Self.logged(live, at: 10 + 12.5)
         #expect(after.loggedWorkout.sets.first?.target == .time(seconds: 12))
-        #expect(after.loggedWorkout.sets.first?.clockWhenLogged == 22.5)
+        // The rest after it begins on the clock's whole second at the log, never ahead of it,
+        // so it turns over with the workout's time.
+        #expect(after.loggedWorkout.sets.first?.clockWhenLogged == 22)
     }
 
     @Test("+15 s adds to this set only, never during Start in or once over")
@@ -129,11 +131,12 @@ struct TimedSetTests {
         let live = try Self.started(Self.workout())
         let after = try Self.logged(live, at: 40)
         #expect(after.loggedWorkout.count == nil)
-        // Landed 0.75 s after the log: its Start in is all from there.
+        // Landed 0.75 s after the log: its Start in is all from there, on the clock's nearest
+        // whole second, so it turns over with the workout's time.
         let lead = Double(LiveWorkout.startIn)
         let landed = Self.landed(after, at: 40.75)
-        #expect(landed.timedSet?.startClock == 40.75 + lead)
-        #expect(landed.timedSet?.startIn(atClock: 40.75) == lead)
+        #expect(landed.timedSet?.startClock == 41 + lead)
+        #expect(Self.landed(after, at: 41.4).timedSet?.startClock == 41 + lead)
     }
 
     @Test("A skipped rest ends now: the timed set next counts from the tap")
@@ -186,8 +189,8 @@ struct TimedSetTests {
         let left = try #require(live.timedSet)
         live = try Self.logged(live, at: left.endClock)
         #expect(live.currentSet?.side == .right)
-        live = Self.landed(live, at: left.endClock + 0.5)
-        #expect(live.timedSet?.startClock == left.endClock + 0.5 + Double(LiveWorkout.startInSides))
+        live = Self.landed(live, at: left.endClock + 0.4)
+        #expect(live.timedSet?.startClock == left.endClock + Double(LiveWorkout.startInSides))
     }
 
     @Test("A pause stops the count; resumed, it carries on")

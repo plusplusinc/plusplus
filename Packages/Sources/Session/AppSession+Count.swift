@@ -10,6 +10,12 @@ extension AppSession {
         changeLive { $0.beginningCount(at: now, restOverride: override) }
     }
 
+    /// Start has landed on the first set: its "Start in" begins now, and the workout's time
+    /// starts as it ends (`LiveWorkout.landingStart(at:restOverride:)`).
+    public func landOnFirstSet(override: Int? = nil, at now: Date = .now) {
+        changeLive { $0.landingStart(at: now, restOverride: override) }
+    }
+
     /// Cuts "Start in" short: the set counts from now.
     public func startCountNow(at now: Date = .now) {
         changeLive { $0.startingCountNow(at: now) }
