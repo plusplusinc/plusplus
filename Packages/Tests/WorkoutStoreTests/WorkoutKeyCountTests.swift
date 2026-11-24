@@ -144,6 +144,31 @@ struct WorkoutKeyCountTests {
         #expect(key.role == .count("Log early"))
     }
 
+    /// After End's choice the store holds no workout in progress, and the screen draws the one
+    /// End found until it goes, its key as it was: read from the phase's timing alone, the count's
+    /// keys turned to Log set under a finish's "++".
+    @Test("Ended mid-count or mid-Start in, the key stays the count's until the workout goes")
+    func endedMidCount() throws {
+        let live = try Self.live()
+        for (stage, role) in [
+            (CountStage.counting, WorkoutKey.Role.count("Log early")),
+            (.startIn, .startNow),
+        ] {
+            var phase = WorkoutPhase.timing(stage)
+            let ended = phase.end(live.loggedWorkout, at: Self.start.addingTimeInterval(15))
+            #expect(ended, "End did not take the workout at rest on its count")
+            let key = WorkoutKey(
+                stored: nil,
+                shown: live,
+                phase: phase,
+                wayBack: nil,
+                isScrolledAway: false,
+            )
+            #expect(key.drawnCount == stage)
+            #expect(key.role == role)
+        }
+    }
+
     @Test("A reps set's key is Log set, and logs, through its Start in too")
     func reps() throws {
         let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])

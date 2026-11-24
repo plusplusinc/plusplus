@@ -50,7 +50,9 @@ extension WorkoutScreen {
             return KeyFill(
                 length: Double(timed.length),
                 ends: .distantPast,
-                pausedLeft: timed.remaining(atClock: shown.loggedWorkout.clock(at: .now)),
+                pausedLeft: timed.remaining(
+                    atClock: shown.loggedWorkout.clock(at: phase.drawnEnd ?? .now),
+                ),
             )
         }
         guard countBeats.earlyLog == nil, phase.loggedAndDrawn == nil,
@@ -174,9 +176,10 @@ extension WorkoutScreen {
             )
         }
         let loggedWorkout = shown.loggedWorkout
-        // Held: paused, or ended, as the workout's time holds; or logged early, where the tap
-        // stopped it, as its fill runs on.
-        let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? .now)
+        // Held: paused; or ended, where End found it, as the workout's time holds (read at each
+        // redraw, it ticked on under a finish's "++"); or logged early, where the tap stopped
+        // it, as its fill runs on.
+        let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? phase.drawnEnd ?? .now)
         let holds = loggedWorkout.isPaused || phase.endingCount != nil || countBeats.earlyLog != nil
         switch stage {
         case .startIn:
@@ -236,7 +239,9 @@ extension WorkoutScreen {
             isRunning: true,
             length: length,
             ends: loggedWorkout.date(ofClock: count.startClock),
-            pausedLeft: holds ? max(0, count.startClock - loggedWorkout.clock(at: .now)) : nil,
+            pausedLeft: holds
+                ? max(0, count.startClock - loggedWorkout.clock(at: phase.drawnEnd ?? .now))
+                : nil,
             turns: true,
             kind: .startIn(),
             isPaused: loggedWorkout.isPaused,
@@ -335,12 +340,6 @@ struct CountWatch: Equatable {
 }
 
 extension WorkoutPhase {
-    /// The count End came in, drawn as it stood until the workout goes.
-    var endingCount: CountStage? {
-        guard case let .ending(ending) = self else { return nil }
-        return ending.count
-    }
-
     /// The set logged and not yet drawn when End came, which it keeps hidden.
     var endingHidden: PlannedSet? {
         guard case let .ending(ending) = self else { return nil }
