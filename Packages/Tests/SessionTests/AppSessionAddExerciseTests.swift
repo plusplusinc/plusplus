@@ -82,6 +82,61 @@ struct AppSessionAddExerciseTests {
         #expect(!session.addExerciseFilter.isOn)
     }
 
+    /// The Workouts list's filters: Legs, Dumbbells, and 40 minutes or more.
+    private let listFilter = WorkoutFilter(
+        muscleGroups: [.legs],
+        equipment: [.piece(.dumbbells)],
+        length: LengthRange(lower: 40, upper: nil),
+    )
+
+    @Test("New from the list's filters carries Muscle and Equipment and raises Add exercise once")
+    func newFromFiltersCarriesAndRaises() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        #expect(session.current.isEmpty)
+        #expect(session.addExerciseFilter == ExerciseFilter(
+            muscleGroups: [.legs],
+            equipment: [.piece(.dumbbells)],
+        ))
+        await session.takeAddExerciseOnShow(after: .zero)
+        #expect(session.addExercise != nil)
+        session.closeAddExercise()
+        await session.takeAddExerciseOnShow(after: .zero)
+        #expect(session.addExercise == nil, "Add exercise rises by itself once, not each arrival")
+    }
+
+    @Test("New from Length alone carries no filter and still raises Add exercise")
+    func newFromLengthAloneRaisesClear() async {
+        let session = AppSession(workout: Workout(), store: store, namer: .muscleGroupsOnly)
+        session.showWorkouts()
+        await session.startNew(from: WorkoutFilter(length: LengthRange(lower: 40, upper: nil)))
+        #expect(!session.addExerciseFilter.isOn)
+        await session.takeAddExerciseOnShow(after: .zero)
+        #expect(session.addExercise != nil)
+    }
+
+    @Test("Plain New, the round +, raises nothing by itself")
+    func plainNewRaisesNothing() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew()
+        await session.takeAddExerciseOnShow(after: .zero)
+        #expect(session.addExercise == nil)
+    }
+
+    @Test("Another workout shown after New from the filters drops the filter and the raise")
+    func anotherWorkoutDropsTheRaise() async throws {
+        let session = try sessionKeepingLegs()
+        session.showWorkouts()
+        await session.startNew(from: listFilter)
+        session.popWorkout()
+        await session.open(saved.id, weightUnit: .pounds)
+        await session.takeAddExerciseOnShow(after: .zero)
+        #expect(session.addExercise == nil)
+        #expect(!session.addExerciseFilter.isOn)
+    }
+
     @Test("Deleting the open workout drops its Add exercise filter")
     func deletingOpenDropsFilter() async throws {
         let session = try sessionKeepingLegs()

@@ -357,7 +357,6 @@ extension WorkoutsScreen {
             Task { await session.startNew(from: filter) }
         } label: {
             CreateLabel(title: "Create workout", detail: detail)
-                .labelStyle(ListRowLabelStyle())
                 .font(.ppRowTitle)
                 .makesSomething()
                 .frame(maxWidth: .infinity, minHeight: Self.listRowHeight, alignment: .leading)
@@ -372,20 +371,6 @@ extension WorkoutsScreen {
 
     /// The least height of a list's row, as Add exercise's Create row takes in its list.
     private static let listRowHeight: CGFloat = 44
-}
-
-/// A label drawn as a `List` draws one, outside a list: the icon in its own column, centered on
-/// the lines, and the title past it, so the Create workout row reads as Add exercise's Create row.
-private struct ListRowLabelStyle: LabelStyle {
-    /// The icon column's width, as a list row's on the iOS 27 simulator at the default size.
-    @ScaledMetric(relativeTo: .body) private var iconWidth = 23.0
-
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: Spacing.md) {
-            configuration.icon.frame(width: iconWidth)
-            configuration.title
-        }
-    }
 }
 
 extension WorkoutNamer {
