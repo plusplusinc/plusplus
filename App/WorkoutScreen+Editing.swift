@@ -271,6 +271,16 @@ extension WorkoutScreen {
     /// node giving up its blue, so the arrival is over before the next thing moves.
     static let createdHold: Duration = .milliseconds(500)
 
+    /// From a new workout starting to show, pushed from the Workouts list's filters, to its Add
+    /// exercise rising by itself: the push slides in (`pushGone`), then the empty workout rests
+    /// as a created row does (`createdHold`) before the sheet comes up.
+    static let newWorkoutHold = pushGone + createdHold
+
+    /// From a workout starting to show, as its `.task` starts, to the push having settled: on the
+    /// iOS 27 simulator the task started about 0.1 s into the push, and the push's last sliver
+    /// of the list left the screen 0.3 to 0.4 s after it began.
+    static let pushGone: Duration = .milliseconds(400)
+
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
     /// with the list's end in view, so the end is where the scroll stays. Not once Start is
