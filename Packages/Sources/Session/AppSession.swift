@@ -28,8 +28,8 @@ public final class AppSession {
     @ObservationIgnored var opensAddExerciseOnShow = false
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
-    /// Where `show(_:throughDrawer:markWait:)` moved the drawer's mark, kept through the close
-    /// until the drawer next shows; nil otherwise, when it marks what showed as it opened.
+    /// Where `show(_:after:throughDrawer:markWait:)` moved the drawer's mark, kept through the
+    /// close until the drawer next shows; nil otherwise, when it marks what showed as it opened.
     public internal(set) var drawerMark: Showing?
     /// A way through the drawer's beats under way, which whatever closes it ends, and its place.
     @ObservationIgnored var throughDrawer: Task<Void, Never>?
@@ -147,8 +147,9 @@ public final class AppSession {
         rowSheet = nil
     }
 
-    /// Closes the drawer. Mid-way through `show(_:throughDrawer:markWait:)`, as at its end or
-    /// as a tap beside the drawer or a swipe closes it, the place it was going to swaps in first.
+    /// Closes the drawer. Mid-way through `show(_:after:throughDrawer:markWait:)`, its lead
+    /// included, as at its end or as a tap beside the drawer or a swipe closes it, the place it
+    /// was going to swaps in first.
     public func closeDrawer() {
         if let place = throughDrawerPlace {
             endThroughDrawer()
@@ -182,27 +183,8 @@ public final class AppSession {
     }
 
     /// The name the open workout shows, which its logged workout keeps: empty for New workout.
-    private var shownName: String {
+    var shownName: String {
         namer.shownName(of: current) ?? ""
-    }
-
-    /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
-    /// set counting logged at the time done (`LiveWorkout.finishing(at:)`).
-    public func finish(at now: Date = .now) {
-        guard let loggedWorkout else { return }
-        var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
-            .finishing(at: now)
-        finished.workoutName = shownName
-        change(.save(finished))
-        justFinished = finished.id
-        deleteIfCleared()
-    }
-
-    /// Ends the workout keeping nothing of it, as if Start never ran.
-    public func discard() {
-        guard let loggedWorkout else { return }
-        change(.discard(loggedWorkout.id))
-        deleteIfCleared()
     }
 
     /// The one way the logged workout changes: to what `write` stores, sent to be stored in the
@@ -218,7 +200,7 @@ public final class AppSession {
 
     /// A workout cleared to nothing while in progress was kept; once it ends, it is deleted, as
     /// any cleared workout is.
-    private func deleteIfCleared() {
+    func deleteIfCleared() {
         if current.isEmpty {
             saves.yield(WorkoutSave(workout: current, keepsEmpty: false))
         }

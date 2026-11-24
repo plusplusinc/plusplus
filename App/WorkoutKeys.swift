@@ -3,8 +3,9 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// End, in the bar while a workout is in progress, which only asks: the screen presents its
-/// dialog, whose choices are to finish the logged workout or discard it.
+/// End, in the bar while a workout is in progress, and held there, asking nothing, while a
+/// finish holds the screen still; it only asks: the screen presents its dialog, whose choices
+/// are to finish the logged workout or discard it.
 struct EndButton: View {
     let action: () -> Void
 

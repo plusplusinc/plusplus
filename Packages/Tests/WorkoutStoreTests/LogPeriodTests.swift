@@ -98,6 +98,23 @@ struct LogPeriodTests {
         #expect(period.loggedWorkoutCount == 2)
     }
 
+    /// History leaves a workout just finished out until it comes in.
+    @Test("A log leaving a workout out counts and marks without it; nil or a stranger, unchanged")
+    func leavingOut() {
+        let earlier = Fixture.loggedWorkout(daysAgo: 2, [])
+        let today = Fixture.loggedWorkout(daysAgo: 0, [])
+        let log = WorkoutLog(loggedWorkouts: [earlier, today])
+        let without = log.leavingOut(today.id)
+        #expect(without.loggedWorkouts == [earlier])
+        let marked = period(without.loggedWorkouts).weeks.joined().filter(\.hasLoggedWorkout)
+        #expect(marked.count == 1, "today's square fills only once the workout comes in")
+        #expect(period(without.loggedWorkouts).loggedWorkoutCount == 1)
+        #expect(log.leavingOut(nil) == log)
+        #expect(log.leavingOut(UUID()) == log)
+        let first = WorkoutLog(loggedWorkouts: [today])
+        #expect(first.leavingOut(today.id).loggedWorkouts.isEmpty, "the first ever leaves none")
+    }
+
     @Test("The bar's range: one month shortened, a year on each side across one, each day numbered")
     func rangeAcrossMonthsAndYears() throws {
         func range(year: Int, month: Int, day: Int) -> LogPeriod {

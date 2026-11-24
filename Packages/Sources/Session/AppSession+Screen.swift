@@ -32,13 +32,14 @@ extension AppSession {
     }
 
     /// Shows `place` by way of the drawer, so the eye sees where it went. From a closed drawer,
-    /// as Log's Go to Workouts goes, the drawer first opens with its own motion, marking the
-    /// place showing, and is held open longer: the mark waits until the slide has visibly
-    /// arrived plus a hold (`opening.arrival` + `opening.holdBefore`), and stays on `place`
-    /// for `opening.holdAfter` once it has landed. From an open one, as a drawer row is tapped,
-    /// the mark sets off at once and nothing is held. The mark moves to `place` (`drawerMark`);
-    /// once it has landed (`markWait` later, plus any hold) the place swaps and the drawer
-    /// closes over it. Each beat sleeps to a deadline from the start.
+    /// as Log's Go to Workouts and a finish go, the drawer first opens with its own motion,
+    /// marking the place showing, and is held open longer: the mark waits until the slide has
+    /// visibly arrived plus a hold (`opening.arrival` + `opening.holdBefore`), and stays on
+    /// `place` for `opening.holdAfter` more once it has landed. From an open one, as a drawer
+    /// row is tapped, the mark sets off at once. The mark moves to `place` (`drawerMark`); once
+    /// `markWait` has passed, the caller's wait for the mark to land and rest there, plus any
+    /// hold, the place swaps and the drawer closes over it. Each beat sleeps to a deadline from
+    /// the start.
     ///
     /// One plays at a time; another asked for meanwhile is ignored. Anything that closes the
     /// drawer mid-way, a tap beside it or a swipe, ends it on `place` (`closeDrawer()`). Where
@@ -53,6 +54,11 @@ extension AppSession {
         markWait: Duration,
     ) {
         guard throughDrawerPlace == nil else { return }
+        // At the call, not as the drawer opens: a drawer swiped open during a lead marks what
+        // shows, not where a way before went.
+        if !isDrawerOpen {
+            drawerMark = nil
+        }
         throughDrawerPlace = place
         guard lead > .zero else {
             openWay(to: place, opening: opening, markWait: markWait)
@@ -89,7 +95,6 @@ extension AppSession {
         // From an open drawer the mark moves on the beats' first turn, as from a closed one,
         // so both starts take one path.
         if !isDrawerOpen {
-            drawerMark = nil
             openDrawer()
             guard isDrawerOpen else {
                 closeDrawer()
@@ -124,8 +129,9 @@ extension AppSession {
         }
     }
 
-    /// Ends a way through the drawer that hasn't finished, as the app leaves the foreground: it
-    /// lands where it was going with the drawer closed. Does nothing when none is under way.
+    /// Ends a way through the drawer that hasn't finished, its lead included, as the app leaves
+    /// the foreground: it lands where it was going with the drawer closed. Does nothing when none
+    /// is under way.
     public func finishThroughDrawer() {
         guard throughDrawerPlace != nil else { return }
         closeDrawer()
@@ -178,7 +184,7 @@ extension AppSession {
         }
     }
 
-    /// The beats of a drawer opened for a way through it (`show(_:throughDrawer:markWait:)`):
+    /// The beats of a drawer opened for a way through it (`show(_:after:throughDrawer:markWait:)`):
     /// when its slide has visibly arrived, and how long it is held open before the mark moves
     /// and after it lands.
     public struct DrawerOpening: Sendable {

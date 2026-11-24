@@ -1,9 +1,29 @@
 import Foundation
 import WorkoutStore
 
-/// The workout in progress: a pause, a set logged, and the rest after it, each through
+/// The workout in progress: a pause, a set logged, the rest after it, and its end, each through
 /// `change(_:)`.
 extension AppSession {
+    /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
+    /// set counting logged at the time done (`LiveWorkout.finishing(at:)`), and names it as the
+    /// one Log has yet to bring into History (`justFinished`).
+    public func finish(at now: Date = .now) {
+        guard let loggedWorkout else { return }
+        var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
+            .finishing(at: now)
+        finished.workoutName = shownName
+        change(.save(finished))
+        justFinished = finished.id
+        deleteIfCleared()
+    }
+
+    /// Ends the workout keeping nothing of it, as if Start never ran: Log has nothing to bring in.
+    public func discard() {
+        guard let loggedWorkout else { return }
+        change(.discard(loggedWorkout.id))
+        deleteIfCleared()
+    }
+
     /// Pauses the workout, or resumes it if paused.
     public func togglePause(at now: Date = .now) {
         guard let loggedWorkout else { return }

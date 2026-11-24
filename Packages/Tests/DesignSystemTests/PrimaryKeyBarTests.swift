@@ -126,7 +126,7 @@ struct PrimaryKeyBarTests {
                 .primaryKeyBar(isPresented: true, finishes: 3) { Button("Finish workout") { } },
         )
         let labels = leaves.map { $0.accessibilityLabel ?? "unlabeled at \($0.accessibilityFrame)" }
-        #expect(labels == ["Bench press", "Log set"])
+        #expect(labels == ["Bench press", "Finish workout"])
     }
 }
 

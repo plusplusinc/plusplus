@@ -43,6 +43,11 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
                 XCTAssertEqual(title.value as? String, renamed, "Discard opened another workout")
                 XCTAssertFalse(app.endKey.exists)
                 XCTAssertTrue(app.buttons["Menu"].exists, "No ++ after Discard")
+                // The bar takes ••• back from the workout's time.
+                XCTAssertTrue(
+                    app.buttons["workout.more"].appears(),
+                    "••• did not come back after the workout",
+                )
             }
     }
 

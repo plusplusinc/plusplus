@@ -104,6 +104,32 @@ struct AppSessionScreenTests {
         #expect(session.log?.loggedWorkouts == [finished])
     }
 
+    @Test("Finish names the workout for Log to bring in, and a read straight after lists it")
+    func justFinished() async throws {
+        let (session, _) = try sessionWithRow()
+        session.start(on: session.current.id)
+        let finishing = try #require(session.loggedWorkout)
+        session.finish()
+        #expect(session.justFinished == finishing.id)
+        // No wait for the write first: Log reads as the drawer closes over it, or at once with
+        // VoiceOver or the app leaving the foreground.
+        await session.refreshLog()
+        #expect(session.log?.loggedWorkouts.map(\.id) == [finishing.id])
+        session.takeJustFinished()
+        #expect(session.justFinished == nil, "taken, it comes in once only")
+    }
+
+    @Test("Discard names no workout for Log, and Log gains none")
+    func discardNamesNone() async throws {
+        let (session, _) = try sessionWithRow()
+        session.start(on: session.current.id)
+        session.discard()
+        #expect(session.justFinished == nil)
+        await session.refreshLog()
+        #expect(session.log?.loggedWorkouts.isEmpty == true)
+        #expect(session.screen == .workout, "the app stays on the workout")
+    }
+
     @Test("The drawer and a row's sheet keep each other out, whichever was asked for first")
     func drawerAndRowSheetExclude() throws {
         let (session, row) = try sessionWithRow()

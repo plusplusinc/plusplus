@@ -8,8 +8,9 @@ import WorkoutStore
 /// changed since the period's first day; and Balance, each muscle group's sets. "Log" is the
 /// bar's own inline title, centered, with ++ leading and the period trailing, once for all
 /// three tabs: "Oct 25 – Nov 21", plain secondary text, not a control.
-/// It opens on History each time the drawer shows it. The period is `LogPeriod`'s four
-/// calendar weeks.
+/// It opens on History each time the drawer shows it, and after a finish, which goes there
+/// through the drawer: the workout just finished comes into History once the drawer has closed
+/// (`bringIn()`). The period is `LogPeriod`'s four calendar weeks.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
 /// logged workout's row pushes it, read-only, with the system push, as a saved workout is
 /// pushed on Workouts, and swiped left offers Delete, as a saved workout's row does there.
@@ -220,9 +221,10 @@ struct LogScreen: View {
     }
 
     /// Workouts at the root, never pushed onto Log, by way of the drawer: a quick version of
-    /// opening it and tapping Workouts (`AppSession.show(_:throughDrawer:markWait:)`): it opens
-    /// at the ++ button's pace, holds a moment, its mark slides from Log to Workouts, it holds
-    /// again, and it closes over Workouts (`DrawerWay`). With VoiceOver it goes straight there:
+    /// opening it and tapping Workouts (`AppSession.show(_:after:throughDrawer:markWait:)`): it
+    /// opens at the ++ button's pace, holds a moment, its mark slides from Log to Workouts, it
+    /// holds again, and it closes over Workouts (`DrawerWay`). With VoiceOver it goes straight
+    /// there:
     /// a drawer passing by unasked reads as noise.
     func goToWorkouts() {
         guard !voiceOver else {

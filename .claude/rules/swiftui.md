@@ -36,8 +36,8 @@ Leaf views take plain values and closures so they preview and snapshot without a
 - Every tappable element other than a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`, but a view already `.hidden()` gets nothing more: the modifier
-  gives the empty view an unlabeled element of its own. A decorative text, such as the key's
-  +1, gets an empty `accessibilityRepresentation`: marked `accessibilityHidden`, it stays in
+  gives the empty view an unlabeled element of its own. A decorative text, such as the finish's
+  "++", gets an empty `accessibilityRepresentation`: marked `accessibilityHidden`, it stays in
   the tree that automation and `axe describe-ui` read, even at opacity 0.
 - Motion is snappy: every animation names its curve, `.snappy` unless the code it joins names
   another, never a bare `withAnimation` or the default spring, and quicker than `.snappy`'s
@@ -58,8 +58,8 @@ with the feature.
 - Start, End, and the current exercise: `WorkoutScreen+LiveWorkout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`, `CaptionLine`, `ProgressLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
   Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
-- The key at the bottom and the +1: `WorkoutKey`, `WorkoutScreen+Key.swift`,
-  `PrimaryKeyButtonStyle.swift`, `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
+- The key at the bottom: `WorkoutKey`, `WorkoutScreen+Key.swift`,
+  `PrimaryKeyButtonStyle.swift`. A finish: `WorkoutScreen+Ending.swift`, `FinishBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
   `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
 - Logging a set and moving on to the next exercise: `WorkoutScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
@@ -72,7 +72,7 @@ with the feature.
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - Drawer, Workouts: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
   `WorkoutsScreen`, `WorkoutRow`, `LengthSheet`, `NeedsHeader`. The drawer's mark and a way through it: `drawerMarks()`, `DrawerWay`,
-  `AppSession.show(_:throughDrawer:markWait:)`.
+  `AppSession.show(_:after:throughDrawer:markWait:)`.
 - Log: `LogScreen`, `LogScreen+Tabs.swift`, `LoggedWorkoutScreen`, `DayGrid`, `LogRow`,
   `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
   `ExerciseForm`, `BarSearchField`, `FilterBar`, `ChipSheet`, `FilterButtonRow`, `CreateLabel` (both lists').

@@ -16,8 +16,10 @@ struct FinishBurst: View {
     /// A count, which plays the burst once each time it goes up: a Bool fired only on false to
     /// true, which can't count finishes in a row.
     let trigger: Int
-    /// A time into the burst to draw it held at, with no animation, for snapshots.
+    /// A time into the burst to draw it held at, with no animation, and whether as with Reduce
+    /// Motion, for snapshots, where the environment's setting can't be set.
     private let heldAt: Double?
+    private let heldStill: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The width of one "+" as set, untransformed: the step between a "++" string's glyphs.
@@ -50,16 +52,19 @@ struct FinishBurst: View {
     init(trigger: Int) {
         self.trigger = trigger
         heldAt = nil
+        heldStill = false
     }
 
-    /// The burst drawn `time` into it, still, as a snapshot holds it.
-    init(heldAt time: Double) {
+    /// The burst drawn `time` into it, held there, as a snapshot holds it; `reduceMotion` draws
+    /// it as with Reduce Motion.
+    init(heldAt time: Double, reduceMotion: Bool = false) {
         trigger = 0
         heldAt = time
+        heldStill = reduceMotion
     }
 
     var body: some View {
-        let still = reduceMotion
+        let still = reduceMotion || heldStill
         // At full growth each "+" is `grownScale` times its width, so their centers sit that
         // far apart, as a "++" at that size has them.
         let spacing = glyph * (Self.grownScale - 1)

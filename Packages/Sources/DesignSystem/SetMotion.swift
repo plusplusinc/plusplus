@@ -39,7 +39,7 @@ public enum SetMotion {
     /// (`ProgressLine`), as the set's number rolls (`restRoll`).
     public static let roll = 0.3
     /// After a tap logs a set that stays on the exercise, how long it is held as still to do
-    /// before the line rolls on: about as the +1 has risen. Taps inside it are dropped.
+    /// before the line rolls on, long enough to see the set taken. Taps inside it are dropped.
     public static let heldRoll = 0.5
 
     // MARK: Moving on to another exercise: leave

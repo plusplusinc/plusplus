@@ -244,4 +244,19 @@ extension WorkoutPhaseTests {
         #expect(Self.applying([.rest], to: &phase) == [true])
         #expect(phase == .idle)
     }
+
+    /// A finish holds the screen at the ending's first beat, under its "++" and the way to Log:
+    /// the key up, the workout drawn as it was, until the key leaves.
+    @Test("An ending begun holds the key up and the workout drawn, until the key leaves")
+    func endBegunHolds() {
+        for phase in Self.everyPhase + Self.startAndEnd.filter({ !Self.isEnding($0) }) {
+            #expect(!phase.isEndBegun, "\(phase)")
+        }
+        var phase = Self.ending(from: Self.logging(.nextSet))
+        #expect(phase.isEndBegun)
+        #expect(phase.keyGone == nil, "the key stays up")
+        #expect(phase.drawnLoggedWorkout == Self.loggedWorkout)
+        _ = Self.applying([.keyLeaves], to: &phase)
+        #expect(!phase.isEndBegun)
+    }
 }
