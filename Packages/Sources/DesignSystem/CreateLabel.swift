@@ -56,12 +56,26 @@ public struct CreateLabel: View {
 }
 
 extension View {
-    /// The room a `List` gives a row, for one drawn outside a list, as the Workouts list's Create
-    /// workout row is: at least 44 pt tall, the full width, and a list row's insets.
+    /// The room a plain `List` gives a row, for one drawn outside a list, as the Workouts list's
+    /// Create workout row is, so it stands as tall as Add exercise's Create row: the full width,
+    /// a list row's insets, and the list's least row height, read from the environment.
     public func listRowRoom() -> some View {
-        frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        modifier(ListRowRoom())
+    }
+}
+
+private struct ListRowRoom: ViewModifier {
+    /// A plain list row's room above and below its content on iOS 27, the same at every text
+    /// size. SwiftUI gives no way to read it, so `ListRowRoomTests` holds this to a real list's.
+    static let verticalInset: CGFloat = 15
+    @Environment(\.defaultMinListRowHeight) private var minHeight
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm + Spacing.xxs)
+            .padding(.vertical, Self.verticalInset)
+            .frame(minHeight: minHeight)
     }
 }
 
