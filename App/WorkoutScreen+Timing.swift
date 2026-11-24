@@ -34,10 +34,10 @@ extension WorkoutScreen {
         return live?.countStage(at: .now)
     }
 
-    /// As `arrivingCount()`, for Start's landing on the first set: the workout's clock starts
-    /// from here too, so its time and the first "Start in" tick together.
+    /// As `arrivingCount()`, for Start's landing on the first set: the workout's time holds at
+    /// 0:00 through its "Start in" and starts as the set begins, so the two tick together.
     func startingCount() -> CountStage? {
-        session.startClockAtLanding(override: restOverride)
+        session.landOnFirstSet(override: restOverride)
         return live?.countStage(at: .now)
     }
 

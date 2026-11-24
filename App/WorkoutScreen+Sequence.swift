@@ -43,8 +43,8 @@ extension WorkoutScreen {
         session.closeRowSheet()
         sequence.cancel()
         // A timed set the stopped sequence was landing on counts from now; stopped within
-        // Start, the workout's clock starts here with it, as at Start's landing.
-        session.startClockAtLanding(override: restOverride)
+        // Start, the first set's "Start in" begins here, as at Start's landing.
+        session.landOnFirstSet(override: restOverride)
         withTransaction(\.disablesAnimations, true) {
             phase.settleAtOnce(resuming: live, restOverride: restOverride, at: .now)
             closingRoomTop = nil

@@ -32,22 +32,39 @@ extension TimedSetTests {
         #expect(leads == [first, side, 0, side, first, first, first, first], "\(leads)")
     }
 
-    @Test("Landing after Start, the workout's clock and the first Start in begin together")
-    func landingStartsClock() throws {
+    @Test("The workout's time starts as the first Start in ends, or at a log or Start now before")
+    func timeStartsWithFirstSet() throws {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
         let workout = Workout(exercises: [push])
         let made = LoggedWorkout(workoutID: workout.id, workoutName: "Test", startedAt: Self.at(0))
+        let lead = Double(LiveWorkout.startIn)
         let landed = LiveWorkout(workout: workout, loggedWorkout: made)
             .landingStart(at: Self.at(0.5))
-        #expect(landed.clock(at: Self.at(0.5)) == 0)
-        #expect(landed.count?.startClock == Double(LiveWorkout.startIn))
-        // The workout's time reaches a second as "Start in" has a second less left.
-        #expect(landed.clock(at: Self.at(1.5)) == 1)
+        // "Start in" counts up to zero, where the set and the time begin.
+        #expect(landed.clock(at: Self.at(0.5)) == -lead)
+        #expect(landed.count?.startClock == 0)
+        #expect(landed.elapsed(at: Self.at(3)) == .zero)
+        #expect(landed.elapsed(at: Self.at(0.5 + lead + 1)) == .seconds(1))
+
+        // Logged 2 s into "Start in": the time starts at the log, and the rest with it.
+        let live = LiveWorkout(workout: workout, loggedWorkout: landed)
+        let logged = try Self.logged(live, at: 2.5)
+        #expect(logged.loggedWorkout.startedAt == Self.at(2.5))
+        #expect(logged.loggedWorkout.sets.first?.clockWhenLogged == 0)
+
+        // "Start now" on a timed first set: the time and the set's count start at the tap.
+        var plank = try WorkoutExercise.builtIn("Plank") { $0.sets = 1 }
+        plank.plan.target = .time(seconds: 30)
+        let timed = Workout(exercises: [plank])
+        let waiting = LiveWorkout(workout: timed, loggedWorkout: made)
+            .landingStart(at: Self.at(0.5))
+        let now = LiveWorkout(workout: timed, loggedWorkout: waiting)
+            .startingCountNow(at: Self.at(2.5))
+        #expect(now.startedAt == Self.at(2.5))
+        #expect(now.count?.startClock == 0)
 
         // Under way, a landing only begins a count: the clock is never set back.
-        let live = LiveWorkout(workout: workout, loggedWorkout: landed)
-        let logged = try Self.logged(live, at: 20)
-        #expect(logged.landingStart(at: Self.at(30)).startedAt == Self.at(0.5))
+        #expect(logged.landingStart(at: Self.at(30)).startedAt == Self.at(2.5))
         var resumed = made
         resumed.pausedSeconds = 3
         var paused = made
