@@ -11,6 +11,9 @@ extension WorkoutPhase {
         public let isBack: Bool
         public let isWithinExercise: Bool
         public internal(set) var beat: Beat
+        /// Cut by Skip rest, the seconds it had left at the tap, which its count holds as it
+        /// goes (`skipRest(left:)`); nil for a rest that runs to 0:00.
+        public internal(set) var skippedLeft: Double?
 
         public enum Beat: Comparable, Sendable {
             /// Logged, and not yet drawn.
@@ -96,6 +99,17 @@ extension WorkoutPhase {
         return true
     }
 
+    /// Skip rest cuts the rest with `left` seconds to go: its count holds them from here, through
+    /// the swap back or the move on (`Move.skippedLeft`), and goes with the phase. Stored as over
+    /// at the tap, the rest drawn from the store read 0:00 on its way out.
+    @discardableResult
+    public mutating func skipRest(left: Double) -> Bool {
+        guard case var .resting(rest) = self, rest.beat < .returning else { return false }
+        rest.skippedLeft = left
+        self = .resting(rest)
+        return true
+    }
+
     /// A rest is over: the move to the next exercise plays from the rest as a move with no rest
     /// does from its log, or with no motion (`moves`), fades on, called inside the fade: the set
     /// stays shown, as the rest drew it. Hidden again, the finished exercise stood grown as the
@@ -124,6 +138,7 @@ extension WorkoutPhase {
             startsRound: false,
             beat: .shown,
             isFromRest: true,
+            skippedLeft: rest.skippedLeft,
         ))
         return true
     }

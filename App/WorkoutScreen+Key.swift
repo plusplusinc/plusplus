@@ -96,11 +96,17 @@ extension WorkoutScreen {
     }
 
     /// Skip rest: the rest is stored as ended at the tap, then ends as one that ran out does
-    /// (`endRest()`). Only when `WorkoutKey.skipRest` says so.
+    /// (`endRest()`), its count holding the time it had left at the tap as it goes, never 0:00.
+    /// Only when `WorkoutKey.skipRest` says so.
     private func skipRest() {
         // With the store's change, before `endRest()`'s animated swap: a new figure put in during
         // the swap stood where it ends from its first frame.
         restSkips += 1
+        if let resting, let loggedWorkout = session.loggedWorkout,
+           let left = Self.times(of: resting, on: loggedWorkout, stopped: true).pausedLeft
+        {
+            phase.skipRest(left: left)
+        }
         session.skipRest(override: restOverride)
         endRest()
     }
