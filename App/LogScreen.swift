@@ -117,7 +117,6 @@ struct LogScreen: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
-                        .themedBarButton()
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     periodText

@@ -36,7 +36,6 @@ extension WorkoutScreen {
                     }
                 }
                 .animation(.easeOut(duration: Self.barFade), value: barIsLive)
-                .themedBarButton()
             }
         }
         // One item, as leading's: ••• outside a workout and its time during one, crossfading
@@ -66,7 +65,6 @@ extension WorkoutScreen {
             }
             .animation(.easeOut(duration: Self.barFade), value: barIsLive)
             .animation(.easeOut(duration: Self.barFade), value: timed == nil)
-            .themedBarButton()
         }
     }
 
@@ -89,8 +87,6 @@ extension WorkoutScreen {
     /// •••, the workout's own actions: Delete, red, dimmed while the workout has nothing saved.
     /// It asks first in a centered alert, "Delete <name>?", the name as the title shows it;
     /// confirmed, the session shows Workouts on a new workout (`AppSession.delete(_:)`).
-    /// Under a tinted theme the bar still draws it in its own glass, untinted: in a bar, a menu
-    /// took no prominent glass, as `.glassProminent` or `.menuStyle(.button)` (`themedBarMenu()`).
     private var moreMenu: some View {
         Menu("More", systemImage: "ellipsis") {
             Button("Delete", systemImage: "trash", role: .destructive) {
@@ -98,7 +94,6 @@ extension WorkoutScreen {
             }
             .disabled(!session.canDeleteOpen)
         }
-        .themedBarMenu()
         // Named once: hidden from VoiceOver through a representation, the menu read out its
         // Delete too, "More, Delete".
         .accessibilityLabel("More")

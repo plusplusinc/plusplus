@@ -158,7 +158,6 @@ struct WorkoutsScreen: View {
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
-                        .themedBarButton()
                 }
             }
             // Where the workout screen's + sits on an empty workout.

@@ -66,20 +66,6 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
         isDarkOnly ? String(localized: "Dark only") : String(localized: "Light and dark")
     }
 
-    /// The tint this theme's glass takes, so a glass button sits in the page's hue rather than
-    /// the system's neutral gray: its `surface`. None for PlusPlus, whose neutral page the
-    /// system's glass already sits in.
-    public func glassTint(in colorScheme: ColorScheme) -> Color? {
-        switch looks {
-        case .catalog:
-            nil
-        case let .both(light, dark):
-            Color((colorScheme == .dark ? dark : light)[.surface])
-        case let .darkOnly(dark):
-            Color(dark[.surface])
-        }
-    }
-
     func resolve(_ token: ColorToken, in environment: EnvironmentValues)
         -> Color.Resolved
     {

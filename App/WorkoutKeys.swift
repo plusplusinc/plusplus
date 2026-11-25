@@ -10,11 +10,9 @@ struct EndButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text("End").barLabelStyle()
-        }
-        .accessibilityLabel("End workout")
-        .hiddenBehindDrawer()
+        Button("End", action: action)
+            .accessibilityLabel("End workout")
+            .hiddenBehindDrawer()
     }
 }
 
