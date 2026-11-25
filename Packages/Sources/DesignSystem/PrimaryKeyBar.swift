@@ -166,8 +166,8 @@ private struct PrimaryKeyBar<
         )
     }
 
-    /// `floating` over an unseen copy of `shown` (`KeyStage.floatingFace(for:)`), else the live
-    /// key, its ledge `ledgeLift` up, going down and up with a swap's keys, as far along as
+    /// `floating` over an unseen copy of `shown` (`KeyStage.floatingFace(for:dips:)`), else the
+    /// live key, its ledge `ledgeLift` up, going down and up with a swap's keys, as far along as
     /// they are drawn (`FloatingOver.dip`) and as far as they go.
     private func floatingPlace(over shown: FloatingOver<Face>?) -> some View {
         FloatingPlace(

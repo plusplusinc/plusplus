@@ -10,8 +10,8 @@ enum KeyStage<Face: Equatable & Identifiable>: Equatable {
     /// Going down with the words it had.
     case leaving(Face)
     /// The next key, placed below the edge with no animation, about to rise: the live face,
-    /// which may still change while it is out of sight. `after` is the key that left, which the
-    /// floating button still sits over until the next one rises.
+    /// which may still change while it is out of sight. `after` is the key that left, which a
+    /// floating button that stays put still sits over until the next one rises.
     case arriving(after: Face)
     /// Being ridden down out of sight by the screen, from the ride's start, as Start at a
     /// workout's start: in no swap, the live face, so whatever key it is now comes back up under
@@ -30,12 +30,17 @@ enum KeyStage<Face: Equatable & Identifiable>: Equatable {
     }
 
     /// The key the bar's floating button sits over, with `live` the face it is given now: the
-    /// one drawn, and through a swap the one that left, until the next rises, so the button
-    /// moves with that rise and never jumps while the key going is still in sight.
-    func floatingFace(for live: Face) -> Face {
+    /// one drawn. A button that `dips` with the keys is as far down over either key once both
+    /// are out of sight, so it takes the next one there, in the swap's unanimated beat: taken
+    /// with the rise, its place moved under the rise's animation while its dip followed the key,
+    /// and where the keys' heights differ, at the largest text sizes, it stepped by the
+    /// difference at the bottom, then closed it against the key coming up. One that stays put,
+    /// with Reduce Motion, sits over the key that left until the next rises, so it moves with
+    /// that rise and never jumps.
+    func floatingFace(for live: Face, dips: Bool) -> Face {
         switch self {
-        case .showing, .leaving, .dropped: face(for: live)
-        case let .arriving(after): after
+        case let .arriving(after) where !dips: after
+        default: face(for: live)
         }
     }
 
