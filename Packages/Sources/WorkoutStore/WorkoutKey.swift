@@ -8,7 +8,8 @@ import Foundation
 /// workout ends, the key keeps its words while a tap is Start's, which does nothing until Start
 /// is back. What a tap lands on (a sheet over the key, the key out in a swap) is the screen's.
 /// During a rest the key is Skip rest and +15 s (`Role.rest`), whose taps are `skipRest`'s and
-/// `extendRest(by:)`'s.
+/// `extendRest(by:)`'s. While the workout is paused it is Continue, which resumes it, and no
+/// other tap goes through (`continues`).
 public struct WorkoutKey: Sendable {
     /// The workout in progress as stored, every log in it: what a tap reads. Nil out of one, and
     /// from End's choice.

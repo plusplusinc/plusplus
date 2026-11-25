@@ -3,7 +3,8 @@ import SwiftUI
 import WorkoutStore
 
 /// The screen's one key, at the bottom: Start, then in a workout what logs its sets, goes back
-/// to the current exercise while it is scrolled away, and finishes the workout.
+/// to the current exercise while it is scrolled away, and finishes the workout; while the
+/// workout is paused, Continue, which resumes it (VoiceOver: "Continue workout").
 extension WorkoutScreen {
     /// The key as the workout stands: what it says, which the bar swaps as its kind changes
     /// (`primaryKeyBar`), and what a tap does.
