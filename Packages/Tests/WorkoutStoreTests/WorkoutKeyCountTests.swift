@@ -75,6 +75,34 @@ struct WorkoutKeyCountTests {
         #expect(Self.key(live, phase: .timing(.startIn)).runOut == .nothing)
     }
 
+    @Test("Paused in Start in, Continue shows and resumes; nothing starts, adds, or logs")
+    func pausedStartIn() throws {
+        let key = try Self.key(Self.paused(Self.live()), phase: .timing(.startIn))
+        #expect(key.role == .continueWorkout)
+        #expect(key.tap == .continueWorkout)
+        #expect(!key.waitsToStart, "Continue shows, though no key shows while it runs")
+        #expect(key.pauseMovesKey, "A resume takes the key away again")
+        #expect(key.countTap(by: 15) == .nothing)
+        #expect(key.runOut == .nothing)
+    }
+
+    @Test("Paused mid-count, Continue in Log early's place; +15 s and the count's end do nothing")
+    func pausedCounting() throws {
+        let key = try Self.key(Self.paused(Self.live()), phase: .timing(.counting))
+        #expect(key.role == .continueWorkout)
+        #expect(key.tap == .continueWorkout)
+        #expect(!key.pauseMovesKey, "The key only changes kind")
+        #expect(key.countTap(by: 15) == .nothing)
+        #expect(key.runOut == .nothing)
+    }
+
+    /// `live` paused a minute after `start`.
+    private static func paused(_ live: LiveWorkout) -> LiveWorkout {
+        var paused = live
+        paused.loggedWorkout = live.loggedWorkout.pausing(at: start.addingTimeInterval(60))
+        return paused
+    }
+
     @Test("A timed set just logged and held keeps its count, stopped, until the next shows")
     func held() throws {
         let live = try Self.live()
