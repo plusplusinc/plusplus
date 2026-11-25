@@ -25,6 +25,7 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
     /// The face as last followed, which the swap's beats read when it rises: `face` in the task
     /// is the one it started with.
     @State private var live: Face
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         face: Face,
@@ -42,6 +43,7 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
 
     var body: some View {
         let shown = stage.face(for: face)
+        let floating = stage.floatingFace(for: face, dips: !reduceMotion)
         content(shown, stage.isOut)
             // Another key comes in with the bar's own transition, under the animation of the
             // update that brought it: out of sight in a swap, with none.
@@ -51,15 +53,11 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
             .onChange(of: isDropped) { _, isDropped in stage.drop(isDropped, live: face) }
             // The swap's beats: the key going away cancels them.
             .task(id: stage.isOut) { await swap() }
-            // The floating button is laid out over the face drawn, which becomes the next key
-            // while both are out of sight, in the swap's unanimated beat: there the button is
-            // as far down over either key, so its place changes unseen. Changed with the rise,
-            // its place moved under the rise's animation while its dip followed the key, and
-            // where the keys' heights differ, at the largest text sizes, it stepped by the
-            // difference at the bottom and closed it against the key coming up. The key's
-            // `KeySwap` gives how far down it is drawn.
-            .transformPreference(FloatingFace<Face>.self) { [shown] in
-                $0 = FloatingOver(face: shown, dip: $0?.dip ?? 0)
+            // In the update that changes the stage, so the floating button, laid out over this
+            // face, moves under that update's animation, or none (`floatingFace(for:dips:)`).
+            // The key's `KeySwap` gives how far down it is drawn.
+            .transformPreference(FloatingFace<Face>.self) { [floating] in
+                $0 = FloatingOver(face: floating, dip: $0?.dip ?? 0)
             }
     }
 
