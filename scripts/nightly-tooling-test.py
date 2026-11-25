@@ -339,7 +339,8 @@ class NightDigest(unittest.TestCase):
         self.assertFalse((self.night / "usage.json").exists())
         self.begin("second")
         self.assertEqual((self.night / "session").read_text(), "second\n")
-        self.assertEqual(nightly.Night(self.night).state(), {"start": start, "phase": None})
+        state = nightly.Night(self.night).state()
+        self.assertEqual((state["start"], state["phase"]), (start, None))
 
     def test_begin_without_a_session_id_records_none_and_says_no_card_will_start(self):
         self.begin("earlier")
@@ -1131,7 +1132,7 @@ class Decide(unittest.TestCase):
         open_card(self.night)
         (self.night.dir / "guard-seen").write_text("none\tlead\ncard PVTI_1\tlead\ncard PVTI_1\tbuilder\n")
         stub(self, wait_merge=lambda night, entry: ("merged", "merged"), classify=lambda files: "app: x",
-             xcode_cloud_runs=lambda *a, **k: [])
+             xcode_cloud_runs=lambda *a, **k: [], tampered=lambda night, entry: None)
 
     def settle(self, pr):
         return nightly.settle(self.night, self.night.entry("PVTI_1"), pr, NIGHT)[0]
@@ -1542,7 +1543,8 @@ class SessionFolder(unittest.TestCase):
         self.git("worktree", "add", "-q", "-b", "dc/session", str(self.folder), "origin/main")
         real = nightly.sh
         night = nightly.Night(self.main / ".build/retro/2026-10-28")
-        night.write("state.json", {"start": NIGHT.isoformat(), "phase": None, "night_read": True})
+        night.write("state.json", {"start": NIGHT.isoformat(), "phase": None, "night_read": True,
+                                   "judges": nightly.judge_hashes(self.main)})
         (night.dir / "session").write_text(SESSION + "\n")
         (night.dir / "guard-seen").write_text("none\tlead\n")
         write_usage(night.dir, ("Weekly", 10, 100))
@@ -1679,6 +1681,84 @@ class SessionFolder(unittest.TestCase):
         self.assertEqual(nightly.run_next(self.night, NIGHT + timedelta(minutes=31), "second-session", False),
                          (1, "No card: the session's folder has uncommitted changes, so no card's branch is switched in."))
 
+    def test_begin_leaves_a_live_sessions_open_card_alone_and_names_decide(self):
+        # The second verifier's probe on #282: a card's agent ran a copy of begin, spelled through a
+        # variable, which parked the open card and closed its phase; then a merge passed.
+        nightly.run_next(self.night, NIGHT, SESSION, False)
+        script = self.main / "scripts/nightly-tooling.py"
+        decide = f"Close it with {script} decide {self.night.dir} PVTI_1"
+        # The same session; a different id the guard heard a call of lately (as just before the copy
+        # runs); and a later night's folder, whose begin would close this one's phase.
+        (self.night.dir / "heard").touch()
+        heard = datetime.now().astimezone()
+        for night, now, session in [(self.night, NIGHT, SESSION), (self.night, heard, "another-id"),
+                                    (nightly.Night(self.main / ".build/retro/2026-10-29"), heard, "another-id")]:
+            with self.assertRaises(nightly.StillOpen) as raised:
+                nightly.begin(night, now, session)
+            self.assertIn(decide, str(raised.exception))
+        self.assertEqual(self.night.state()["phase"]["item"], "PVTI_1")
+        self.assertEqual(self.night.entry("PVTI_1")["decision"], "open")
+        self.assertEqual((self.night.dir / "session").read_text(), SESSION + "\n")
+        self.assertFalse((self.main / ".build/retro/2026-10-29").exists())
+        self.assertEqual(self.hooks(self.folder), str(self.night.dir / "git-hooks"))
+        # A session that ended: the guard heard nothing lately, and begin is another session's.
+        lines = nightly.begin(self.night, heard + nightly.HEARD_LATELY, "another-id")
+        self.assertIn('Parked "A card" of 2026-10-28: the night\'s session ended before deciding on it.', lines)
+
+    def test_begin_names_review_end_for_an_open_review(self):
+        self.night.set_state(phase={"kind": "review", "reports": str(self.folder / ".slices/review-setup")})
+        with self.assertRaises(nightly.StillOpen) as raised:
+            nightly.begin(self.night, NIGHT, SESSION)
+        self.assertIn(f"review-end {self.night.dir}", str(raised.exception))
+
+    def arm(self):
+        """decide on the card `next` took, whose PR passed its gates; returns its decision."""
+        stub(self, sh=lambda *a, real=nightly.sh, **k: "me\n" if a[0] == "gh" else real(*a, **k),
+             gates=lambda pr, me: ("arm", ["App/x.swift"], "abc1234"), disable_auto=lambda n: None,
+             proof=lambda entry: "proof")
+        pr = {"number": 7, "title": "A card", "state": "OPEN", "headRefOid": "a" * 40, "body": "", "comments": []}
+        stub(self, gh_json=lambda *a: {"state": "MERGED", "mergeCommit": {"oid": "b" * 40}} if a[:2] == ("pr", "view")
+             else [pr] if "--head" in a else [])
+        with (self.night.dir / "guard-seen").open("a") as out:
+            out.write("card PVTI_1\tbuilder\n")
+        self.assertEqual(nightly.run_decide(self.night, "PVTI_1", NIGHT)[0], 0)
+        return self.night.entry("PVTI_1")
+
+    def test_a_card_whose_pre_push_hook_was_turned_off_is_parked_unarmed(self):
+        # The second verifier's probe on #282: git config turned the worktree's hook off.
+        nightly.run_next(self.night, NIGHT, SESSION, False)
+        self.git("config", "--unset", "extensions.worktreeConfig")
+        entry = self.arm()
+        self.assertEqual(entry["decision"], "parked")
+        self.assertIn("pre-push hook was off", entry["why"])
+        self.assertIsNone(self.night.state().get("stopped"))
+
+    def test_a_change_to_the_files_that_judge_a_card_parks_it_and_ends_the_cards(self):
+        # The second verifier's probe on #282: a path spelled with an expansion passes the fence.
+        for change in [lambda: (self.main / ".git/hooks/post-checkout").write_text("#!/bin/sh\n"),
+                       lambda: (self.night.dir / "git-hooks/pre-push").write_text("#!/bin/sh\nexit 0\n"),
+                       lambda: (self.main / ".claude/hooks").mkdir(parents=True) or
+                       (self.main / ".claude/hooks/night-guard.sh").write_text("exit 0\n")]:
+            self.night.write("cards.json", [])
+            self.night.set_state(phase=None, stopped=None, judges=nightly.judge_hashes(self.main))
+            nightly.run_next(self.night, NIGHT, SESSION, False)
+            change()
+            entry = self.arm()
+            self.assertEqual(entry["decision"], "parked")
+            self.assertIn("changed after", entry["why"])
+            self.assertIn("changed after", self.night.state()["stopped"])
+        # Unchanged, the same card merges.
+        self.night.write("cards.json", [])
+        self.night.set_state(phase=None, stopped=None, judges=nightly.judge_hashes(self.main))
+        nightly.run_next(self.night, NIGHT, SESSION, False)
+        self.assertEqual(self.arm()["decision"], "merged")
+
+    def test_begin_records_the_hashes_decide_compares(self):
+        stub(self, board=lambda *a, stdin=None: "")
+        nightly.begin(self.night, NIGHT, "another-id")
+        self.assertEqual(self.night.state()["judges"], nightly.judge_hashes(self.main))
+        self.assertIn("scripts/nightly-tooling.py", self.night.state()["judges"])
+
 
 class Bypass(unittest.TestCase):
     """Spellings of a merge or an Xcode Cloud run that the hook has to stop."""
@@ -1709,7 +1789,7 @@ class Bypass(unittest.TestCase):
 
     def test_every_push_spelling_past_the_limit_is_denied(self):
         for command in ["env git push", "env FOO=1 git push", "/usr/bin/git push", "command git push", "time git push",
-                        "git --no-pager push", "git --git-dir .git push", "bash -lc 'cd /w && git push'",
+                        "git --no-pager push", "git --git-dir /w/.git push", "bash -lc 'cd /w && git push'",
                         "nohup git push 2>&1 | tail -1", "git push 'unbalanced", "gh -R o/r pr create --title t",
                         "gh api repos/o/r/pulls -f head=x -f base=main", "gh api -X PATCH repos/o/r/git/refs/heads/x"]:
             self.assertIn("Xcode Cloud run", self.decide(command) or "", command)
@@ -2400,7 +2480,7 @@ class WritesStayInTheWorktree(unittest.TestCase):
 
     def test_a_command_naming_the_nights_files_is_denied(self):
         for command in ["cat >> ~/.config/gh/config.yml <<EOF\naliases: {}\nEOF", "echo x > $HOME/.gitconfig",
-                        f"cp x {NIGHT_DIR}/state.json", "cd .. && rm -rf night-card", "cd ../../.. && git config x y",
+                        f"cp x {NIGHT_DIR}/state.json", "cd .. && rm -rf night-card", "cd ../../.. && ls x",
                         f"bash -c 'echo x > {nightly.ROOT}/.git/config'", "ln -s ~/.claude/settings.json s",
                         f"git -C {nightly.ROOT} commit -am x", "tee ${HOME}/.asc/config.json",
                         f"cat {nightly.ROOT}/.slices/night-card-plan.md"]:
@@ -2539,6 +2619,31 @@ class GuardPassesOtherSessions(unittest.TestCase):
             result = self.guard(hook_input(session="day-session"), project)
             self.assertNotEqual(result.returncode, 2, project)
             self.assertEqual(result.stdout, "", project)
+        # The second verifier's probe on #282: it exited 127 with a shell error; now 0, silently.
+        for project in (empty, self.root, self.root / ".claude/worktrees/gone"):
+            result = self.guard(hook_input(), project)
+            self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""), project)
+
+    def test_the_session_folders_git_file_leads_nowhere(self):
+        # The second verifier's probe on #282: with the worktree's .git file moved, removed, or
+        # pointed at another checkout, the hook missed the main checkout's guard and a merge passed.
+        # The main checkout is read from the folder's path alone.
+        folder = self.night("2026-10-28")
+        worktree = self.root / ".claude/worktrees/session"
+        worktree.mkdir(parents=True)
+        decoy = self.root / "decoy"
+        (decoy / ".claude/hooks").mkdir(parents=True)
+        (decoy / ".claude/hooks/night-guard.sh").write_text("exit 0\n")
+        for git_file in [None, f"gitdir: {decoy}/.git/worktrees/session\n", "gitdir: ../../../decoy/.git/worktrees/x\n"]:
+            (worktree / ".git").unlink(missing_ok=True)
+            if git_file:
+                (worktree / ".git").write_text(git_file)
+            result = self.guard(hook_input(), worktree)
+            self.assertEqual((result.returncode, result.stderr), (2, f"reached {folder}\n"), git_file)
+        # A worktree of a worktree's folder still finds the main checkout.
+        nested = worktree / ".claude/worktrees/inner"
+        nested.mkdir(parents=True)
+        self.assertEqual(self.guard(hook_input(), nested).stderr, f"reached {folder}\n")
 
     def test_without_git_the_nights_call_still_reaches_the_guard(self):
         # The verifier's probe on #282: with no git on PATH, the night's merge passed.
@@ -2692,6 +2797,19 @@ class GuardPhases(unittest.TestCase):
         self.assertEqual(self.night.seen(), [["none", "lead"], ["card PVTI_1", "lead"], ["card PVTI_1", "builder"],
                                              ["card PVTI_1", "verifier"]])
 
+    def test_each_of_the_nights_calls_is_heard_and_no_other_sessions(self):
+        # What begin reads to leave a live session's phase open.
+        nightly.hook_check(self.night.dir, hook_input(f"ls # {SESSION}", session="day-session"))
+        self.assertFalse((self.night.dir / "heard").exists())
+        self.check(agent="builder")
+        self.assertLess(time.time() - (self.night.dir / "heard").stat().st_mtime, 60)
+
+    def test_a_card_left_open_past_last_call_is_told_how_to_close_it(self):
+        # The second verifier's probe on #282: a night's session resumed by day was denied everything
+        # but the closing steps, with no word of which to run.
+        open_card(self.night, worktree=self.worktree, stop=datetime.now().astimezone() - timedelta(hours=8))
+        self.assertIn(f"Close the card with {self.night_script} decide {self.night.dir} PVTI_1", self.check("ls"))
+
     def test_a_card_phase_holds_the_cards_gates(self):
         open_card(self.night, worktree=self.worktree, stop=datetime.now().astimezone() + timedelta(hours=1))
         self.assertIn("Never merge", self.check("gh pr merge 7 --squash", agent="builder"))
@@ -2808,6 +2926,17 @@ class Lesser(unittest.TestCase):
         for command in ["git config --unset extensions.worktreeConfig", "git config extensions.worktreeConfig false",
                         "git config --worktree --remove-section core", "git config --worktree --rename-section core x"]:
             self.assertIn("git hooks stay on", decide(command, app=False) or "", command)
+
+    def test_a_card_writes_no_git_config_and_reads_it_freely(self):
+        # A card's work changes no git config; `-c extensions.worktreeConfig=false` would hide the
+        # hook from one push.
+        for command in ["git config user.name x", "git config --global alias.p push", "git config set a.b c",
+                        "git config --file x.cfg --add a.b c", "git config unset a.b", "git -C x config a.b c",
+                        "git -c extensions.worktreeConfig=false push", "git config --worktree --edit"]:
+            self.assertIn("git hooks stay on", decide(command, app=False) or "", command)
+        for command in ["git config --get user.name", "git config user.name", "git config --list",
+                        "git config get --all remote.origin.url", "git config --file x.cfg --get a.b"]:
+            self.assertIsNone(decide(command, app=False), command)
 
 
 if __name__ == "__main__":
