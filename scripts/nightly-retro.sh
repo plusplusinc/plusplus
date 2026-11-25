@@ -1,6 +1,6 @@
 #!/bin/bash
 # The night's helpers (.claude/skills/night/SKILL.md, which a scheduled task in the Claude app
-# runs at midnight in the main checkout), and the removal of the launchd agent that ran it before.
+# runs at midnight in a worktree of its own), and the removal of the launchd agent that ran it before.
 #
 #   scripts/nightly-retro.sh catch-up <night-dir>  # bring the main checkout up to origin/main
 #   scripts/nightly-retro.sh show                  # the night's retro reply and digest
@@ -42,8 +42,8 @@ uninstall() {
     echo "The launchd agent $LABEL is gone; the scheduled task in the Claude app runs the night."
 }
 
-# Brings the main checkout's main to origin/main, since the night runs that checkout's scripts and
-# skills and nothing else moves it: only a fast-forward, only of a checkout on main. An uncommitted
+# Brings the main checkout's main to origin/main, since the night runs that checkout's
+# nightly-tooling.py, the next night's worktree is cut from its main, and nothing else moves it: only a fast-forward, only of a checkout on main. An uncommitted
 # change stays as it is and stops the fast-forward only when origin/main changed the same file,
 # which git refuses. Otherwise it leaves the checkout as it is and writes why to the night's
 # main-checkout.txt, which the night's digest puts at its top. It always returns 0.

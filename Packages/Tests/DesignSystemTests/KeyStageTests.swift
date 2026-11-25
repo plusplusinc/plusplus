@@ -123,4 +123,24 @@ struct KeyStageTests {
         #expect(KeyStage.leaving(log).isOut)
         #expect(KeyStage.arriving(after: log).isOut)
     }
+
+    @Test("A key taken away comes back as the same view only as the kind it last followed")
+    func round() {
+        var round = KeyRound(kind: 1)
+        // Swapped to a rest's keys, then taken away as Log set comes due, as at Skip rest.
+        round.follow(2, isPresented: true)
+        let going = round.id(presenting: 2)
+        round.follow(1, isPresented: false)
+        #expect(round.id(presenting: 1) != going)
+        // Back as the kind it went as: the one going turns back.
+        #expect(round.id(presenting: 2) == going)
+        // Back as Log set: a new key, which stays that key as it is followed.
+        let back = round.id(presenting: 1)
+        round.follow(1, isPresented: true)
+        #expect(round.id(presenting: 1) == back)
+        // Taken away with its face unchanged, and back as another kind in one update.
+        round.follow(1, isPresented: false)
+        #expect(round.id(presenting: 3) != back)
+        #expect(round.id(presenting: 1) == back)
+    }
 }
