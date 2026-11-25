@@ -197,8 +197,8 @@ the verifier caught and the tests it added, from the PRs' `Agent record` comment
 (`docs/agent-tooling.md`, "Agent records"), with the PRs that have none named as such. It is not
 a finding and opens no PR.
 
-At night, read it from `<main checkout>/.build/retro/<today>/agent-tally.txt` (`date +%F`),
-which the night skill writes before the retro starts; never run the command then.
+At night, read it from `agent-tally.txt` in the newest `<main checkout>/.build/retro/20*/`,
+which the night writes first; never run the command then.
 A file that reads "No tally tonight: <why>" means the tally failed tonight: the digest says that
 line in place of the tally, and nothing else changes. A missing file at night is the same, with
 the reason "agent-tally.txt is missing". Run by hand in a session, where there is no night's

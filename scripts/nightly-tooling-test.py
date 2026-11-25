@@ -273,13 +273,14 @@ class NightDigest(unittest.TestCase):
 
     def main(self, *args):
         """main's output and exit status."""
-        status, buffer = 0, io.StringIO()
-        try:
-            with contextlib.redirect_stdout(buffer):
+        status = []
+
+        def call():
+            try:
                 nightly.main([args[0], str(self.night), *args[1:]])
-        except SystemExit as exit_:
-            status = exit_.code
-        return buffer.getvalue(), status
+            except SystemExit as exit_:
+                status.append(exit_.code)
+        return io_of(call), (status or [0])[0]
 
     def digest(self):
         return io_of(lambda: nightly.main(["digest", str(self.night)])).splitlines()
@@ -315,6 +316,16 @@ class NightDigest(unittest.TestCase):
         go_on, line = nightly.usage_check(self.night)
         self.assertFalse(go_on)
         self.assertEqual(line, "Weekly (all models) at 97%, resetting 2026-11-28T09:00:00Z")
+
+    def test_the_usage_tools_own_output_reads(self):
+        # mcp__ccd_session_mgmt__get_usage's reply on 2026-11-25, its context part left out.
+        (self.night / "usage.json").write_text(json.dumps({"plan": {"status": "ok", "plan": "Ultra", "windows": [
+            {"label": "Weekly · all models", "percentUsed": 97, "resetsAt": "2026-11-25T11:00:00.066Z", "resetsIn": "5h 36m"},
+            {"label": "Weekly · Fable", "percentUsed": 92, "resetsAt": "2026-11-25T11:00:00.066Z", "resetsIn": "5h 36m"}],
+            "extraUsage": {"enabled": False, "currency": "USD"}}}))
+        self.assertEqual(nightly.usage_check(self.night),
+                         (False, "Weekly · all models at 97%, resetting 2026-11-25T11:00:00.066Z"))
+        self.assertEqual(self.digest()[-1], "Usage: Weekly · all models 97%, Weekly · Fable 92%")
 
     def test_unreadable_usage_goes_on_and_the_digest_says_so(self):
         for text in ("not json", '{"plan": {}}', '{"plan": {"windows": [{"label": "Weekly"}]}}'):

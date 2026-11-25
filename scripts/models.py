@@ -137,8 +137,6 @@ def skill_row(root, row):
     """What disagrees in a row set in a skill: an alias the skill passes, and no effort."""
     role, where, model = row["Role"], row["Set in"], row["Model"]
     found = []
-    if not SET.fullmatch(row["Set"]):
-        found.append(f"{role}: Set is \"{row['Set']}\", not a date like 2026-11-11")
     if row["Effort"] != NO_EFFORT:
         found.append(f"{role}: effort is \"{row['Effort']}\"; the Agent tool sets none, so a skill's row says \"{NO_EFFORT}\"")
     if model not in ALIASES:
@@ -170,12 +168,12 @@ def problems(root):
         role, where, model, effort = row["Role"], row["Set in"], row["Model"], row["Effort"]
         if where == USER_SETTINGS:
             continue
-        if where.startswith(".claude/skills/"):
-            found += skill_row(root, row)
-            continue
         if not SET.fullmatch(row["Set"]):
             found.append(f"{role}: Set is \"{row['Set']}\", not a date like 2026-11-11, or one on trial "
                          "like \"2026-11-11, trial for 5 PRs\"")
+        if where.startswith(".claude/skills/"):
+            found += skill_row(root, row)
+            continue
         if model in ALIASES:
             found.append(f"{where}: \"{model}\" is an alias, which follows its family's newest release; "
                          "a definition or a script pins a full model ID such as claude-opus-5-5")

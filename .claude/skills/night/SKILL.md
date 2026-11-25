@@ -20,6 +20,5 @@ Nobody is here to ask, so never ask: a step that can't go on records why and goe
    and only then, load `PushNotification` with ToolSearch and send that line after "PlusPlus: ".
 
 Steps 3 and 4 never stop the night: each writes its own failure where the digest reads it. Any
-other step that can't be done runs `outcome <night> failed <step> "<why>"`. End with the
-retro's report, or the failure's line, and nothing after: `scripts/nightly-retro.sh show`
-prints that reply.
+other step that can't be done runs `outcome <night> failed <step> "<why>"`. After the retro's
+report, write no text but a failure's line: `scripts/nightly-retro.sh show` prints that reply.

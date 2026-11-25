@@ -227,13 +227,14 @@ app's login and the app's usage tool. Its permission mode is set once by the mai
 app, to Auto, since a run in the default mode stops at its first command to ask. The task runs
 only while the app is open; a midnight it missed runs at the app's next launch.
 
-The skill lists the night's steps. The night fast-forwards the main checkout to `origin/main`,
+The night fast-forwards the main checkout to `origin/main`,
 since it runs that checkout's scripts and skills; one off `main`, or whose uncommitted change
 `origin/main` also changed, stays as it is, and the digest's top says so. The tallies (see
 "Agent records") go to the night's folder, `.build/retro/<date>/`, so no agent needs
 `scripts/agent-record.py`. The retro reads the conversation through `scripts/conversations.py`,
 which drops the tool calls and the night's own sessions, so a day reads in tens of kilobytes.
-A failed night says so in the digest's first line and in one push notification.
+A failed night says so in the digest's first line and, if the session lasts to its digest, in
+one push notification.
 `scripts/nightly-retro.sh show` prints the retro's reply and the digest; `uninstall` removes
 the launchd agent that ran the night before. An Amphetamine trigger on power, with
 closed-display mode, keeps the Mac awake with the lid closed.

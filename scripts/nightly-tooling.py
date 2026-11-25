@@ -1718,7 +1718,11 @@ def usage_check(folder):
             for label, used, resets in rows if "week" in label.lower() and used >= WEEKLY_STOP]
     if full:
         return False, "; ".join(full)
-    return True, "Usage: " + ", ".join(f"{label} {used:g}%" for label, used, _ in rows)
+    return True, plan_usage_line(rows)
+
+
+def plan_usage_line(rows):
+    return "Usage: " + ", ".join(f"{label} {used:g}%" for label, used, _ in rows)
 
 
 def night_digest(folder):
@@ -1730,22 +1734,21 @@ def night_digest(folder):
         outcome = ""
     lines = [f"Night {folder.name}: {outcome or 'failed: the night did not finish'}", *checkout_note(folder)]
     rows = plan_windows(folder)
-    if isinstance(rows, str):
-        return lines + [f"Not checked: usage, {rows}"]
-    return lines + ["Usage: " + ", ".join(f"{label} {used:g}%" for label, used, _ in rows)]
+    return lines + [f"Not checked: usage, {rows}" if isinstance(rows, str) else plan_usage_line(rows)]
 
 
 def record_outcome(folder, args):
-    """Writes outcome.txt from `ran` or `failed <step> <why>`; False when args are neither."""
+    """Writes outcome.txt from `ran` or `failed <step> <why>` and returns its text, or None when
+    args are neither."""
     if args == ["ran"]:
         text = "ran"
     elif len(args) >= 3 and args[0] == "failed":
         text = f"failed: {args[1]}, {' '.join(args[2:])}"
     else:
-        return False
+        return None
     Path(folder).mkdir(parents=True, exist_ok=True)
     (Path(folder) / OUTCOME).write_text(text + "\n")
-    return True
+    return text
 
 
 def main(args):
@@ -1753,8 +1756,8 @@ def main(args):
         go_on, line = usage_check(args[1])
         print(line)
         sys.exit(0 if go_on else 1)
-    elif args[:1] == ["outcome"] and len(args) >= 3 and record_outcome(args[1], args[2:]):
-        print(night_digest(args[1])[0])
+    elif args[:1] == ["outcome"] and len(args) >= 3 and (text := record_outcome(args[1], args[2:])):
+        print(f"Night {Path(args[1]).name}: {text}")
     elif args[:1] == ["run"] and len(args) >= 2:
         now = datetime.now().astimezone()
         if "--now" in args:
