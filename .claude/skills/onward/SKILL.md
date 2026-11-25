@@ -21,8 +21,7 @@ judge, with the reason for each, since the cases it meets are never quite the on
    `get_session` with no arguments returns), so the maintainer can find it later.
 3. An open nightly retro PR (`gh pr list --search "Retro of in:title"`) comes first: update it
    from `main`, check each hunk against `main`, then trim, merge, or close it, and say in a line
-   what it changed. So does a night card's PR left for you (`scripts/nightly-retro.sh show`):
-   merge it or say why not.
+   what it changed.
 4. Read the feature's settled design, `scripts/board.sh readme <feature>` (never the whole
    README, which is hundreds of lines), and the `.slices/` files State names. Quote a settled
    rule in the README's words; a paraphrase drifts.
