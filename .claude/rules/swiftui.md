@@ -8,7 +8,7 @@ Leaf views take plain values and closures so they preview and snapshot without a
 
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
-  token is missing, add a `ColorToken` case, its colorset, and its base16 value (`Palette`).
+  token is missing, add a `ColorToken` case, its colorset, and its value in `Palette`.
   In PlusPlus, green (`accent`) is what's
   active, and a value that went up: data, and the controls that make something
   (`makesSomething()`). Purple (`done`) is done: a finished exercise's node, the bars of
@@ -81,7 +81,7 @@ with the feature.
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
   `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by
   `CurrentFigure`.
-- Settings, themes: `SettingsSheet`, `ThemeScreen`, `ThemeCard`, `PhoneScheme`, `Palette`.
+- Settings, themes: `SettingsSheet`, `ThemeScreen`, `ThemeCard`, `PhoneScheme`, `Themes.swift`.
 
 ## Pitfalls
 
