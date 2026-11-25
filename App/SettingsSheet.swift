@@ -94,8 +94,9 @@ private struct GroupLabel: View {
 
 /// Every theme as its card, PlusPlus first, then by name, the one in use outlined and checked.
 /// It opens on the theme in use, its card scrolled to the middle (or as near as the list's ends
-/// allow) before the first frame, so nothing scrolls as it arrives: the list's first position is
-/// that card's id with a center anchor, which holds at any width and text size, not an offset.
+/// allow) before the first frame, so nothing scrolls as it arrives: the list scrolls to that
+/// card's id with a center anchor as it appears, which holds at any width and text size, not an
+/// offset.
 ///
 /// A tap works as a picker that closes on its choice: the screen and the app recolor at once and
 /// the outline and check move to the card, then, `pickedBeat` later, the screen goes back to
@@ -107,7 +108,7 @@ struct ThemeScreen: View {
     @Environment(Look.self) private var look
     @Environment(\.dismiss) private var dismiss
     @State private var phone = ColorScheme.dark
-    @State private var position: ScrollPosition
+    private let shownFirst: Theme.ID
     @State private var leaving: Task<Void, Never>?
 
     /// How long the picked card shows checked before the screen goes back: the check's
@@ -117,32 +118,37 @@ struct ThemeScreen: View {
     static let pickedBeat: Duration = .milliseconds(350)
 
     init(showing current: Theme) {
-        _position = State(initialValue: ScrollPosition(id: current.id, anchor: .center))
+        shownFirst = current.id
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: Spacing.sm) {
-                ForEach(Theme.all) { theme in
-                    Button {
-                        pick(theme)
-                    } label: {
-                        ThemeCard(
-                            theme: theme,
-                            scheme: theme.shownScheme(for: look.appearance, phone: phone),
-                            mark: .checked(theme == look.theme),
-                        )
+        ScrollViewReader { proxy in
+            ScrollView {
+                // Not lazy: a lazy stack scrolled to its last card from estimated heights and
+                // opened with Zenburn's card cut off at the bottom. Twenty cards lay out cheaply.
+                VStack(spacing: Spacing.sm) {
+                    ForEach(Theme.all) { theme in
+                        Button {
+                            pick(theme)
+                        } label: {
+                            ThemeCard(
+                                theme: theme,
+                                scheme: theme.shownScheme(for: look.appearance, phone: phone),
+                                mark: .checked(theme == look.theme),
+                            )
+                        }
+                        .buttonStyle(.card)
+                        .accessibilityHint("Uses this theme and goes back to Settings")
                     }
-                    .buttonStyle(.card)
-                    .accessibilityHint("Uses this theme and goes back to Settings")
                 }
+                .padding(.horizontal, Spacing.md)
+                .padding(.top, Spacing.md)
+                .padding(.bottom, Spacing.xl)
             }
-            .scrollTargetLayout()
-            .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.md)
-            .padding(.bottom, Spacing.xl)
+            // Before the first frame and with no animation, so nothing scrolls as the screen
+            // arrives. A first `scrollPosition` is applied only by a lazy stack.
+            .onAppear { proxy.scrollTo(shownFirst, anchor: .center) }
         }
-        .scrollPosition($position, anchor: .center)
         .background { Color.pp(.background).ignoresSafeArea() }
         .phoneScheme($phone)
         .sensoryFeedback(.selection, trigger: look.theme)
