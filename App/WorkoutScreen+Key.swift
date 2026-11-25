@@ -117,6 +117,16 @@ extension WorkoutScreen {
         session.skipRest(override: restOverride, at: now)
     }
 
+    /// Pauses or resumes the workout, from the time key at the top or from Continue. Where that
+    /// brings the key in or takes it away (`WorkoutKey.pauseMovesKey`), as in a set's "Start in",
+    /// Continue comes up in and goes down out on the swap that brings the set's key in as "Start
+    /// in" ends (`SetMotion.restSwap`), the + rising and settling with it; with Reduce Motion,
+    /// the bar fades it. Elsewhere the key changes kind, which the bar swaps on its own.
+    func togglePause() {
+        guard liveKey.pauseMovesKey else { return session.togglePause() }
+        withAnimation(SetMotion.restSwap) { session.togglePause() }
+    }
+
     /// Whether the + sits low, at the screen's bottom, with no key under it: with no exercises,
     /// and in a workout wherever the key's room is kept empty, so it never floats over a key
     /// that isn't there (decided 2026-11-24). It goes down and comes back up on the update that
@@ -170,7 +180,7 @@ extension WorkoutScreen {
         case .continueWorkout:
             // As the time key at the top resumes it; only ever a resume.
             if session.loggedWorkout?.isPaused == true {
-                session.togglePause()
+                togglePause()
             }
         case .nothing:
             break

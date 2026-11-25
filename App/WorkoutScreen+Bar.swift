@@ -58,7 +58,7 @@ extension WorkoutScreen {
                     .allowsHitTesting(timed == nil)
                     .accessibilityShown(timed == nil)
                 if let timed {
-                    WorkoutTimeKey(session: session, loggedWorkout: timed)
+                    WorkoutTimeKey(loggedWorkout: timed, togglePause: togglePause)
                         .opacity(barIsLive ? 1 : 0)
                         .transition(.opacity)
                 }

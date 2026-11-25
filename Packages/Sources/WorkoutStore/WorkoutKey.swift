@@ -22,6 +22,8 @@ public struct WorkoutKey: Sendable {
     public let wayBack: WayBack?
     /// Whether the current exercise is scrolled away now, where a tap lands, settled or not.
     public let isScrolledAway: Bool
+    /// Whether the key is read as if the workout ran, paused or not (`pauseMovesKey`).
+    private var ignoresPause = false
 
     public init(
         stored: LiveWorkout?,
@@ -70,8 +72,18 @@ public struct WorkoutKey: Sendable {
     /// a count, or its "Start in" (decided 2026-11-24). Paused after the last set, the key stays
     /// Finish workout.
     private var continues: Bool {
-        guard let stored, stored.loggedWorkout.isPaused else { return false }
+        guard !ignoresPause, let stored, stored.loggedWorkout.isPaused else { return false }
         return !stored.isDone
+    }
+
+    /// Whether a pause or a resume here brings the key in or takes it away, rather than changing
+    /// its kind: where the key running would wait to start (`waitsToStart`), as through a set's
+    /// "Start in", and Continue shows paused.
+    public var pauseMovesKey: Bool {
+        guard continues else { return waitsToStart }
+        var running = self
+        running.ignoresPause = true
+        return running.waitsToStart
     }
 
     /// What the key is for, as the workout is drawn.
