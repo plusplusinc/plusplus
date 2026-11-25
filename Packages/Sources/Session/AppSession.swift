@@ -175,7 +175,11 @@ public final class AppSession {
         // starts as it ends (`landOnFirstSet`).
         change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
         if screen != .workout {
-            // A fresh screen at the root, opening on the workout as it is now.
+            // A fresh screen at the root, opening on the workout as it is now. It reads the
+            // session as it is made, so the first set's "Start in" begins here: with none yet,
+            // it opened on the set's figures and its key, and the count the pushed screen's
+            // Start then stored replaced them a moment later.
+            landOnFirstSet(at: now)
             opened = current
             screen = .workout
         }
