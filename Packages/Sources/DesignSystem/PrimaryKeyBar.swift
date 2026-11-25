@@ -115,7 +115,34 @@ private struct PrimaryKeyBar<
     /// coming in has it from its first frame: measured on the key, it came in 16 pt from the
     /// sides, then narrowed to its place on the screen's next animation.
     @State private var bottomInset: CGFloat = 0
+    /// Which key the staged key is, as the view it is: the kind it was presented as while it is,
+    /// so its swaps are its own, and the face's kind while it isn't. A key taken away still goes
+    /// down as it was; one presented again as another kind before it is gone comes in as a new
+    /// key. Put back as the one going, it came back with that key's stage and swapped on its
+    /// way up: Skip rest's keys went down, up, and down again before Log set rose (2026-11-25).
+    @State private var keyKind: Face.ID
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    init(
+        isPresented: Bool,
+        face: Face,
+        keepsRoom: Bool,
+        finishes: Int,
+        drop: CGFloat,
+        floatsLow: Bool,
+        key: @escaping (Face, _ isOut: Bool) -> Key,
+        floating: Floating,
+    ) {
+        self.isPresented = isPresented
+        self.face = face
+        self.keepsRoom = keepsRoom
+        self.finishes = finishes
+        self.drop = drop
+        self.floatsLow = floatsLow
+        self.key = key
+        self.floating = floating
+        _keyKind = State(initialValue: face.id)
+    }
 
     /// The key's inset from the screen's sides: `lowInset`, and with no home indicator, as far as
     /// content is inset. At the accessibility sizes, as far as content is inset, so its label
@@ -208,10 +235,17 @@ private struct PrimaryKeyBar<
                             )
                         }
                         .transition(KeyBarTransition(below: bottomInset))
+                        .id(keyKind)
                     } else if keepsRoom {
                         // Its room and the burst's place, with no drop or swap to run.
                         unseenKey.hidden()
                     }
+                }
+            }
+            // After the update that took the key away, so the one going keeps its own.
+            .onChange(of: isPresented ? nil : face.id) { _, kind in
+                if let kind {
+                    keyKind = kind
                 }
             }
             .background {
