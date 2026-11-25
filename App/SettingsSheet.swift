@@ -54,9 +54,13 @@ struct SettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
-                        .barLabelStyle()
-                        .themedBarButton()
+                    // Its own label, so the prominent glass's label color reaches the ×.
+                    Button(role: .close) {
+                        dismiss()
+                    } label: {
+                        Label("Close", systemImage: "xmark").barLabelStyle()
+                    }
+                    .themedBarButton()
                 }
             }
         }

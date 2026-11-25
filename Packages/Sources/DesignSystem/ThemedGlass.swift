@@ -32,8 +32,8 @@ extension View {
     }
 
     /// A menu in a bar under a tinted theme: the bar draws it in its own untinted glass whatever
-    /// its style, and colors its label with the tint, so the label takes the prominent glass's
-    /// label color, or `textPrimary`.
+    /// its style, and colors its label with the tint, so the label takes `textPrimary`, as on
+    /// that glass: the prominent glass's label color drew too faint there.
     public func themedBarMenu() -> some View {
         modifier(ThemedBarMenu())
     }
@@ -86,9 +86,7 @@ private struct ThemedBarMenu: ViewModifier {
         if environment.theme.glassTint(in: environment.colorScheme) == nil {
             content
         } else {
-            content.tint(
-                Color(Color.pp(environment.barLabel ?? .textPrimary).resolve(in: environment)),
-            )
+            content.tint(Color(Color.pp(.textPrimary).resolve(in: environment)))
         }
     }
 }
