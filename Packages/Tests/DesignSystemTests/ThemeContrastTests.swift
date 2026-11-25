@@ -98,20 +98,48 @@ nonisolated struct ThemeContrastTests {
         }
     }
 
-    /// Two 4 pt bars side by side whose hues are close (a purple beside a blue) read as one color
-    /// unless further apart in lightness (`Palette.doneGap`).
-    @Test("Done stands apart from active, further where their hues are close", arguments: looks)
+    /// Two 4 pt bars side by side read as one color unless apart in lightness as well as hue:
+    /// 0.08 in OKLab for any two hues (a green beside a brown or a pink of one lightness read as
+    /// one), 0.12 where the hues are close (a purple beside a blue), 0.15 for two grays.
+    /// PlusPlus's colorsets keep their own 0.05.
+    @Test(
+        "Done stands apart from active in lightness, further where hue can't help",
+        arguments: looks,
+    )
     func doneStandsApart(look: Look) {
-        let accentLab = OKLab(RGB(look.color(.accent)))
-        let doneLab = OKLab(RGB(look.color(.done)))
-        let (accent, done) = (accentLab.lightness, doneLab.lightness)
-        let hues = accentLab.hueDistance(to: doneLab)
-        let needed = hues < Palette.closeHues ? Palette.closeHueGap : Palette.lightnessGap
+        let accentRGB = RGB(look.color(.accent))
+        let doneRGB = RGB(look.color(.done))
+        let (accent, done) = (OKLab(accentRGB).lightness, OKLab(doneRGB).lightness)
+        let hues = OKLab(accentRGB).hueDistance(to: OKLab(doneRGB))
+        let needed = look.theme == .plusPlus ? 0.05 : Palette.doneGap(doneRGB, accentRGB)
+        #expect(
+            needed >= Palette.lightnessGap || look.theme == .plusPlus,
+            "\(look.testDescription): done needs only \(Self.shown(needed)) from accent",
+        )
         #expect(
             abs(accent - done) >= needed,
             """
             \(look.testDescription): done and accent are \(Self.shown(abs(accent - done))) apart \
             in OKLab lightness, under \(Self.shown(needed)) for hues \(Int(hues))° apart.
+            """,
+        )
+    }
+
+    /// A theme of grays (Chalk) has only lightness: active the strongest, furthest from the
+    /// ground, done the middle, to-do the quietest, each `Palette.grayStep` from the next.
+    @Test("In a theme of grays, active, done, and to-do are three clear steps", arguments: looks)
+    func graysStepApart(look: Look) {
+        let (accent, done) = (RGB(look.color(.accent)), RGB(look.color(.done)))
+        guard Palette.isGray(accent), Palette.isGray(done) else { return }
+        let ground = Self.lightness(look.color(.background))
+        let steps = [accent, done, RGB(look.color(.toDo))].map {
+            abs(OKLab($0).lightness - ground)
+        }
+        #expect(
+            steps[0] - steps[1] >= Palette.grayStep && steps[1] - steps[2] >= Palette.grayStep,
+            """
+            \(look.testDescription): active, done, and to-do stand \
+            \(steps.map(Self.shown)) from the ground, not \(Palette.grayStep) steps down
             """,
         )
     }
@@ -123,8 +151,9 @@ nonisolated struct ThemeContrastTests {
         let done = Self.lightness(look.color(.done))
         let toDo = Self.lightness(look.color(.toDo))
         let background = Self.lightness(look.color(.background))
+        let needed = look.theme == .plusPlus ? 0.10 : Palette.toDoGap(RGB(look.color(.done)))
         #expect(
-            abs(done - toDo) >= 0.10,
+            abs(done - toDo) >= needed,
             "\(look.testDescription): done and toDo are \(Self.shown(abs(done - toDo))) apart",
         )
         #expect(

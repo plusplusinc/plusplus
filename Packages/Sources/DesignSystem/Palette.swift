@@ -3,7 +3,8 @@ import SwiftUI
 /// One look's value for every `ColorToken`, worked out from five colors: the ground, the text,
 /// and the three that carry meaning, active, done, and arriving. A finished set must not look
 /// like the one being done: `done` keeps 0.12 from `accent` in OKLab lightness when their hues
-/// are within 80° (a purple beside a blue), and 0.05 otherwise (`doneGap(_:_:)`).
+/// are within 80° (a purple beside a blue), 0.15 when both are grays, and 0.08 otherwise
+/// (`doneGap(_:_:)`).
 nonisolated struct Palette: Sendable {
     private let colors: [ColorToken: Color.Resolved]
 
@@ -144,12 +145,12 @@ nonisolated struct Palette: Sendable {
         return rail
     }
 
-    /// A set still to do, moved toward the background until it is 0.10 from `done` in OKLab
-    /// lightness, or reaches the background.
+    /// A set still to do, moved toward the background until it is `toDoGap(_:)` from `done` in
+    /// OKLab lightness, or reaches the background.
     private static func toDo(_ gray: RGB, apartFrom done: RGB, background: RGB) -> RGB {
         var toDo = gray
         let backgroundLightness = OKLab(background).lightness
-        while abs(OKLab(toDo).lightness - OKLab(done).lightness) < 0.10,
+        while abs(OKLab(toDo).lightness - OKLab(done).lightness) < toDoGap(done),
               abs(OKLab(toDo).lightness - backgroundLightness) > 0.01
         {
             let step = OKLab(toDo).lightness > backgroundLightness ? -0.01 : 0.01
@@ -161,15 +162,36 @@ nonisolated struct Palette: Sendable {
     /// How far `done` and `accent` must be apart in OKLab lightness, by how far apart their hues
     /// are. Hues within `closeHues` degrees (a purple beside a blue, 34° to 74° apart) differ too
     /// little to tell two 4 pt bars apart by hue alone, so they need `closeHueGap`; hues further
-    /// apart (a purple beside a green or an orange, 90° and more) need only `lightnessGap`,
-    /// PlusPlus dark's own margin. Chosen by looking at the bars side by side at their size: at
-    /// 0.08 a violet beside a blue still blurred together; at 0.12 every pair read apart.
+    /// apart (a purple beside a green or an orange, 90° and more) need `lightnessGap`, more than
+    /// PlusPlus dark's own 0.05: a green beside a brown or a pink of one lightness read as one in
+    /// a review. Two grays have no hue to tell them apart, so they need `grayStep`. Chosen by
+    /// looking at the bars side by side at their size: at 0.08 a violet beside a blue still
+    /// blurred together; at 0.12 every pair read apart.
     static let closeHues = 80.0
     static let closeHueGap = 0.12
-    static let lightnessGap = 0.05
+    static let lightnessGap = 0.08
+    static let grayStep = 0.15
+
+    /// Under this OKLab chroma a color reads as a gray, and its hue means nothing.
+    static let grayChroma = 0.03
+
+    static func isGray(_ color: RGB) -> Bool {
+        let lab = OKLab(color)
+        return (lab.greenRed * lab.greenRed + lab.blueYellow * lab.blueYellow).squareRoot()
+            < grayChroma
+    }
 
     static func doneGap(_ done: RGB, _ accent: RGB) -> Double {
-        OKLab(done).hueDistance(to: OKLab(accent)) < closeHues ? closeHueGap : lightnessGap
+        if isGray(done), isGray(accent) {
+            return grayStep
+        }
+        return OKLab(done).hueDistance(to: OKLab(accent)) < closeHues ? closeHueGap : lightnessGap
+    }
+
+    /// How far a set to do stands from a done one in OKLab lightness: `grayStep` where done is a
+    /// gray (Chalk), as lightness is all that tells them apart, else 0.10.
+    static func toDoGap(_ done: RGB) -> Double {
+        isGray(done) ? grayStep : 0.10
     }
 
     /// `done` kept apart from `accent` in lightness as well as hue, by `doneGap`: short of it,
