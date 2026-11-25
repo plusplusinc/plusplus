@@ -6,9 +6,9 @@ import SwiftUI
 /// its editor UI, its docs), which each comment names:
 /// - `accent`, what is active and the + that makes something, is the color the theme's home
 ///   uses for its main action or accent, or for "add" where it has one; never a red
-///   (`Theme.isRed(_:)`).
-/// - `done` is the theme's purple, so purple reads as done whichever theme is chosen; its green
-///   where active is the purple.
+///   (`Theme.isRed(_:)`), and never its purple: a theme whose signature is a purple leads with
+///   its green.
+/// - `done` is the theme's purple in every theme, so purple reads as done whichever is chosen.
 /// - `railJoin`, what is arriving, is its blue; its cyan or yellow where active is the blue.
 ///
 /// A theme's light and dark looks use the same colors. Where one has to darken to reach its
@@ -41,34 +41,34 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Active in its mauve, the accent every Catppuccin port defaults to ("`mauve` is our
-    /// default", catppuccin/vscode). Done in its green, arriving in its blue, the style guide's
-    /// color for links. Its own grays; Mocha's mantle (`base01`) is darker than its base, so it
-    /// is the well, and the card is mixed.
+    /// Its signature is its mauve, the accent every Catppuccin port defaults to ("`mauve` is our
+    /// default", catppuccin/vscode), a purple, so active leads with its green and done is the
+    /// mauve. Arriving in its blue, the style guide's color for links. Its own grays; Mocha's
+    /// mantle (`base01`) is darker than its base, so it is the well, and the card is mixed.
     public static let catppuccin = Theme(
         id: "catppuccin",
         name: "Catppuccin",
         looks: .both(
-            light: Palette(.catppuccinLatte, roles: .init(accent: 0x0E, done: 0x0B), isDark: false),
+            light: Palette(.catppuccinLatte, roles: .init(), isDark: false),
             dark: Palette(
                 .catppuccinMocha,
-                roles: .init(accent: 0x0E, done: 0x0B),
+                roles: .init(),
                 grays: sunkenBase01,
                 isDark: true,
             ),
         ),
     )
 
-    /// Active in its purple (`base0D` here), the color Dracula is known by and the spec's
-    /// focus color (draculatheme.com/spec). Done in its green; arriving in its cyan, the
-    /// spec's color for links, as it has no blue. Its own grays; its `base01` is darker than its
-    /// background, so it is the well, and the card is mixed.
+    /// Its signature is its purple (`base0D` here), the spec's focus color
+    /// (draculatheme.com/spec), so active leads with its green and done is the purple. Arriving
+    /// in its cyan, the spec's color for links, as it has no blue. Its own grays; its `base01`
+    /// is darker than its background, so it is the well, and the card is mixed.
     public static let dracula = Theme(
         id: "dracula",
         name: "Dracula",
         looks: .darkOnly(Palette(
             .dracula,
-            roles: .init(accent: 0x0D, done: 0x0B, railJoin: 0x0C),
+            roles: .init(done: 0x0D, railJoin: 0x0C),
             grays: sunkenBase01,
             isDark: true,
         )),
