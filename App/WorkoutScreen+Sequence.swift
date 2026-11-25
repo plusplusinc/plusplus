@@ -50,8 +50,7 @@ extension WorkoutScreen {
             closingRoomTop = nil
             isCrossfading = false
             // Start's ride down, and any lift drawn for a motion, are over.
-            startDrop = 0
-            plusLeftWithStart = false
+            endStartRide()
             growthLift = 0
             underBarCut = 0
             if session.loggedWorkout == nil {

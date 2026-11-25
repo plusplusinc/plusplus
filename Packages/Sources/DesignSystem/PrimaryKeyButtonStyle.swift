@@ -135,7 +135,8 @@ extension View {
     /// While `floatsLow`, as on a screen with nothing for the key to do yet, it sits low instead,
     /// its bottom where the key's ledge's bottom would be, and rises above the key, or comes
     /// back down, on the update that changes `floatsLow`, with the key's rise or drop when the
-    /// same update presents or takes it away.
+    /// same update presents or takes it away. The caller keeps it off over a key that shows, and
+    /// may set it as a key rides down by `drop`, in its own update, on its own curve.
     /// It takes no room from the content: a list under it leaves `FloatingButtonRoom` at its end.
     ///
     /// `key` draws `face`, the key as things stand. A face of another `id` is another key, which
@@ -278,8 +279,7 @@ private struct PrimaryKeyBar<
             gap: PrimaryKeyButtonStyle.floatingGap,
             sides: sideInset,
             bottom: ledgeLift - bottomInset,
-            // Never low over a key that shows; one riding down by `drop` is on its way out.
-            isLow: floatsLow && (!isPresented || drop > 0),
+            isLow: floatsLow,
         )
     }
 
