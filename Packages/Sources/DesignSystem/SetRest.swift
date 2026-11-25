@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The rest between two sets of the current exercise, which takes the place of its figures
-/// (`SetRoom`): "Rest" in a caption's style over the countdown in a figure's, gray while paused.
+/// (`SetRoom`): "Rest" in a caption's style over the countdown in a figure's, white while paused.
 /// Logging the set swaps the two on one curve from the tap (`SetMotion.restSwap`): the set's
 /// parts fade as they drop a few points, "then rest 1:00" at the caption line's end with them,
 /// then the rest's fade in as they rise into place; at the rest's end they swap back the same
@@ -21,8 +21,8 @@ public struct SetRest {
     let turns: Bool
     /// What waits in the slot: a rest, a set's "Start in", or a timed set's own count.
     public let kind: Kind
-    /// Held by a pause: the count takes the gray the workout's paused time does, and its white
-    /// back on resume. A count held by its log, as between a side plank's sides, stays white.
+    /// Held by a pause, which keeps the count's figure (`RestBlock.figureKey(skips:)`); it stays
+    /// white, as the workout's paused time does (decided 2026-11-24).
     let isPaused: Bool
 
     /// Whether the countdown's figure turns: once it is up (`turns`), and over, as it goes. Not
@@ -172,7 +172,6 @@ struct SetRoom: View, Animatable {
                             block: block,
                             size: size,
                             turns: rest.turnsFigure && !reduceMotion,
-                            color: rest.isPaused ? .textSecondary : .textPrimary,
                             shown: rest.kind.shown(length: rest.length),
                             label: rest.kind.spokenAs,
                         )
@@ -267,7 +266,6 @@ private struct WaitCountdown: View {
     let block: RestBlock
     let size: CGFloat
     let turns: Bool
-    let color: ColorToken
     let shown: ClosedRange<Double>
     let label: LocalizedStringKey
 
@@ -283,7 +281,6 @@ private struct WaitCountdown: View {
                 locale: locale,
                 turns: turns,
                 skips: skips,
-                color: color,
                 shown: shown,
                 label: label,
             )

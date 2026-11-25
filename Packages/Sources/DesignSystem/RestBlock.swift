@@ -6,7 +6,7 @@ import SwiftUI
 /// an exercise's name, then the time left in a large figure's style and size (`CurrentFigure`),
 /// each coming in as the room has grown to hold it (`RestRoom`). There is no bar under it: Skip
 /// rest, at the bottom in the key's place, fills as the rest runs, with +15 s beside it
-/// (`CountKeys`). Paused, the count is gray.
+/// (`CountKeys`). Paused, the count holds, white; Continue is in the keys' place.
 ///
 /// Nothing in it is green: a rest looks like an active exercise. The time ticks on whole seconds
 /// before `ends` on a timeline, drawing once while paused (`pausedLeft`), so nothing is written
@@ -29,7 +29,7 @@ public struct RestBlock: View {
     /// While paused, closing as the workout ends, or cut by Skip rest, the seconds left; nil
     /// while running.
     let pausedLeft: Double?
-    /// Held by a pause: the count is gray, as Skip rest's fill is. Held by End, it stays white.
+    /// Held by a pause, which keeps the count's figure (`figureKey(skips:)`); it stays white.
     let isPaused: Bool
 
     @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var size = CurrentFigure.size
@@ -91,7 +91,6 @@ public struct RestBlock: View {
         locale: Locale,
         turns: Bool,
         skips: Int,
-        color: ColorToken = .textPrimary,
         shown: ClosedRange<Double> = 0 ... .infinity,
         label: LocalizedStringKey = "Rest",
     ) -> some View {
@@ -103,11 +102,8 @@ public struct RestBlock: View {
             let text = Self.text(seconds, locale: locale)
             Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
-                .foregroundStyle(.pp(color))
-                // Gray at a pause and white at a resume at once, with the workout's time and the
-                // key's fill: a resume moves `ends`, and the figure's glide below grayed it out
-                // over half a second.
-                .animation(nil, value: color)
+                // White through a pause too, as the workout's time is (decided 2026-11-24).
+                .foregroundStyle(.pp(.textPrimary))
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 // By its value, the figure rolls down as a second goes and up on +15 s. Only a
@@ -147,7 +143,7 @@ public struct RestBlock: View {
     /// on a second's roll. Held with time left other than by a pause, as the workout ends, a timed
     /// set is logged early, or the count leaves; and on each Skip rest (`skips`, changed in the
     /// skip's own change, before the rest swaps back). A paused count keeps its figure: a roll in
-    /// flight at a pause ends gray. So does one that runs out, its last roll over a second before
+    /// flight at a pause ends on it. So does one that runs out, its last roll over a second before
     /// 0:00: a new figure there, put in as the rest between sets swapped back, stood where the
     /// swap ends from its first frame, 14 pt under the count it replaced.
     func figureKey(skips: Int) -> FigureKey {
@@ -292,7 +288,6 @@ private struct RestRoom: View, Animatable {
                 locale: locale,
                 turns: !reduceMotion,
                 skips: restSkips,
-                color: block.isPaused ? .textSecondary : .textPrimary,
             )
             .figureBox(size: size)
             .padding(.top, Spacing.md)

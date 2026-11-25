@@ -8,7 +8,8 @@ import Foundation
 /// workout ends, the key keeps its words while a tap is Start's, which does nothing until Start
 /// is back. What a tap lands on (a sheet over the key, the key out in a swap) is the screen's.
 /// During a rest the key is Skip rest and +15 s (`Role.rest`), whose taps are `skipRest`'s and
-/// `extendRest(by:)`'s.
+/// `extendRest(by:)`'s. While the workout is paused it is Continue, which resumes it, and no
+/// other tap goes through (`continues`).
 public struct WorkoutKey: Sendable {
     /// The workout in progress as stored, every log in it: what a tap reads. Nil out of one, and
     /// from End's choice.
@@ -65,8 +66,30 @@ public struct WorkoutKey: Sendable {
         return shown.workout.startIn(before: set) > 0 ? .startIn : .counting
     }
 
+    /// Whether the key is Continue: the workout paused with a set still to do, ahead of every
+    /// role but Start and Finish workout, the current exercise scrolled away or not, in a rest,
+    /// a count, or its "Start in" (decided 2026-11-24). Paused after the last set, the key stays
+    /// Finish workout.
+    private var continues: Bool {
+        guard let stored, stored.loggedWorkout.isPaused else { return false }
+        return !stored.isDone
+    }
+
+    /// Whether a pause or a resume here brings the key in or takes it away, rather than changing
+    /// its kind: where the key running would wait to start (`waitsToStart`), as through a set's
+    /// "Start in", and Continue shows paused.
+    public var pauseMovesKey: Bool {
+        runningWaits
+    }
+
     /// What the key is for, as the workout is drawn.
     public var role: Role {
+        guard shown != nil, !phase.isStarting, continues else { return runningRole }
+        return .continueWorkout
+    }
+
+    /// The key's role as if the workout ran, paused or not.
+    private var runningRole: Role {
         guard let shown, !phase.isStarting else { return .start }
         // While the workout moves on from a set, the key is still that set's until the next row
         // shows its own, so it changes with the row: read from the workout, it said the next
@@ -104,12 +127,18 @@ public struct WorkoutKey: Sendable {
     /// rest's held time, and the move on from a
     /// rest to a set with a "Start in" due, until the screen comes to rest on it. A timed set's
     /// is "Log early" with +15 s; a reps set's, its log key. Only for the current set's key, not
-    /// a set just logged still drawn, nor a rest's keys.
+    /// a set just logged still drawn, nor a rest's keys. Never while paused, whose Continue
+    /// shows in its place.
     public var waitsToStart: Bool {
+        !continues && runningWaits
+    }
+
+    /// Whether the key would wait to start if the workout ran, paused or not.
+    private var runningWaits: Bool {
         guard let shown, let set = shown.currentSet, phase.keySet == nil,
               phase.loggedAndDrawn == nil
         else { return false }
-        switch role {
+        switch runningRole {
         case .log, .count: break
         default: return false
         }
@@ -130,14 +159,14 @@ public struct WorkoutKey: Sendable {
 
     /// What a tap on +15 s does: adds to the set counting, once it counts.
     public func countTap(by seconds: Int) -> Tap {
-        phase.timing == .counting ? .extendCount(by: seconds) : .nothing
+        phase.timing == .counting && !continues ? .extendCount(by: seconds) : .nothing
     }
 
     /// What the count reaching zero does: logs the set, with the heavy tap, as a tap on the key
     /// would, whether or not the exercise is scrolled away or a sheet covers the key. Nothing
     /// unless the set counts at rest.
     public var runOut: Tap {
-        guard phase.timing == .counting, let stored,
+        guard phase.timing == .counting, !continues, let stored,
               let current = stored.currentExercise,
               let set = stored.currentSet
         else { return .nothing }
@@ -158,17 +187,22 @@ public struct WorkoutKey: Sendable {
         isRestIn ? .extendRest(by: seconds) : .nothing
     }
 
+    /// Not while paused, whose key is Continue in the rest's keys' place.
     private var isRestIn: Bool {
-        guard let rest = phase.resting else { return false }
+        guard !continues, let rest = phase.resting else { return false }
         return rest.hasKeys && rest.beat >= (rest.isWithinExercise ? .settled : .landed)
     }
 
     /// What a tap on the key does, as the workout is stored. Out of a workout, Start. After the
-    /// last set, Finish workout. Otherwise, where the current exercise is scrolled away when the
-    /// tap lands, back to it, nothing logged. Nothing while the workout moves on, and nothing
-    /// while a set just logged is held, as a double tap's second tap would land.
+    /// last set, Finish workout. Paused, Continue, which resumes it, nothing logged. Otherwise,
+    /// where the current exercise is scrolled away when the tap lands, back to it, nothing
+    /// logged. Nothing while the workout moves on, and nothing while a set just logged is held,
+    /// as a double tap's second tap would land.
     public var tap: Tap {
         guard let stored, !phase.isStarting else { return .start }
+        if continues {
+            return .continueWorkout
+        }
         guard !phase.isMovingOn else { return .nothing }
         if stored.isDone {
             return .finish
@@ -214,6 +248,9 @@ extension WorkoutKey {
         /// key, saying which as `log` does, filling as it counts, with +15 s beside it. Another
         /// key than `log`, which the bar swaps in.
         case count(String)
+        /// The workout paused: "Continue", which resumes it, in every other key's place but
+        /// Start's and Finish workout's (`continues`).
+        case continueWorkout
 
         /// Which key this is: a change of kind swaps the key for another, a change within one,
         /// as "Log left" to "Log right", changes its words.
@@ -224,6 +261,7 @@ extension WorkoutKey {
             case finish
             case rest
             case count
+            case continueWorkout
         }
 
         public var kind: Kind {
@@ -234,6 +272,7 @@ extension WorkoutKey {
             case .finish: .finish
             case .rest: .rest
             case .count: .count
+            case .continueWorkout: .continueWorkout
             }
         }
 
@@ -258,6 +297,8 @@ extension WorkoutKey {
         case extendRest(by: Int)
         /// +15 s: the timed set counting gets `by` seconds more.
         case extendCount(by: Int)
+        /// Continue: the paused workout resumes, nothing logged.
+        case continueWorkout
         case nothing
     }
 

@@ -59,7 +59,7 @@ fi
 # path list holding what sets a model, as a docs-only PR's lint is.
 models=$whole_tree
 for path in "$@"; do
-    case "$path" in docs/agent-tooling.md | .claude/agents/* | scripts/nightly-*) models=true ;; esac
+    case "$path" in docs/agent-tooling.md | .claude/agents/* | .claude/skills/* | scripts/nightly-*) models=true ;; esac
 done
 if $models; then
     python3 -I scripts/models.py check || status=1
@@ -69,7 +69,7 @@ fi
 # their work. Adherence falls as instructions grow, so adding a line means cutting one. Lower a
 # number when a cut leaves room; raise one only in a PR that says what the added words earn.
 CLAUDE_MD_WORDS=1700
-AGENT_DOCS_WORDS=27640
+AGENT_DOCS_WORDS=27630
 budget=$whole_tree
 for path in "$@"; do
     case "$path" in */CLAUDE.md | CLAUDE.md | *.claude/agents/* | *.claude/skills/* | *.claude/rules/* | *docs/agent-tooling.md) budget=true ;; esac

@@ -110,7 +110,7 @@ public struct CountKeys: View {
         )
         CountKeys(
             text: "Skip rest",
-            filling: KeyFill(length: 90, ends: .now, pausedLeft: 40, isPaused: true),
+            filling: KeyFill(length: 90, ends: .now, pausedLeft: 40),
             spoken: .left,
             onKey: { },
             onExtend: { },

@@ -30,7 +30,9 @@ import WorkoutStore
 /// with none (`plusSitsLow`), and its count holds the time it had left a quarter second
 /// (`LiveWorkout.skipHold`), then as it goes, never 0:00 (`WorkoutPhase.skipRest(left:)`), and
 /// the screen moves on as at a rest's end; +15 s steps the fill back and turns the countdown,
-/// the dot staying put. A pause grays the countdown and the fill. Taps on them while the rest is
+/// the dot staying put. A pause holds the countdown, white, and swaps the keys for Continue
+/// (`WorkoutKey.continueWorkout`), the fill held, purple, as they go. Taps on them while the rest
+/// is
 /// still coming in, as a double tap's second on Log set, through 0:00's hold, or after a skip,
 /// do nothing. With Reduce Motion, each move is one crossfade, the dot at the word through the
 /// rest.
@@ -97,8 +99,7 @@ extension WorkoutScreen {
         let way = SetMotion.Way(isBack: rest.isBack)
         let target = rest.isBack ? landing(on: row, leaving: rest.set.row) : nil
         withTransaction(\.disablesAnimations, true) {
-            isMakingRoom = true
-            endFollow = nil
+            makeRoomBelow()
             if let target {
                 liftScroll(to: target)
             }
@@ -239,6 +240,19 @@ extension WorkoutScreen {
             run: (railPulse?.run ?? 0) + 1,
         )
         land(.down, scrollingTo: target)
+    }
+
+    /// Puts room under the list's end, out of sight (`isMakingRoom`). A position bound to an edge,
+    /// as an add's scroll to the list's end leaves it, is held where the list is first: left on
+    /// the edge, it followed the end down into the room, off the screen, the rows gone for a
+    /// rest's length. Only then, so a list still coasting from a flick carries on. A row still
+    /// entering stays where it is. In a transaction with animations off.
+    func makeRoomBelow() {
+        if scrollPosition.edge != nil {
+            scrollPosition.scrollTo(y: scrollBeat.scrolledY)
+        }
+        isMakingRoom = true
+        endFollow = nil
     }
 
     /// Scrolls to `target` at once, the list drawn lifted back to where it was, for the move's
