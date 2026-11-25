@@ -91,9 +91,6 @@ struct FloatingPlace<Key: View, Floating: View>: View {
     /// comes back up with the next, as one piece with them.
     var dip: CGFloat = 0
     var swapBelow: CGFloat = 0
-    /// Which key `key` is a copy of; a change of it while `dip` has the key down moves the
-    /// button's place with no animation.
-    var keyID: AnyHashable?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var keyHeight: CGFloat = 0
 
@@ -113,16 +110,6 @@ struct FloatingPlace<Key: View, Floating: View>: View {
             if !isLow {
                 key.hidden()
                     .onGeometryChange(for: CGFloat.self, of: \.size.height) { keyHeight = $0 }
-            }
-        }
-        // The copy becomes the next key as that key starts to rise, from where either key's top
-        // is the screen's edge, so the button's place moves with no animation: the offset
-        // carries it from there. Moved under the rise's animation, at the largest text sizes,
-        // where a rest's keys are taller, it stepped by the difference at the bottom and then
-        // closed it against the key coming up.
-        .transaction(value: keyID) { [dip] in
-            if dip > 0 {
-                $0.animation = nil
             }
         }
         .padding(.horizontal, sides)

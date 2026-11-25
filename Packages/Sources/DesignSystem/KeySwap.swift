@@ -51,13 +51,15 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
             .onChange(of: isDropped) { _, isDropped in stage.drop(isDropped, live: face) }
             // The swap's beats: the key going away cancels them.
             .task(id: stage.isOut) { await swap() }
-            // In the update that changes the stage, so the floating button, laid out over this
-            // face, moves under that update's animation: with the rise, never ahead of it. The
-            // key's `KeySwap` gives how far down it is drawn.
-            .transformPreference(FloatingFace<Face>
-                .self)
-            { [floating = stage.floatingFace(for: face)] in
-                $0 = FloatingOver(face: floating, dip: $0?.dip ?? 0)
+            // The floating button is laid out over the face drawn, which becomes the next key
+            // while both are out of sight, in the swap's unanimated beat: there the button is
+            // as far down over either key, so its place changes unseen. Changed with the rise,
+            // its place moved under the rise's animation while its dip followed the key, and
+            // where the keys' heights differ, at the largest text sizes, it stepped by the
+            // difference at the bottom and closed it against the key coming up. The key's
+            // `KeySwap` gives how far down it is drawn.
+            .transformPreference(FloatingFace<Face>.self) { [shown] in
+                $0 = FloatingOver(face: shown, dip: $0?.dip ?? 0)
             }
     }
 

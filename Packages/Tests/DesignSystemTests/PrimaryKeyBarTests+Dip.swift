@@ -107,11 +107,16 @@ extension PrimaryKeyBarTests {
         }
     }
 
-    /// Settled: a key in, risen to the bottom it rested on, and the floating button `gap` above it.
+    /// A key in, risen to the bottom the key before it rested on.
+    private static func keyIn(_ now: Sample, _ rest: Sample) -> Bool {
+        guard let key = now.key, let restKey = rest.key else { return false }
+        return !now.isOut && abs(key.maxY - restKey.maxY) < 0.5
+    }
+
+    /// Settled: a key in, and the floating button as far above it as it rested.
     private static func risen(_ now: Sample, _ rest: Sample) -> Bool {
-        guard let key = now.key, let restKey = rest.key, let gap = now.gap, let restGap = rest.gap
-        else { return false }
-        return !now.isOut && abs(key.maxY - restKey.maxY) < 0.5 && abs(gap - restGap) < 0.5
+        guard keyIn(now, rest), let gap = now.gap, let restGap = rest.gap else { return false }
+        return abs(gap - restGap) < 0.5
     }
 
     /// Through a swap, the button stays as far above the key as it rests, on every sample the
@@ -151,16 +156,13 @@ extension PrimaryKeyBarTests {
     /// it goes down once and stays, rather than dipping with the swap and coming back up first.
     @Test("Going low as the key swaps, the floating button only goes down")
     func floatingGoesLowOnce() async throws {
-        let run = try await run { inputs in
+        // Until the next key is in, by when the button's own move has long ended.
+        let run = try await run({ inputs in
             withAnimation(.easeInOut(duration: 0.3)) {
                 inputs.face = Face(id: 2, words: "Skip rest")
                 inputs.floatsLow = true
             }
-        } until: { now, rest in
-            // The next key risen, by when the button's own move has long ended.
-            guard let key = now.key, let restKey = rest.key else { return false }
-            return !now.isOut && abs(key.maxY - restKey.maxY) < 0.5
-        }
+        }, until: Self.keyIn)
         let path = run.floatingDrop
         #expect(zip(path, path.dropFirst()).allSatisfy { $1 >= $0 }, "it went back up: \(path)")
         #expect((path.last ?? 0) > 40, "it never went low: \(path)")

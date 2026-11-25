@@ -166,13 +166,13 @@ private struct PrimaryKeyBar<
         )
     }
 
-    /// `floating` over an unseen copy of `shown` (`KeyStage.floatingFace(for:)`), else the live
+    /// `floating` over an unseen copy of `shown`, the key the bar draws (`StagedKey`), else the
+    /// live
     /// key, its ledge `ledgeLift` up, going down and up with a swap's keys, as far along as
     /// they are drawn (`FloatingOver.dip`) and as far as they go.
     private func floatingPlace(over shown: FloatingOver<Face>?) -> some View {
-        let over = shown?.face ?? face
-        return FloatingPlace(
-            key: key(over, true).buttonStyle(.primaryKey),
+        FloatingPlace(
+            key: key(shown?.face ?? face, true).buttonStyle(.primaryKey),
             floating: floating,
             gap: PrimaryKeyButtonStyle.floatingGap,
             sides: sideInset,
@@ -180,7 +180,6 @@ private struct PrimaryKeyBar<
             isLow: floatsLow,
             dip: shown?.dip ?? 0,
             swapBelow: swapBelow,
-            keyID: AnyHashable(over.id),
         )
     }
 
