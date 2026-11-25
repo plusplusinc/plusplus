@@ -171,15 +171,15 @@ public final class AppSession {
         guard canStart(on: workout) else { return }
         // The logged workout first: a screen shown at the root reads it as it is made, to open
         // on the current exercise.
-        // The first set's "Start in" begins as the screen lands on it, and the workout's time
-        // starts as it ends (`landOnFirstSet`).
-        change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
+        // The first set's "Start in" begins as the screen at the root lands on it, and the
+        // workout's time starts as it ends (`landOnFirstSet`). A workout pushed on the Workouts
+        // screen gets a fresh screen at the root, opening on it as it is now, so its "Start
+        // in" begins here, for that screen to open on.
+        let started = LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)
+        change(.save(screen == .workout
+                ? started
+                : LiveWorkout(workout: current, loggedWorkout: started).landingStart(at: now)))
         if screen != .workout {
-            // A fresh screen at the root, opening on the workout as it is now. It reads the
-            // session as it is made, so the first set's "Start in" begins here: with none yet,
-            // it opened on the set's figures and its key, and the count the pushed screen's
-            // Start then stored replaced them a moment later.
-            landOnFirstSet(at: now)
             opened = current
             screen = .workout
         }

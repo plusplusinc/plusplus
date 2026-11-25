@@ -55,6 +55,7 @@ struct AppSessionCountTests {
         #expect(loggedWorkout.clock(at: Self.at(10 + Self.lead)) == 0)
         // The pushed screen's own landing, as its Start ends or as it goes, changes nothing.
         session.landOnFirstSet(at: Self.at(10.45))
+        session.landOnFirstSet(override: 0, at: Self.at(12))
         #expect(session.loggedWorkout == loggedWorkout)
     }
 
