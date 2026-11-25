@@ -5,7 +5,8 @@ description: The night's whole job, run by the Claude app's scheduled task "plus
 
 Nobody is here to ask, so never ask: a step that can't go on records why and goes to step 8.
 `<night>` is `.build/retro/<date +%F>/` in this session's folder, the main checkout, and `<n>`
-is `scripts/nightly-tooling.py`. Run each `<n>` command alone, nothing piped or chained. In order:
+that folder's `scripts/nightly-tooling.py`, both by absolute path, since a `cd` lasts. Run each
+`<n>` command alone, nothing piped or chained: past 7:45 the guard passes only such a call. In order:
 
 1. **Begin.** Keep the contents of `.build/retro/last-run`, if any. `<n> begin <night>`.
 2. **Read usage.** Load `mcp__ccd_session_mgmt__get_usage` with ToolSearch (`select:` it), call
@@ -20,13 +21,13 @@ is `scripts/nightly-tooling.py`. Run each `<n>` command alone, nothing piped or 
 6. **Review.** `<n> review <night>`. On exit 0, start a `general-purpose` agent in the
    foreground with `model: fable`, told to follow `.claude/skills/review-setup/SKILL.md` with
    `nightly` and to end with its report's one-line summary; then `<n> review-end <night> "<that
-   line>"`.
-7. **Cards.** Repeat: read usage again as in step 2, without `usage`; `<n> next <night>`. On exit
-   1, stop repeating. On exit 0, run the Skill tool with `nightly-card`, args `<card> <worktree>
-   <branch>` from its lines, and follow it to its last line; then `<n> decide <night> <card>
-   "<that line>"` with a 600000 ms timeout, again while it exits 3 (armed: it waits for the
-   merge). An exit of 2 from `next` or `decide`: `<n> outcome <night> failed cards "<its line>"`,
-   and stop repeating.
+   line>"`. On exit 2, `<n> outcome <night> failed review "<its line>"`.
+7. **Cards.** Repeat: read usage again as in step 2, without `usage`; `<n> next <night>`.
+   - Exit 0: run the Skill tool with `nightly-card`, args `<card> <worktree> <branch>` from its
+     lines, to its last line; then `<n> decide <night> <card> "<that line>"` with a 600000 ms
+     timeout, again while it exits 3 (armed, waiting for the merge).
+   - Exit 1: stop repeating.
+   - Exit 2 from `next` or `decide`: `<n> outcome <night> failed cards "<its line>"`, and stop.
 8. **Digest.** `<n> digest <night>`. When its first line says "failed", and only then, load
    `PushNotification` with ToolSearch and send that line after "PlusPlus: ".
 

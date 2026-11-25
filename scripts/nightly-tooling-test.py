@@ -159,10 +159,11 @@ class XcodeCloud(unittest.TestCase):
         self.assertIn("4 Xcode Cloud runs", nightly.xcode_cloud_gate(10, 4))
 
     def test_an_app_card_needs_room_for_two_runs(self):
-        self.assertIsNone(nightly.card_run_gate(69.9, 2))
-        self.assertEqual(nightly.card_run_gate(10, 3), "3 Xcode Cloud runs tonight, and a card that may change "
-                                                       "the app needs room for 2 of the night's 4")
-        self.assertIn("70", nightly.card_run_gate(70.1, 0))
+        gate = lambda hours, runs: nightly.xcode_cloud_gate(hours, runs, nightly.EXPECTED_RUNS)  # noqa: E731
+        self.assertIsNone(gate(69.9, 2))
+        self.assertEqual(gate(10, 3), "3 Xcode Cloud runs tonight, and a card that may change "
+                                      "the app needs room for 2 of the night's 4")
+        self.assertIn("70", gate(70.1, 0))
 
 
 class Paths(unittest.TestCase):
@@ -347,13 +348,27 @@ class NightDigest(unittest.TestCase):
         night = nightly.Night(self.night)
         night.write("state.json", {"start": NIGHT.isoformat()})
         open_card(night)
-        self.assertIn('Parked "Card": the night\'s session ended before deciding on it.', self.begin("next"))
+        self.assertIn('Parked "Card" of 2026-11-26: the night\'s session ended before deciding on it.',
+                      self.begin("next"))
         self.assertIsNone(night.state()["phase"])
         self.assertEqual(night.entry("PVTI_1")["decision"], "parked")
         self.assertEqual(calls[0], "disarm")
         self.assertEqual(calls[1][0], ("state", "PVTI_1"))
         self.assertIn("still In Progress", calls[1][1])
         self.assertIn("Parked: Card: the night's session ended before deciding on it", "\n".join(self.digest()))
+
+    def test_begin_parks_a_card_the_night_before_left_open(self):
+        calls = []
+        stub(self, disarm=lambda night: calls.append(night.dir.name), board=lambda *a, stdin=None: calls.append(a))
+        before = nightly.Night(self.night.parent / "2026-11-25")
+        before.write("state.json", {"start": NIGHT.isoformat()})
+        open_card(before)
+        line = 'Parked "Card" of 2026-11-25: the night\'s session ended before deciding on it.'
+        self.assertIn(line, self.begin("tonight"))
+        self.assertEqual((before.entry("PVTI_1")["decision"], before.state()["phase"]), ("parked", None))
+        self.assertEqual(calls, ["2026-11-25", ("state", "PVTI_1")])
+        self.assertIn(line, self.digest())
+        self.assertNotIn(line, self.begin("again"))
 
     def night_of_three(self):
         """A night whose first card merged, second parked, and third waits for the maintainer."""
@@ -565,9 +580,9 @@ class CloseMerged(unittest.TestCase):
                  ("PVTI_2", "In Progress", "-", "waiting", self.WAITING),
                  ("PVTI_3", "Definitely", "-", "queued", self.PARKED)]
         calls = []
-        stub(self, board_rows=lambda: [c[:4] for c in cards], board_bodies=lambda rows: [c for c in cards if c[:4] in rows],
+        stub(self, board_bodies=lambda rows: [c for c in cards if c[:4] in rows],
              gh_json=lambda *a: {"state": states[a[2]]}, board=lambda *a, stdin=None: calls.append(a))
-        closed, unchecked = nightly.close_merged(dry_run)
+        closed, unchecked = nightly.close_merged([c[:4] for c in cards], dry_run)
         self.assertEqual(unchecked, [])
         return closed, calls
 
@@ -835,7 +850,7 @@ class SetupReview(unittest.TestCase):
         reports = night.dir.parents[2] / ".slices/review-setup"
         (night.dir / nightly.REVIEW_TALLY).write_text("tally\n")
         stub(self, review_reason=lambda now: (due, night.dir.parents[2]), tallies=lambda *a, **k: self.fail(a))
-        return night, nightly.open_review(night, now), reports
+        return night, nightly.open_review(night, now, SESSION), reports
 
     def test_a_due_review_opens_its_phase_with_ninety_minutes_or_five_am_whichever_is_first(self):
         for now, deadline in ((self.FIRST, self.FIRST + timedelta(minutes=90)),
@@ -860,6 +875,23 @@ class SetupReview(unittest.TestCase):
             except SystemExit as exit_:
                 status.append(exit_.code)
         self.assertEqual((status, out.getvalue()), ([1], "No setup review tonight.\n"))
+
+    def test_a_due_review_the_guard_cant_hold_opens_nothing_and_the_digest_says_why(self):
+        night = night_folder(self, seen=False)
+        stub(self, review_reason=lambda now: ("none has run in December 2026 yet", night.dir.parents[2]))
+        status, text = nightly.run_review(night, self.FIRST, SESSION)
+        self.assertEqual(status, 1)
+        self.assertIn("the guard never judged this session's calls", text)
+        self.assertIsNone(night.state()["phase"])
+        self.assertTrue(nightly.night_digest(night.dir)[-1].startswith(
+            "Setup review: due (none has run in December 2026 yet), not run: the guard never judged"))
+
+    def test_a_review_that_fails_to_open_exits_two(self):
+        night = night_folder(self)
+        night.set_state(phase={"kind": "review", "deadline": "x", "reports": "x"})
+        stub(self, review_reason=lambda now: ("due", night.dir.parents[2]))
+        self.assertEqual(nightly.run_review(night, self.FIRST, SESSION),
+                         (2, "review failed: ValueError: the review is still open"))
 
     def test_review_end_closes_the_phase_and_the_digest_shows_its_line(self):
         night, _, _ = self.review(self.FIRST)
@@ -1581,10 +1613,13 @@ class PrePush(unittest.TestCase):
         result = self.push_from_python("docs/x.md")
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_a_pushed_branch_is_not_the_nights_unless_next_made_it(self):
-        # The maintainer's sessions push as the same account, so a push is no sign of the night's.
-        self.assertEqual(self.push_from_python("docs/x.md").returncode, 0)
+    def test_a_branch_pushed_from_the_cards_worktree_is_the_nights(self):
         self.assertEqual(self.night.branches(), set())
+        self.git("checkout", "-q", "-b", "fix-thing")
+        self.commit("docs/x.md")
+        result = subprocess.run(["git", "push", "-q", "origin", "fix-thing"], cwd=self.w, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.night.branches(), {"fix-thing"})
 
     def test_a_push_from_another_worktree_never_meets_the_hook(self):
         (self.night.dir / "state.json").unlink()  # the hook would fail, and refuse
@@ -1595,6 +1630,7 @@ class PrePush(unittest.TestCase):
         self.git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-qm", "day", cwd=self.main)
         result = subprocess.run(["git", "push", "-q", "origin", "day"], cwd=self.main, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.night.branches(), set())  # the maintainer's sessions push as the same account
 
     def test_the_pre_push_hook_budgets_what_is_pushed_not_head(self):
         # The app commit goes on its own branch; HEAD stays on a docs-only one.
@@ -2080,10 +2116,12 @@ class AutoMergeOff(unittest.TestCase):
             {"number": 7, "autoMergeRequest": {"mergeMethod": "SQUASH"}, "headRefName": "night-card"},
             {"number": 9, "autoMergeRequest": {"mergeMethod": "SQUASH"}, "headRefName": "night-other"},
             {"number": 203, "autoMergeRequest": {"mergeMethod": "SQUASH"}, "headRefName": "save-every-change"},
-            {"number": 8, "autoMergeRequest": None, "headRefName": "night-card"}])
+            {"number": 8, "autoMergeRequest": None, "headRefName": "night-card"},
+            {"number": 10, "autoMergeRequest": {"mergeMethod": "SQUASH"}, "headRefName": "fix-thing"}])
+        (self.night.dir / "pushed").write_text("fix-thing\n")  # as the card worktree's pre-push hook left it
         nightly.disarm(self.night)
         self.assertEqual([c for c in self.calls if "--disable-auto" in c],
-                         ["gh pr merge 7 --disable-auto", "gh pr merge 9 --disable-auto"])
+                         ["gh pr merge 7 --disable-auto", "gh pr merge 9 --disable-auto", "gh pr merge 10 --disable-auto"])
 
     def test_no_branch_of_the_nights_reads_nothing(self):
         stub(self, gh_json=lambda *a: self.fail("read the PRs"))
@@ -2212,6 +2250,11 @@ class GuardPassesOtherSessions(unittest.TestCase):
         self.assertEqual(self.guard(hook_input(session="day-session")).returncode, 0)
         result = self.guard(hook_input())
         self.assertEqual((result.returncode, result.stderr), (2, "reached\n"))
+
+    def test_a_guard_that_fails_any_other_way_denies(self):
+        self.night("2026-10-28")
+        (self.root / "scripts/nightly-tooling.py").write_text("raise SystemExit(1)\n")
+        self.assertEqual(self.guard(hook_input()).returncode, 2)
 
     def test_only_the_newest_nights_session_counts(self):
         self.night("2026-10-27", session="old-night")

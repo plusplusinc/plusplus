@@ -18,4 +18,6 @@ case "$input" in
     *"$id"*) ;;
     *) exit 0 ;;
 esac
-printf '%s' "$input" | exec /usr/bin/env python3 "$CLAUDE_PROJECT_DIR/scripts/nightly-tooling.py" hook "$night"
+# The night's call: only the guard's own allow (exit 0) lets it run. Python that can't start
+# exits 126 or 127, which Claude Code would treat as no objection, so anything but 0 denies.
+printf '%s' "$input" | /usr/bin/env python3 "$CLAUDE_PROJECT_DIR/scripts/nightly-tooling.py" hook "$night" || exit 2

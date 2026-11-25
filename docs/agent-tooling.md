@@ -83,9 +83,10 @@ it is missing (the download runs on after the hook's two minutes, logging to
 `.build/runtime-download.log`) and, once it is installed, deletes the older ones and the
 simulators left on them. `scripts/common.sh` moves each checkout's simulator onto it.
 
-A `PreToolUse` hook, `.claude/hooks/night-guard.sh`, is the night's guard (see "The nightly
-retro"). Every session's calls pass through it; it hands on only a call whose input holds the id
-in the newest `.build/retro/<date>/session`, so any other leaves at once.
+`.claude/hooks/night-guard.sh` is the night's guard (see "The nightly retro"), for
+`.claude/settings.json` to run as a `PreToolUse` hook on every session's calls; until it does, no
+night card or review runs. It hands on only a call whose input holds the id in the newest
+`.build/retro/<date>/session`, so any other leaves at once.
 
 Before writing a hook or a script that makes Claude Code behave a certain way, check whether its
 own configuration does it: an agent definition's `model:`, `tools:`, and `hooks:` (a hook for
@@ -246,18 +247,12 @@ closed-display mode, keeps the Mac awake with the lid closed.
 After the retro the night runs the setup review when due, then standalone cards carrying a
 `Nightly:` line (the /brief skill says which qualify), one at a time, each led by the night's
 session through the nightly-card skill. Each step is a command of `scripts/nightly-tooling.py`,
-whose header says what each does, keeping the night's state in its folder. Its gates are code,
-tested against fixtures by `python3 scripts/nightly-tooling-test.py`, which `scripts/test.sh`
-runs: `next` holds the time of night, usage, this month's Xcode Cloud hours and the night's runs,
-and overlap with open PRs; `decide` arms auto-merge only after a passing verifier record, while a
-PR touching a protected path (what CI runs, and what steers the night's agents) or only
-`.claude/` and `docs/` waits for the maintainer. The guard (see "Hooks") holds each card's and
-the review's calls to their limits and deadlines, before the permission rules; any error in it
-denies the call. `next` starts no card until the guard has judged a call of the night's session,
-so no card runs unguarded. Claude Code's own sandbox can't hold a card's writes instead: under it
-`gh` fails TLS verification and SwiftPM's nested sandbox fails. What a command line hides, such
-as a script file the card writes and runs, meets the card worktree's pre-push hook and `decide`'s
-check of tonight's merges. A new gate starts from such a check on what happened (a merge, a push,
+whose header says what each does and which gates it holds; `python3
+scripts/nightly-tooling-test.py`, which `scripts/test.sh` runs, tests them against fixtures. The
+guard (see "Hooks") is there to hold a card's and the review's calls to their limits, and
+neither starts until it has judged a call of the night's session. Claude Code's own sandbox can't
+hold a card's writes instead: under it `gh` fails TLS verification and SwiftPM's nested sandbox
+fails. A new gate starts from such a check on what happened (a merge, a push,
 a run started); denying a command's spellings only narrows it, since every verifier pass and
 review on #118 found more spellings.
 
