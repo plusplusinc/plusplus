@@ -59,12 +59,11 @@ struct PrimaryKeyBarTests {
 
     private struct FloatingHost: View {
         let isPresented: Bool
-        let floatsLow: Bool
         let frames: Frames
 
         var body: some View {
             Color.clear
-                .primaryKeyBar(isPresented: isPresented, floatsLow: floatsLow) {
+                .primaryKeyBar(isPresented: isPresented) {
                     Button("Start") { }
                         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
                             frames.key = $0
@@ -78,13 +77,10 @@ struct PrimaryKeyBarTests {
         }
     }
 
-    private func frames(
-        isPresented: Bool,
-        floatsLow: Bool = false,
-    ) throws -> (key: CGRect?, floating: CGRect) {
+    private func frames(isPresented: Bool) throws -> (key: CGRect?, floating: CGRect) {
         let frames = Frames()
         let host = UIHostingController(
-            rootView: FloatingHost(isPresented: isPresented, floatsLow: floatsLow, frames: frames),
+            rootView: FloatingHost(isPresented: isPresented, frames: frames),
         )
         let window = UIWindow.sceneless(hosting: host, at: .large)
         defer { window.isHidden = true }
@@ -93,10 +89,9 @@ struct PrimaryKeyBarTests {
     }
 
     /// The key sits where a tab bar floats, its ledge 21 pt above the screen's bottom and its
-    /// sides 21 pt in, and the floating button 16 pt above it, its right edge on the key's. The
-    /// button sits where it does with no key at all, so Start coming in leaves it in place.
+    /// sides 21 pt in, and the floating button 16 pt above it, its right edge on the key's.
     /// Frames as drawn, the key's offset down into the home indicator's area included.
-    @Test("The floating button sits 16 pt above the key's right end, and stays put with no key")
+    @Test("The floating button sits 16 pt above the key's right end")
     func floatingAboveKey() throws {
         let shown = try frames(isPresented: true)
         let key = try #require(shown.key, "the key was never laid out")
@@ -104,16 +99,17 @@ struct PrimaryKeyBarTests {
         #expect(key.minX == 21 && 402 - key.maxX == 21, "the key's sides are off their place")
         #expect(key.minY - shown.floating.maxY == 16, "the gap is off: \(shown.floating)")
         #expect(shown.floating.maxX == key.maxX, "the right edges differ")
-        let alone = try frames(isPresented: false)
-        #expect(alone.floating == shown.floating, "the floating button moved with the key")
     }
 
-    /// On a screen with nothing for the key to do yet, as an empty workout, the floating button
-    /// sits low, its bottom where the key's ledge's bottom is and its right edge on the key's.
-    @Test("Floating low, the button's bottom sits on the key's ledge line, at its right end")
+    /// With no key in sight, as on an empty workout, the floating button sits low, its bottom
+    /// where the key's ledge's bottom is and its right edge on the key's, so it never floats
+    /// over a key that isn't there.
+    @Test(
+        "With no key, the floating button's bottom sits on the key's ledge line, at its right end",
+    )
     func floatingLow() throws {
         let key = try #require(frames(isPresented: true).key, "the key was never laid out")
-        let low = try frames(isPresented: false, floatsLow: true).floating
+        let low = try frames(isPresented: false).floating
         #expect(low.maxY == key.maxY, "the low button's bottom is off the ledge line: \(low)")
         #expect(low.maxX == key.maxX, "the right edges differ")
     }

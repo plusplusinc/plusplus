@@ -20,37 +20,33 @@ extension View {
     /// pace. The keyboard covers the key, and the screen with it, rather than lifting them.
     ///
     /// `floating`, a button drawn in the `floating` style, floats above the key's right end, its
-    /// right edge on the key's and 16 pt above the key's top, whether the key shows or not: with
-    /// none, it is where it is above a key of one line, so a key coming in leaves it where it is.
-    /// While `floatsLow`, as on a screen with nothing for the key to do yet, it sits low instead,
-    /// its bottom where the key's ledge's bottom would be, and rises above the key, or comes
-    /// back down, on the update that changes `floatsLow`, with the key's rise or drop when the
-    /// same update presents or takes it away. The caller keeps it off over a key that shows, and
-    /// may set it as a key rides down by `drop`, in its own update, on its own curve.
-    /// It takes no room from the content: a list under it leaves `FloatingButtonRoom` at its end.
+    /// right edge on the key's and 16 pt above the key's top, and rides on the key as one piece
+    /// (`KeyReach.floatingLift`): down and up with a swap, down as the key is taken away or
+    /// ridden down, up as it comes in. Once the key has gone further down than the button's low
+    /// place, its bottom where the key's ledge's bottom is, the button stays there: so it sits
+    /// low wherever no key is in sight, as on a screen with nothing for the key to do yet. With
+    /// Reduce Motion it stays put through a swap and fades from one place into the other as a
+    /// key goes or comes. It takes no room from the content: a list under it leaves
+    /// `FloatingButtonRoom` at its end.
     ///
     /// `key` draws `face`, the key as things stand. A face of another `id` is another key, which
-    /// the bar swaps in on its own (`KeyStage`): the one showing goes down out of the screen's
+    /// the bar swaps in on its own (`KeyTray`): the one showing goes down out of the screen's
     /// bottom edge with its words as they were, then the next comes up in from it, each in
     /// `PrimaryKeyButtonStyle.swapHalf`, never two keys at once and never both words on one;
-    /// with Reduce Motion, each fades. The floating button goes down and comes back up with
-    /// them, as one piece; with Reduce Motion it stays put. The bar keeps its room throughout,
-    /// so the list under it
+    /// with Reduce Motion, each fades. The bar keeps its room throughout, so the list under it
     /// stays put: with the bar gone between them, a list at its end moved down. While it swaps,
     /// `key` is told it is out (`isOut`), and its action does nothing then: the key stays
     /// enabled, as VoiceOver reads it, rather than dimmed for the swap's length. Within one id,
-    /// the words change in place. A face that changes
-    /// while the key is not presented, or while `drop` has it out of sight, comes back as the
-    /// new key, with no swap, under the animation that brings it back. While
-    /// `keepsRoom`, a key not presented still holds its room in the bar, unseen, so the list's
-    /// bottom inset stays as the key goes and comes back.
+    /// the words change in place. A key taken away, or ridden out of sight by `drop`, goes with
+    /// the words it had; back, it is the key `face` is then, with no swap, rising under the
+    /// animation that brings it back. While `keepsRoom`, a key not presented still holds its room
+    /// in the bar, unseen, so the list's bottom inset stays as the key goes and comes back.
     public func primaryKeyBar<Face: Equatable & Identifiable, Key: View>(
         isPresented: Bool,
         face: Face,
         keepsRoom: Bool = false,
         finishes: Int = 0,
         drop: CGFloat = 0,
-        floatsLow: Bool = false,
         @ViewBuilder key: @escaping (Face, _ isOut: Bool) -> Key,
         @ViewBuilder floating: () -> some View = { EmptyView() },
     ) -> some View {
@@ -60,7 +56,6 @@ extension View {
             keepsRoom: keepsRoom,
             finishes: finishes,
             drop: drop,
-            floatsLow: floatsLow,
             key: key,
             floating: floating(),
         ))
@@ -72,7 +67,6 @@ extension View {
         keepsRoom: Bool = false,
         finishes: Int = 0,
         drop: CGFloat = 0,
-        floatsLow: Bool = false,
         @ViewBuilder key: () -> some View,
         @ViewBuilder floating: () -> some View = { EmptyView() },
     ) -> some View {
@@ -83,7 +77,6 @@ extension View {
             keepsRoom: keepsRoom,
             finishes: finishes,
             drop: drop,
-            floatsLow: floatsLow,
             key: { _, _ in key },
             floating: floating,
         )
@@ -97,6 +90,15 @@ private struct OneFace: Equatable, Identifiable {
     }
 }
 
+/// The bar's `KeyTray`, held by reference so the bar follows its inputs as it draws them.
+private final class TrayBox<Face: Equatable & Identifiable> {
+    var tray: KeyTray<Face>
+
+    init(_ inputs: KeyTray<Face>.Inputs) {
+        tray = KeyTray(inputs)
+    }
+}
+
 private struct PrimaryKeyBar<
     Face: Equatable & Identifiable,
     Key: View,
@@ -107,7 +109,6 @@ private struct PrimaryKeyBar<
     let keepsRoom: Bool
     let finishes: Int
     let drop: CGFloat
-    let floatsLow: Bool
     let key: (Face, _ isOut: Bool) -> Key
     let floating: Floating
 
@@ -115,9 +116,15 @@ private struct PrimaryKeyBar<
     /// coming in has it from its first frame: measured on the key, it came in 16 pt from the
     /// sides, then narrowed to its place on the screen's next animation.
     @State private var bottomInset: CGFloat = 0
-    /// Which staged key the bar presents, as the view it is.
-    @State private var round: KeyRound<Face.ID>
+    /// Where the key is: followed in `body`, the first place the bar sees its inputs, so nothing
+    /// drawn waits on a reaction. A reaction lost a change: SwiftUI skips a second change within
+    /// one frame (2026-11-15), and a key put back before its reaction ran rose as the key going.
+    @State private var box: TrayBox<Face>
+    /// Counts the swap's beats, each changing the tray in its own animation, so the bar draws
+    /// them under it.
+    @State private var beats = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         isPresented: Bool,
@@ -125,7 +132,6 @@ private struct PrimaryKeyBar<
         keepsRoom: Bool,
         finishes: Int,
         drop: CGFloat,
-        floatsLow: Bool,
         key: @escaping (Face, _ isOut: Bool) -> Key,
         floating: Floating,
     ) {
@@ -134,10 +140,17 @@ private struct PrimaryKeyBar<
         self.keepsRoom = keepsRoom
         self.finishes = finishes
         self.drop = drop
-        self.floatsLow = floatsLow
         self.key = key
         self.floating = floating
-        _round = State(initialValue: KeyRound(kind: face.id))
+        _box = State(initialValue: TrayBox(KeyTray.Inputs(
+            face: face,
+            isPresented: isPresented,
+            isDropped: drop > 0,
+        )))
+    }
+
+    private var inputs: KeyTray<Face>.Inputs {
+        KeyTray.Inputs(face: face, isPresented: isPresented, isDropped: drop > 0)
     }
 
     /// The key's inset from the screen's sides: `lowInset`, and with no home indicator, as far as
@@ -156,10 +169,15 @@ private struct PrimaryKeyBar<
         bottomInset - ledgeLift - PrimaryKeyButtonStyle.ledge
     }
 
-    /// How far a swap takes the key down past its own height (`KeySwap`): to the screen's bottom
-    /// edge, less `drawnLower`.
-    private var swapBelow: CGFloat {
-        ledgeLift - drawnLower
+    /// How far each move takes the key down: a swap to the screen's bottom edge, less
+    /// `drawnLower`.
+    private var reach: KeyReach {
+        KeyReach(
+            swapBelow: ledgeLift - drawnLower,
+            bottomInset: bottomInset,
+            drop: drop,
+            gap: PrimaryKeyButtonStyle.floatingGap,
+        )
     }
 
     /// `face`, the key as drawn, in its place in the bar, where it sizes the bar's room.
@@ -180,7 +198,8 @@ private struct PrimaryKeyBar<
 
     /// The key as things stand, placed but never shown: what holds the bar's room while
     /// `keepsRoom` does, and where a finish's "++" pops from with no key shown, as through a
-    /// set's "Start in".
+    /// set's "Start in". A second copy, since the key taken away goes with its own words while
+    /// the room is already the next key's, which at the largest sizes is another height.
     private var unseenKey: some View {
         placed(
             key(face, true)
@@ -189,56 +208,73 @@ private struct PrimaryKeyBar<
         )
     }
 
-    /// `floating` over an unseen copy of `shown` (`KeyStage.floatingFace(for:dips:)`), else the
-    /// live key, its ledge `ledgeLift` up, going down and up with a swap's keys, as far along as
-    /// they are drawn (`FloatingOver.dip`) and as far as they go.
-    private func floatingPlace(over shown: FloatingOver<Face>?) -> some View {
-        FloatingPlace(
-            key: key(shown?.face ?? face, true).buttonStyle(.primaryKey),
-            floating: floating,
-            gap: PrimaryKeyButtonStyle.floatingGap,
-            sides: sideInset,
-            bottom: ledgeLift - bottomInset,
-            isLow: floatsLow,
-            dip: shown?.dip ?? 0,
-            swapBelow: swapBelow,
+    /// The one key, always there: drawn as the tray has it, down by its depth, and while not
+    /// presented, out of sight with no room, no taps, and nothing for VoiceOver.
+    private func trayKey(_ drawn: KeyTray<Face>.Drawn) -> some View {
+        let isPresented = isPresented
+        return placed(
+            key(drawn.face, drawn.isOut || !isPresented)
+                .buttonStyle(.primaryKey)
+                // Another key in place of the one drawn, at once under any animation: the move is
+                // the tray's.
+                .transition(.identity)
+                .id(drawn.face.id)
+                .transaction(value: drawn.face.id) { $0.animation = nil }
+                .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
+                    isPresented ? $0 : nil
+                }
+                .modifier(KeyTravel(parts: drawn.targets, reach: reach, isPresented: isPresented))
+                .hiddenBehindDrawer()
+                .accessibilityShown(isPresented),
         )
+        .fixedSize(horizontal: false, vertical: true)
+        // Its resting place stays put as its room goes.
+        .frame(height: isPresented ? nil : 0, alignment: .bottom)
+        // An offset drawn moves nothing of where taps land, and the low floating button is there.
+        .allowsHitTesting(isPresented)
+    }
+
+    /// `floating` riding on the key as `KeyTravel` draws it, its height from its bounds.
+    private func floatingPlace(on drawn: TrayDrawn) -> some View {
+        let inSight = inputs.inSight
+        return GeometryReader { proxy in
+            let height = drawn.bounds.map { proxy[$0].height } ?? 0
+            FloatingPlace(
+                floating: floating,
+                sides: sideInset,
+                bottom: ledgeLift - bottomInset,
+                lift: reach.floatingLift(
+                    drawn.parts,
+                    height: height,
+                    reduceMotion: reduceMotion,
+                    inSight: inSight,
+                ),
+                isLow: !inSight,
+            )
+        }
     }
 
     func body(content: Content) -> some View {
-        content
+        let inputs = inputs
+        box.tray.follow(inputs)
+        let drawn = box.tray.drawn(for: inputs)
+        _ = beats
+        return content
             // No band behind the key: the list's rows run on under it.
             .scrollEdgeEffectHidden(true, for: .bottom)
             .safeAreaBar(edge: .bottom) {
-                // One stack, so a key coming in and the unseen one holding its room overlap
-                // rather than stack up for the transition's length.
-                ZStack {
-                    if isPresented {
-                        StagedKey(
-                            face: face,
-                            isDropped: drop > 0,
-                            below: bottomInset,
-                        ) { shown, isOut in
-                            placed(
-                                key(shown, isOut)
-                                    .buttonStyle(.primaryKey)
-                                    .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
-                                        $0
-                                    }
-                                    .modifier(KeyDrop(drop: drop))
-                                    .modifier(KeySwap<Face>(isOut: isOut, below: swapBelow))
-                                    .hiddenBehindDrawer(),
-                            )
-                        }
-                        .transition(KeyBarTransition(below: bottomInset))
-                        .id(round.id(presenting: face.id))
-                    } else if keepsRoom {
-                        // Its room and the burst's place, with no drop or swap to run.
+                // One stack, so the key and the unseen one holding its room overlap.
+                ZStack(alignment: .bottom) {
+                    trayKey(drawn)
+                    if !isPresented, keepsRoom {
+                        // Its room and the burst's place.
                         unseenKey.hidden()
                     }
                 }
             }
-            .modifier(FollowsRound(round: $round, isPresented: isPresented, kind: face.id))
+            .task(id: box.tray.needsSwap) { startSwap() }
+            // The swap's beats: the key going away cancels them.
+            .task(id: drawn.isOut) { await swap() }
             .background {
                 Color.clear.onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
                     bottomInset = $0
@@ -260,56 +296,45 @@ private struct PrimaryKeyBar<
                 }
                 .allowsHitTesting(false)
             }
-            .overlayPreferenceValue(FloatingFace<Face>.self, alignment: .bottom) { shown in
-                floatingPlace(over: shown)
-            }
+            .overlayPreferenceValue(KeyTrayDrawn.self) { floatingPlace(on: $0) }
             // The keyboard covers the key rather than lifting it: the screen and its bar stay
             // where they are as it rises. Everything above measures inside this, where the
             // keyboard's inset is taken away.
             .ignoresSafeArea(.keyboard, edges: .bottom)
     }
-}
 
-/// Keeps the bar's `KeyRound` with the key, after each update that presents it, takes it away, or
-/// changes its kind.
-private struct FollowsRound<Kind: Hashable>: ViewModifier {
-    @Binding var round: KeyRound<Kind>
-    let isPresented: Bool
-    let kind: Kind
-
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: kind) { round.follow(kind, isPresented: isPresented) }
-            .onChange(of: isPresented) { round.follow(kind, isPresented: isPresented) }
-    }
-}
-
-/// The key moved down by `drop`, at least out of sight: by its own height and what lies below it.
-/// Animatable, so the drop is worked out frame by frame alongside the layout of a list it rides
-/// with; animated as an offset, it ran two frames ahead of the list's rows.
-private struct KeyDrop: ViewModifier, Animatable {
-    let drop: CGFloat
-    /// How far along the drop the key is, 0 to 1, which an animation runs through.
-    var progress: CGFloat
-
-    init(drop: CGFloat) {
-        self.drop = drop
-        progress = drop > 0 ? 1 : 0
+    /// Another key due while one shows: the one showing goes down with its words, easing in, so
+    /// it is still in sight until it clears the edge.
+    private func startSwap() {
+        guard box.tray.needsSwap else { return }
+        withAnimation(.keyDrop) {
+            box.tray.startLeaving()
+            beats += 1
+        }
     }
 
-    nonisolated var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
-
-    @State private var exit: CGFloat = 0
-
-    func body(content: Content) -> some View {
-        content
-            .offset(y: progress * max(drop, exit))
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.size.height + proxy.safeAreaInsets.bottom
-            } action: { exit = $0 + Spacing.sm }
+    /// Once the key going is out of sight, the next one in its place below the edge, rising on a
+    /// later turn of the run loop (easing out, it crept out of sight over its last frames).
+    /// Timed, not on the animation's completion, which came a few frames after the key had gone.
+    private func swap() async {
+        guard box.tray.isOut else { return }
+        do {
+            try await Task.sleep(for: .seconds(PrimaryKeyButtonStyle.swapHalf), tolerance: .zero)
+        } catch {
+            return
+        }
+        // Out of sight, the key becomes the next one with no motion of its own.
+        withTransaction(\.disablesAnimations, true) {
+            box.tray.advance()
+            beats += 1
+        }
+        // From out of sight: in the same update, the next key took up the old one's place.
+        await Task.yield()
+        guard !Task.isCancelled, box.tray.stage == .arriving else { return }
+        withAnimation(.keyRise) {
+            box.tray.advance()
+            beats += 1
+        }
     }
 }
 
