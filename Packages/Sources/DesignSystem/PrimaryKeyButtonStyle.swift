@@ -278,8 +278,8 @@ private struct PrimaryKeyBar<
             gap: PrimaryKeyButtonStyle.floatingGap,
             sides: sideInset,
             bottom: ledgeLift - bottomInset,
-            // Never low over a key that shows, which it would sit on.
-            isLow: floatsLow && !isPresented,
+            // Never low over a key that shows; one riding down by `drop` is on its way out.
+            isLow: floatsLow && (!isPresented || drop > 0),
         )
     }
 

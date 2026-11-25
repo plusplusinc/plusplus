@@ -122,7 +122,10 @@ extension WorkoutScreen {
             try await beat(until: start + .seconds(Self.endBeat))
             if startDrop != 0 {
                 // Ended as Start rode down: it comes back from out of sight.
-                withTransaction(\.disablesAnimations, true) { startDrop = 0 }
+                withTransaction(\.disablesAnimations, true) {
+                    startDrop = 0
+                    plusLeftWithStart = false
+                }
                 try await laterTurn()
             }
             keyReturns { phase.rest() }

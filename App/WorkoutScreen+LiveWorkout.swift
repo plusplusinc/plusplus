@@ -30,6 +30,7 @@ extension WorkoutScreen {
         withTransaction(\.disablesAnimations, true) {
             makeRoomBelow()
             startDrop = 0
+            plusLeftWithStart = false
             // Where a workout that ended left its current exercise: the first row reports its
             // own place from the press, and the landing's room waits for it.
             currentPlace = nil
@@ -76,6 +77,8 @@ extension WorkoutScreen {
         withTransaction(\.disablesAnimations, true) {
             phase.landStart()
             startDrop = 0
+            // Low from here as the key's room is kept (`keyKeepsRoom`), so it stays put.
+            plusLeftWithStart = false
         }
         letRoomGo()
         // On a later turn of the run loop, once Start has gone: in the same update, away and
@@ -141,6 +144,9 @@ extension WorkoutScreen {
             // places (`listResizes(_:)`).
             resizes += 1
         }
+        // The + goes down as Start leaves, on the swap a rest's end moves it on: left for the
+        // landing, it hung over no key for a third of a second, then dropped on one frame.
+        withAnimation(SetMotion.restSwap) { plusLeftWithStart = true }
     }
 
     /// Where the list lands the current exercise while it is landing on it or resting on it:

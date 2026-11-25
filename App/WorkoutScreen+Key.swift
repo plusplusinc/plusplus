@@ -102,7 +102,9 @@ extension WorkoutScreen {
     /// Skip rest: the rest is stored as cut at the tap (`LiveWorkout.skippingRest(override:at:)`),
     /// its count holding the time it had left at the tap for `LiveWorkout.skipHold`, then ending
     /// as one that ran out does, as the rest's watch says (`watchRest()`). Its keys go at the
-    /// tap. Only when `WorkoutKey.skipRest` says so, and nothing once 0:00 holds, as the store
+    /// tap, on the swap a rest's end moves the key on (`SetMotion.restSwap`), the + going down
+    /// with them: taken out with no animation, the + dropped on one frame. Only when
+    /// `WorkoutKey.skipRest` says so, and nothing once 0:00 holds, as the store
     /// skips nothing then: skipped in the phase alone, the screen moved on before the stored
     /// rest was over, and the next set's count was never begun.
     private func skipRest() {
@@ -114,7 +116,9 @@ extension WorkoutScreen {
         // With the store's change, before `endRest()`'s animated swap: a new figure put in during
         // the swap stood where it ends from its first frame.
         restSkips += 1
-        phase.skipRest(left: left, leave: clock + LiveWorkout.skipHold)
+        withAnimation(SetMotion.restSwap) {
+            phase.skipRest(left: left, leave: clock + LiveWorkout.skipHold)
+        }
         session.skipRest(override: restOverride, at: now)
     }
 
@@ -129,10 +133,11 @@ extension WorkoutScreen {
 
     /// Whether the + sits low, at the screen's bottom, with no key under it: with no exercises,
     /// and in a workout wherever the key's room is kept empty, so it never floats over a key
-    /// that isn't there (decided 2026-11-24). It goes down and comes back up on the update that
-    /// takes the key away or brings it in (`FloatingPlace`).
+    /// that isn't there (decided 2026-11-24), from the moment Start rides down for the grow
+    /// (`plusLeftWithStart`). It goes down and comes back up on the update that takes the key
+    /// away or brings it in (`FloatingPlace`).
     var plusSitsLow: Bool {
-        footShowsEmpty || keyKeepsRoom
+        footShowsEmpty || keyKeepsRoom || plusLeftWithStart
     }
 
     /// The fill of Skip rest: running while the rest runs, held where it stood while paused, in
