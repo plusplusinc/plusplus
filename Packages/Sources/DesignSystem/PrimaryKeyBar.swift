@@ -282,11 +282,12 @@ private struct PrimaryKeyBar<
                     }
                 }
             }
-            // Started in the update's own reactions, as the old stage's were: from a task alone it
-            // started a frame or two later than on `main`. The task is there for a change the
-            // reaction skips, as SwiftUI does a second within one frame.
+            // Started in the update's own reactions: from a task it started a frame or two late.
+            // SwiftUI skips a second change within a frame the reaction already ran in, which
+            // can't lose a swap here: the reaction that sees `needsSwap` come on starts it, which
+            // turns it off until the swap is over, a whole swap later, and it comes on again only
+            // from a key showing.
             .onChange(of: box.tray.needsSwap) { startSwap() }
-            .task(id: box.tray.needsSwap) { startSwap() }
             // The swap's beats: the key going away cancels them.
             .task(id: drawn.isOut) { await swap() }
             .background {

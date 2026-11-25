@@ -51,6 +51,50 @@ struct PrimaryKeyBarTests {
         #expect(insets.seen == [first], "the bar's room changed after its first layout")
     }
 
+    @Observable
+    fileprivate final class Presence {
+        var isPresented = true
+    }
+
+    private struct KeptRoomHost: View {
+        let insets: Insets
+        let presence: Presence
+
+        var body: some View {
+            ScrollView {
+                Color.clear.frame(height: 2000)
+            }
+            .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
+                insets.seen.append($0)
+            }
+            .primaryKeyBar(isPresented: presence.isPresented, keepsRoom: true) {
+                Button("Start") { }
+            }
+        }
+    }
+
+    /// While the room is kept, the key goes and comes back, as through a set's "Start in",
+    /// without the list under the bar moving: laid out at every frame of both moves.
+    @Test("While the bar keeps its room, the list's room holds as the key goes and comes back")
+    func keptRoomHoldsThroughArrival() async throws {
+        let insets = Insets()
+        let presence = Presence()
+        let host = UIHostingController(rootView: KeptRoomHost(insets: insets, presence: presence))
+        let window = UIWindow.sceneless(hosting: host, at: .large)
+        defer { window.isHidden = true }
+        window.settle()
+        let first = try #require(insets.seen.first, "the list was never laid out")
+        for isPresented in [false, true] {
+            withAnimation(.easeInOut(duration: 0.3)) { presence.isPresented = isPresented }
+            let end = ContinuousClock.now + .seconds(0.4)
+            while ContinuousClock.now < end {
+                window.layoutIfNeeded()
+                try await Task.sleep(for: .milliseconds(4))
+            }
+        }
+        #expect(insets.seen == [first], "the list's room changed: \(insets.seen)")
+    }
+
     /// Frames in the window, as laid out.
     private final class Frames {
         var key: CGRect?

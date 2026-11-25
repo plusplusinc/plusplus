@@ -206,6 +206,51 @@ extension PrimaryKeyBarTests {
         }
     }
 
+    /// With Reduce Motion a swap fades the keys in place, and a key taken away fades out as the
+    /// button fades from its place above the key into its low one.
+    @Test("With Reduce Motion, a swap and a key taken away move nothing")
+    func reduceMotionMovesNothing() async throws {
+        try Self.setReduceMotion(true)
+        defer { try? Self.setReduceMotion(false) }
+        #expect(UIAccessibility.isReduceMotionEnabled, "Reduce Motion didn't turn on")
+        let swap = try await run({ $0.face = Face(id: 2, words: "Skip rest") }, until: Self.risen)
+        let restKey = try #require(swap.rest.key)
+        #expect(swap.samples.contains { $0.isOut }, "the keys never swapped")
+        for sample in swap.samples {
+            #expect(sample.key.map { $0 == restKey } ?? true, "the key moved: \(sample)")
+            #expect(sample.floating == swap.rest.floating, "the button moved: \(sample)")
+        }
+        let end = ContinuousClock.now + .seconds(3 * PrimaryKeyButtonStyle.swapHalf)
+        let away = try await run { inputs in
+            withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = false }
+        } until: { _, _ in
+            ContinuousClock.now > end
+        }
+        let high = away.rest.floating.maxY
+        let low = try #require(away.rest.key).maxY
+        for sample in away.samples {
+            let bottom = sample.floating.maxY
+            #expect(abs(bottom - high) < 0.5 || abs(bottom - low) < 0.5, "it moved: \(sample)")
+        }
+        #expect(abs((away.samples.last?.floating.maxY ?? 0) - low) < 0.5, "it never went low")
+    }
+
+    /// The device's Reduce Motion, which SwiftUI's environment follows; no view can set it.
+    private static func setReduceMotion(_ enabled: Bool) throws {
+        typealias SetEnabled = @convention(c) (Bool) -> Void
+        let symbol = try #require(
+            dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW)
+                .flatMap { dlsym($0, "_AXSSetReduceMotionEnabled") },
+            "libAccessibility has no switch for Reduce Motion",
+        )
+        unsafeBitCast(symbol, to: SetEnabled.self)(enabled)
+        NotificationCenter.default.post(
+            name: UIAccessibility.reduceMotionStatusDidChangeNotification,
+            object: nil,
+        )
+        RunLoop.main.run(mode: .default, before: .now + 0.05)
+    }
+
     /// No swap, so nothing to wait on: sampled for as long as a swap would take.
     @Test("Within a kind, the floating button stays put as the words change")
     func floatingStillWithinKind() async throws {

@@ -73,6 +73,7 @@ extension PrimaryKeyBarTests {
             while ContinuousClock.now < limit {
                 window.layoutIfNeeded()
                 try await Task.sleep(for: .milliseconds(4))
+                // Labeled only: the host's `Color.clear` is an unlabeled leaf of no size.
                 let keys = leaves().filter { $0.accessibilityLabel != nil }
                 #expect(keys.count <= 1, "two keys at once: \(keys.map(\.accessibilityLabel))")
                 for key in keys {
