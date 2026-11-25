@@ -10,7 +10,7 @@
 
 scripts/nightly-retro.sh run calls `run` after the retro, with the night's folder in
 .build/retro/, where the retro's stream-json log already is. It first puts a card, "Update <tool>
-to <version>", at the top of Todo for each lint tool `scripts/lint-tools.sh outdated` names, unless
+to <version>", at the top of Definitely for each lint tool `scripts/lint-tools.sh outdated` names, unless
 the board has one by that title or an open one for that tool. `run` holds the night's gates, so
 no agent can forget one: it starts cards only from midnight to 5 am, up to three a night, or,
 on the night before the weekly usage limit resets (its reset at or before 7 am), until a
@@ -408,7 +408,7 @@ def section(body, heading):
 
 def eligibility(status, feature, body):
     """None when a night may take the card, else why not."""
-    if status != "Todo":
+    if status != "Definitely":
         return f"it is in {status}"
     if feature != "-":
         return "it is a slice of a feature"
@@ -992,8 +992,8 @@ def board_bodies(rows):
 
 
 def board_cards(rows):
-    """[(id, status, feature, title, body)] of the standalone Todo cards in rows: one show request."""
-    return board_bodies([r for r in rows if r[1] == "Todo" and r[2] == "-"])
+    """[(id, status, feature, title, body)] of the standalone Definitely cards in rows: one show request."""
+    return board_bodies([r for r in rows if r[1] == "Definitely" and r[2] == "-"])
 
 
 def left_pr(body):
@@ -1158,7 +1158,7 @@ class Night:
                 return
 
     def add_update_cards(self):
-        """A card at the top of Todo for each lint tool with a newer release that has none yet,
+        """A card at the top of Definitely for each lint tool with a newer release that has none yet,
         in `outdated`'s order. A failure is noted at the top of the digest, and the night goes on.
         The board's list lags a card just added, so the night takes it once the list shows it."""
         try:
@@ -1168,11 +1168,11 @@ class Night:
             cards = update_cards(result.stdout, board_rows()) if result.stdout.strip() else []
             for title, body in reversed(cards):  # each goes on top, so the first goes last
                 if self.dry_run:
-                    log(f"Dry run: would add \"{title}\" at the top of Todo.")
+                    log(f"Dry run: would add \"{title}\" at the top of Definitely.")
                     continue
                 board("move", board("add", title, stdin=body).strip(), "top")
                 self.added.append(title)
-                log(f"Added \"{title}\" at the top of Todo.")
+                log(f"Added \"{title}\" at the top of Definitely.")
         except FAILURES as error:
             self.unchecked.append(f"adding the lint tools' update cards ({error})")
 
@@ -1246,7 +1246,7 @@ class Night:
                     self.tried.add(item)
                 continue
             return item, title, body
-        self.ended = log("No eligible tooling card left in Todo.")
+        self.ended = log("No eligible tooling card left in Definitely.")
         return None
 
     def command(self, item, worktree, branch, settings):
@@ -1527,7 +1527,7 @@ class Night:
                      f"{month_hours(runs, now):.1f} h this month")
         lines.append("Tests: " + ", ".join(f"{t} {self.tests_before.get(t, 0)} → {after.get(t, 0)}"
                                            for t in sorted(set(self.tests_before) | set(after))))
-        lines += [f"Added: {title}, at the top of Todo" for title in self.added]
+        lines += [f"Added: {title}, at the top of Definitely" for title in self.added]
         lines += [f"Done: {c}" for c in self.closed]
         if self.others:
             lines.append("Also merged tonight, not by a card: "

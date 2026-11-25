@@ -6,11 +6,11 @@
 #   scripts/board.sh readme                            # the board's README: the design per feature
 #   scripts/board.sh readme <feature>                  # one feature's section, "## Feature: <feature>"
 #   scripts/board.sh readme <<'README'                 # replace the README with stdin
-#   scripts/board.sh add <title> <<'CARD'              # a draft item in Todo; prints its id
+#   scripts/board.sh add <title> <<'CARD'              # a draft item in Definitely; prints its id
 #   scripts/board.sh body <item-id> <<'CARD'           # replace a draft item's body
 #   scripts/board.sh title <item-id> <title>           # rename a draft item
 #   scripts/board.sh state <item-id> [--take] <<'STATE'  # replace or append its ## State section
-#   scripts/board.sh status <item-id> Backlog|Todo|"In Progress"|Done
+#   scripts/board.sh status <item-id> Maybe|Definitely|"In Progress"|Done
 #   scripts/board.sh move <item-id> top|<after-item-id>  # place it in the queue /onward works through
 #   scripts/board.sh feature <item-id> <name>|-        # group it under a feature's design; - for a standalone task
 #   scripts/board.sh publish <item-id>                # convert the draft to a repo issue, in place
@@ -36,7 +36,7 @@
 # body first: the issue is public. The Status field's option ids are looked up each run
 # rather than committed, so the board can be reshaped without a code change. The board's own
 # order (what dragging a card changes) is the queue: /onward takes the In Progress card, else
-# the topmost Todo card, feature or not. Backlog is parked; nothing picks it up.
+# the topmost Definitely card, feature or not. Maybe is parked; nothing picks it up.
 #
 # Each command makes one or two GraphQL requests (while the board holds at most 100 items)
 # against the hourly quota every session on the account shares; "Quotas" in

@@ -143,7 +143,7 @@ class Card(unittest.TestCase):
         self.assertTrue(self.wrote())
 
     def test_a_card_not_in_progress_is_free_to_take(self):
-        for status in ("Todo", "Done"):
+        for status in ("Definitely", "Done"):
             self.card(status=status)
             run = self.board("state", "PVTI_1", stdin="Led by session session_9Zz8.\n")
             self.assertEqual(run.returncode, 0, run.stderr)
