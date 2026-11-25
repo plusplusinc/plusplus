@@ -122,20 +122,22 @@ Their time is the scarce thing, and it is for the product.
   naming the builder's worktree and the branch, so it works in a worktree of its own. Its
   evidence comes back in its scratchpad directory; copy what you keep into your `.slices/`.
 - **The phases.** Move the card to In Progress, sharpen its criteria in the card
-  (`scripts/board.sh body`), then planner, builder, verifier, and a builder for what the
-  verifier found, each given the card id. Size the team to the card: a small task with no UI
-  goes straight to a builder with the card's Plan; one that gives the live workout a new
-  situation or new state gets the planner, however small. With something to see, rounds come first
-  (the builder's "Rounds"); a round's brief asks for the change, and for a recording, frame
-  grid, measurement, or cleanup only with the question it answers. A value they name a change to
-  (a duration, a spacing) you change, commit, and install with `scripts/device.sh` in the
-  slice's worktree while no builder runs there, with a line in the handoff note; the full
-  pass reviews it. A round's build reaches them first, called unchecked; meanwhile check what
-  they asked for in its screenshots on content like theirs, and that nothing they corrected
-  earlier moved.
-  The loop ends on their word that it's right; then the builder's full pass and the verifier run once,
-  while the next card starts. Work done while they are away is a round for them to
-  try, not the end of the loop.
+  (`scripts/board.sh body`), then planner and builder, each given the card id. Size the team to
+  the card: a small task with no UI goes straight to a builder with the card's Plan; one that
+  gives the live workout a new situation or new state gets the planner, however small. With
+  something to see, rounds come first. The first build is a builder's (its "Rounds").
+- **A round is yours.** A change they ask for in a round you make yourself in the slice's
+  worktree while no builder runs there: edit, `scripts/build.sh`, commit, `scripts/device.sh`,
+  a line in the handoff note; no tests, lint, or recording unless how it moves is the
+  question. Aim: their build within 3 minutes. A builder gets a round only when it needs a
+  new view, new state, or more than a few files. A round's build reaches them first, called
+  unchecked. Work done while they are away is a round for them to try, not the end of the
+  loop.
+- **After the go-ahead.** The loop ends on their word that it's right; then the builder's full
+  pass runs once, while the next card starts. A verifier follows only when the card changes
+  stored data or gives the live workout new state or a new situation; otherwise check the
+  full pass's screenshots against each criterion yourself. The aim is merged within 40
+  minutes of the go-ahead, CI included; say in the merge line when it took longer and why.
 - **Fresh and focused.** Each builder round or job gets a new agent named for it, starting from the
   slice's handoff note (`.slices/sliceN-handoff.md`) and bringing it up to date; resume one
   only to finish its own job, and wait for its hand-back before acting on its work. A decision
@@ -145,14 +147,12 @@ Their time is the scarce thing, and it is for the product.
   transcript, or a large diff: send it to a subagent that returns what the question needs.
   A change's shape is yours to read before it merges: the types, stored fields, and `@State`
   it adds. State added beside a model that could hold it goes back to the builder.
-- **After each agent hands back**, run `scripts/sim.sh shutdown` in the slice worktree and in
-  any worktree of `main` it added (only those simulators, never another's), in case it skipped
-  its own, and add its line to the PR's agent record with `scripts/agent-record.py line` and
+- **After each agent hands back**, add its line to the PR's agent record with
+  `scripts/agent-record.py line` and
   `post` (`docs/agent-tooling.md`, "Agent records"); lines from before the PR exists go with
   the first post.
 - **While one runs**, it says nothing until it ends, so every 15 minutes read where it
-  is and send the maintainer that line. Past 15 minutes, a round they wait on is told
-  (SendMessage) to commit what builds and hand back, and that line says where it is. A wake you
+  is and send the maintainer that line. A wake you
   set says what was true then: cancel it when you stop what it watches, and a check that has
   finished is a result whatever a watch says.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`) whenever a phase
@@ -160,8 +160,8 @@ Their time is the scarce thing, and it is for the product.
 
 ## The next card starts at the go-ahead
 
-Their word that a round is right ends their part, but the full pass, verifier, and CI take an
-hour or more, so their next card starts then:
+Their word that a round is right ends their part, but the full pass and CI take time, so their
+next card starts then:
 
 1. Record the slice's decisions in the board README (Finish 4) and the card's State.
 2. Start the full-pass builder, and in the same turn propose a fresh session running `/onward`
@@ -174,10 +174,6 @@ merges `origin/main` in.
 
 ## Pushes and CI
 
-Each push to a PR that changes the app spends a full Xcode Cloud run, so push only when CI's
-answer is needed: when the PR opens, after a round of fixes, and before the merge. Commit
-locally in between.
-
 After every push, watch "PR check" to the end yourself (`/pr`): `gh pr checks <n> --watch
 --interval 60` in the background, stopping an earlier watch first (`TaskStop`). A subagent's "still queued"
 is not a result. A failed run goes to a builder before anything reaches the maintainer, unless
@@ -186,11 +182,11 @@ you ask for names the commit CI is green at.
 
 ## Finish
 
-1. Look at the verifier's screenshots yourself. Their saying a round looks right is the
-   go-ahead: once the full pass, the verifier, and CI pass, merge and tell them in a line. Ask
-   again only when the full pass changed something they would see, or there was no round,
-   with that build on their phone first and what to try. A card that is yours alone needs
-   only the verifier and CI. A wait for
+1. Look at the full pass's screenshots, and the verifier's when one ran, yourself. Their saying
+   a round looks right is the go-ahead: once the full pass, the verifier when one ran, and CI
+   pass, merge and tell them in a line. Ask again only when the full pass changed something
+   they would see, or there was no round, with that build on their phone first and what to
+   try. A wait for
    checks also ends when `gh pr view --json mergeable` reads `CONFLICTING`; after any merge to
    `main`, check every PR that waits.
 3. Move the card to Done, run `scripts/tidy.sh`, and delete the slice's `.slices/` files.
