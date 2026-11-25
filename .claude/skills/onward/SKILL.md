@@ -124,7 +124,8 @@ Their time is the scarce thing, and it is for the product.
 - **The phases.** Move the card to In Progress, sharpen its criteria in the card
   (`scripts/board.sh body`), then planner, builder, verifier, and a builder for what the
   verifier found, each given the card id. Size the team to the card: a small task with no UI
-  goes straight to a builder with the card's Plan. With something to see, rounds come first
+  goes straight to a builder with the card's Plan; one that gives the live workout a new
+  situation or new state gets the planner, however small. With something to see, rounds come first
   (the builder's "Rounds"); a round's brief asks for the change, and for a recording, frame
   grid, measurement, or cleanup only with the question it answers. A value they name a change to
   (a duration, a spacing) you change, commit, and install with `scripts/device.sh` in the
@@ -139,10 +140,11 @@ Their time is the scarce thing, and it is for the product.
   slice's handoff note (`.slices/sliceN-handoff.md`) and bringing it up to date; resume one
   only to finish its own job, and wait for its hand-back before acting on its work. A decision
   made while a builder works goes to it at once (SendMessage) and into the handoff. A one-off
-  task starts its kind's agent (`lookup`, `repro`, `edit`, `reviewer`); pass no model, since
-  each definition sets its own.
+  task starts its kind's agent (`lookup`, `repro`, `edit`, `reviewer`).
 - **Your context is for decisions.** Never read whole the board README, a dump of cards, a
   transcript, or a large diff: send it to a subagent that returns what the question needs.
+  A change's shape is yours to read before it merges: the types, stored fields, and `@State`
+  it adds. State added beside a model that could hold it goes back to the builder.
 - **After each agent hands back**, run `scripts/sim.sh shutdown` in the slice worktree and in
   any worktree of `main` it added (only those simulators, never another's), in case it skipped
   its own, and add its line to the PR's agent record with `scripts/agent-record.py line` and
@@ -152,8 +154,7 @@ Their time is the scarce thing, and it is for the product.
   is and send the maintainer that line. Past 15 minutes, a round they wait on is told
   (SendMessage) to commit what builds and hand back, and that line says where it is. A wake you
   set says what was true then: cancel it when you stop what it watches, and a check that has
-  finished is a result whatever a watch says. A turn with no text is sent back for one, so a
-  notice with nothing new gets a few words, never a second summary.
+  finished is a result whatever a watch says.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`) whenever a phase
   ends, with this session's id, so a cleared context or another session can pick it up.
 
@@ -175,8 +176,7 @@ merges `origin/main` in.
 
 Each push to a PR that changes the app spends a full Xcode Cloud run, so push only when CI's
 answer is needed: when the PR opens, after a round of fixes, and before the merge. Commit
-locally in between. Bring a pushed branch up to date by merging `origin/main`, never a rebase,
-whose push agents are denied.
+locally in between.
 
 After every push, watch "PR check" to the end yourself (`/pr`): `gh pr checks <n> --watch
 --interval 60` in the background, stopping an earlier watch first (`TaskStop`). A subagent's "still queued"
