@@ -157,15 +157,17 @@ nonisolated extension Theme {
     )
 
     /// Active in its crystal blue, its functions' and titles' color (rebelot/kanagawa.nvim);
-    /// done in its oni violet; arriving in its yellow. Its own grays; its `base01`, sumi ink, is
-    /// darker than its background, so it is the well, and the card is mixed.
+    /// done in its oni violet, moved a step darker so it stands apart from the blue; arriving in
+    /// its yellow. Its own grays; its `base01`, sumi ink, is darker than its background, so it
+    /// is the well, and the card is mixed. Its chips are mixed too: its `base02` is the navy it
+    /// selects text with, `223249`, which made every filter and equipment chip read as picked.
     public static let kanagawa = Theme(
         id: "kanagawa",
         name: "Kanagawa",
         looks: .darkOnly(Palette(
             .kanagawa,
             roles: .init(accent: 0x0D, railJoin: 0x0A),
-            grays: sunkenBase01,
+            grays: Base16.Grays(surface: .mixed, raised: .mixed, well: .slot(0x01)),
             isDark: true,
         )),
     )

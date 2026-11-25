@@ -73,6 +73,17 @@ nonisolated struct OKLab: Hashable, Sendable {
         blueYellow = 0.0259040371 * long + 0.7827717662 * medium - 0.8086757660 * short
     }
 
+    /// The hue angle in degrees, from -180 to 180.
+    var hue: Double {
+        atan2(blueYellow, greenRed) * 180 / .pi
+    }
+
+    /// How far apart two colors' hues are, in degrees from 0 to 180.
+    func hueDistance(to other: Self) -> Double {
+        let distance = abs(hue - other.hue).truncatingRemainder(dividingBy: 360)
+        return min(distance, 360 - distance)
+    }
+
     /// Unclamped: a color outside sRGB comes back with a component outside 0 to 1.
     var rgb: RGB {
         let long = pow(lightness + 0.3963377774 * greenRed + 0.2158037573 * blueYellow, 3)

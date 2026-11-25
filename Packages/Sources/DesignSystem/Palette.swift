@@ -64,7 +64,9 @@ nonisolated struct Base16: Sendable {
     }
 }
 
-/// One look's value for every `ColorToken`.
+/// One look's value for every `ColorToken`. A finished set must not look like the one being
+/// done: `done` keeps 0.12 from `accent` in OKLab lightness when their hues are within 80° (a
+/// purple beside a blue), and 0.05 otherwise (`doneGap(_:_:)`).
 nonisolated struct Palette: Sendable {
     private let colors: [ColorToken: Color.Resolved]
 
@@ -144,9 +146,25 @@ nonisolated struct Palette: Sendable {
         ]
     }
 
-    /// `done` kept apart from `accent` in lightness as well as hue, as PlusPlus's are: within
-    /// 0.05, it moves to `accent`'s lightness 0.055 nearer the background, or away from it if
-    /// that loses 3:1 on `grounds`.
+    /// How far `done` and `accent` must be apart in OKLab lightness, by how far apart their hues
+    /// are. Hues within `closeHues` degrees (a purple beside a blue: Solarized's are 34° apart,
+    /// Tomorrow dark's 74°) differ too little to tell two 4 pt bars apart by hue alone, so they
+    /// need `closeHueGap`; hues further apart (a purple beside a green or an orange, 90° and
+    /// more) need only `lightnessGap`, PlusPlus dark's own margin. Chosen by looking at the
+    /// bars side by side at their size: at 0.08 Kanagawa's and Tomorrow dark's still blurred
+    /// together; at 0.12 every pair read apart.
+    static let closeHues = 80.0
+    static let closeHueGap = 0.12
+    static let lightnessGap = 0.05
+
+    static func doneGap(_ done: RGB, _ accent: RGB) -> Double {
+        OKLab(done).hueDistance(to: OKLab(accent)) < closeHues ? closeHueGap : lightnessGap
+    }
+
+    /// `done` kept apart from `accent` in lightness as well as hue, by `doneGap`: short of it,
+    /// `done` moves to `accent`'s lightness that gap plus 0.005 nearer the background, or as far
+    /// away from it if nearer loses 3:1 on `grounds`. Its hue stays the theme's purple; on a
+    /// light look a close pair usually ends with `done` the darker, as nearer has no room.
     private static func apart(
         _ done: RGB,
         from accent: RGB,
@@ -154,8 +172,10 @@ nonisolated struct Palette: Sendable {
         grounds: [RGB],
     ) -> RGB {
         let (doneLightness, accentLightness) = (OKLab(done).lightness, OKLab(accent).lightness)
-        guard abs(doneLightness - accentLightness) < 0.05 else { return done }
-        let toward = OKLab(background).lightness < accentLightness ? -0.055 : 0.055
+        let gap = doneGap(done, accent)
+        guard abs(doneLightness - accentLightness) < gap else { return done }
+        let margin = gap + 0.005
+        let toward = OKLab(background).lightness < accentLightness ? -margin : margin
         let nearer = withLightness(done, accentLightness + toward)
         if grounds.allSatisfy({ contrast(nearer, $0) >= 3 }) {
             return nearer

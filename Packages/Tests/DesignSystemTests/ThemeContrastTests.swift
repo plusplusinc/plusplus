@@ -87,16 +87,25 @@ nonisolated struct ThemeContrastTests {
         }
     }
 
-    @Test("Done stands apart from active, and to-do from done, in lightness", arguments: looks)
+    /// Two 4 pt bars side by side whose hues are within 80° (a purple beside a blue) read as one
+    /// color unless 0.12 apart in OKLab lightness; hues further apart need only 0.05, PlusPlus
+    /// dark's own margin.
+    @Test(
+        "Done stands apart from active, further where their hues are close, and to-do from done",
+        arguments: looks,
+    )
     func doneStandsApart(look: Look) {
-        let accent = Self.lightness(look.color(.accent))
-        let done = Self.lightness(look.color(.done))
+        let accentLab = OKLab(RGB(look.color(.accent)))
+        let doneLab = OKLab(RGB(look.color(.done)))
+        let (accent, done) = (accentLab.lightness, doneLab.lightness)
         let toDo = Self.lightness(look.color(.toDo))
+        let hues = accentLab.hueDistance(to: doneLab)
+        let needed = hues < 80 ? 0.12 : 0.05
         #expect(
-            abs(accent - done) >= 0.05,
+            abs(accent - done) >= needed,
             """
             \(look.testDescription): done and accent are \(Self.shown(abs(accent - done))) apart \
-            in OKLab lightness, under 0.05 (PlusPlus dark's own margin).
+            in OKLab lightness, under \(Self.shown(needed)) for hues \(Int(hues))° apart.
             """,
         )
         #expect(

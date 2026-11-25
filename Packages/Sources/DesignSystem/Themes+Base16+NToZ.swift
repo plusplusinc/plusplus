@@ -33,7 +33,8 @@ nonisolated extension Theme {
 
     /// Active in its blue: Atom's One UI takes its accent from the syntax background's hue,
     /// blue (`@ui-hue` 220, atom/atom `one-dark-ui` and `one-light-ui`). Done in its purple,
-    /// arriving in its cyan. Its own grays, but the dark scheme's quieter text is mixed: its
+    /// set a step apart from the blue in lightness (`Palette.doneGap`); arriving in its cyan. Its
+    /// own grays, but the dark scheme's quieter text is mixed: its
     /// `base04` is a step from its comment gray, far under 4.5:1, and its text is low already.
     public static let one = Theme(
         id: "one",
@@ -51,7 +52,8 @@ nonisolated extension Theme {
 
     /// Active in its IBM blue, `0F62FE`, Carbon's primary button and link color
     /// (carbondesignsystem.com, `$button-primary`), "centered around a vibrant set of blues"
-    /// (nyoom-engineering/oxocarbon.nvim). Done in its purple; arriving in its teal, `08BDBA`,
+    /// (nyoom-engineering/oxocarbon.nvim). Done in its purple, set a step apart from the blue
+    /// in lightness (`Palette.doneGap`); arriving in its teal, `08BDBA`,
     /// `base07` in both of oxocarbon.nvim's palettes; base16's light scheme has a gray there
     /// and a purple in `base0C`, so it takes the teal back. Its own grays (Carbon's gray steps),
     /// the chip halfway between `base01` and `base02`, as `base02` is 0.14 out; the dark
@@ -116,7 +118,8 @@ nonisolated extension Theme {
     )
 
     /// Active in its blue, Selenized's values (jan-warchol/selenized `the-values.md`) naming no
-    /// accent of their own; done in its violet, arriving in its cyan. Its own grays throughout.
+    /// accent of their own; done in its violet, set a step apart from the blue in lightness
+    /// (`Palette.doneGap`); arriving in its cyan. Its own grays throughout.
     public static let selenized = Theme(
         id: "selenized",
         name: "Selenized",
@@ -136,7 +139,8 @@ nonisolated extension Theme {
 
     /// Active in its blue, Solarized naming no accent of its own (ethanschoonover.com/solarized:
     /// "eight accent colors"); no color of the light scheme reaches 4.5:1, so its blue darkens
-    /// a step there. Done in its violet, arriving in its cyan. Text is `base06`: `base05` is
+    /// a step there. Done in its violet, set a step apart from the blue in lightness
+    /// (`Palette.doneGap`); arriving in its cyan. Text is `base06`: `base05` is
     /// 5:1, leaving no room for a quieter text. Its card is its background highlight
     /// (`base01`); its chip and lines are mixed, as base16 puts its content grays in `base02`
     /// and `base03`, 0.26 to 0.32 out.
@@ -160,7 +164,8 @@ nonisolated extension Theme {
     )
 
     /// Active in its blue, its titles', directories', and normal mode's color
-    /// (folke/tokyonight.nvim); done in its magenta, arriving in its cyan. Text is `base08`,
+    /// (folke/tokyonight.nvim); done in its magenta, set a step apart from the blue in
+    /// lightness (`Palette.doneGap`); arriving in its cyan. Text is `base08`,
     /// which holds Tokyo Night's own foreground in both schemes (`C0CAF5`, `343B58`); their
     /// `base05` is a dim lavender gray. The dark scheme's `base0D` holds `blue1` (`2AC3DE`), a
     /// cyan, and its `base0C` a near-white `B4F9F8`, so they take tokyonight's `blue` (`7AA2F7`)
