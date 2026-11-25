@@ -123,4 +123,20 @@ struct KeyStageTests {
         #expect(KeyStage.leaving(log).isOut)
         #expect(KeyStage.arriving(after: log).isOut)
     }
+
+    @Test("A key taken away comes back as the same view only as the kind it last followed")
+    func round() {
+        var round = KeyRound(kind: 1)
+        // Swapped to a rest's keys, then taken away as Log set comes due, as at Skip rest.
+        round.follow(2)
+        let going = round.id
+        round.away(as: 1, justLeft: true)
+        #expect(round.id != going)
+        // Back to the kind it went as, while still away: the one going turns back.
+        round.away(as: 2, justLeft: false)
+        #expect(round.id == going)
+        round.follow(2)
+        round.away(as: 2, justLeft: true)
+        #expect(round.id == going)
+    }
 }
