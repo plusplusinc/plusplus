@@ -12,8 +12,10 @@ import UIKit
 /// the list's scroll geometry twice in one frame, which it logs as an `OnScrollGeometryChange`
 /// fault at every launch. The fault doesn't show in a hosted view, so this watches its cause:
 /// the room the bar takes from the list, which has to be the same from the first layout on.
+/// Serialized: a test that waits through a swap (`PrimaryKeyBarTests+Dip.swift`) gives up the
+/// main actor, and another finishing then turned the accessibility tree off under it.
 @MainActor
-@Suite("Primary key bar")
+@Suite("Primary key bar", .serialized)
 struct PrimaryKeyBarTests {
     /// The list's bottom safe area at each layout that changed it.
     private final class Insets {
