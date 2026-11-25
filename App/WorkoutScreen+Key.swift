@@ -124,8 +124,7 @@ extension WorkoutScreen {
     /// in" ends (`SetMotion.restSwap`), the + rising and settling with it; with Reduce Motion,
     /// the bar fades it. Elsewhere the key changes kind, which the bar swaps on its own.
     func togglePause() {
-        guard liveKey.pauseMovesKey else { return session.togglePause() }
-        withAnimation(SetMotion.restSwap) { session.togglePause() }
+        withAnimation(liveKey.pauseMovesKey ? SetMotion.restSwap : nil) { session.togglePause() }
     }
 
     /// Whether the + sits low, at the screen's bottom, with no key under it: with no exercises,
@@ -136,7 +135,8 @@ extension WorkoutScreen {
         footShowsEmpty || keyKeepsRoom
     }
 
-    /// The fill of Skip rest: running while the rest runs, gray and held while paused; held where
+    /// The fill of Skip rest: running while the rest runs, gray and held while paused, seen only
+    /// as the keys swap out for Continue; held where
     /// it stood where End came mid-rest; else full, as the keys leave once the rest is over.
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,

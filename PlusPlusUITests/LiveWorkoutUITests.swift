@@ -194,9 +194,14 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
             XCTAssertEqual(reading(key.seconds, until: { $0 != held }, within: 1.5), held)
             app.tapWorkoutKey(reading: "Continue workout")
             XCTAssertEqual(reading(key.label, becoming: "Pause", within: 2), "Pause")
-            XCTAssertEqual(current.label, before, "Continue logged a set")
             // Returns at the first tick, so a longer window costs nothing when the time runs.
             XCTAssertGreaterThan(reading(key.seconds, until: { $0 > held }, within: 2.5), held)
+            // Waited out in full when nothing was logged, after the tick's wait above.
+            XCTAssertEqual(
+                reading(current.label, until: { $0 != before }, within: 1),
+                before,
+                "Continue logged a set",
+            )
         }
     }
 

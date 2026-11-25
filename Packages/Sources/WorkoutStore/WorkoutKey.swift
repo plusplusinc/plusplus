@@ -23,8 +23,6 @@ public struct WorkoutKey: Sendable {
     public let wayBack: WayBack?
     /// Whether the current exercise is scrolled away now, where a tap lands, settled or not.
     public let isScrolledAway: Bool
-    /// Whether the key is read as if the workout ran, paused or not (`pauseMovesKey`).
-    private var ignoresPause = false
 
     public init(
         stored: LiveWorkout?,
@@ -73,7 +71,7 @@ public struct WorkoutKey: Sendable {
     /// a count, or its "Start in" (decided 2026-11-24). Paused after the last set, the key stays
     /// Finish workout.
     private var continues: Bool {
-        guard !ignoresPause, let stored, stored.loggedWorkout.isPaused else { return false }
+        guard let stored, stored.loggedWorkout.isPaused else { return false }
         return !stored.isDone
     }
 
@@ -81,18 +79,18 @@ public struct WorkoutKey: Sendable {
     /// its kind: where the key running would wait to start (`waitsToStart`), as through a set's
     /// "Start in", and Continue shows paused.
     public var pauseMovesKey: Bool {
-        guard continues else { return waitsToStart }
-        var running = self
-        running.ignoresPause = true
-        return running.waitsToStart
+        runningWaits
     }
 
     /// What the key is for, as the workout is drawn.
     public var role: Role {
+        guard shown != nil, !phase.isStarting, continues else { return runningRole }
+        return .continueWorkout
+    }
+
+    /// The key's role as if the workout ran, paused or not.
+    private var runningRole: Role {
         guard let shown, !phase.isStarting else { return .start }
-        if continues {
-            return .continueWorkout
-        }
         // While the workout moves on from a set, the key is still that set's until the next row
         // shows its own, so it changes with the row: read from the workout, it said the next
         // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
@@ -129,12 +127,18 @@ public struct WorkoutKey: Sendable {
     /// rest's held time, and the move on from a
     /// rest to a set with a "Start in" due, until the screen comes to rest on it. A timed set's
     /// is "Log early" with +15 s; a reps set's, its log key. Only for the current set's key, not
-    /// a set just logged still drawn, nor a rest's keys.
+    /// a set just logged still drawn, nor a rest's keys. Never while paused, whose Continue
+    /// shows in its place.
     public var waitsToStart: Bool {
+        !continues && runningWaits
+    }
+
+    /// Whether the key would wait to start if the workout ran, paused or not.
+    private var runningWaits: Bool {
         guard let shown, let set = shown.currentSet, phase.keySet == nil,
               phase.loggedAndDrawn == nil
         else { return false }
-        switch role {
+        switch runningRole {
         case .log, .count: break
         default: return false
         }
