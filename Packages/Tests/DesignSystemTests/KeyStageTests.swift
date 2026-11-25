@@ -100,7 +100,7 @@ struct KeyStageTests {
     /// the next one there; taken with the rise, at the largest text sizes it stepped by the keys'
     /// difference in height at the bottom (2026-11-25).
     @Test(
-        "The floating button sits over the key drawn, or staying put, the one that left till a rise",
+        "The floating button sits over the key drawn, or staying put, the one gone till a rise",
         arguments: [true, false],
     )
     func floatingFace(dips: Bool) {
