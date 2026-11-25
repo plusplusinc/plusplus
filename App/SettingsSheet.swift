@@ -11,6 +11,7 @@ import SwiftUI
 struct SettingsSheet: View {
     @Environment(Look.self) private var look
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isThemesPushed = false
 
     var body: some View {
@@ -30,7 +31,8 @@ struct SettingsSheet: View {
                     Button {
                         isThemesPushed = true
                     } label: {
-                        ThemeCard(theme: look.theme, mark: .opens)
+                        // The theme in use, in the look the sheet itself is in.
+                        ThemeCard(theme: look.theme, scheme: colorScheme, mark: .opens)
                     }
                     .buttonStyle(.card)
                     .accessibilityHint("Shows the themes")
@@ -81,10 +83,13 @@ private struct GroupLabel: View {
     }
 }
 
-/// Every theme as its card, PlusPlus first, then by name, the one in use checked. A tap picks
-/// one and does nothing else: the screen and the app recolor at once, the check moving to it.
+/// Every theme as its card, PlusPlus first, then by name, the one in use outlined and checked.
+/// A tap picks one and does nothing else: the screen and the app recolor at once, the outline and
+/// check moving to it. Each card shows the look Appearance calls for, the phone's on Auto, even
+/// under a dark-only theme that holds the screen dark.
 struct ThemeScreen: View {
     @Environment(Look.self) private var look
+    @State private var phone = ColorScheme.dark
 
     var body: some View {
         ScrollView {
@@ -95,7 +100,11 @@ struct ThemeScreen: View {
                         // own (`ThemeCard`).
                         look.theme = theme
                     } label: {
-                        ThemeCard(theme: theme, mark: .checked(theme == look.theme))
+                        ThemeCard(
+                            theme: theme,
+                            scheme: theme.shownScheme(for: look.appearance, phone: phone),
+                            mark: .checked(theme == look.theme),
+                        )
                     }
                     .buttonStyle(.card)
                 }
@@ -105,6 +114,7 @@ struct ThemeScreen: View {
             .padding(.bottom, Spacing.xl)
         }
         .background { Color.pp(.background).ignoresSafeArea() }
+        .phoneScheme($phone)
         .sensoryFeedback(.selection, trigger: look.theme)
         .navigationTitle("Theme")
         .navigationBarTitleDisplayMode(.inline)

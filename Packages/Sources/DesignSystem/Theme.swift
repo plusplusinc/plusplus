@@ -54,6 +54,13 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
         }
     }
 
+    /// The look this theme's card shows (`ThemeCard`), whichever theme the window is in: its
+    /// only one, or the one the appearance calls for, the phone's on Auto. Under a dark-only
+    /// theme with Light chosen, PlusPlus's card still shows its light look.
+    public func shownScheme(for appearance: Appearance, phone: ColorScheme) -> ColorScheme {
+        colorScheme(for: appearance) ?? phone
+    }
+
     /// "Light and dark", or "Dark only".
     public var looksLine: String {
         isDarkOnly ? String(localized: "Dark only") : String(localized: "Light and dark")
