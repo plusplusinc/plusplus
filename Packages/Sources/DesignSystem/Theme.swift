@@ -39,9 +39,10 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
 
     /// Whether a color reads as a red, which `accent` never is: it fills the + that adds an
     /// exercise, and a red + reads as a warning. A red is a color with OKLab chroma of at least
-    /// 0.05 (not a gray) whose OKLab hue is from 350° round to 35°: from the pinks' edge to where
-    /// orange begins. Rust and coral (Monokai's and Horizon's 7° to 17°) fall inside; Gruvbox's
-    /// light orange (39°) and Dracula's pink (347°) outside.
+    /// 0.05 (not a gray) whose OKLab hue is from 350° round to 40°: from the pinks' edge to where
+    /// orange begins. Monokai's pink-red and Horizon's coral (7° to 17°) and Gruvbox's light
+    /// orange, a rust on screen (39°), fall inside; Catppuccin's peach (42°) and Dracula's pink
+    /// (347°) outside.
     public static func isRed(_ color: Color.Resolved) -> Bool {
         let lab = OKLab(RGB(color))
         let chroma = (lab.greenRed * lab.greenRed + lab.blueYellow * lab.blueYellow).squareRoot()
@@ -49,7 +50,7 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
         if hue < 0 {
             hue += 360
         }
-        return chroma >= 0.05 && (hue >= 350 || hue < 35)
+        return chroma >= 0.05 && (hue >= 350 || hue < 40)
     }
 
     /// The theme a stored id names, or PlusPlus for one that names none.

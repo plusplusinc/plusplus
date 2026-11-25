@@ -127,7 +127,7 @@ nonisolated struct ThemeContrastTests {
         }
     }
 
-    @Test("The red rule: reds and corals are red; oranges, pinks, and grays are not")
+    @Test("The red rule: reds, corals, and rust are red; oranges, pinks, and grays are not")
     func redRule() {
         func isRed(_ hex: UInt32) -> Bool {
             Theme.isRed(RGB(hex).resolved())
@@ -136,9 +136,10 @@ nonisolated struct ThemeContrastTests {
         #expect(isRed(0xF92672))
         #expect(isRed(0xE93C58))
         #expect(isRed(0xEBBCBA))
+        #expect(isRed(0xAF3A03))
         #expect(!isRed(0xFE8019))
+        #expect(!isRed(0xFE640B))
         #expect(!isRed(0xFF79C6))
-        #expect(!isRed(0xAF3A03))
         #expect(!isRed(0x9E9E9E))
     }
 

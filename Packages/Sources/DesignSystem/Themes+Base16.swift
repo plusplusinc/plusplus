@@ -65,20 +65,21 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Active in its orange: its yellow, as known, is 3.3:1 on the light background. Done in the
-    /// yellow, which needs only 3:1; arriving in its purple.
+    /// Active in its yellow, the warm color it is known by; the light scheme's is 3.3:1 and
+    /// moves darker, as its orange, the one other candidate that passes there, reads as a rust
+    /// red. Done in its blue, arriving in its aqua.
     public static let gruvbox = Theme(
         id: "gruvbox",
         name: "Gruvbox",
         looks: .both(
             light: Palette(
                 .gruvboxLightMedium,
-                roles: .init(accent: 0x09, done: 0x0A, railJoin: 0x0E),
+                roles: .init(accent: 0x0A, done: 0x0D, railJoin: 0x0C),
                 isDark: false,
             ),
             dark: Palette(
                 .gruvboxDarkMedium,
-                roles: .init(accent: 0x09, done: 0x0A, railJoin: 0x0E),
+                roles: .init(accent: 0x0A, done: 0x0D, railJoin: 0x0C),
                 isDark: true,
             ),
         ),
@@ -176,19 +177,20 @@ nonisolated extension Theme {
     )
 
     /// Active in its blue; done in its orange (light) and amber (dark), `base0A`; its purple
-    /// and green share the blue's lightness.
+    /// and green share the blue's lightness. Text is `base07`: the dark scheme's `base05` is a
+    /// mid gray that read washed out on the workout screen.
     public static let paperColor = Theme(
         id: "papercolor",
         name: "PaperColor",
         looks: .both(
             light: Palette(
                 .papercolorLight,
-                roles: .init(text: 0x06, accent: 0x0D, done: 0x0A, railJoin: 0x0C),
+                roles: .init(text: 0x07, accent: 0x0D, done: 0x0A, railJoin: 0x0C),
                 isDark: false,
             ),
             dark: Palette(
                 .papercolorDark,
-                roles: .init(accent: 0x0D, done: 0x0A, railJoin: 0x0C),
+                roles: .init(text: 0x07, accent: 0x0D, done: 0x0A, railJoin: 0x0C),
                 isDark: true,
             ),
         ),

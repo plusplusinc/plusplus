@@ -14,8 +14,9 @@ import SwiftUI
 /// reads as a screen on it. A card that picks a theme and is not in use draws a hairline of its
 /// separator only where that fill is too close to the page's background to show an edge
 /// (`edgeContrast`). Trailing, a mark: a chevron for a card that opens the themes (Settings),
-/// or, for a card that picks one (the Theme screen), the theme in use outlined in its own green
-/// (`accent`), two points, and Checklist's green check, both crossfading in on `.tapChange`; a
+/// or, for a card that picks one (the Theme screen), the theme in use outlined in its own active
+/// color (`accent`), two points, and Checklist's check in it, both crossfading in on `.tapChange`;
+/// a
 /// card not in use has neither, its check's room kept so every name starts and wraps at one
 /// place. VoiceOver reads one element: the name, the looks as its value, selected when checked.
 public struct ThemeCard: View {
@@ -38,7 +39,8 @@ public struct ThemeCard: View {
         self.mark = mark
     }
 
-    /// Thick enough to read in the theme's green on a card as dark as the page around it and on
+    /// Thick enough to read in the theme's active color on a card as dark as the page around it and
+    /// on
     /// one that stands out from it; a point read as the hairline, a little brighter. A step past
     /// today's outline on Log's calendar (1.5), on a much larger shape.
     private static let selectedOutline: CGFloat = 2
@@ -151,11 +153,24 @@ public struct ThemeCard: View {
 
 /// A small picture of the workout screen, in the theme and look around it: a phone-shaped
 /// rounded rectangle in `background` with a `separator` edge, so it shows on any card; inside,
-/// from the top, the current exercise's green dot (`accent`), a bar for its name
+/// from the top, the current exercise's dot in the active color (`accent`), a bar for its name
 /// (`textPrimary`), its three set bars, one done (`done`) and two to come (`toDo`), and at the
 /// bottom the key at the foot of the screen (`accent`). A picture: no text, hidden from
-/// VoiceOver. Every length is a multiple of the phone's width, which grows with Dynamic Type.
+/// VoiceOver. Every length is a multiple of the phone's width, which grows with Dynamic Type up
+/// to the largest size short of the accessibility sizes (`largest`, about 59 x 97 points), as a
+/// list's icons stop growing: past it, the words beside it need the room more than the picture
+/// does (at AX5 it had grown to about 122 x 200 points, a third of the screen's height).
 struct TinyPhone: View {
+    static let largest = DynamicTypeSize.xxxLarge
+
+    var body: some View {
+        Picture()
+            .dynamicTypeSize(...Self.largest)
+    }
+}
+
+/// `TinyPhone`, at the text size around it.
+private struct Picture: View {
     @ScaledMetric(relativeTo: .body) private var width: CGFloat = 44
 
     /// Points at the default text size; `scale` turns them into this size's.
@@ -243,19 +258,10 @@ extension ButtonStyle where Self == CardButtonStyle {
 }
 
 #Preview("Long names") {
-    // Names to come, for their length.
     ScrollView {
         VStack(spacing: Spacing.sm) {
-            ThemeCard(
-                theme: Theme(id: "catppuccin", name: "Catppuccin", looks: .catalog),
-                scheme: .dark,
-                mark: .checked(false),
-            )
-            ThemeCard(
-                theme: Theme(id: "tokyo-night", name: "Tokyo Night", looks: .catalog),
-                scheme: .dark,
-                mark: .checked(true),
-            )
+            ThemeCard(theme: .catppuccin, scheme: .light, mark: .checked(false))
+            ThemeCard(theme: .tokyoNight, scheme: .dark, mark: .checked(true))
         }
         .padding(Spacing.md)
     }
