@@ -13,7 +13,7 @@ card's PR back to draft. The night's guard enforces what follows; a denied call 
 
 ## Run it
 
-`<w>` is that worktree's absolute path, where every shell starts. Run this repo's scripts as
+`<w>` is that worktree's absolute path, where every shell starts. Run scripts as
 `<w>/scripts/...`.
 
 1. `<w>/scripts/board.sh show <card-id>`: its Problem, Plan, Success, and acceptance criteria.
