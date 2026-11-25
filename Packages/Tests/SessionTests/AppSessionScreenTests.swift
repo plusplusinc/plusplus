@@ -290,5 +290,7 @@ struct AppSessionScreenTests {
         session.start(on: session.current.id)
         #expect(session.screen == .workout)
         #expect(session.opened == workout)
+        // Its "Start in" begins as its own Start lands on the first set.
+        #expect(session.loggedWorkout?.count == nil)
     }
 }
