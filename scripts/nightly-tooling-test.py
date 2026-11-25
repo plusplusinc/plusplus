@@ -1318,6 +1318,7 @@ class Malformed(unittest.TestCase):
             self.assertEqual(out, "Night 2026-10-28: failed: the night did not finish\n"
                                   "Not checked: usage, usage.json is missing\n")
             self.assertNotIn("old digest", out)
+            self.assertFalse(Path(root, ".build/retro/2026-10-28/digest.md").exists(), "a bare digest only reads")
 
 
 def io_of(call):

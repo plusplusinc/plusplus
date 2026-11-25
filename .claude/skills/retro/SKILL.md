@@ -198,7 +198,7 @@ the verifier caught and the tests it added, from the PRs' `Agent record` comment
 a finding and opens no PR.
 
 At night, read it from `<main checkout>/.build/retro/<today>/agent-tally.txt` (`date +%F`),
-which `scripts/nightly-retro.sh run` writes before the retro starts; never run the command then.
+which the night skill writes before the retro starts; never run the command then.
 A file that reads "No tally tonight: <why>" means the tally failed tonight: the digest says that
 line in place of the tally, and nothing else changes. A missing file at night is the same, with
 the reason "agent-tally.txt is missing". Run by hand in a session, where there is no night's
@@ -207,24 +207,11 @@ approve.
 
 ## How it runs
 
-On the maintainer's Mac, in the main checkout: a launchd agent starts one Claude Code run in
-print mode (`claude -p`, auto mode) at midnight local time, and the run exits once its report
-is printed. It is installed once, from any checkout, with:
-
-```sh
-scripts/nightly-retro.sh install
-```
-
-`scripts/nightly-retro.sh show` says whether it's installed and running, and prints the run's
-last reply and the tooling runner's last digest, which is how the lead reads the night in the
-morning; `run` starts one now, as launchd does. Each run's output and errors go to
-`.build/retro/nightly.log`, and each claude's stream-json to the night's folder,
-`.build/retro/<date>/`. After the retro, `scripts/nightly-tooling.py` runs the monthly setup
-review when one is due (`.claude/skills/review-setup/`) and the night's tooling cards (its header
-has the gates); the retro itself does nothing for them.
-
-The run is named "Nightly retro", which keeps it out of `scripts/conversations.py`, so a
-run never reads the last run's digest. Each `/retro nightly` does this, in order:
+The night skill (`.claude/skills/night/`), which a scheduled task in the Claude app runs at
+midnight in the main checkout, starts `/retro nightly` after it reads usage, catches up, and
+tallies, and writes the digest after it (`docs/agent-tooling.md`, "The nightly retro").
+`scripts/nightly-retro.sh show` prints the night's last reply and digest. Each `/retro nightly`
+does this, in order:
 
 1. **Note the start.** `date -u +%Y-%m-%dT%H:%M:%SZ`, kept to save in step 5, so work that
    happens while the retro runs is covered next time.
@@ -251,8 +238,7 @@ run never reads the last run's digest. Each `/retro nightly` does this, in order
 5. **Report and save.** When the extract ran and the subagent finished (or there was
    nothing), write the start time from step 1 to `.build/retro/last-run`. If either failed,
    leave the file, so the next night covers this one too. Print: "Nightly retro <date>: <PR URL, or no PR>", the
-   findings, and the digest, and nothing after it: the run exits there, and `show` prints
-   that reply.
+   findings, and the digest: `show` prints that reply.
 
 On request, a session over one merge or a range runs sections 1 to 4 itself, in its own
 worktree from `origin/main`.

@@ -220,36 +220,26 @@ lives in packages.
 
 ## The nightly retro
 
-The retro (`.claude/skills/retro/SKILL.md`) runs on the maintainer's Mac, as a Claude Code
-run in print mode that a launchd agent starts at midnight and that exits when it's done; the
-skill's "How it runs" has the command that installs it and what each night does. It reads the merges and the conversation since the last run,
-which `scripts/conversations.py` prints without the tool calls, so a day reads in tens of
-kilobytes rather than the tens of megabytes of transcripts. Changing the retro means changing
-the skill.
+A scheduled task in the Claude desktop app, `plusplus-night`, starts a session in the main
+checkout every midnight whose stored prompt is one line that runs `/night`
+(`.claude/skills/night/SKILL.md`), so what the night does lives in the repo. The session uses the
+app's login and the app's usage tool. Its permission mode is set once by the maintainer in the
+app, to Auto, since a run in the default mode stops at its first command to ask. The task runs
+only while the app is open; a midnight it missed runs at the app's next launch.
 
-`scripts/nightly-retro.sh` installs the launchd agent, runs the night once, and prints whether
-it's installed and running, the retro's last reply, read from the transcript, and the tooling
-runner's last digest.
+The skill lists the night's steps. The night fast-forwards the main checkout to `origin/main`,
+since it runs that checkout's scripts and skills; one off `main`, or whose uncommitted change
+`origin/main` also changed, stays as it is, and the digest's top says so. The tallies (see
+"Agent records") go to the night's folder, `.build/retro/<date>/`, so no agent needs
+`scripts/agent-record.py`. The retro reads the conversation through `scripts/conversations.py`,
+which drops the tool calls and the night's own sessions, so a day reads in tens of kilobytes.
+A failed night says so in the digest's first line and in one push notification.
+`scripts/nightly-retro.sh show` prints the retro's reply and the digest; `uninstall` removes
+the launchd agent that ran the night before. An Amphetamine trigger on power, with
+closed-display mode, keeps the Mac awake with the lid closed.
 
-The night runs the main checkout's scripts and skills, so the run first fast-forwards that
-checkout to `origin/main`; one off `main`, or whose uncommitted change `origin/main` also
-changed, stays as it is, and the digest's top says so. Before the retro starts, the run also updates the command-line Claude Code (`claude update`, bounded
-to three minutes; a failure is logged and the night runs on the installed version), so each night
-uses the latest, and the digest's top says when the version changed or the update failed. A
-running session keeps its version until it exits, so nothing in flight breaks. The desktop app's
-Code tab runs its own copy, which updates with the app, at a relaunch between sessions.
-
-Then `scripts/nightly-tooling.py tally` writes the agents' tallies (see "Agent records") to the
-night's folder, the retro's and, on a night with a setup review, the review's, from one fetch, so
-neither agent needs `scripts/agent-record.py` among its allowed tools; a tally that fails writes
-"No tally tonight: <why>" in its place, and the night goes on.
-
-Plugged in, the Mac stays awake with the lid open or closed. Claude Code runs under
-`caffeinate -s`, which keeps the Mac awake on power but doesn't stop it sleeping when the lid
-closes; an Amphetamine trigger for when the power adapter is connected, with closed-display
-mode, does.
-
-After the retro, the same run hands over to `scripts/nightly-tooling.py`. It first adds a card,
+Nothing calls the tooling runner, `scripts/nightly-tooling.py run` and `review`, until a card
+moves them into the night. It first adds a card,
 "Update <tool> to <version>", at the top of Todo for each lint tool `scripts/lint-tools.sh outdated`
 names (Dependabot can't read that pin; it covers the Swift package and the actions), unless the
 board has one by that title or an open one for the tool. Then it takes standalone
@@ -276,10 +266,6 @@ off on every PR opened tonight from a branch a card made or pushed, unless it ar
 and it ends the night, naming them atop the digest, on any such PR merged unarmed. A new gate
 starts from such a check on what happened (a merge, a push, a run started); denying a command's
 spellings only narrows it, since every verifier pass and review on #118 found more spellings.
-Its digest, in the night's folder, is what `show` prints after the retro's reply. It exists because
-doing these by hand gets three things wrong, which its header explains: the agent's plist needs
-the main checkout's paths, which a tracked file can't hold in a public repo; the calling Claude
-Code session's variables leak into a run; and a second run can start.
 
 ## The monthly setup review
 
@@ -291,10 +277,10 @@ looks outward, at a fixed short list of places, for what we don't use yet, and n
 three things worth trying, each answering a present need, with the cheapest trial. It edits
 nothing itself: it writes a private report to the main checkout's `.slices/review-setup/` and cards each change
 worth doing, this file's corrections included, and what costs money, changes an account, widens
-what agents may do, or touches the maintainer's own setup is a question in the report. The
-nightly run starts it between the retro and the cards (`scripts/nightly-tooling.py`'s header
-says when); a run by hand counts for its month, since the newest report says when the last one
-ran. The runner denies that run Edit, commits, pushes, PR writes, `brew`, and `asc`.
+what agents may do, or touches the maintainer's own setup is a question in the report.
+`scripts/nightly-tooling.py review` starts it (its header says when), uncalled until the night
+runs it again, and denies it Edit, commits, pushes, PR writes, `brew`, and `asc`; a run by hand
+counts for its month, since the newest report says when the last one ran.
 
 ## Parallel work
 
@@ -368,8 +354,8 @@ minimized. On any other simulator it leaves the settings alone, since that one i
 
 ## Permissions
 
-`.claude/settings.json` pre-approves the scripts except `nightly-retro.sh` and
-`nightly-tooling.py`, which start unattended Claude Code sessions; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
+`.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which changes
+launchd, and `nightly-tooling.py`, which starts unattended Claude Code sessions; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
 `asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase` and
 `simctl delete`, uploads and notarization, and force pushes denied. Both take any device, or
 `all`, so a wrong argument would wipe a person's simulators; `scripts/sim.sh erase` erases only

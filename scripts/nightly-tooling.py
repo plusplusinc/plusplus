@@ -4,7 +4,7 @@
     scripts/nightly-tooling.py usage <night-dir>             # exits 1 when a weekly window is at 97%
     scripts/nightly-tooling.py tally <night-dir>             # the agents' tallies, for the retro and the review
     scripts/nightly-tooling.py outcome <night-dir> ran | failed <step> <why>
-    scripts/nightly-tooling.py digest [<night-dir>]          # writes and prints a night's digest; the last by default
+    scripts/nightly-tooling.py digest [<night-dir>]          # a night's digest, written; bare, the last night's, printed
     scripts/nightly-tooling.py run <night-dir> [--dry-run] [--now 2026-10-29T01:30]
     scripts/nightly-tooling.py review <night-dir>            # the setup review, when one is due
     scripts/nightly-tooling.py hook <night-dir> <worktree>   # a card's PreToolUse hook
@@ -13,8 +13,8 @@
 The night skill calls `usage`, `tally`, `outcome`, and `digest`. `usage` reads the usage.json the
 night saved from the app's usage tool and prints one line; it exits 1 when a window whose label
 names a week is at 97% or more, and 0 when the file can't be read, which the digest's top then
-says. `outcome` writes the night's outcome.txt. `digest` writes the night's digest.md and prints
-it: its first line is "Night <date>: ran" or "Night <date>: failed: <step>, <why>", and "failed:
+says. `outcome` writes the night's outcome.txt. `digest <night-dir>` writes the night's digest.md
+and prints it; bare, it only prints the newest night's. Its first line is "Night <date>: ran" or "Night <date>: failed: <step>, <why>", and "failed:
 the night did not finish" when no outcome was recorded.
 
 Nothing calls `run` and `review` since the night moved to the app's scheduled task; the card
@@ -1775,7 +1775,8 @@ def main(args):
             print("No night yet: .build/retro/ holds no night's folder.")
         else:
             text = "\n".join(night_digest(folders[-1]))
-            (folders[-1] / "digest.md").write_text(text + "\n")
+            if len(args) > 1:  # the night's own step; show only reads
+                (folders[-1] / "digest.md").write_text(text + "\n")
             print(text)
     else:
         print(__doc__.split("\n\n")[1], file=sys.stderr)
