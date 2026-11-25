@@ -29,11 +29,20 @@ struct KeyTravel: ViewModifier, Animatable {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    nonisolated var animatableData: AnimatablePair<CGFloat, AnimatablePair<CGFloat, CGFloat>> {
-        get { AnimatablePair(parts.swap, AnimatablePair(parts.away, parts.drop)) }
+    nonisolated var animatableData: AnimatablePair<
+        AnimatablePair<CGFloat, CGFloat>,
+        AnimatablePair<CGFloat, CGFloat>,
+    > {
+        get {
+            AnimatablePair(
+                AnimatablePair(parts.leave, parts.arrive),
+                AnimatablePair(parts.away, parts.drop),
+            )
+        }
         set {
             parts = KeyReach.Parts(
-                swap: newValue.first,
+                leave: newValue.first.first,
+                arrive: newValue.first.second,
                 away: newValue.second.first,
                 drop: newValue.second.second,
             )

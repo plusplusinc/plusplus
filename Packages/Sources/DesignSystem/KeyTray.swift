@@ -31,6 +31,14 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
         case arriving
         /// Taken away or ridden down by the screen, drawn as the face it left with.
         case away(Face)
+
+        var isLeaving: Bool {
+            if case .leaving = self {
+                true
+            } else {
+                false
+            }
+        }
     }
 
     /// What the bar draws: the face, whether the key is out in a swap, and where each part of
@@ -91,7 +99,8 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
             face: face,
             isOut: isOut,
             targets: KeyReach.Parts(
-                swap: isOut ? 1 : 0,
+                leave: stage.isLeaving ? 1 : 0,
+                arrive: stage == .arriving ? 1 : 0,
                 away: inputs.isPresented ? 0 : 1,
                 drop: inputs.isDropped ? 1 : 0,
             ),
@@ -132,15 +141,38 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
 /// How far below its place a bar's key is drawn, and how far above its low place the floating
 /// button is, from one depth: the button rides on the key, as one piece, its gap above the key's
 /// top, until the key has gone further than the button's low place, where it stays.
-struct KeyReach: Equatable {
+/// Plain arithmetic, worked out off the main actor as the key's animation draws.
+nonisolated struct KeyReach: Equatable {
     /// How far each move has the key down, 0 to 1, each run by the animation that changes it.
     struct Parts: Equatable {
-        /// The bar's own swap.
-        var swap: CGFloat
+        /// The key going down in a swap.
+        var leave: CGFloat
+        /// The next key below the edge in a swap, rising as it runs to 0. Its own part, set to 1
+        /// with no animation as the key going goes, so the next one starts out of sight however
+        /// far the drop's animation had got: as one part, a drop that started a frame or two late
+        /// turned back up 30 pt short, and the next key's words showed on the way.
+        var arrive: CGFloat = 0
         /// Taken away by the screen.
         var away: CGFloat
         /// Ridden down by the screen (`drop`).
         var drop: CGFloat
+
+        init(leave: CGFloat, arrive: CGFloat, away: CGFloat, drop: CGFloat) {
+            self.leave = leave
+            self.arrive = arrive
+            self.away = away
+            self.drop = drop
+        }
+
+        /// A swap as far down as `swap`.
+        init(swap: CGFloat, away: CGFloat, drop: CGFloat) {
+            self.init(leave: swap, arrive: 0, away: away, drop: drop)
+        }
+
+        /// How far down the swap has the key.
+        var swap: CGFloat {
+            max(leave, arrive)
+        }
     }
 
     /// How far a swap takes the key down past its own height: to the screen's bottom edge, less

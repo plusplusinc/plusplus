@@ -272,6 +272,10 @@ private struct PrimaryKeyBar<
                     }
                 }
             }
+            // Started in the update's own reactions, as the old stage's were: from a task alone it
+            // started a frame or two later than on `main`. The task is there for a change the
+            // reaction skips, as SwiftUI does a second within one frame.
+            .onChange(of: box.tray.needsSwap) { startSwap() }
             .task(id: box.tray.needsSwap) { startSwap() }
             // The swap's beats: the key going away cancels them.
             .task(id: drawn.isOut) { await swap() }
@@ -323,7 +327,8 @@ private struct PrimaryKeyBar<
         } catch {
             return
         }
-        // Out of sight, the key becomes the next one with no motion of its own.
+        // Out of sight, the key becomes the next one with no motion of its own: below the edge
+        // at once, however far the drop's animation has got (`KeyReach.Parts.arrive`).
         withTransaction(\.disablesAnimations, true) {
             box.tray.advance()
             beats += 1
