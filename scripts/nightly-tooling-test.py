@@ -1619,6 +1619,66 @@ class SessionFolder(unittest.TestCase):
         self.assertEqual(self.night.cards(), [])
         self.assertIsNone(self.night.state()["phase"])
 
+    def test_every_outcome_leaves_the_folder_on_the_branch_next_found_it_on_with_no_hook(self):
+        # The second verifier's probe on #282: only a card with no PR was decided in a real clone.
+        real, pr = nightly.sh, {"number": 7, "title": "A card", "state": "OPEN", "headRefOid": "a" * 40, "body": "",
+                                "comments": []}
+        merged = {"state": "MERGED", "mergeCommit": {"oid": "b" * 40}, "statusCheckRollup": []}
+        stub(self, sh=lambda *a, **k: "me\n" if a[0] == "gh" else real(*a, **k), usage_gate=lambda *a: None,
+             disable_auto=lambda n: None, proof=lambda entry: "proof")
+        outcomes = [("parked", 0, [dict(pr, state="CLOSED")], None), ("unarmed", 0, [dict(pr, state="MERGED")], None),
+                    ("waiting", 0, [pr], ("wait", "it touches .claude/x", [".claude/x"])),
+                    ("parked", 0, [pr], ("park", "no verifier record on the PR")),
+                    ("merged", 0, [pr], ("arm", ["App/x.swift"], "abc1234")), ("parked", 2, None, None)]
+        for n, (decision, status, prs, verdict) in enumerate(outcomes):
+            item = f"PVTI_{n}"
+            stub(self, board_cards=lambda rows, item=item: [(item, "Definitely", "-", f"Card {item[-1]}", Next.BODY)],
+                 gh_json=lambda *a: [])
+            self.assertEqual(nightly.run_next(self.night, NIGHT, SESSION, False)[0], 0)
+            self.assertNotEqual(self.hooks(self.folder), "")
+            with (self.night.dir / "guard-seen").open("a") as out:
+                out.write(f"card {item}\tbuilder\n")
+
+            def gh(*a, prs=prs):
+                if prs is None:
+                    raise RuntimeError("gh: HTTP 502")
+                return merged if a[:2] == ("pr", "view") else prs if "--head" in a else []
+            stub(self, gh_json=gh, gates=lambda pr, me, verdict=verdict: verdict)
+            self.assertEqual(nightly.run_decide(self.night, item, NIGHT)[0], status, (decision, verdict))
+            self.assertEqual(self.night.entry(item)["decision"], decision, verdict)
+            self.assertEqual(self.git("branch", "--show-current", cwd=self.folder), "dc/session", (decision, verdict))
+            self.assertEqual(self.hooks(self.folder), "", (decision, verdict))
+            self.assertIsNone(self.night.state()["phase"], (decision, verdict))
+            self.assertIsNone(self.night.state().get("stopped"), (decision, verdict))
+
+    def test_a_folder_next_found_detached_goes_back_to_its_commit_whatever_branch_the_card_left_it_on(self):
+        self.git("switch", "-q", "--detach", cwd=self.folder)
+        was = self.git("rev-parse", "HEAD", cwd=self.folder)
+        nightly.run_next(self.night, NIGHT, SESSION, False)
+        (self.folder / "a.txt").write_text("x\n")
+        self.git("add", "-A", cwd=self.folder)
+        self.git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "work", cwd=self.folder)
+        self.git("switch", "-q", "-c", "another", cwd=self.folder)
+        self.assertEqual(nightly.run_decide(self.night, "PVTI_1", NIGHT)[0], 0)
+        self.assertEqual(self.git("branch", "--show-current", cwd=self.folder), "")
+        self.assertEqual(self.git("rev-parse", "HEAD", cwd=self.folder), was)
+        self.assertEqual(self.hooks(self.folder), "")
+
+    def test_begin_after_a_night_that_stopped_mid_card_with_changes_unsets_the_hook_and_no_card_starts_there(self):
+        nightly.run_next(self.night, NIGHT, SESSION, False)  # and the session ended, a file half written
+        (self.folder / "Half.swift").write_text("x\n")
+        lines = nightly.begin(self.night, NIGHT + timedelta(minutes=30), "second-session")
+        self.assertIn('Parked "A card" of 2026-10-28: the night\'s session ended before deciding on it.', lines)
+        self.assertEqual(self.hooks(self.folder), "")
+        self.assertIsNone(self.night.state()["phase"])
+        self.assertEqual(self.night.entry("PVTI_1")["decision"], "parked")
+        self.assertEqual(self.git("branch", "--show-current", cwd=self.folder), "night-a-card")
+        self.assertIn("uncommitted changes on night-a-card", self.night.notes()["unchecked"][0])
+        (self.night.dir / "guard-seen").write_text("none\tlead\n")
+        stub(self, usage_gate=lambda *a: None)
+        self.assertEqual(nightly.run_next(self.night, NIGHT + timedelta(minutes=31), "second-session", False),
+                         (1, "No card: the session's folder has uncommitted changes, so no card's branch is switched in."))
+
 
 class Bypass(unittest.TestCase):
     """Spellings of a merge or an Xcode Cloud run that the hook has to stop."""
@@ -2364,6 +2424,16 @@ class WritesStayInTheWorktree(unittest.TestCase):
                         "env -u X python3 -X dev ./scripts/nightly-tooling.py decide a b"]:
             self.assertIn("only the night's lead runs the night's steps", decide(command, app=False) or "", command)
 
+    def test_the_worktrees_git_file_which_leads_the_hook_to_the_main_checkouts_guard_is_not_the_cards_to_change(self):
+        # The second verifier's probe on #282: HOOK_COMMAND finds the main checkout's guard through
+        # <worktree>/.git. Moved, removed, or rewritten, it finds the worktree's own copy or none,
+        # and every call of the session then passes, a merge included.
+        for command in ["mv .git .git.away", "rm .git", "rm -f ./.git", f"mv {WORKTREE}/.git /tmp/keep",
+                        f"echo 'gitdir: {WORKTREE}/fake/.git/worktrees/x' > .git"]:
+            self.assertIsNotNone(decide(command, app=False, cwd=WORKTREE), command)
+        for path in [str(WORKTREE / ".git"), ".git"]:
+            self.assertIsNotNone(decide(tool="Write", path=path, cwd=WORKTREE), path)
+
     def test_a_card_is_never_moved_on_the_board_by_its_agents(self):
         for command in ["scripts/board.sh status PVTI_1 Done", f"{WORKTREE}/scripts/board.sh move PVTI_1 top"]:
             self.assertIn("The night moves its card itself", decide(command, app=False) or "", command)
@@ -2453,6 +2523,22 @@ class GuardPassesOtherSessions(unittest.TestCase):
         (worktree / ".git").write_text("gitdir: ../../../.git/worktrees/session\n")
         result = self.guard(hook_input(), worktree)
         self.assertEqual((result.returncode, result.stderr), (2, f"reached {folder}\n"))
+        # The second verifier's probe on #282: a branch that deletes its copies, and its settings, changes nothing.
+        shutil.rmtree(worktree / ".claude")
+        shutil.rmtree(worktree / "scripts")
+        result = self.guard(hook_input(), worktree)
+        self.assertEqual((result.returncode, result.stderr), (2, f"reached {folder}\n"))
+
+    def test_a_folder_that_is_no_checkout_or_has_no_guard_is_never_blocked(self):
+        # A day session anywhere the settings travel: its calls run, whatever the hook command finds.
+        empty = self.root / "empty"
+        empty.mkdir()
+        self.night("2026-10-28")
+        (self.root / ".claude/hooks/night-guard.sh").unlink()
+        for project in (empty, self.root):
+            result = self.guard(hook_input(session="day-session"), project)
+            self.assertNotEqual(result.returncode, 2, project)
+            self.assertEqual(result.stdout, "", project)
 
     def test_without_git_the_nights_call_still_reaches_the_guard(self):
         # The verifier's probe on #282: with no git on PATH, the night's merge passed.
@@ -2714,6 +2800,15 @@ class Lesser(unittest.TestCase):
                         "git push --no-verif", "find . -maxdepth 0 -exec git push --no-verify ;", "export GIT_CONFIG_COUNT=0",
                         "git config core.hooksPath x"]:
             self.assertIn("git hooks stay on", decide(command, app=False) or "", command)
+
+    def test_the_worktree_config_that_holds_the_pre_push_hook_is_not_turned_off_or_emptied(self):
+        # The second verifier's probe on #282: the hook is core.hooksPath in the worktree's own git
+        # config, which git reads only with extensions.worktreeConfig set; after each of these,
+        # `git config --get core.hooksPath` in the worktree printed nothing.
+        for command in ["git config --unset extensions.worktreeConfig", "git config extensions.worktreeConfig false",
+                        "git config --worktree --remove-section core", "git config --worktree --rename-section core x"]:
+            self.assertIn("git hooks stay on", decide(command, app=False) or "", command)
+
 
 if __name__ == "__main__":
     unittest.main()
