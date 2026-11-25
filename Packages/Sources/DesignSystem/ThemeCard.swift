@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// A theme shown as a workout's row is drawn, in that theme's own colors whatever the app is in:
-/// the current exercise's green node in the rail's column, the theme's name where an exercise's
-/// goes, its looks ("Light and dark", "Dark only") as the detail line, with a set's bars at its
-/// end, one done in purple and two to do. A card with both looks shows the one the screen's
+/// A theme shown as a small current exercise, in that theme's own colors whatever the app is in:
+/// the current exercise's green node on the name's line, the theme's name where an exercise's
+/// goes (at a row title's size), the current exercise's set segments across the text column
+/// under it, one done and two to come, and its looks ("Light and dark", "Dark only") under them
+/// in the "Set 2 of 3" caption's style. A card with both looks shows the one the screen's
 /// appearance calls for; a dark-only one shows its dark look in either.
 ///
 /// It sits on the theme's background in a rounded card with a hairline of its separator, which
@@ -30,24 +31,27 @@ public struct ThemeCard: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
-        HStack(spacing: Spacing.sm) {
-            RailRowLayout(nodeSize: nodeSize) {
-                RailNodeColumn {
-                    Circle()
-                        .fill(.pp(.accent))
-                        .frame(width: nodeSize, height: nodeSize)
+        let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+        HStack(spacing: Spacing.md) {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                nodeOnFirstLine
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(theme.name)
+                        .font(.ppRowTitle)
+                        .foregroundStyle(.pp(.textPrimary))
+                    SetSegments(
+                        progress: SetProgress(done: 1, total: 3, spoken: ""),
+                        isOnSet: false,
+                    )
+                    Text(theme.looksLine)
+                        .font(.ppCurrentProgress)
+                        .foregroundStyle(.pp(.textSecondary))
                 }
-                RowLabel(
-                    title: theme.name,
-                    detail: [theme.looksLine],
-                    bars: SetProgress(done: 1, total: 3, spoken: ""),
-                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             markView
         }
-        .padding(.vertical, Spacing.md)
-        .padding(.trailing, Spacing.md)
+        .padding(Spacing.md)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
         .background(shape.fill(.pp(.background)))
         .overlay(shape.strokeBorder(.pp(.separator), lineWidth: 1))
@@ -57,6 +61,25 @@ public struct ThemeCard: View {
         .accessibilityLabel(theme.name)
         .accessibilityValue(theme.looksLine)
         .accessibilityAddTraits(mark == .checked(true) ? .isSelected : [])
+    }
+
+    /// An exercise row's card radius (`ValueRow`'s): the key's, opened by the row's inner gap.
+    private static var cornerRadius: CGFloat {
+        Spacing.sm + Radius.key
+    }
+
+    /// The current exercise's green node, centered on the name's first line: in a box as tall as
+    /// one line of the name at every size.
+    private var nodeOnFirstLine: some View {
+        ZStack {
+            Text(verbatim: "0")
+                .font(.ppRowTitle)
+                .hidden()
+            Circle()
+                .fill(.pp(.accent))
+                .frame(width: nodeSize, height: nodeSize)
+        }
+        .fixedSize()
     }
 
     @ViewBuilder
