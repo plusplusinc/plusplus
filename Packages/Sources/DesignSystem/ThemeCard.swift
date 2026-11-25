@@ -8,9 +8,11 @@ import SwiftUI
 /// looks shows the one Appearance calls for, whatever theme is in use around it
 /// (`Theme.shownScheme(for:phone:)`); a dark-only one shows its dark look in either.
 ///
-/// It sits on the theme's background in a rounded card, the exercise sheet's value rows' radius,
-/// with a hairline of its separator, which shows even on a card whose background is the page's
-/// own; the value rows have none, since their `surface` stands off the page by itself. Trailing,
+/// It is a rounded card, the exercise sheet's value rows' radius. A card that opens the themes is
+/// filled as the value rows are, in `surface`, a step off the page, with no line. A card that
+/// picks one sits on its theme's background, the preview; one not in use draws a hairline of its
+/// separator only where that background is too close to the page's to show an edge
+/// (`edgeContrast`). Trailing,
 /// a mark: a chevron for a card that opens the themes (Settings), or, for a card that picks one
 /// (the Theme screen), the theme in use outlined in its own green (`accent`), two points, and
 /// Checklist's green check, both crossfading in on `.tapChange`; a card not in use has neither,
@@ -29,6 +31,8 @@ public struct ThemeCard: View {
     @ScaledMetric(relativeTo: .body) private var nodeSize = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 44
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// The page around the card: its theme and look, before the card sets its own.
+    @Environment(\.self) private var page
 
     public init(theme: Theme, scheme: ColorScheme, mark: Mark) {
         self.theme = theme
@@ -40,6 +44,12 @@ public struct ThemeCard: View {
     /// one that stands out from it; a point read as the hairline, a little brighter. A step past
     /// today's outline on Log's calendar (1.5), on a much larger shape.
     private static let selectedOutline: CGFloat = 2
+
+    /// The contrast, as WCAG's ratio, under which a card's background shows no edge against the
+    /// page's, so it needs the hairline: the value rows' `surface` stands off `background` at
+    /// about 1.11 (light) and 1.13 (dark), and reads as a card with no line, so a card at least
+    /// that far off reads as one too. PlusPlus dark on Nord is 1.32.
+    private static let edgeContrast = 1.1
 
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
@@ -67,8 +77,12 @@ public struct ThemeCard: View {
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
-        .background(shape.fill(.pp(.background)))
-        .overlay(shape.strokeBorder(.pp(.separator), lineWidth: 1))
+        .background(shape.fill(.pp(mark == .opens ? .surface : .background)))
+        .overlay {
+            shape.strokeBorder(.pp(.separator), lineWidth: 1)
+                .opacity(needsHairline && !isChecked ? 1 : 0)
+                .animation(.tapChange, value: isChecked)
+        }
         .overlay {
             shape.strokeBorder(.pp(.accent), lineWidth: Self.selectedOutline)
                 .opacity(isChecked ? 1 : 0)
@@ -85,6 +99,17 @@ public struct ThemeCard: View {
 
     private var isChecked: Bool {
         mark == .checked(true)
+    }
+
+    /// A picking card whose background is too close to the page's to show where it ends.
+    private var needsHairline: Bool {
+        guard mark != .opens else { return false }
+        var own = page
+        own.theme = theme
+        own.colorScheme = scheme
+        let card = theme.resolve(.background, in: own)
+        let around = page.theme.resolve(.background, in: page)
+        return DesignSystem.contrast(RGB(card), RGB(around)) < Self.edgeContrast
     }
 
     /// An exercise row's card radius (`ValueRow`'s): the key's, opened by the row's inner gap.
