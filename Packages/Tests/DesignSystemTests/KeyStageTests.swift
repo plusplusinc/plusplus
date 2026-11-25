@@ -96,19 +96,25 @@ struct KeyStageTests {
     /// At the largest text sizes the way back's key wraps to two lines, taller than Log set's;
     /// the floating button above it moved to the next key's height before the key going had
     /// left, 108 pt in one frame.
-    @Test("The floating button sits over the key drawn, and the one that left until the next rises")
-    func floatingFace() {
+    /// A button that dips is as far down over either key once both are out of sight, and takes
+    /// the next one there; taken with the rise, at the largest text sizes it stepped by the keys'
+    /// difference in height at the bottom (2026-11-25).
+    @Test(
+        "The floating button sits over the key drawn, or staying put, the one gone till a rise",
+        arguments: [true, false],
+    )
+    func floatingFace(dips: Bool) {
         var stage = KeyStage.showing(log)
-        #expect(stage.floatingFace(for: logRight) == logRight)
-        #expect(stage.floatingFace(for: back) == log)
+        #expect(stage.floatingFace(for: logRight, dips: dips) == logRight)
+        #expect(stage.floatingFace(for: back, dips: dips) == log)
         _ = stage.follow(to: back)
-        #expect(stage.floatingFace(for: back) == log)
+        #expect(stage.floatingFace(for: back, dips: dips) == log)
         stage.advance(live: back)
-        #expect(stage.floatingFace(for: back) == log)
+        #expect(stage.floatingFace(for: back, dips: dips) == (dips ? back : log))
         stage.advance(live: back)
-        #expect(stage.floatingFace(for: back) == back)
+        #expect(stage.floatingFace(for: back, dips: dips) == back)
         stage.drop(true, live: finish)
-        #expect(stage.floatingFace(for: finish) == finish)
+        #expect(stage.floatingFace(for: finish, dips: dips) == finish)
     }
 
     @Test("A leaving or arriving key is out, and takes no tap; a showing one is in")
