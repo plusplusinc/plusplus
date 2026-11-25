@@ -138,6 +138,13 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
                     "Pull-up did not land under the bar: \(top)",
                 )
                 attach(named: "workout-moved-on")
+                // Pull-up's "Start in" shows no key (`WorkoutKey.waitsToStart`), but Log set,
+                // leaving on the move, stays in the tree about 0.8 s after the tap, as the row
+                // lands: read then, it passed for Pull-up's key, and the next read found none.
+                XCTAssertTrue(
+                    app.workoutKey.disappears(within: 3),
+                    "The key stayed up through Pull-up's \"Start in\"",
+                )
                 XCTAssertTrue(
                     app.workoutKey.appears(within: XCUIApplication.startInWait),
                     "Pull-up's key never came up after its \"Start in\"",
