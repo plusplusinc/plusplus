@@ -12,8 +12,9 @@ their results, thinking, system reminders, skill bodies, command output, task no
 and messages from other sessions. A slash command shows as "/name args", and AskUserQuestion
 as its questions with their option labels, then the answers and any notes. Subagents show only
 as one line each: how many of their tool calls failed. Each session's heading names its
-transcript, for reading around a specific moment. The nightly retro's own session (named
-"Nightly retro", see the retro skill) is skipped, so a run never reads the last run's digest.
+transcript, for reading around a specific moment. The night's own sessions are skipped, so a
+night never reads the last one's digest: the scheduled task's (its first message opens with
+`<scheduled-task name="plusplus-night"`), and the older launchd runs' (named "Nightly retro").
 
 Reads the transcripts Claude Code keeps under ~/.claude/projects/: the folder for the main
 checkout and one per worktree under .claude/worktrees/, whichever checkout this runs from, and
@@ -22,8 +23,8 @@ worked in the checkout (a session started one folder up keeps its transcript the
 sessions of #133 to #140 did). Files not modified since <since> are not opened. With a file, writes the conversation there
 (making its folder) and prints only the first line: how many sessions, or "No sessions since".
 
-With --retro-reply, prints instead the last reply of the newest "Nightly retro" session in the
-main checkout: all the text it showed since the last message it received (a prompt or a
+With --retro-reply, prints instead the last reply of the newest night's session in the main
+checkout: all the text it showed since the last message it received (a prompt or a
 subagent's hand-back), API errors included, after a line with its local time. That is a
 night's report, for scripts/nightly-retro.sh show.
 """
@@ -34,7 +35,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-RETRO_SESSION_TITLE = "Nightly retro"
+RETRO_SESSION_TITLE = "Nightly retro"  # the launchd runs' title, before the scheduled task
+NIGHT_TASK = '<scheduled-task name="plusplus-night"'  # how the night's first message opens
 # Typed into no prompt, though they arrive without an origin: older sessions' agent-team
 # messages, and the notice after the app quits mid-turn.
 NOT_TYPED_PREFIXES = ("Another Claude session sent a message", "The app was quit while")
@@ -293,6 +295,8 @@ def subagent_counts(session_dir, since):
 
 
 def session(path, since):
+    if is_night(path):
+        return None
     custom_title = ai_title = None
     messages = []
     calls = ToolCalls()
@@ -300,8 +304,6 @@ def session(path, since):
     for entry in entries(path, since):
         kind = entry.get("type")
         if kind == "custom-title":
-            if entry.get("customTitle") == RETRO_SESSION_TITLE:
-                return None
             custom_title = entry.get("customTitle")
         elif kind == "ai-title":
             ai_title = entry.get("aiTitle")
@@ -342,19 +344,42 @@ def session(path, since):
     return first, "\n".join(lines)
 
 
+def opens_night(lines):
+    """Whether a transcript's lines, up to its first user message, are the night's: a scheduled
+    run of the plusplus-night task, or a launchd run titled "Nightly retro" (`claude --name`
+    wrote that title as the first line).
+
+    >>> opens_night(['{"type":"queue-operation"}',
+    ...     '{"type":"user","message":{"content":"<scheduled-task name=\\\\"plusplus-night\\\\" file=\\\\"x\\\\">\\\\n/night"}}'])
+    True
+    >>> opens_night(['{"type":"custom-title","customTitle":"Nightly retro"}', '{"type":"user","message":{"content":"/retro nightly"}}'])
+    True
+    >>> opens_night(['{"type":"user","message":{"content":"<scheduled-task name=\\\\"other\\\\">"}}'])
+    False
+    """
+    for line in lines:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("type") == "custom-title" and entry.get("customTitle") == RETRO_SESSION_TITLE:
+            return True
+        if entry.get("type") == "user":
+            return (text_parts(entry.get("message", {}).get("content")) or "").startswith(NIGHT_TASK)
+    return False
+
+
+def is_night(path):
+    with open(path, encoding="utf-8", errors="replace") as lines:
+        return opens_night(lines)
+
+
 def retro_session():
-    """The newest "Nightly retro" transcript in the main checkout, or None. `claude --name`
-    writes the title as a transcript's first line, so only first lines are read."""
+    """The newest night's transcript in the main checkout, or None."""
     paths = sorted(project_folders()[0].glob("*.jsonl"), key=lambda path: path.stat().st_mtime, reverse=True)
-    for path in paths:
-        with open(path, encoding="utf-8", errors="replace") as lines:
-            try:
-                first = json.loads(lines.readline())
-            except ValueError:
-                continue
-        if isinstance(first, dict) and first.get("type") == "custom-title" and first.get("customTitle") == RETRO_SESSION_TITLE:
-            return path
-    return None
+    return next((path for path in paths if is_night(path)), None)
 
 
 def last_reply(path):
@@ -379,7 +404,7 @@ def last_reply(path):
 def print_retro_reply():
     path = retro_session()
     if path is None:
-        print(f'No "{RETRO_SESSION_TITLE}" session in {project_folders()[0]}.', file=sys.stderr)
+        print(f"No night's session in {project_folders()[0]}.", file=sys.stderr)
         sys.exit(1)
     reply = last_reply(path)
     if reply is None:
