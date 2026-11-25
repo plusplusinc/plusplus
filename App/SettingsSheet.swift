@@ -54,13 +54,22 @@ struct SettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    // Its own label, so the prominent glass's label color reaches the ×.
-                    Button(role: .close) {
-                        dismiss()
-                    } label: {
-                        Label("Close", systemImage: "xmark").barLabelStyle()
+                    if look.theme.glassTint(in: colorScheme) == nil {
+                        Button(role: .close) { dismiss() }
+                    } else {
+                        // An image of its own, so the prominent glass's label color reaches the
+                        // ×: with the close role, or a `Label`, the bar drew its own ×, white on
+                        // any tint.
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.ppBarGlyph)
+                                .barLabelStyle()
+                        }
+                        .accessibilityLabel("Close")
+                        .themedBarButton()
                     }
-                    .themedBarButton()
                 }
             }
         }

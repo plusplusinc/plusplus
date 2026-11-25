@@ -47,8 +47,8 @@ nonisolated extension EnvironmentValues {
 
 private struct ThemedBarButton: ViewModifier {
     /// The prominent glass's tint, and the color its labels take in place of their own.
-    private static let tint: ColorToken = .surface
-    private static let label: ColorToken? = nil
+    private static let tint: ColorToken = .accent
+    private static let label: ColorToken? = .background
 
     @Environment(\.self) private var environment
 
