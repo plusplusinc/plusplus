@@ -41,4 +41,19 @@ nonisolated struct ColorMathTests {
         let passing = RGB(0x073642)
         #expect(nudge(passing, to: 4.5, on: [background], awayFrom: background) == passing)
     }
+
+    @Test("Hue distance takes the short way round, across the green end of the circle")
+    func hueDistanceWraps() {
+        // Hues of about 169° and -169°: 22.6° apart, not 337.4°.
+        let (teal, green) = (
+            OKLab(lightness: 0.6, greenRed: -0.1, blueYellow: -0.02),
+            OKLab(lightness: 0.6, greenRed: -0.1, blueYellow: 0.02),
+        )
+        #expect(abs(teal.hueDistance(to: green) - 22.6) < 0.1)
+        let (blue, yellow) = (
+            OKLab(lightness: 0.6, greenRed: 0, blueYellow: -0.1),
+            OKLab(lightness: 0.6, greenRed: 0, blueYellow: 0.1),
+        )
+        #expect(abs(blue.hueDistance(to: yellow) - 180) < 0.001)
+    }
 }
