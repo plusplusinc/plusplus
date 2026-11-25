@@ -88,3 +88,37 @@ enum KeyStage<Face: Equatable & Identifiable>: Equatable {
         }
     }
 }
+
+/// Which staged key a bar presents, as the view it is, over the kinds its faces are. A key taken
+/// away goes on down as the kind it last followed; presented again before it is gone, as that
+/// kind, it is the same key and turns back up; as another, it is a new key, coming up as that one
+/// while the other goes on down. Put back as the one going, it came back with that key's stage
+/// and swapped on its way up: Skip rest's keys went down, up, and down again before Log set rose
+/// (2026-11-25). Worked out in the update that brings the key back, from what the bar followed
+/// before it.
+struct KeyRound<Kind: Equatable>: Equatable {
+    private var id = 0
+    /// The kind the presented key last followed: the one a key taken away goes down as.
+    private var shown: Kind
+    private var isAway = false
+
+    init(kind: Kind) {
+        shown = kind
+    }
+
+    /// The staged key's id, presented as `kind`.
+    func id(presenting kind: Kind) -> Int {
+        isAway && kind != shown ? id + 1 : id
+    }
+
+    /// Follows the bar after an update: the key presented as `kind`, or away.
+    mutating func follow(_ kind: Kind, isPresented: Bool) {
+        guard isPresented else {
+            isAway = true
+            return
+        }
+        id = id(presenting: kind)
+        shown = kind
+        isAway = false
+    }
+}
