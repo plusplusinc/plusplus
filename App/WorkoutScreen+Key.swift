@@ -59,6 +59,9 @@ extension WorkoutScreen {
         case let .back(exercise, isAbove):
             // Whole, wrapping at the largest text sizes rather than cut short.
             Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
+        case .continueWorkout:
+            // The word alone, in Log set's light key (decided 2026-11-24).
+            Text("Continue")
         case .log, .finish, .rest, .count:
             // One branch, so words that stay are the same view: a branch per role crossfaded
             // "Log last set" into itself as the last set's row closed, which dimmed it.
@@ -73,6 +76,7 @@ extension WorkoutScreen {
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
         case .finish: String(localized: "Finish workout")
         case .rest: String(localized: "Skip rest")
+        case .continueWorkout: String(localized: "Continue workout")
         }
     }
 
@@ -163,6 +167,11 @@ extension WorkoutScreen {
             extendRest(by: seconds)
         case let .extendCount(seconds):
             session.extendCount(by: seconds)
+        case .continueWorkout:
+            // As the time key at the top resumes it; only ever a resume.
+            if session.loggedWorkout?.isPaused == true {
+                session.togglePause()
+            }
         case .nothing:
             break
         }

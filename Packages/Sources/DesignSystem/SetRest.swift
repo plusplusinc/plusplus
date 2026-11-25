@@ -172,7 +172,7 @@ struct SetRoom: View, Animatable {
                             block: block,
                             size: size,
                             turns: rest.turnsFigure && !reduceMotion,
-                            color: rest.isPaused ? .textSecondary : .textPrimary,
+                            color: .textPrimary,
                             shown: rest.kind.shown(length: rest.length),
                             label: rest.kind.spokenAs,
                         )

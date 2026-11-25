@@ -30,7 +30,7 @@ public struct WorkoutTimeLabel: View {
             .imageScale(.small)
             .accessibilityHidden(true)
             Text(text)
-                .foregroundStyle(.pp(isPaused ? .textSecondary : .textPrimary))
+                .foregroundStyle(.pp(.textPrimary))
         }
         .font(.ppWorkoutTime)
         .padding(.horizontal, Spacing.xs)

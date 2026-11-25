@@ -292,7 +292,7 @@ private struct RestRoom: View, Animatable {
                 locale: locale,
                 turns: !reduceMotion,
                 skips: restSkips,
-                color: block.isPaused ? .textSecondary : .textPrimary,
+                color: .textPrimary,
             )
             .figureBox(size: size)
             .padding(.top, Spacing.md)

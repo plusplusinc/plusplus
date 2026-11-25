@@ -8,7 +8,7 @@ extension WorkoutKeyTests {
     /// The phase after `set` was logged with a rest after it, leading to `step`, played on to
     /// `beat` as the screen plays it: drawn, landed between exercises, settled, and, between
     /// sets, returning.
-    private static func resting(
+    static func resting(
         _ set: PlannedSet,
         leadingTo step: LiveWorkout.Step,
         to beat: WorkoutPhase.Resting.Beat,
