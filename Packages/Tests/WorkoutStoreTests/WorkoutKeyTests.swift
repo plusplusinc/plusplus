@@ -58,7 +58,7 @@ struct WorkoutKeyTests {
         }
 
         /// The workout with its first `count` sets logged, in order, at their rows' plans.
-        func live(logged count: Int) -> LiveWorkout {
+        func live(logged count: Int, paused: Bool = false) -> LiveWorkout {
             let start = Date(timeIntervalSinceReferenceDate: 1000)
             var live = LiveWorkout(
                 workout: workout,
@@ -72,21 +72,25 @@ struct WorkoutKeyTests {
                 guard let set = live.currentSet, let row = live.currentExercise else { break }
                 live.loggedWorkout = live.loggedWorkout.logging(set, of: row, at: start)
             }
+            if paused {
+                live.loggedWorkout = live.loggedWorkout.pausing(at: start + 60)
+            }
             return live
         }
 
         /// The key with `logged` sets stored, nil out of a workout, drawn with `shown` of them
-        /// (all, unless given).
+        /// (all, unless given), paused or not.
         func key(
             logged: Int?,
             shown: Int? = nil,
             phase: WorkoutPhase = .running,
             wayBack: WorkoutKey.WayBack? = nil,
             isScrolledAway: Bool = false,
+            paused: Bool = false,
         ) -> WorkoutKey {
             WorkoutKey(
-                stored: logged.map(live(logged:)),
-                shown: (shown ?? logged).map(live(logged:)),
+                stored: logged.map { live(logged: $0, paused: paused) },
+                shown: (shown ?? logged).map { live(logged: $0, paused: paused) },
                 phase: phase,
                 wayBack: wayBack,
                 isScrolledAway: isScrolledAway,
@@ -208,6 +212,7 @@ struct WorkoutKeyTests {
     static func rows() throws -> [Row] {
         let seed = try Seed()
         return try logs(seed) + playing(seed) + away(seed) + ending(seed) + restRows(seed)
+            + pausedRows(seed)
     }
 
     @Test("The key's words and tap", arguments: try rows())

@@ -5,7 +5,7 @@ import DesignSystem
 import SwiftUI
 import Testing
 
-/// The workout time key's label: its icon on the digits' baseline, white while running and gray
+/// The workout time key's label: its icon on the digits' baseline, white while running and
 /// while paused. The glass key around it is the system's bar item, seen on the simulator.
 @Suite("Workout time label")
 struct WorkoutTimeLabelSnapshotTests {
@@ -23,7 +23,7 @@ struct WorkoutTimeLabelSnapshotTests {
         assertThemedSnapshots(of: label("04:12", isPaused: false), width: Self.width)
     }
 
-    @Test("Paused: play in white and the time in gray, at the running label's width")
+    @Test("Paused: play and the time in white, at the running label's width")
     func paused() {
         assertThemedSnapshots(of: label("04:12", isPaused: true), width: Self.width)
     }
