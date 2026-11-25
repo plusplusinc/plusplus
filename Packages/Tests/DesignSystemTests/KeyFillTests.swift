@@ -32,7 +32,7 @@ struct KeyFillTests {
 
     @Test("A paused fill holds its share at any moment; one over is full")
     func pausedHolds() {
-        let paused = KeyFill(length: 90, ends: .distantPast, pausedLeft: 60, isPaused: true)
+        let paused = KeyFill(length: 90, ends: .distantPast, pausedLeft: 60)
         #expect(paused.share(at: Self.now) == paused.share(at: Self.now.addingTimeInterval(500)))
         #expect(abs(paused.share(at: Self.now) - 1.0 / 3) < 1e-9)
         #expect(KeyFill(length: 90, ends: .distantFuture, isOver: true).share(at: Self.now) == 1)

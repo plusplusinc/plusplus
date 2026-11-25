@@ -31,7 +31,8 @@ import WorkoutStore
 /// (`LiveWorkout.skipHold`), then as it goes, never 0:00 (`WorkoutPhase.skipRest(left:)`), and
 /// the screen moves on as at a rest's end; +15 s steps the fill back and turns the countdown,
 /// the dot staying put. A pause holds the countdown, white, and swaps the keys for Continue
-/// (`WorkoutKey.continueWorkout`), the fill going gray as they go. Taps on them while the rest is
+/// (`WorkoutKey.continueWorkout`), the fill held, purple, as they go. Taps on them while the rest
+/// is
 /// still coming in, as a double tap's second on Log set, through 0:00's hold, or after a skip,
 /// do nothing. With Reduce Motion, each move is one crossfade, the dot at the word through the
 /// rest.

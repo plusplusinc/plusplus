@@ -135,8 +135,8 @@ extension WorkoutScreen {
         footShowsEmpty || keyKeepsRoom
     }
 
-    /// The fill of Skip rest: running while the rest runs, gray and held while paused, seen only
-    /// as the keys swap out for Continue; held where
+    /// The fill of Skip rest: running while the rest runs, held where it stood while paused, in
+    /// its own color, seen only as the keys swap out for Continue; held where
     /// it stood where End came mid-rest; else full, as the keys leave once the rest is over.
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,
@@ -151,12 +151,7 @@ extension WorkoutScreen {
               resting.remaining(atClock: loggedWorkout.clock(at: .now)) > 0
         else { return .over }
         let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
-        return KeyFill(
-            length: Double(resting.length),
-            ends: ends,
-            pausedLeft: pausedLeft,
-            isPaused: loggedWorkout.isPaused,
-        )
+        return KeyFill(length: Double(resting.length), ends: ends, pausedLeft: pausedLeft)
     }
 
     /// What a tap on the key, or on Skip rest or +15 s, does. A log is stored through the session
