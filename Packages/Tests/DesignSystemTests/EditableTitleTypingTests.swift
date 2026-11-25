@@ -45,10 +45,7 @@ struct EditableTitleTypingTests {
         let window = UIWindow.sceneless(hosting: host, at: .large)
         defer { window.isHidden = true }
         window.layoutIfNeeded()
-        func field(in view: UIView) -> UITextView? {
-            view as? UITextView ?? view.subviews.lazy.compactMap(field(in:)).first
-        }
-        let field = try #require(field(in: host.view))
+        let field = try #require(Self.field(in: host.view))
         window.settle()
         try #require(field.becomeFirstResponder())
         window.settle()
@@ -62,6 +59,69 @@ struct EditableTitleTypingTests {
         }
         try #require(field.isFirstResponder, "The edit ended")
         return log.names
+    }
+
+    private static func field(in view: UIView) -> UITextView? {
+        view as? UITextView ?? view.subviews.lazy.compactMap(field(in:)).first
+    }
+
+    /// A draft that hands the field `shown`, which the test moves on by hand, so an update can
+    /// reach the field before the draft has taken what the field set: in the app a SwiftUI
+    /// update can read the title's draft a key or two behind the field, as a workout is first
+    /// named.
+    @Observable
+    final class LaggingDraft {
+        var shown: String
+        /// Changed to make SwiftUI update the field.
+        var pass = 0
+
+        init(_ shown: String) {
+            self.shown = shown
+        }
+    }
+
+    private struct LaggingHost: View {
+        let draft: LaggingDraft
+
+        var body: some View {
+            EditableTitleContent(
+                draft: Binding { draft.shown } set: { _ in },
+                placeholder: "New workout \(draft.pass)",
+                shownPlaceholder: "New workout",
+                isEditing: true,
+                blinks: false,
+                accessibilityLabel: "Workout name",
+                accessibilityHint: "Renames the workout.",
+            )
+            .frame(width: 370)
+        }
+    }
+
+    @Test("A draft behind the field's typing never puts back what was typed over")
+    func laggingDraftKeepsTyping() throws {
+        let draft = LaggingDraft("Leg")
+        let host = UIHostingController(rootView: LaggingHost(draft: draft))
+        let window = UIWindow.sceneless(hosting: host, at: .large)
+        defer { window.isHidden = true }
+        window.layoutIfNeeded()
+        let field = try #require(Self.field(in: host.view))
+        window.settle()
+        try #require(field.becomeFirstResponder())
+        window.settle()
+        field.deleteBackward()
+        field.deleteBackward()
+        // An update with the draft still at a text the field has typed past.
+        draft.pass += 1
+        window.settle()
+        #expect(field.text == "L", "An update put a text typed over back in the field")
+        draft.shown = "Le"
+        draft.pass += 1
+        window.settle()
+        #expect(field.text == "L", "An update put a text typed over back in the field")
+        // A text the field never held still reaches it.
+        draft.shown = "Arm"
+        window.settle()
+        #expect(field.text == "Arm", "The draft no longer reaches the field")
     }
 
     @Test("Each letter typed reaches the title before the edit ends")

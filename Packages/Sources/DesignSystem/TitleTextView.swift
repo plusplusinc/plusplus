@@ -65,8 +65,17 @@ struct TitleTextView: UIViewRepresentable {
             view.typingAttributes = [.font: font, .foregroundColor: color]
             view.placeholderView.font = font
         }
-        if view.text != draft, view.markedTextRange == nil {
+        // While editing, the field is ahead of the draft: an update can read the draft a key or
+        // two behind what was typed, as one did when a first key named the workout, and writing
+        // that back would undo those keys, with the next ones landing in the text it restored.
+        // So a draft at a text the field has held since the two last matched is passed over; any
+        // other is written, as a suggestion opening or an edit ending is.
+        let coordinator = context.coordinator
+        if view.text == draft {
+            coordinator.held = [draft]
+        } else if !(isEditing && coordinator.held.contains(draft)), view.markedTextRange == nil {
             view.text = draft
+            coordinator.held = [draft]
             resized = true
         }
 
@@ -148,6 +157,9 @@ struct TitleTextView: UIViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: TitleTextView
+        /// The texts the field has held since the draft last matched it, the matched one first:
+        /// what a draft behind the field's typing can still read as.
+        var held: [String] = []
 
         init(_ parent: TitleTextView) {
             self.parent = parent
@@ -201,6 +213,7 @@ struct TitleTextView: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             guard let view = textView as? TitleFieldView else { return }
+            held.append(view.text)
             if parent.draft != view.text {
                 parent.draft = view.text
             }
