@@ -65,7 +65,20 @@ struct TitleTextView: UIViewRepresentable {
             view.typingAttributes = [.font: font, .foregroundColor: color]
             view.placeholderView.font = font
         }
-        if view.text != draft, view.markedTextRange == nil {
+        // While editing, the field is ahead of the draft: an update can read the draft a key or
+        // two behind what was typed, as one did when a first key named the workout, and writing
+        // that back would undo those keys, with the next ones landing in the text it restored.
+        // Why SwiftUI reads it behind there isn't known. The only other write while editing is
+        // the suggestion opening, which the field never held, so a draft at a text the field has
+        // held in this edit is passed over; once the edit ends, the draft is written as it is.
+        let coordinator = context.coordinator
+        if !isEditing {
+            coordinator.held = []
+        }
+        if view.text != draft, !coordinator.held.contains(draft), view.markedTextRange == nil {
+            if isEditing {
+                coordinator.held.formUnion([view.text, draft])
+            }
             view.text = draft
             resized = true
         }
@@ -148,6 +161,9 @@ struct TitleTextView: UIViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: TitleTextView
+        /// The texts the field has held in this edit: what a draft behind its typing can still
+        /// read as. Empty at rest.
+        var held: Set<String> = []
 
         init(_ parent: TitleTextView) {
             self.parent = parent
@@ -201,6 +217,9 @@ struct TitleTextView: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             guard let view = textView as? TitleFieldView else { return }
+            if parent.isEditing {
+                held.formUnion([parent.draft, view.text])
+            }
             if parent.draft != view.text {
                 parent.draft = view.text
             }
