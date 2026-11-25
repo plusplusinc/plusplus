@@ -21,7 +21,9 @@ tokens, 126 tool uses, 1244020 ms, then, resumed, 235600 tokens, 33 tool uses, 2
 
 `post` checks each line's shape and adds them to the PR as one comment headed `Agent record`, as
 the verifier's record is a comment headed `Verifier record`: a comment can be added after the
-merge, and the squash commit stays as it was. One `gh pr comment` call.
+merge, and the squash commit stays as it was. One `gh pr comment` call. When a line is a
+verifier's, one `gh pr view` more: a PR with no `Verifier record` comment is named on stderr, with
+what to post, since a verifier that ran before the PR existed, or stopped early, leaves none.
 
 `tally` reads every PR merged to main since the date, with its comments and its commits' check
 states, in one GraphQL request per 100 PRs (about 2 of the 5,000 points an hour each), and then,
@@ -138,6 +140,18 @@ def post(pr, lines):
         raise ValueError(f"not a record line, as `line` prints them: {bad[0]}")
     body = "\n".join([HEADER, *lines])
     subprocess.run(["gh", "pr", "comment", str(pr), "--body-file", "-"], input=body, text=True, check=True)
+    if any(LINE.match(text)["role"] == "verifier" for text in lines) and not verified(pr):
+        return (f"PR #{pr} has no comment that starts `{VERIFIER}`, so the tallies count this verifier's "
+                "run as catching nothing. Post the record from its hand-back, in the shape "
+                f"`.claude/agents/verifier.md` gives: gh pr comment {pr} --body-file -")
+    return None
+
+
+def verified(pr):
+    """Whether the PR carries a verifier's record, which the verifier posts itself."""
+    query = f'[.comments[].body | startswith("{VERIFIER}")] | any'
+    return subprocess.run(["gh", "pr", "view", str(pr), "--json", "comments", "--jq", query],
+                          capture_output=True, text=True, check=True).stdout.strip() == "true"
 
 
 def repo():
@@ -301,7 +315,9 @@ def main(argv):
             print(line(*opts.args, model=opts.model, round=opts.round, after=opts.after, note=opts.note))
             return 0
         if opts.command == "post" and len(opts.args) >= 2 and opts.args[0].isdigit():
-            post(opts.args[0], opts.args[1:])
+            missing = post(opts.args[0], opts.args[1:])
+            if missing:
+                print(f"agent-record: {missing}", file=sys.stderr)
             return 0
         if opts.command == "tally" and len(opts.args) == 1 and re.fullmatch(r"\d{4}-\d{2}-\d{2}", opts.args[0]):
             prs, cost, remaining = fetch(opts.args[0])
