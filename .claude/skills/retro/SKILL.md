@@ -156,7 +156,7 @@ worktree, which Claude Code won't let edit the main checkout, appends its rows u
 `## To merge` heading with the shell (`cat >> … <<'ROWS'`), and the next retro moves them.
 
 On the first run after a month ends, the retro also reviews the whole codebase against "What
-the codebase is for" and the top of the board's Todo, and cards what the coming work will need,
+the codebase is for" and the top of the board's Definitely, and cards what the coming work will need,
 each with its evidence in the code; the lead runs the same review before a large feature.
 
 On the first run after a month ends, and on request (after a model upgrade, ask for one), the
