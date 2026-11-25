@@ -47,8 +47,6 @@ struct WorkoutLauncher: View {
                     WorkoutsScreen(session: session, namer: namer, finishBeats: $finishBeats)
                 case .log, .loggedWorkout:
                     LogScreen(session: session)
-                case .settings, .theme:
-                    SettingsScreen(session: session)
                 }
             }
             // A finish's hold before its way to Log is still: no touch reaches the screen, its

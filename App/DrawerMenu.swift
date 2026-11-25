@@ -3,8 +3,7 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// What ++ opens: the app's title, then Workouts, Log, and Settings, each showing in place of the
-/// screen
+/// What ++ opens: the app's title, then Workouts and Log, each showing in place of the screen
 /// showing. The place showing is marked; while a workout shows, Workouts is, since an open
 /// workout is one of them, so a drawer never opens with no place marked.
 ///
@@ -19,6 +18,10 @@ import WorkoutStore
 /// until the drawer has fully closed. With Reduce Motion the mark changes rows at once and the
 /// drawer waits a moment before closing; with VoiceOver a tap goes straight to the place, as the
 /// drawer has always done.
+///
+/// Settings sits apart at the drawer's bottom, a button in a place's style that is never marked:
+/// it opens Settings as a full-height sheet over the drawer (`SettingsSheet`), and closing it
+/// finds the drawer as it was.
 struct DrawerMenu: View {
     let session: AppSession
 
@@ -26,6 +29,7 @@ struct DrawerMenu: View {
     /// mark, which it keeps through the close. The drawer is in the hierarchy only while it
     /// shows, so this is taken anew each time.
     @State private var held: AppSession.Showing?
+    @State private var isSettingsOpen = false
     @AccessibilityFocusState private var isTitleFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -52,21 +56,30 @@ struct DrawerMenu: View {
                         go(to: .workouts, from: showing)
                     }
                     // An open workout is one of the Workouts, so it marks their row too.
-                    .buttonStyle(.drawer(isSelected: showing == .workouts || showing == .workout))
+                    .buttonStyle(.drawer(isSelected: showing != .log))
                     Button("Log", systemImage: "book.closed") {
                         go(to: .log, from: showing)
                     }
                     .buttonStyle(.drawer(isSelected: showing == .log))
-                    Button("Settings", systemImage: "gearshape") {
-                        go(to: .settings, from: showing)
-                    }
-                    .buttonStyle(.drawer(isSelected: showing == .settings))
                 }
                 .drawerMarks()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.sm)
             .padding(.top, Spacing.sm)
+        }
+        // Settings is no place: it opens over the drawer, so it is never marked and lives apart
+        // from the places, at the bottom.
+        .safeAreaInset(edge: .bottom, spacing: Spacing.sm) {
+            Button("Settings", systemImage: "gearshape") {
+                isSettingsOpen = true
+            }
+            .buttonStyle(.drawer(isSelected: false))
+            .padding(.horizontal, Spacing.sm)
+            .padding(.bottom, Spacing.sm)
+        }
+        .sheet(isPresented: $isSettingsOpen) {
+            SettingsSheet()
         }
         // The drawer is built as it starts to show, so this runs each time it does, before its
         // first frame.
@@ -84,7 +97,6 @@ struct DrawerMenu: View {
             switch place {
             case .workouts: session.showWorkouts()
             case .log: session.showLog()
-            case .settings: session.showSettings()
             case .workout: session.closeDrawer()
             }
         } else {

@@ -1,16 +1,17 @@
 import DesignSystem
-import Session
 import SwiftUI
-import WorkoutStore
 
-/// How the app looks, reached from the drawer as Log is, with ++ leading and an inline title.
-/// Two groups, each under its label in the headings' style: Appearance, the system's segmented
-/// control as Log's tabs are drawn, Light, Dark, and Auto; and Theme, the theme in use as its
-/// card (`ThemeCard`) with a chevron, which only opens the themes (`ThemeScreen`), pushed with the
-/// system push. A choice takes at once, with no Save: the app recolors under the finger.
-struct SettingsScreen: View {
-    @Bindable var session: AppSession
+/// How the app looks, a sheet at full height only, opened from the drawer's Settings button over
+/// the drawer, with an inline title and the system's Close leading and the drag indicator, as the
+/// exercise sheet has. Two groups, each under its label in the headings' style: Appearance, the
+/// system's segmented control as Log's tabs are drawn, Light, Dark, and Auto; and Theme, the
+/// theme in use as its card (`ThemeCard`) with a chevron, which only opens the themes
+/// (`ThemeScreen`), pushed on the sheet's own stack. A choice takes at once, with no Save: the
+/// sheet and the app behind it recolor under the finger.
+struct SettingsSheet: View {
     @Environment(Look.self) private var look
+    @Environment(\.dismiss) private var dismiss
+    @State private var isThemesPushed = false
 
     var body: some View {
         @Bindable var look = look
@@ -27,7 +28,7 @@ struct SettingsScreen: View {
                     .padding(.bottom, Spacing.lg)
                     GroupLabel("Theme")
                     Button {
-                        session.openThemes()
+                        isThemesPushed = true
                     } label: {
                         ThemeCard(theme: look.theme, mark: .opens)
                     }
@@ -39,32 +40,25 @@ struct SettingsScreen: View {
                 .padding(.top, Spacing.md)
                 .padding(.bottom, Spacing.xl)
             }
-            .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
-            .navigationDestination(isPresented: isThemesPushed) {
+            .navigationDestination(isPresented: $isThemesPushed) {
                 ThemeScreen()
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    MenuButton(session: session)
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(role: .close) { dismiss() }
                 }
             }
         }
-    }
-
-    /// The themes pushed, which the back button and the back swipe pop.
-    private var isThemesPushed: Binding<Bool> {
-        Binding {
-            session.screen == .theme
-        } set: { isPushed in
-            if isPushed {
-                session.openThemes()
-            } else {
-                session.popThemes()
-            }
-        }
+        // A sheet is a presentation of its own: the window's held scheme reached it as it
+        // opened but not as it changed, and under PlusPlus a choice of Light left the sheet dark
+        // over a light window.
+        .preferredColorScheme(look.colorScheme)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Color.pp(.background))
     }
 }
 
@@ -118,12 +112,6 @@ struct ThemeScreen: View {
 }
 
 #Preview {
-    SettingsScreen(
-        session: AppSession(
-            workout: .init(name: "Upper body"),
-            store: nil,
-            namer: .muscleGroupsOnly,
-        ),
-    )
-    .environment(Look(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+    SettingsSheet()
+        .environment(Look(defaults: UserDefaults(suiteName: "preview") ?? .standard))
 }
