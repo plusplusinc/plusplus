@@ -58,7 +58,7 @@ extension LogScreen {
         let number = period.loggedWorkoutCount.formatted(.number.locale(locale))
         var attributed = AttributedString.monoNumbers(text, font: .ppRowDetailNumber)
         if let range = attributed.range(of: number) {
-            attributed[range].foregroundColor = .pp(.done)
+            attributed[range].foregroundColor = .pp(.doneText)
         }
         return Text(attributed)
             .font(.ppRowDetail)

@@ -53,11 +53,21 @@ nonisolated struct ThemeContrastTests {
         Pair(.textPrimary, on: .selectionFill, 4.5),
         Pair(.textSecondary, on: .background, 4.5),
         Pair(.textSecondary, on: .surface, 4.5),
+        Pair(.textSecondary, on: .surfaceRaised, 4.5),
+        Pair(.textSecondary, on: .selectionFill, 4.5),
         Pair(.onPrimaryKey, on: .primaryKey, 4.5),
         Pair(.onPrimaryKey, on: .accent, 4.5),
     ] + [ColorToken.rail, .railJoin, .done, .accent, .textTertiary].flatMap { mark in
         [Pair(mark, on: .background, 3), Pair(mark, on: .well, 3)]
     }
+
+    /// Done drawn as text (Log's counts and figures) on the screen and on a card, and under a
+    /// done day's number, which draws in the background's color on it. PlusPlus light's purple
+    /// is 4.26:1 on its white and has its own card, so the pairs hold the base16 looks.
+    private static let doneTextPairs: [Pair] = [
+        Pair(.doneText, on: .background, 4.5),
+        Pair(.doneText, on: .surface, 4.5),
+    ]
 
     private struct Pair {
         let drawn: ColorToken
@@ -74,7 +84,8 @@ nonisolated struct ThemeContrastTests {
         arguments: looks,
     )
     func ratiosHold(look: Look) {
-        for pair in Self.pairs {
+        let doneText = look.theme == .plusPlus ? [] : Self.doneTextPairs
+        for pair in Self.pairs + doneText {
             let ratio = Self.contrast(look.color(pair.drawn), look.color(pair.ground))
             #expect(
                 ratio >= pair.ratio,
@@ -87,9 +98,8 @@ nonisolated struct ThemeContrastTests {
         }
     }
 
-    /// Two 4 pt bars side by side whose hues are within 80° (a purple beside a blue) read as one
-    /// color unless 0.12 apart in OKLab lightness; hues further apart need only 0.05, PlusPlus
-    /// dark's own margin.
+    /// Two 4 pt bars side by side whose hues are close (a purple beside a blue) read as one color
+    /// unless further apart in lightness (`Palette.doneGap`).
     @Test(
         "Done stands apart from active, further where their hues are close, and to-do from done",
         arguments: looks,
@@ -100,7 +110,7 @@ nonisolated struct ThemeContrastTests {
         let (accent, done) = (accentLab.lightness, doneLab.lightness)
         let toDo = Self.lightness(look.color(.toDo))
         let hues = accentLab.hueDistance(to: doneLab)
-        let needed = hues < 80 ? 0.12 : 0.05
+        let needed = hues < Palette.closeHues ? Palette.closeHueGap : Palette.lightnessGap
         #expect(
             abs(accent - done) >= needed,
             """
@@ -111,6 +121,35 @@ nonisolated struct ThemeContrastTests {
         #expect(
             abs(done - toDo) >= 0.10,
             "\(look.testDescription): done and toDo are \(Self.shown(abs(done - toDo))) apart",
+        )
+    }
+
+    /// A finished exercise's node (`done`) and an upcoming one (`rail`) side by side on a rail:
+    /// they differ by hue as much as lightness, a purple beside a gray, so the guarantee is a
+    /// distance in OKLab, `Palette.nodeDistance`, not a contrast ratio.
+    @Test("A finished node stands apart from an upcoming one", arguments: looks)
+    func nodesStandApart(look: Look) {
+        let (done, rail) = (OKLab(RGB(look.color(.done))), OKLab(RGB(look.color(.rail))))
+        let distance = (
+            pow(done.lightness - rail.lightness, 2) + pow(done.greenRed - rail.greenRed, 2)
+                + pow(done.blueYellow - rail.blueYellow, 2),
+        ).squareRoot()
+        #expect(
+            distance >= Palette.nodeDistance,
+            "\(look.testDescription): done and rail are \(Self.shown(distance)) apart in OKLab",
+        )
+    }
+
+    /// A detail line in `textSecondary` reads a step down from the name above it in
+    /// `textPrimary`, not as the same text.
+    @Test("The quieter text is a step down from the text", arguments: looks)
+    func quieterTextStepsDown(look: Look) {
+        let step = abs(
+            Self.lightness(look.color(.textPrimary)) - Self.lightness(look.color(.textSecondary)),
+        )
+        #expect(
+            step >= Palette.textStep,
+            "\(look.testDescription): textSecondary is \(Self.shown(step)) from textPrimary",
         )
     }
 

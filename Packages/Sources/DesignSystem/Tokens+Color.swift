@@ -18,6 +18,10 @@ public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// Purple: done. A finished exercise's node, and the bars of the sets done. Apart from
     /// `accent` in lightness as well as hue, so the two read apart without color.
     case done = "ppDone"
+    /// Done as text, and a fill that text sits on: Log's counts and figures, and a done day's
+    /// square under its number. `done`'s purple, moved in lightness only as far as 4.5:1 on
+    /// `background` and `surface` needs; PlusPlus's is `done` itself.
+    case doneText = "ppDoneText"
     /// The outline of a key-shaped button, and the title's resting cursor.
     case borderStrong = "ppBorderStrong"
     /// The label on a primary key, and the + on its green circle.

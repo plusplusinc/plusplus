@@ -39,7 +39,7 @@ public struct LogRow: View {
             if let figures {
                 Text(AttributedString.monoNumbers(figures, font: .ppRowDetailNumber))
                     .font(.ppRowDetail)
-                    .foregroundStyle(.pp(.done))
+                    .foregroundStyle(.pp(.doneText))
             }
             if let detail {
                 Text(AttributedString.monoNumbers(detail, font: .ppRowDetailNumber))

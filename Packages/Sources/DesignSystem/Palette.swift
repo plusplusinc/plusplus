@@ -25,8 +25,8 @@ nonisolated struct Base16: Sendable {
     /// Which slot does which job: `text` the names and figures, `accent` what is active and
     /// makes something, `done` what is finished, `railJoin` what is arriving. The background is
     /// always `base00` and the comment gray `base03`; the rest differ by scheme: Dracula's
-    /// purple is `base0D`, Rosé Pine has no green, and Nord is known by its frost blue,
-    /// `base0C`. A theme names its own where the defaults miss what it is.
+    /// purple is `base0D`, Gruvbox's cleanest green is its aqua, `base0C`. A theme names its own
+    /// where the defaults miss its green, purple, or blue.
     struct Roles: Sendable {
         var text = 0x05
         var accent = 0x0B
@@ -103,26 +103,23 @@ nonisolated struct Palette: Sendable {
         let raised = gray(grays.raised, dark: 0.11, light: 0.09)
         let well = gray(grays.well, dark: -0.05, light: 0.05)
         let accent = nudged(nudged(scheme[roles.accent], 4.5, on: [background]), 3, on: [well])
-        let rail = nudged(scheme[0x03], 3, on: [background, well])
-        let done = Self.apart(
-            nudged(scheme[roles.done], 3, on: [background, well]),
-            from: accent,
+        let marks = [background, well]
+        let purple = nudged(scheme[roles.done], 3, on: marks)
+        let done = Self.apart(purple, from: accent, background: background, grounds: marks)
+        let rail = Self.node(nudged(scheme[0x03], 3, on: marks), apartFrom: done, grounds: marks)
+        let quieter = gray(grays.textSecondary, dark: 0.64, light: 0.64)
+        let textSecondary = nudged(quieter, 4.5, on: [background, surface, raised])
+        let textPrimary = Self.text(text, past: textSecondary, background: background)
+        let toDo = Self.toDo(
+            gray(grays.toDo, dark: 0.41, light: 0.25),
+            apartFrom: done,
             background: background,
-            grounds: [background, well],
         )
-        var toDo = gray(grays.toDo, dark: 0.41, light: 0.25)
-        let backgroundLightness = OKLab(background).lightness
-        while abs(OKLab(toDo).lightness - OKLab(done).lightness) < 0.10,
-              abs(OKLab(toDo).lightness - backgroundLightness) > 0.01
-        {
-            let step = OKLab(toDo).lightness > backgroundLightness ? -0.01 : 0.01
-            toDo = withLightness(toDo, OKLab(toDo).lightness + step)
-        }
         let black = RGB(0x000000)
         colors = [
             .background: background.resolved(),
-            .textPrimary: text.resolved(),
-            .primaryKey: text.resolved(),
+            .textPrimary: textPrimary.resolved(),
+            .primaryKey: textPrimary.resolved(),
             .onPrimaryKey: background.resolved(),
             .surface: surface.resolved(),
             .surfaceRaised: raised.resolved(),
@@ -131,19 +128,79 @@ nonisolated struct Palette: Sendable {
             .separator: gray(grays.line, dark: 0.30, light: 0.19).resolved(),
             .toDo: toDo.resolved(),
             .well: well.resolved(),
-            .textSecondary: nudged(
-                gray(grays.textSecondary, dark: 0.64, light: 0.64),
-                4.5,
-                on: [background, surface],
-            ).resolved(),
+            .textSecondary: textSecondary.resolved(),
             .rail: rail.resolved(),
             .textTertiary: rail.resolved(),
             .accent: accent.resolved(),
             .done: done.resolved(),
-            .railJoin: nudged(scheme[roles.railJoin], 3, on: [background, well]).resolved(),
+            .doneText: nudged(done, 4.5, on: [background, surface]).resolved(),
+            .railJoin: nudged(scheme[roles.railJoin], 3, on: marks).resolved(),
             .dim: black.resolved(opacity: isDark ? 0.5 : 0.25),
             .shadow: black.resolved(opacity: isDark ? 0.4 : 0.12),
         ]
+    }
+
+    /// How far the text stands past the quieter text in OKLab lightness, so a detail line reads
+    /// a step down from its name: the header of `Themes+Base16.swift`'s step for the quieter text.
+    static let textStep = 0.09
+
+    /// The theme's text, moved in lightness away from the background only as far as `textStep`
+    /// past `secondary` needs: where a scheme's text is soft (One dark's `ABB2BF`), the quieter
+    /// text at 4.5:1 on a chip otherwise sat almost on it.
+    private static func text(_ text: RGB, past secondary: RGB, background: RGB) -> RGB {
+        let (lightness, secondaryLightness) = (OKLab(text).lightness, OKLab(secondary).lightness)
+        let away = OKLab(background).lightness < secondaryLightness ? 1.0 : -1.0
+        let needed = secondaryLightness + away * textStep
+        guard (needed - lightness) * away > 0 else { return text }
+        return withLightness(text, needed + away * 0.005)
+    }
+
+    /// How far apart a finished exercise's node (`done`) and an upcoming one (`rail`) stand, as
+    /// a distance in OKLab. Not a contrast ratio: PlusPlus light's are 1.2:1 apart in contrast
+    /// and read apart by hue, a purple beside a gray, 0.20 apart; Kanagawa's, 0.08 apart, read
+    /// as one.
+    static let nodeDistance = 0.10
+
+    /// The rail's gray moved in lightness, from where it keeps 3:1 on `grounds`, until it stands
+    /// `nodeDistance` from `done`, the least step that keeps 3:1, away from `done`'s lightness
+    /// first. Moved, not `done`, so done stays the theme's purple.
+    private static func node(_ rail: RGB, apartFrom done: RGB, grounds: [RGB]) -> RGB {
+        func distance(_ gray: RGB) -> Double {
+            let (one, two) = (OKLab(gray), OKLab(done))
+            let lightness = one.lightness - two.lightness
+            let greenRed = one.greenRed - two.greenRed
+            let blueYellow = one.blueYellow - two.blueYellow
+            return (lightness * lightness + greenRed * greenRed + blueYellow * blueYellow)
+                .squareRoot()
+        }
+        guard distance(rail) < nodeDistance else { return rail }
+        let start = OKLab(rail).lightness
+        let away = start < OKLab(done).lightness ? -0.01 : 0.01
+        for step in 1 ... 50 {
+            for direction in [away, -away] {
+                let moved = withLightness(rail, start + Double(step) * direction)
+                if distance(moved) >= nodeDistance,
+                   grounds.allSatisfy({ contrast(moved, $0) >= 3 })
+                {
+                    return moved
+                }
+            }
+        }
+        return rail
+    }
+
+    /// A set still to do, moved toward the background until it is 0.10 from `done` in OKLab
+    /// lightness, or reaches the background.
+    private static func toDo(_ gray: RGB, apartFrom done: RGB, background: RGB) -> RGB {
+        var toDo = gray
+        let backgroundLightness = OKLab(background).lightness
+        while abs(OKLab(toDo).lightness - OKLab(done).lightness) < 0.10,
+              abs(OKLab(toDo).lightness - backgroundLightness) > 0.01
+        {
+            let step = OKLab(toDo).lightness > backgroundLightness ? -0.01 : 0.01
+            toDo = withLightness(toDo, OKLab(toDo).lightness + step)
+        }
+        return toDo
     }
 
     /// How far `done` and `accent` must be apart in OKLab lightness, by how far apart their hues

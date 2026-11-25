@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A calendar of whole weeks: a row of weekday initials in secondary text, then a row of seven
-/// rounded squares a week. A day marked done is filled purple (`done`), the others a quiet gray
+/// rounded squares a week. A day marked done is filled purple (`doneText`, so its number in the
+/// background's color keeps 4.5:1), the others a quiet gray
 /// fill (`selectionFill`); today is outlined, in primary text over purple and in the rail's gray
 /// over the gray; a day after today keeps its room and draws nothing. Each square shows its day
 /// of the month, small and centered, in SF Mono: secondary text on the gray, the background's
@@ -79,7 +80,7 @@ public struct DayGrid: View {
     private func squareView(_ square: Square) -> some View {
         let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
         return shape
-            .fill(.pp(square.isDone ? .done : .selectionFill))
+            .fill(.pp(square.isDone ? .doneText : .selectionFill))
             .overlay {
                 if square.isToday {
                     shape.strokeBorder(
