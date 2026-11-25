@@ -1710,6 +1710,24 @@ class SessionFolder(unittest.TestCase):
             nightly.begin(self.night, NIGHT, SESSION)
         self.assertIn(f"review-end {self.night.dir}", str(raised.exception))
 
+    def test_begin_run_as_a_command_exits_1_and_changes_nothing_while_the_card_is_open(self):
+        # The third verifier's probe on #282: the refusal was tested only as the exception begin raises.
+        nightly.run_next(self.night, NIGHT, SESSION, False)
+        (self.night.dir / "heard").touch()
+        before = (self.night.dir / "state.json").read_text(), (self.night.dir / "cards.json").read_text()
+        for session, folder in [(SESSION, self.night.dir), ("another-id", self.night.dir),
+                                ("another-id", self.main / ".build/retro/2026-10-29")]:
+            # No gh on this PATH: a begin that went on could reach no board.
+            result = subprocess.run([sys.executable, str(self.main / "scripts/nightly-tooling.py"), "begin", str(folder)],
+                                    capture_output=True, text=True, cwd=self.folder,
+                                    env={"PATH": "/usr/bin:/bin", "CLAUDE_CODE_SESSION_ID": session})
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn(f"decide {self.night.dir} PVTI_1", result.stdout)
+        self.assertEqual(((self.night.dir / "state.json").read_text(), (self.night.dir / "cards.json").read_text()), before)
+        self.assertEqual((self.night.dir / "session").read_text(), SESSION + "\n")
+        self.assertFalse((self.main / ".build/retro/2026-10-29").exists())
+        self.assertEqual(self.hooks(self.folder), str(self.night.dir / "git-hooks"))
+
     def arm(self):
         """decide on the card `next` took, whose PR passed its gates; returns its decision."""
         stub(self, sh=lambda *a, real=nightly.sh, **k: "me\n" if a[0] == "gh" else real(*a, **k),
@@ -1751,6 +1769,15 @@ class SessionFolder(unittest.TestCase):
             if decision == "parked":
                 self.assertIn("changed", entry["why"])
                 self.assertIn("changed", self.night.state()["stopped"])
+
+    def test_a_card_whose_entry_holds_no_hashes_is_parked_and_ends_the_cards(self):
+        # The third verifier's probe on #282: a card taken by a script that recorded none, or whose
+        # entry lost them, has nothing to compare, so it is never armed.
+        nightly.run_next(self.night, NIGHT, SESSION, False)
+        self.night.write("cards.json", [{k: v for k, v in entry.items() if k != "judges"} for entry in self.night.cards()])
+        entry = self.arm()
+        self.assertEqual(entry["decision"], "parked")
+        self.assertIn("changed", self.night.state()["stopped"])
 
     def test_no_card_starts_in_a_folder_outside_the_main_checkouts_worktrees(self):
         # The hook command finds the main checkout's guard from the session folder's path alone.
@@ -2656,6 +2683,26 @@ class GuardPassesOtherSessions(unittest.TestCase):
         nested = worktree / ".claude/worktrees/inner"
         nested.mkdir(parents=True)
         self.assertEqual(self.guard(hook_input(), nested).stderr, f"reached {folder}\n")
+
+    def test_the_guard_is_found_however_the_session_folders_path_is_spelled_and_a_days_call_passes_silently(self):
+        # The third verifier's probe on #282: the hook command reads the folder's path as text, so a
+        # trailing slash, a subfolder, or a space or quote in it must lead to the same guard.
+        main = self.root / "a 'q\" $x *" / "main"
+        (main / "scripts").mkdir(parents=True)
+        (main / ".claude/hooks").mkdir(parents=True)
+        (main / "scripts/nightly-tooling.py").write_text(self.FAKE)
+        shutil.copy(SCRIPTS.parent / ".claude/hooks/night-guard.sh", main / ".claude/hooks/night-guard.sh")
+        folder = main / ".build/retro/2026-10-28"
+        folder.mkdir(parents=True)
+        (folder / "session").write_text(SESSION + "\n")
+        worktree = f"{main}/.claude/worktrees/night session"
+        for project in [main, f"{main}/", worktree, f"{worktree}/", f"{worktree}/App/Sub", f"{main}/.claude/worktrees/",
+                        f"{main}//.claude/worktrees/x", f"{worktree}/.claude/worktrees/inner/"]:
+            result = self.guard(hook_input(), project)
+            self.assertEqual((result.returncode, result.stderr), (2, f"reached {folder}\n"), project)
+            for tool in ("Bash", "Edit", "Write", "Agent", "mcp__xcode__BuildProject"):
+                result = self.guard(hook_input("gh pr merge 7", tool, session="day-session"), project)
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""), (project, tool))
 
     def test_without_git_the_nights_call_still_reaches_the_guard(self):
         # The verifier's probe on #282: with no git on PATH, the night's merge passed.
