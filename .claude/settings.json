@@ -77,6 +77,18 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Agent|Task|Edit|Write|NotebookEdit|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "d=${CLAUDE_PROJECT_DIR%%/.claude/worktrees/*}/.claude/hooks/night-guard.sh; [ -f \"$d\" ] || exit 0; exec /bin/sh \"$d\"",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",

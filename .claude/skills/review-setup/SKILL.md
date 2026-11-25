@@ -1,12 +1,12 @@
 ---
 name: review-setup
-description: Review the whole setup (tools, packages, CI, scripts, skills, hooks, agent definitions, rules, MCP servers, Claude Code features, Xcode, iOS, and Swift) against what's new and the friction since the last review, asking what to keep, what to swap or cut, and what is missing. Writes a report the maintainer reads in two minutes and cards each change worth doing. The nightly runner starts it as `/review-setup nightly` once a month and once a newer major Xcode is installed; use on request.
+description: Review the whole setup (tools, packages, CI, scripts, skills, hooks, agent definitions, rules, MCP servers, Claude Code features, Xcode, iOS, and Swift) against what's new and the friction since the last review, asking what to keep, what to swap or cut, and what is missing. Writes a report the maintainer reads in two minutes and cards each change worth doing. The night's session starts it with `nightly` once a month and once a newer major Xcode is installed; use on request.
 argument-hint: "[nightly]"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh api:*), Bash(gh release:*), Bash(scripts/board.sh:*), Bash(scripts/conversations.py:*), Bash(scripts/lint-tools.sh:*), Bash(scripts/ci-times.py:*), Bash(claude --version), Bash(xcodebuild -version), Bash(swift --version), Bash(brew outdated:*), Bash(date:*), Read, Write, Glob, Grep, WebFetch, mcp__sosumi__searchAppleDocumentation, mcp__sosumi__fetchAppleDocumentation
 ---
 
 The retro fixes what tripped up one night's work; this asks, once a month, whether the setup is
-still the right one. Run it in the main checkout. Its output is a report and cards, never an
+still the right one. Its output is a report and cards, never an
 edit: a change it finds is a card, built like any other, and that includes making
 `docs/agent-tooling.md`, where today's choices and their reasons live, true again.
 
@@ -28,8 +28,8 @@ edit: a change it finds is a card, built like any other, and that includes makin
 
 ## 1. Collect
 
-The last review is the newest `.slices/review-setup/report-<date>.md`; with none, look back a
-month. Read only what changed since.
+The last review is the newest `<main checkout>/.slices/review-setup/report-<date>.md`; with
+none, look back a month. Read only what changed since.
 
 - **The setup today**: `Brewfile`, `scripts/lint-tools.sh`, `Packages/Package.swift`, `ci_scripts/`, `.github/`, `docs/xcode-cloud.md` and the budgets in
   `scripts/xcresult.py`, `scripts/`, `.claude/` (skills, agents, rules, hooks, `settings.json`),
@@ -42,7 +42,7 @@ month. Read only what changed since.
   release notes of a major version among them. The pinned lint tools and the Swift package get
   update cards and PRs without this review (`scripts/lint-tools.sh outdated`, Dependabot).
 - **The friction since**: the retro PRs' bodies (`gh pr list --state all --search "Retro of in:title created:>=<since>"`),
-  the ledger (`.slices/rules-ledger.md`: findings seen once, rules counted hurt), the Friction
+  the ledger (`<main checkout>/.slices/rules-ledger.md`: findings seen once, rules counted hurt), the Friction
   lines of PRs merged since, and `scripts/conversations.py <since>` read only around a moment.
 - **The board**, once (`scripts/board.sh list`), for cards already there.
 
@@ -113,7 +113,8 @@ it qualifies. It stays at the bottom of Definitely.
 
 ## 4. Report
 
-Write `<main checkout>/.slices/review-setup/report-<today>.md`. Its first line is exactly
+Write `.slices/review-setup/report-<today>.md`: with `nightly` in this session's folder, which
+`review-end` carries to the main checkout's; by day, in the main checkout's. Its first line is exactly
 `# Setup review <today>, Xcode <version>`: `scripts/nightly-tooling.py review` reads the name
 and that line to tell when the next is due. Under 40 lines, one line per item with its reason:
 

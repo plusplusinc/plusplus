@@ -83,6 +83,10 @@ it is missing (the download runs on after the hook's two minutes, logging to
 `.build/runtime-download.log`) and, once it is installed, deletes the older ones and the
 simulators left on them. `scripts/common.sh` moves each checkout's simulator onto it.
 
+`.claude/hooks/night-guard.sh` is the night's guard (see "The nightly retro"), for
+`.claude/settings.json` to run, the main checkout's copy, as a `PreToolUse` hook on every
+session's calls; until it does, no night card or review runs.
+
 Before writing a hook or a script that makes Claude Code behave a certain way, check whether its
 own configuration does it: an agent definition's `model:`, `tools:`, and `hooks:` (a hook for
 one kind of agent, which an agent can add; a `Stop` there runs as that agent stops), a
@@ -112,9 +116,10 @@ general-purpose on `CLAUDE_CODE_SUBAGENT_MODEL` when it is set, else the caller'
 the caller's model and Explore on the caller's (or the `opus` alias's when the caller runs
 Fable), since that variable alone doesn't change either; claude-code-guide on Haiku and
 statusline-setup on Sonnet. `/code-review` and `/simplify` start their own reviewers, on models
-this table doesn't set. The retro row is the general-purpose agent the retro skill starts: the
-Agent tool takes an alias and no effort, so the check finds `model: fable` in the skill and the
-effort is the night session's. `lookup` and `reviewer` keep Bash, which could write or commit;
+this table doesn't set. The retro and setup review rows are general-purpose agents their skills
+start: the Agent tool takes an alias and no effort, so the check finds `model: fable` in the
+skill and the effort is the night session's. That session, on the model its scheduled task sets
+in the app, leads the night's cards itself. `lookup` and `reviewer` keep Bash, which could write or commit;
 only their instructions keep them from changing anything.
 
 | Role | Set in | Model | Effort | Why | Set | Evidence |
@@ -124,8 +129,7 @@ only their instructions keep them from changing anything.
 | builder | `.claude/agents/builder.md` | `claude-opus-5-5` | high | Builds from a written plan, the longest phase, so a mid-tier model | 2026-11-11 | The card's starting choice; Opus built every slice before this table |
 | verifier | `.claude/agents/verifier.md` | `claude-fable-5-2` | high | Finds what the builder missed, so the strongest, and not the builder's model | 2026-11-11 | The card's starting choice; no record yet |
 | retro | `.claude/skills/retro/SKILL.md` | `fable` | — | Judges a day's work and edits the rules | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
-| night card lead | `scripts/nightly-tooling.py CARD` | `claude-fable-5-2` | high | Leads a card alone, with no maintainer to catch it | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
-| setup review | `scripts/nightly-tooling.py REVIEW` | `claude-fable-5-2` | high | Weighs the whole setup once a month | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
+| setup review | `.claude/skills/night/SKILL.md` | `fable` | — | Weighs the whole setup once a month | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
 | lookup | `.claude/agents/lookup.md` | `claude-haiku-5-5` | low | Finds a file, a symbol, or a fact, or reads documentation and quotes what it says | 2026-11-11 | The card's starting choice; no record yet |
 | repro | `.claude/agents/repro.md` | `claude-sonnet-5-5` | medium | Drives the simulator through `/run`'s steps, which the smallest model follows less surely | 2026-11-11 | A judgment, not measured; the first trial to run if repros come back right |
 | edit | `.claude/agents/edit.md` | `claude-sonnet-5-5` | medium | A rename or a move whose every step is given | 2026-11-11 | The card's starting choice; no record yet |
@@ -220,53 +224,36 @@ lives in packages.
 
 ## The nightly retro
 
-A scheduled task in the Claude desktop app, `plusplus-night`, starts a session in the main
-checkout every midnight whose stored prompt is one line that runs `/night`
+A scheduled task in the Claude desktop app, `plusplus-night`, starts a session every midnight
+in a worktree of its own, cut from `main`, whose stored prompt is one line that runs `/night`
 (`.claude/skills/night/SKILL.md`), so what the night does lives in the repo. The session uses the
-app's login and the app's usage tool. Its permission mode is set once by the maintainer in the
-app, to Auto, since a run in the default mode stops at its first command to ask. The task runs
+app's login and the app's usage tool. The maintainer sets its permission mode to Auto in the
+app, since the default mode stops at its first command to ask. The task runs
 only while the app is open.
 
-The night fast-forwards the main checkout to `origin/main`,
-since it runs that checkout's scripts and skills; one off `main`, or whose uncommitted change
-`origin/main` also changed, stays as it is, and the digest's top says so. The tallies (see
-"Agent records") go to the night's folder, `.build/retro/<date>/`, so no agent needs
+The night fast-forwards the main checkout to `origin/main`, since it runs that checkout's
+`scripts/nightly-tooling.py` and the next night's worktree is cut from its `main`; one off `main`,
+or whose uncommitted change `origin/main` also changed, stays as it is, and the digest's top says
+so. The tallies (see "Agent records") go to the night's folder, the main checkout's
+`.build/retro/<date>/`, so no agent needs
 `scripts/agent-record.py`. The retro reads the conversation through `scripts/conversations.py`,
 which drops the tool calls and the night's own sessions, so a day reads in tens of kilobytes.
 A failed night says so in the digest's first line and, if the session lasts to its digest, in
 one push notification.
-`scripts/nightly-retro.sh show` prints the retro's reply and the digest; `uninstall` removes
-the launchd agent that ran the night before. An Amphetamine trigger on power, with
+`scripts/nightly-retro.sh show` prints the retro's reply and the digest. An Amphetamine trigger on power, with
 closed-display mode, keeps the Mac awake with the lid closed.
 
-Nothing calls the tooling runner, `scripts/nightly-tooling.py run` and `review`, until a card
-moves them into the night. It first adds a card,
-"Update <tool> to <version>", at the top of Definitely for each lint tool `scripts/lint-tools.sh outdated`
-names (Dependabot can't read that pin; it covers the Swift package and the actions), unless the
-board has one by that title or an open one for the tool. Then it takes standalone
-cards carrying a `Nightly:` line (the /brief skill says which qualify) one at a time: up to three
-a night, or until a usage window reaches 0.9 on the night before the weekly limit resets, and
-never after 5 am. Its gates are code, tested against fixtures by
-`python3 scripts/nightly-tooling-test.py`, which `scripts/test.sh` runs: the time of night, the
-usage limits read from the night's own stream-json (never a probe call), this month's Xcode Cloud hours and the night's
-runs, overlap with open PRs (a retro PR's `.claude/` and `docs/` Markdown aside, and a card held
-back named atop the digest), and, once a card's lead (the nightly-card skill) ends, a passing
-verifier record before it arms auto-merge, while a PR touching a protected path (what CI runs,
-and what steers the night's agents) or only `.claude/` and `docs/` waits for the maintainer and
-a failed one goes back to draft. A PreToolUse hook it passes each card's claude runs before the
-permission rules and overrides their allow: it reads each command as the shell splits it and
-denies a merge, an `asc xcode-cloud` command that starts or changes a build, an `asc api` write,
-inline or piped code run by a shell or interpreter, a push or new PR past the night's four Xcode
-Cloud runs (counted from Xcode Cloud), and anything new from 7 am; it keeps a card's writes in
-its worktree and the main checkout's `.slices/`, away from the runner, the night's folder, and config dotfiles; any
-error in it denies the call. Claude Code's own sandbox can't hold these writes instead: under it
-`gh` fails TLS verification and SwiftPM's nested sandbox fails, so both would run outside it.
-What a command line hides, such as a script file the card writes and runs, meets three more
-checks: the card's git runs the night's pre-push hook on every push; the runner turns auto-merge
-off on every PR opened tonight from a branch a card made or pushed, unless it arms one itself;
-and it ends the night, naming them atop the digest, on any such PR merged unarmed. A new gate
-starts from such a check on what happened (a merge, a push, a run started); denying a command's
-spellings only narrows it, since every verifier pass and review on #118 found more spellings.
+After the retro the night runs the setup review when due, then standalone cards carrying a
+`Nightly:` line (the /brief skill says which qualify), one at a time, each led by the night's
+session through the nightly-card skill in its own worktree, switched to the card's branch: Claude
+Code refuses a subagent's edits in any other. Each step is a command of the main checkout's
+`scripts/nightly-tooling.py`, whose header says what each does and which gates it holds. The
+guard (see "Hooks") holds a card's and the review's calls to their limits, and neither starts
+until it has judged one of the session's calls. Claude Code's own sandbox can't
+hold a card's writes instead: under it `gh` fails TLS verification and SwiftPM's nested sandbox
+fails. A new gate starts from such a check on what happened (a merge, a push,
+a run started); denying a command's spellings only narrows it, since every verifier pass and
+review on #118 found more spellings.
 
 ## The monthly setup review
 
@@ -276,12 +263,12 @@ setup against what's new (Claude Code's changelog, Apple's release notes, the to
 the retros' friction since: what to keep, what to swap or cut, and what is missing. It also
 looks outward, at a fixed short list of places, for what we don't use yet, and names at most
 three things worth trying, each answering a present need, with the cheapest trial. It edits
-nothing itself: it writes a private report to the main checkout's `.slices/review-setup/` and cards each change
+nothing itself: it writes a private report for the main checkout's `.slices/review-setup/` and cards each change
 worth doing, this file's corrections included, and what costs money, changes an account, widens
 what agents may do, or touches the maintainer's own setup is a question in the report.
-`scripts/nightly-tooling.py review` starts it (its header says when), uncalled until the night
-runs it again, and denies it Edit, commits, pushes, PR writes, `brew`, and `asc`; a run by hand
-counts for its month, since the newest report says when the last one ran.
+The night runs it when `scripts/nightly-tooling.py review` says it is due, and the guard denies
+it Edit, commits, pushes, PR writes, `brew`, and `asc`; a run by hand counts for its month, since
+the newest report says when the last one ran.
 
 ## Parallel work
 
@@ -317,8 +304,7 @@ day session's lead starts the verifier with the Agent call's `isolation: "worktr
 verifier that shares the lead's checkout is refused writes in the builder's worktree; it then
 works in one of its own, `.claude/worktrees/agent-<id>` in the main checkout, at the PR's commit
 detached, as its definition says. The
-night's lead starts it with no isolation in the card's worktree, which its session shares,
-since the night's hook denies writes in an isolation worktree. Claude
+night's lead starts it with no isolation in its own worktree, the card's. Claude
 Code holds an isolation worktree locked while its agent runs, removes a clean one, gitignored
 files included, when the agent ends, and leaves its `worktree-agent-<id>` branch, which `scripts/tidy.sh` deletes; tidy skips a
 locked worktree, and removes one left detached at a commit not in `main` once a merged PR
@@ -356,7 +342,7 @@ minimized. On any other simulator it leaves the settings alone, since that one i
 ## Permissions
 
 `.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which changes
-launchd, and `nightly-tooling.py`, which starts unattended Claude Code sessions; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
+launchd, and `nightly-tooling.py`, which arms auto-merge on the night's PRs; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
 `asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase` and
 `simctl delete`, uploads and notarization, and force pushes denied. Both take any device, or
 `all`, so a wrong argument would wipe a person's simulators; `scripts/sim.sh erase` erases only

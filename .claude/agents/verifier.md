@@ -23,9 +23,9 @@ Where you work depends on how your lead started you. Read `pwd` first and match 
   into another checkout, which Claude Code refuses from an isolated agent. You may read the
   builder's worktree's files with Read; write nothing there, a capture's temporary change (a
   slowed animation) included.
-- **The card's worktree.** The night's lead starts you in the card's worktree, the one its
-  prompt names, with no isolation; your shell starts there. Work in it, on its branch, as the
-  builder did.
+- **The card's worktree.** At night the card is built in the lead's own worktree, switched to
+  the card's branch, which the prompt names; with no isolation, your shell starts there. Work in
+  it, on its branch, as the builder did.
 
 If `pwd` matches neither (the prompt says isolated and you are not in an `agent-<id>` worktree,
 or it names a worktree you are not in), stop and say so to the lead. "Your worktree" below is
