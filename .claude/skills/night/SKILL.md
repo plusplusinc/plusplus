@@ -22,13 +22,13 @@ alone, nothing piped or chained: past 7:45 the guard passes only such a call. In
 6. **Review.** `<n> review <night>`. On exit 0, start a `general-purpose` agent in the
    foreground with `model: fable`, told to follow `.claude/skills/review-setup/SKILL.md` with
    `nightly` and to end with its report's one-line summary; Write that line to
-   `.build/last-line.txt` in this session's folder, then `<n> review-end <night> <that file>`.
+   `.build/last-line.txt` in this session's folder, then `<n> review-end <night>`.
    On exit 2, `<n> outcome <night> failed review "<its line>"`.
 7. **Cards.** Repeat: read usage again as in step 2, its exit 1 ending the repeat and recording
    nothing (the night ran); `<n> next <night>`.
    - Exit 0: run the Skill tool with `nightly-card`, args `<card> <worktree> <branch>` from its
      lines, to its last line; Write that line to the `last-line` file it printed, then `<n>
-     decide <night> <card> <that file>` with a 600000 ms timeout, again while it exits 3 (armed,
+     decide <night> <card>` with a 600000 ms timeout, again while it exits 3 (armed,
      waiting for the merge).
    - Exit 1: stop repeating.
    - Exit 2 from `next` or `decide`: `<n> outcome <night> failed cards "<its line>"`, and stop.

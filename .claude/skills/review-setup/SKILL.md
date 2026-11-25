@@ -28,8 +28,8 @@ edit: a change it finds is a card, built like any other, and that includes makin
 
 ## 1. Collect
 
-The last review is the newest `.slices/review-setup/report-<date>.md`; with none, look back a
-month. Read only what changed since.
+The last review is the newest `<main checkout>/.slices/review-setup/report-<date>.md`; with
+none, look back a month. Read only what changed since.
 
 - **The setup today**: `Brewfile`, `scripts/lint-tools.sh`, `Packages/Package.swift`, `ci_scripts/`, `.github/`, `docs/xcode-cloud.md` and the budgets in
   `scripts/xcresult.py`, `scripts/`, `.claude/` (skills, agents, rules, hooks, `settings.json`),
@@ -42,7 +42,7 @@ month. Read only what changed since.
   release notes of a major version among them. The pinned lint tools and the Swift package get
   update cards and PRs without this review (`scripts/lint-tools.sh outdated`, Dependabot).
 - **The friction since**: the retro PRs' bodies (`gh pr list --state all --search "Retro of in:title created:>=<since>"`),
-  the ledger (`.slices/rules-ledger.md`: findings seen once, rules counted hurt), the Friction
+  the ledger (`<main checkout>/.slices/rules-ledger.md`: findings seen once, rules counted hurt), the Friction
   lines of PRs merged since, and `scripts/conversations.py <since>` read only around a moment.
 - **The board**, once (`scripts/board.sh list`), for cards already there.
 
