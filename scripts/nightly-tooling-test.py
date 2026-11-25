@@ -259,30 +259,113 @@ class OpenPRs(unittest.TestCase):
         self.assertEqual(night.top_lines(), ["Not checked: x", "Waits on an open PR: " + night.held[0]])
 
 
-class ClaudeUpdate(unittest.TestCase):
-    def note(self, text):
-        with tempfile.TemporaryDirectory() as folder:
-            if text is not None:
-                (Path(folder) / "claude-update.txt").write_text(text + "\n")
-            return nightly.update_note(folder)
+class NightDigest(unittest.TestCase):
+    """The night skill's usage gate, its outcome, and the digest whose first line says which."""
 
-    def test_a_version_change_is_one_plain_line(self):
-        self.assertEqual(self.note("Claude Code 2.1.316 → 2.1.322"), ["Claude Code 2.1.316 → 2.1.322"])
+    def setUp(self):
+        self.night = Path(tempfile.mkdtemp()) / "2026-11-26"
+        self.night.mkdir()
+        self.addCleanup(shutil.rmtree, self.night.parent, True)
 
-    def test_a_failed_update_is_not_checked(self):
-        line = "Claude Code update failed: no network (exit 1); running 2.1.316"
-        self.assertEqual(self.note(line), ["Not checked: " + line])
+    def usage(self, *windows):
+        (self.night / "usage.json").write_text(json.dumps({"plan": {"windows": [
+            {"label": label, "percentUsed": used, "resetsAt": "2026-11-28T09:00:00Z"} for label, used in windows]}}))
 
-    def test_already_the_latest_or_no_file_says_nothing(self):
-        self.assertEqual(self.note("Claude Code 2.1.322, already the latest"), [])
-        self.assertEqual(self.note(None), [])
+    def main(self, *args):
+        """main's output and exit status."""
+        status, buffer = 0, io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buffer):
+                nightly.main([args[0], str(self.night), *args[1:]])
+        except SystemExit as exit_:
+            status = exit_.code
+        return buffer.getvalue(), status
 
-    def test_the_update_opens_the_digest(self):
-        with tempfile.TemporaryDirectory() as folder:
-            (Path(folder) / "claude-update.txt").write_text("Claude Code 2.1.316 → 2.1.322\n")
-            night = nightly.Night(folder, NIGHT, False)
-            night.unchecked.append("x")
-            self.assertEqual(night.top_lines(), ["Claude Code 2.1.316 → 2.1.322", "Not checked: x"])
+    def digest(self):
+        return io_of(lambda: nightly.main(["digest", str(self.night)])).splitlines()
+
+    def test_a_night_that_ran_says_so_first(self):
+        self.usage(("Current session", 12), ("Weekly", 40))
+        self.assertEqual(self.main("outcome", "ran")[0], "Night 2026-11-26: ran\n")
+        self.assertEqual(self.digest(), ["Night 2026-11-26: ran", "Usage: Current session 12%, Weekly 40%"])
+        self.assertEqual((self.night / "digest.md").read_text().splitlines(), self.digest())
+
+    def test_a_night_whose_retro_failed_says_why_first(self):
+        self.usage(("Weekly", 40))
+        (self.night / "main-checkout.txt").write_text("Main checkout not brought up to date: x\n")
+        self.main("outcome", "failed", "retro", "the retro skill isn't there")
+        self.assertEqual(self.digest(), ["Night 2026-11-26: failed: retro, the retro skill isn't there",
+                                         "Not checked: Main checkout not brought up to date: x", "Usage: Weekly 40%"])
+
+    def test_a_night_with_no_outcome_did_not_finish(self):
+        self.assertEqual(self.digest(), ["Night 2026-11-26: failed: the night did not finish",
+                                         "Not checked: usage, usage.json is missing"])
+
+    def test_an_outcome_needs_ran_or_a_step_and_why(self):
+        for args in (["failed", "retro"], ["fine"], ["ran", "x"]):
+            with self.subTest(args=args), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(self.main("outcome", *args)[1], 64)
+        self.assertFalse((self.night / "outcome.txt").exists())
+
+    def test_a_weekly_window_at_97_percent_stops_the_night(self):
+        self.usage(("Current session", 99), ("Weekly (all models)", 96.5))
+        self.assertEqual(self.main("usage"), ("Usage: Current session 99%, Weekly (all models) 96.5%\n", 0))
+        self.usage(("Current session", 10), ("Weekly (all models)", 97))
+        self.assertEqual(self.main("usage")[1], 1)
+        go_on, line = nightly.usage_check(self.night)
+        self.assertFalse(go_on)
+        self.assertEqual(line, "Weekly (all models) at 97%, resetting 2026-11-28T09:00:00Z")
+
+    def test_unreadable_usage_goes_on_and_the_digest_says_so(self):
+        for text in ("not json", '{"plan": {}}', '{"plan": {"windows": [{"label": "Weekly"}]}}'):
+            with self.subTest(text=text):
+                (self.night / "usage.json").write_text(text)
+                go_on, line = nightly.usage_check(self.night)
+                self.assertTrue(go_on)
+                self.assertTrue(line.startswith("Usage unreadable: usage.json isn't the usage tool's plan.windows"), line)
+                self.assertTrue(self.digest()[-1].startswith("Not checked: usage, "))
+
+
+class Uninstall(unittest.TestCase):
+    """scripts/nightly-retro.sh uninstall against a fake launchctl and a scratch plist."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, True)
+        (self.root / "bin").mkdir()
+        fake = self.root / "bin/launchctl"
+        fake.write_text('#!/bin/bash\necho "$*" >> "$FAKE_LOG"\n'
+                        'case "$1" in print) [ -e "$FAKE_LOADED" ] ;; bootout) rm -f "$FAKE_LOADED" ;; esac\n')
+        fake.chmod(0o755)
+        self.plist = self.root / "test.nightly.plist"
+        self.env = {**os.environ, "PATH": f"{self.root / 'bin'}:{os.environ['PATH']}", "FAKE_LOG": str(self.root / "log"),
+                    "FAKE_LOADED": str(self.root / "loaded"), "NIGHTLY_RETRO_LABEL": "test.nightly",
+                    "NIGHTLY_RETRO_PLIST": str(self.plist)}
+
+    def uninstall(self):
+        out = subprocess.run(["bash", str(SCRIPTS / "nightly-retro.sh"), "uninstall"], env=self.env,
+                             capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return out.stdout
+
+    def test_an_installed_agent_is_booted_out_and_its_plist_deleted(self):
+        (self.root / "loaded").touch()
+        self.plist.write_text("<plist/>\n")
+        out = self.uninstall()
+        self.assertFalse(self.plist.exists())
+        self.assertIn(f"bootout gui/{os.getuid()}/test.nightly", (self.root / "log").read_text())
+        self.assertIn("Stopped the launchd agent test.nightly.", out)
+
+    def test_an_agent_already_gone_succeeds(self):
+        out = self.uninstall()
+        self.assertNotIn("bootout", (self.root / "log").read_text())
+        self.assertEqual(out, "The launchd agent test.nightly is gone; the scheduled task in the Claude app runs the night.\n")
+
+    def test_its_usage_names_uninstall_catch_up_and_show_only(self):
+        out = subprocess.run(["bash", str(SCRIPTS / "nightly-retro.sh")], capture_output=True, text=True)
+        self.assertEqual(out.returncode, 64)
+        commands = re.findall(r"nightly-retro\.sh (\S+)", out.stderr)
+        self.assertEqual(commands, ["catch-up", "show", "uninstall"])
 
 
 class CatchUp(unittest.TestCase):
@@ -1232,7 +1315,8 @@ class Malformed(unittest.TestCase):
                 Path(root, ".build/retro", night).mkdir(parents=True)
             Path(root, ".build/retro/2026-10-27/digest.md").write_text("old digest\n")
             out = io_of(lambda: nightly.main(["digest"]))
-            self.assertIn("No tooling digest for 2026-10-28", out)
+            self.assertEqual(out, "Night 2026-10-28: failed: the night did not finish\n"
+                                  "Not checked: usage, usage.json is missing\n")
             self.assertNotIn("old digest", out)
 
 
