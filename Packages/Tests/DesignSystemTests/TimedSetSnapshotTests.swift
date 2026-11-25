@@ -11,7 +11,7 @@ import Testing
 /// it; the set's own count where the figures stand,
 /// "then rest" at the line's end, over "Log early", gray, filling with purple from its leading
 /// edge, its label dark over the purple and light over the gray, beside "+15 s"; and paused, the
-/// count and the fill gray. At AX5, both keys' words whole.
+/// count white over Continue. At AX5, both keys' words whole.
 @Suite("Timed set")
 struct TimedSetSnapshotTests {
     private static let width: CGFloat = 390
@@ -72,10 +72,10 @@ struct TimedSetSnapshotTests {
         )
     }
 
-    private func countKeys(left: Double, isPaused: Bool = false) -> some View {
+    private func countKeys(left: Double) -> some View {
         CountKeys(
             text: "Log early",
-            filling: KeyFill(length: 30, ends: .now, pausedLeft: left, isPaused: isPaused),
+            filling: KeyFill(length: 30, ends: .now, pausedLeft: left),
             onKey: { },
             onExtend: { },
         )
@@ -132,7 +132,7 @@ struct TimedSetSnapshotTests {
         )
     }
 
-    @Test("Paused: the count and the key's fill gray")
+    @Test("Paused: the count white, Continue in Log early's place")
     func paused() {
         let plank = Row(
             title: "Plank",
@@ -142,7 +142,7 @@ struct TimedSetSnapshotTests {
             setRest: Self.count(left: 18, isPaused: true),
         )
         assertThemedSnapshots(
-            of: screen([plank, next], keys: countKeys(left: 18, isPaused: true)),
+            of: screen([plank, next], keys: Button("Continue") { }.buttonStyle(.primaryKey)),
             width: Self.width,
         )
     }

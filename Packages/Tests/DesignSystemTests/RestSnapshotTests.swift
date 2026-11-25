@@ -9,7 +9,7 @@ import Testing
 /// (`pausedLeft`): before one, the current exercise saying the rest to follow; between two sets,
 /// the rest in the figures' place, nothing under its count, over Skip rest part filled with
 /// purple beside +15 s; between exercises, under the one done, the dot at its word, held at 0:18
-/// so the round "0" leads and shows whole; paused there, the count and Skip rest's fill gray;
+/// so the round "0" leads and shows whole; paused there, the count white over Continue;
 /// and in a superset with a round left, above its first member. With the workout list, a long
 /// name on the lines it grows into.
 @Suite("Rests")
@@ -32,10 +32,10 @@ struct RestSnapshotTests {
     private static let open = RestBlock(stage: .open, length: 90, pausedLeft: 62)
 
     /// The rest's keys at the bottom, Skip rest filled to where `left` of 90 seconds stands.
-    private static func restKeys(left: Double, isPaused: Bool = false) -> some View {
+    private static func restKeys(left: Double) -> some View {
         CountKeys(
             text: "Skip rest",
-            filling: KeyFill(length: 90, ends: .now, pausedLeft: left, isPaused: isPaused),
+            filling: KeyFill(length: 90, ends: .now, pausedLeft: left),
             spoken: .left,
             onKey: { },
             onExtend: { },
@@ -161,11 +161,12 @@ struct RestSnapshotTests {
         assertThemedSnapshots(of: rail(rows, restDot: rows[0].id), width: Self.width)
     }
 
-    @Test("Paused between exercises: the count gray, Skip rest's fill gray")
+    @Test("Paused between exercises: the count white, Continue in the rest's keys' place")
     func paused() {
         let rows = betweenExercises(left: 62, isPaused: true)
+        let key = Button("Continue") { }.buttonStyle(.primaryKey)
         assertThemedSnapshots(
-            of: screen(rows, restDot: rows[0].id, keys: Self.restKeys(left: 62, isPaused: true)),
+            of: screen(rows, restDot: rows[0].id, keys: key),
             width: Self.width,
         )
     }

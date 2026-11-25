@@ -8,8 +8,9 @@ public struct KeyFill: Equatable, Sendable {
     public let length: Double
     public let ends: Date
     public let pausedLeft: Double?
-    /// Held by a pause: the fill takes the gray the paused count does, and its purple back on
-    /// resume. A fill held by its log stays purple.
+    /// Held by a pause: the fill turns gray, and its purple back on resume. While paused the
+    /// workout screen shows Continue in its key's place, so the gray is seen only as the key
+    /// swaps out. A fill held by its log stays purple.
     public let isPaused: Bool
     /// The count is over: the fill is full. Ended early, it runs on to full from where it was,
     /// quickly, easing out, rather than jumping or running back to the seconds done.

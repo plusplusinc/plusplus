@@ -2,7 +2,7 @@ import XCTest
 
 /// A workout across real taps and relaunches: Start growing the first exercise into the
 /// current one with the next in view, tapping the key to log its sets until the next exercise
-/// is current, the key going back to it once scrolled away, pause and resume,
+/// is current, the key going back to it once scrolled away, pause and Continue's resume,
 /// edits staying on, the time and the next set held through a relaunch while paused, the drawer
 /// locked, Finish offered, and Discard. Elapsed time, the time counted while the app was closed,
 /// every saved field's round trip, the order of sets, the launch rule after Discard and Finish,
@@ -177,11 +177,14 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
         }
     }
 
-    /// Paused, the time holds and the key reads Resume; resumed, it carries on.
+    /// Paused, the time holds, the time key reads Resume, and the key at the bottom reads
+    /// Continue workout; Continue resumes it, logging nothing, and the time carries on.
     @MainActor
     private func pauseAndResume(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "Pause holds the time; resume carries on") { _ in
+        XCTContext.runActivity(named: "Pause holds the time; Continue carries on") { _ in
             let key = app.workoutTime
+            let current = app.exerciseRows.element(boundBy: 1)
+            let before = current.label
             key.tap()
             XCTAssertEqual(reading(key.label, becoming: "Resume", within: 2), "Resume")
             let held = key.seconds
@@ -189,8 +192,9 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
             // Waited out in full when it holds. The time reads in whole seconds, so a second and
             // a half sees a tick if one comes.
             XCTAssertEqual(reading(key.seconds, until: { $0 != held }, within: 1.5), held)
-            key.tap()
+            app.tapWorkoutKey(reading: "Continue workout")
             XCTAssertEqual(reading(key.label, becoming: "Pause", within: 2), "Pause")
+            XCTAssertEqual(current.label, before, "Continue logged a set")
             // Returns at the first tick, so a longer window costs nothing when the time runs.
             XCTAssertGreaterThan(reading(key.seconds, until: { $0 > held }, within: 2.5), held)
         }
