@@ -157,14 +157,19 @@ nonisolated extension Theme {
     )
 
     /// Active in its frost blue (`base0C`), what the theme is known by (nordtheme.com's
-    /// `nord8`, its primary accent), settled with the maintainer. Done in its purple slot,
-    /// `base0E`, in both looks: the light scheme's is a deep raspberry. Arriving in its yellow,
-    /// as its blue (`base0D`) sits beside the frost.
+    /// `nord8`, its primary accent), settled with the maintainer. Done in its purple, `nord15`
+    /// (`B48EAD`), in both looks: base16's light scheme has a raspberry that reads as a red in
+    /// its purple slot, so it takes `nord15` back, darkened for the light background. Arriving in
+    /// its yellow, as its blue (`base0D`) sits beside the frost.
     public static let nord = Theme(
         id: "nord",
         name: "Nord",
         looks: .both(
-            light: Palette(.nordLight, roles: .init(accent: 0x0C, railJoin: 0x0A), isDark: false),
+            light: Palette(
+                .nordLight.replacing(0x0E, with: 0xB48EAD),
+                roles: .init(accent: 0x0C, railJoin: 0x0A),
+                isDark: false,
+            ),
             dark: Palette(.nord, roles: .init(accent: 0x0C, railJoin: 0x0A), isDark: true),
         ),
     )
@@ -280,7 +285,9 @@ nonisolated extension Theme {
     /// Active in its blue, its titles', directories', and normal mode's color
     /// (folke/tokyonight.nvim); done in its magenta, arriving in its cyan. Text is `base08`,
     /// which holds Tokyo Night's own foreground in both schemes (`C0CAF5`, `343B58`); their
-    /// `base05` is a dim lavender gray.
+    /// `base05` is a dim lavender gray. The dark scheme's `base0D` holds `blue1` (`2AC3DE`), a
+    /// cyan, and its `base0C` a near-white `B4F9F8`, so they take tokyonight's `blue` (`7AA2F7`)
+    /// and `cyan` (`7DCFFF`) back.
     public static let tokyoNight = Theme(
         id: "tokyo-night",
         name: "Tokyo Night",
@@ -291,7 +298,7 @@ nonisolated extension Theme {
                 isDark: false,
             ),
             dark: Palette(
-                .tokyoNightDark,
+                .tokyoNightDark.replacing(0x0D, with: 0x7AA2F7).replacing(0x0C, with: 0x7DCFFF),
                 roles: .init(text: 0x08, accent: 0x0D, railJoin: 0x0C),
                 isDark: true,
             ),
