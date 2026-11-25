@@ -8,6 +8,12 @@ import SwiftUI
 /// looks shows the one Appearance calls for, whatever theme is in use around it
 /// (`Theme.shownScheme(for:phone:)`); a dark-only one shows its dark look in either.
 ///
+/// The node sits `Spacing.md` in from the card's left edge and `Spacing.md` down from its top,
+/// still centered on the name's line: the top padding gives up the room the line leaves above
+/// the node, and the bottom the same, so the card is that much shorter and the mark stays
+/// centered. At accessibility sizes, where the node and the mark have a line of their own above
+/// the words, the padding is `Spacing.md` all round.
+///
 /// It is a rounded card, the exercise sheet's value rows' radius. A card that opens the themes is
 /// filled as the value rows are, in `surface`, a step off the page, with no line. A card that
 /// picks one sits on its theme's background, the preview; one not in use draws a hairline of its
@@ -31,6 +37,9 @@ public struct ThemeCard: View {
     @ScaledMetric(relativeTo: .body) private var nodeSize = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 44
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// The height of the node's box, one line of the name (or the node, if taller), as laid out
+    /// (`nodeOnFirstLine`).
+    @State private var lineHeight: CGFloat = 0
     /// The page around the card: its theme and look, before the card sets its own.
     @Environment(\.self) private var page
 
@@ -75,7 +84,8 @@ public struct ThemeCard: View {
                 }
             }
         }
-        .padding(Spacing.md)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.md - verticalSlack)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
         .background(shape.fill(.pp(mark == .opens ? .surface : .background)))
         .overlay {
@@ -117,8 +127,18 @@ public struct ThemeCard: View {
         Spacing.sm + Radius.key
     }
 
+    /// What the card's top and bottom padding give up so the node's top sits `Spacing.md` from
+    /// the card's top edge, as its left does from the left: the room above the node in its
+    /// line's box. None at accessibility sizes, where the node has a line of its own.
+    private var verticalSlack: CGFloat {
+        guard !dynamicTypeSize.isAccessibilitySize else { return 0 }
+        return min(max((lineHeight - nodeSize) / 2, 0), Spacing.md)
+    }
+
     /// The current exercise's green node, centered on the name's first line: in a box as tall as
-    /// one line of the name at every size.
+    /// one line of the name at every size. The box's height is read from this layout
+    /// (`lineHeight`), never worked out from the font; a size, not a position, which would move
+    /// with the pixel grid as the padding it sets moves the card, and loop.
     private var nodeOnFirstLine: some View {
         ZStack {
             Text(verbatim: "0")
@@ -127,6 +147,11 @@ public struct ThemeCard: View {
             node
         }
         .fixedSize()
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            lineHeight = height
+        }
     }
 
     private var node: some View {
