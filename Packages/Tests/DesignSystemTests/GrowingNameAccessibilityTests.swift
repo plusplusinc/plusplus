@@ -55,6 +55,14 @@ enum AccessibilityTree {
         return try body()
     }
 
+    /// `whileOn(_:)` for a test that waits in real time between reads, so the view's own tasks,
+    /// as a key's swap, run meanwhile: a nested run loop doesn't run them.
+    static func whileOn<T>(_ body: () async throws -> T) async throws -> T {
+        try setAccessibilityEnabled(true)
+        defer { try? setAccessibilityEnabled(false) }
+        return try await body()
+    }
+
     /// What `read` finds under `root`, hosted in a window and laid out.
     private static func reading(
         _ root: some View,

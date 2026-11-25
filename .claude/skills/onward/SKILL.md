@@ -51,12 +51,13 @@ Their time is the scarce thing, and it is for the product.
 - **Show, then ask.** Anything they can see goes on their phone the moment it builds
   (`scripts/device.sh` from the slice's worktree, which installs directly, else prints a link
   and why), before tests, cleanup, or review, and never as a step inside a longer job. A
-  choice of look or behavior is drawn before it is asked or built: options as phone-size
-  frames on a Design canvas (Artifact `quickstart`, intent "design"), the platform's own
+  choice of look or behavior is drawn before it is asked or built, once the problem it solves
+  is agreed: options as phone-size frames on a Design canvas (Artifact `quickstart`, intent
+  "design"), from real screenshots, looked at rendered first, the platform's own
   control first (principle 4), each other option saying what it does that the system one
   can't, options that differ in motion drawn moving. What a system control can do
   is read from its Apple doc then, never from memory. One small canvas per open question,
-  since a link to a page of a larger canvas doesn't reliably open on that page, numbered and
+  since a link to a page of a larger canvas doesn't open on that page, numbered and
   lettered so they answer in a line, linked from the board README. Check for the Artifact tool
   with ToolSearch before anyone draws; without it, publish as agent memory describes. A file
   on the Mac never reaches their phone.

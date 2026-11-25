@@ -25,6 +25,7 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
     /// The face as last followed, which the swap's beats read when it rises: `face` in the task
     /// is the one it started with.
     @State private var live: Face
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         face: Face,
@@ -42,6 +43,7 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
 
     var body: some View {
         let shown = stage.face(for: face)
+        let floating = stage.floatingFace(for: face, dips: !reduceMotion)
         content(shown, stage.isOut)
             // Another key comes in with the bar's own transition, under the animation of the
             // update that brought it: out of sight in a swap, with none.
@@ -52,8 +54,11 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
             // The swap's beats: the key going away cancels them.
             .task(id: stage.isOut) { await swap() }
             // In the update that changes the stage, so the floating button, laid out over this
-            // face, moves under that update's animation: with the rise, never ahead of it.
-            .preference(key: FloatingFace<Face>.self, value: stage.floatingFace(for: face))
+            // face, moves under that update's animation, or none (`floatingFace(for:dips:)`).
+            // The key's `KeySwap` gives how far down it is drawn.
+            .transformPreference(FloatingFace<Face>.self) { [floating] in
+                $0 = FloatingOver(face: floating, dip: $0?.dip ?? 0)
+            }
     }
 
     /// Follows the face changing to `new`: another key starts the one showing leaving with its
@@ -121,13 +126,22 @@ private struct KeyBarPlace: ViewModifier {
 /// The face of the key the bar's floating button sits over, from the staged key, while the bar
 /// presents one.
 struct FloatingFace<Face: Equatable>: PreferenceKey {
-    static var defaultValue: Face? {
+    static var defaultValue: FloatingOver<Face>? {
         nil
     }
 
-    static func reduce(value: inout Face?, nextValue: () -> Face?) {
+    static func reduce(value: inout FloatingOver<Face>?, nextValue: () -> FloatingOver<Face>?) {
         value = value ?? nextValue()
     }
+}
+
+/// The key the floating button sits over, and how far down a swap has it as drawn, 0 to 1, which
+/// the button goes down and comes back up by: the key's own `KeySwap` gives it frame by frame, so
+/// the two move as one piece. Started on the same animation, the button ran a frame ahead going
+/// down and two coming up.
+struct FloatingOver<Face: Equatable>: Equatable {
+    var face: Face?
+    var dip: CGFloat = 0
 }
 
 /// The bar's floating button going low into the key's row as the key leaves: it takes no tap from
@@ -159,21 +173,22 @@ struct LowSettle: ViewModifier {
     }
 }
 
-/// The key down out of sight while `isOut`, as far as its height and what lies below it, less
-/// `drawnLower`, how far below its place in the bar it is drawn, in place: the bar keeps its
-/// room. No further, so the key coming in starts up as the one going
+/// The key down out of sight while `isOut`, as far as its height and `below`: to the screen's
+/// bottom edge, less how far below its place in the bar it is drawn, in place, as the bar keeps
+/// its room. No further, so the key coming in starts up as the one going
 /// clears the edge: with 8 pt more, the two halves had frames with no key between them. Unfaded
 /// both ways: faded going, it was all but gone three frames before it cleared the edge. With
-/// Reduce Motion it stays put and fades each way. Measured as it is drawn, so a
-/// key that starts out of sight is out of sight from its first frame.
-struct KeySwap: ViewModifier, Animatable {
+/// Reduce Motion it stays put and fades each way. Its height measured as it is drawn, so a
+/// key that starts out of sight is out of sight from its first frame. Tells the bar's floating
+/// button how far along it is drawn (`FloatingOver.dip`), none with Reduce Motion.
+struct KeySwap<Face: Equatable>: ViewModifier, Animatable {
     /// How far out the key is, 0 to 1, which an animation runs through.
     var progress: CGFloat
-    let drawnLower: CGFloat
+    let below: CGFloat
 
-    init(isOut: Bool, drawnLower: CGFloat) {
+    init(isOut: Bool, below: CGFloat) {
         progress = isOut ? 1 : 0
-        self.drawnLower = drawnLower
+        self.below = below
     }
 
     nonisolated var animatableData: CGFloat {
@@ -186,13 +201,15 @@ struct KeySwap: ViewModifier, Animatable {
     func body(content: Content) -> some View {
         let progress = progress
         let moves = !reduceMotion
-        let drawnLower = drawnLower
+        let below = below
         content
             .visualEffect { content, proxy in
-                content.offset(y: moves
-                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom - drawnLower)
-                    : 0)
+                content.offset(y: moves ? progress * (proxy.size.height + below) : 0)
             }
             .opacity(reduceMotion ? 1 - progress : 1)
+            .preference(
+                key: FloatingFace<Face>.self,
+                value: FloatingOver(dip: moves ? progress : 0),
+            )
     }
 }

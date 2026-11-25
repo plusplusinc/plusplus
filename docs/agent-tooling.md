@@ -225,7 +225,7 @@ checkout every midnight whose stored prompt is one line that runs `/night`
 (`.claude/skills/night/SKILL.md`), so what the night does lives in the repo. The session uses the
 app's login and the app's usage tool. Its permission mode is set once by the maintainer in the
 app, to Auto, since a run in the default mode stops at its first command to ask. The task runs
-only while the app is open; a midnight it missed runs at the app's next launch.
+only while the app is open.
 
 The night fast-forwards the main checkout to `origin/main`,
 since it runs that checkout's scripts and skills; one off `main`, or whose uncommitted change

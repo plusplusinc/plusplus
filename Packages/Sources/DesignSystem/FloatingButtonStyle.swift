@@ -86,7 +86,13 @@ struct FloatingPlace<Key: View, Floating: View>: View {
     let sides: CGFloat
     let bottom: CGFloat
     let isLow: Bool
+    /// How far along a swap the key under it is drawn, 0 to 1 (`FloatingOver.dip`): the button
+    /// goes down with it, as far as the key goes, its height and `swapBelow` (`KeySwap`), and
+    /// comes back up with the next, as one piece with them.
+    var dip: CGFloat = 0
+    var swapBelow: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var keyHeight: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .trailing, spacing: gap) {
@@ -98,8 +104,12 @@ struct FloatingPlace<Key: View, Floating: View>: View {
                 .transition(.opacity)
                 // Outside the id, so the crossfade keeps the wait.
                 .modifier(LowSettle(isLow: isLow))
+                // Drawn where the key is this frame, under no animation of its own: animated, it
+                // would trail the key.
+                .animation(nil) { $0.offset(y: isLow ? 0 : dip * (keyHeight + swapBelow)) }
             if !isLow {
                 key.hidden()
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { keyHeight = $0 }
             }
         }
         .padding(.horizontal, sides)
