@@ -1,10 +1,16 @@
 import SwiftUI
 
 nonisolated extension Theme {
+    /// Active in its frost blue (`base0C`), what the theme is known by, not its green; arriving
+    /// in its yellow (`base0A`), since its blue (`base0D`) sat beside the frost.
     public static let nord = Theme(
         id: "nord",
         name: "Nord",
-        looks: .darkOnly(Palette(Base16.nord, isDark: true)),
+        looks: .darkOnly(Palette(
+            Base16.nord,
+            roles: Base16.Roles(accent: 0x0C, railJoin: 0x0A),
+            isDark: true,
+        )),
     )
 }
 

@@ -54,6 +54,8 @@ struct LogScreen: View {
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
+    @Environment(\.theme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
@@ -117,7 +119,9 @@ struct LogScreen: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
+                        .themedBarGlass()
                 }
+                .themedSharedGlass(theme, colorScheme)
                 ToolbarItem(placement: .topBarTrailing) {
                     periodText
                 }

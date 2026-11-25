@@ -36,7 +36,9 @@ extension WorkoutScreen {
                     }
                 }
                 .animation(.easeOut(duration: Self.barFade), value: barIsLive)
+                .themedBarGlass()
             }
+            .themedSharedGlass(theme, colorScheme)
         }
         // One item, as leading's: ••• outside a workout and its time during one, crossfading
         // inside the time's glass. Taken out, the bar took the item's content out on the frame
@@ -52,7 +54,7 @@ extension WorkoutScreen {
                 // End ••• fades in here while the time still holds the item, so it is whole when
                 // the glass shrinks. Taken out, a ••• going faded at the glass's top-left corner,
                 // where it sat before the glass grew.
-                moreMenu
+                themedMoreMenu
                     .fixedSize()
                     .opacity(barIsLive ? 0 : 1)
                     .allowsHitTesting(timed == nil)
@@ -65,7 +67,9 @@ extension WorkoutScreen {
             }
             .animation(.easeOut(duration: Self.barFade), value: barIsLive)
             .animation(.easeOut(duration: Self.barFade), value: timed == nil)
+            .themedBarGlass()
         }
+        .themedSharedGlass(theme, colorScheme)
     }
 
     /// Whether the bar draws the workout in progress: End and its time. Held under a finish's
@@ -87,12 +91,39 @@ extension WorkoutScreen {
     /// •••, the workout's own actions: Delete, red, dimmed while the workout has nothing saved.
     /// It asks first in a centered alert, "Delete <name>?", the name as the title shows it;
     /// confirmed, the session shows Workouts on a new workout (`AppSession.delete(_:)`).
-    private var moreMenu: some View {
-        Menu("More", systemImage: "ellipsis") {
+    /// Under a tinted theme, ••• as a plain button in the item's glass: as the bar's own menu
+    /// item it drew outside any glass of ours, with none at all once the bar's was hidden.
+    /// What the bar insets a menu it hosts by on each side, measured: ••• framed the bar's
+    /// height wide drew a glass 56 pt wide.
+    private static let barMenuInset: CGFloat = 6
+
+    @ViewBuilder private var themedMoreMenu: some View {
+        if theme.glassTint(in: colorScheme) == nil {
+            moreMenu {
+                Label("More", systemImage: "ellipsis")
+            }
+        } else {
+            moreMenu {
+                Image(systemName: "ellipsis")
+                    .font(.ppBarGlyph)
+                    .foregroundStyle(.pp(.textPrimary))
+                    .frame(
+                        width: barGlassHeight - 2 * Self.barMenuInset,
+                        height: barGlassHeight,
+                    )
+                    .contentShape(.circle)
+            }
+        }
+    }
+
+    private func moreMenu(@ViewBuilder label: () -> some View) -> some View {
+        Menu {
             Button("Delete", systemImage: "trash", role: .destructive) {
                 isAskingToDeleteWorkout = true
             }
             .disabled(!session.canDeleteOpen)
+        } label: {
+            label()
         }
         // Named once: hidden from VoiceOver through a representation, the menu read out its
         // Delete too, "More, Delete".

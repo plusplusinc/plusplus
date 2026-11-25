@@ -189,7 +189,7 @@ public struct BarSearchField<Leading: View>: View {
         .frame(width: fieldWidth + meetingReach, height: height, alignment: .leading)
         // Not `interactive()`: with it, the field came in whole, with no morph and no transition
         // at all, in the bar or out of it.
-        .glassEffect(.regular, in: .capsule)
+        .themedGlass(in: .capsule)
         .glassEffectID(GlassID.leading, in: glass)
         .glassEffectTransition(glassTransition)
         // Laid out at its own width, so the reach runs under the button without moving it.
@@ -322,7 +322,7 @@ public struct BarGlassButtonStyle: ButtonStyle {
         configuration.label
             .frame(width: max(width, height), height: height)
             .contentShape(.capsule)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .themedGlass(interactive: true, in: .capsule)
     }
 }
 

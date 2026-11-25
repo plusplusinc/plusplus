@@ -15,8 +15,9 @@ nonisolated struct Base16: Sendable {
     }
 
     /// Which slot does which job. The background is always `base00` and the comment gray
-    /// `base03`; the rest differ by scheme: Dracula's purple is `base0D`, and Rosé Pine has no
-    /// green.
+    /// `base03`; the rest differ by scheme: Dracula's purple is `base0D`, Rosé Pine has no
+    /// green, and Nord is known by its frost blue, `base0C`. A theme names its own where the
+    /// defaults miss what it is.
     struct Roles: Sendable {
         var text = 0x05
         var accent = 0x0B

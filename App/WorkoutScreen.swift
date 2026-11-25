@@ -123,6 +123,10 @@ struct WorkoutScreen: View {
     @State var sequence = SequenceTask()
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
+    @Environment(\.theme) var theme
+    @Environment(\.colorScheme) var colorScheme
+    /// A bar item's height, ••• drawn as a circle that tall under a tinted theme.
+    @ScaledMetric(relativeTo: .body) var barGlassHeight: CGFloat = 44
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) var voiceOver
     static let defaultName = String(localized: "New workout")
