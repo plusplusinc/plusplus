@@ -108,4 +108,93 @@ struct StoreExerciseTests {
         #expect(list.exercise(id: "created:odd")?.muscleGroups == [.back])
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredExercise>()) == 3)
     }
+
+    /// Gives the stored exercise `id` a measure this build doesn't know, as a later version could.
+    private func makeUnreadable(_ id: String) throws {
+        let context = ModelContext(container)
+        let stored = try #require(context.fetch(FetchDescriptor<StoredExercise>(
+            predicate: #Predicate { $0.id == id },
+        )).first)
+        stored.measure = "distance"
+        try context.save()
+    }
+
+    /// The stored rows of the workout `id`, by position, as their exercises' ids.
+    private func storedRows(of id: Workout.ID) throws -> [String] {
+        try ModelContext(container).fetch(FetchDescriptor<StoredRoutineExercise>(
+            predicate: #Predicate { $0.routine?.id == id },
+            sortBy: [SortDescriptor(\.position)],
+        )).map(\.exerciseID)
+    }
+
+    @Test("A row whose exercise this build can't read is left out, and kept through a save")
+    func unreadableRowKept() async throws {
+        let store = relaunch()
+        try await store.save(Self.ringRow)
+        let carry = try WorkoutExercise.builtIn("Waiter carry")
+        let workout = try Workout(name: "Day A", exercises: [
+            WorkoutExercise.builtIn("Goblet squat"),
+            WorkoutExercise(exercise: Exercise(created: Self.ringRow), weightUnit: .pounds),
+            carry,
+        ])
+        try await store.save(workout)
+        try makeUnreadable(Self.ringRow.id)
+
+        var loaded = try #require(try await relaunch().workout(workout.id, weightUnit: .pounds))
+        #expect(loaded.exercises.map(\.exercise.name) == ["Goblet squat", "Waiter carry"])
+        try loaded.exercises.insert(.builtIn("Plank"), at: 0)
+        loaded.exercises.removeAll { $0.id == carry.id }
+        try await relaunch().save(loaded)
+
+        let squat = try Exercise.builtIn(named: "Goblet squat").id
+        let plank = try Exercise.builtIn(named: "Plank").id
+        let rows = try storedRows(of: workout.id)
+        #expect(rows == [plank, squat, Self.ringRow.id])
+        let reloaded = try await relaunch().workout(workout.id, weightUnit: .pounds)
+        #expect(reloaded?.exercises == loaded.exercises)
+    }
+
+    @Test("A row this build can't read moves past a superset its neighbors join, not into it")
+    func unreadableRowPastSuperset() async throws {
+        let store = relaunch()
+        try await store.save(Self.ringRow)
+        let squat = try WorkoutExercise.builtIn("Goblet squat")
+        let workout = try Workout(name: "Day A", exercises: [
+            squat,
+            WorkoutExercise(exercise: Exercise(created: Self.ringRow), weightUnit: .pounds),
+            WorkoutExercise.builtIn("Plank"),
+        ])
+        try await store.save(workout)
+        try makeUnreadable(Self.ringRow.id)
+
+        var loaded = try #require(try await relaunch().workout(workout.id, weightUnit: .pounds))
+        loaded.join(squat.id, .below)
+        #expect(loaded.exercises.allSatisfy { $0.supersetID != nil })
+        try await relaunch().save(loaded)
+
+        let ids = try [
+            Exercise.builtIn(named: "Goblet squat").id,
+            Exercise.builtIn(named: "Plank").id,
+        ]
+        #expect(try storedRows(of: workout.id) == ids + [Self.ringRow.id])
+    }
+
+    @Test("A workout left with only rows this build can't read, and no name, is kept")
+    func unreadableRowsKeepWorkout() async throws {
+        let store = relaunch()
+        try await store.save(Self.ringRow)
+        let squat = try WorkoutExercise.builtIn("Goblet squat")
+        let workout = Workout(name: "", exercises: [
+            squat,
+            WorkoutExercise(exercise: Exercise(created: Self.ringRow), weightUnit: .pounds),
+        ])
+        try await store.save(workout)
+        try makeUnreadable(Self.ringRow.id)
+
+        var loaded = try #require(try await relaunch().workout(workout.id, weightUnit: .pounds))
+        loaded.exercises.removeAll { $0.id == squat.id }
+        #expect(loaded.isEmpty)
+        try await relaunch().save(loaded)
+        #expect(try storedRows(of: workout.id) == [Self.ringRow.id])
+    }
 }

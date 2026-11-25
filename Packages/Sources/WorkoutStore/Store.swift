@@ -181,14 +181,11 @@ public actor Store {
 
     /// Saves the workout as it is now, edited at `now`, or deletes it once it is empty, unless
     /// `keepsEmpty`, as while it is in progress: the empty workout is stored, and deleted by the
-    /// next save without it.
+    /// next save without it. Empty is judged on what is stored: a workout still holding a row this
+    /// build can't read is kept (`writeRows`).
     public func save(_ workout: Workout, at now: Date = .now, keepsEmpty: Bool = false) throws {
         let stored = try stored(id: workout.id)
-        guard !workout.isEmpty || keepsEmpty else {
-            if let stored {
-                modelContext.delete(stored)
-                try modelContext.save()
-            }
+        if stored == nil, workout.isEmpty, !keepsEmpty {
             return
         }
         let target = stored ?? {
@@ -196,37 +193,11 @@ public actor Store {
             modelContext.insert(new)
             return new
         }()
-        let oldRows = target.exercises ?? []
         target.name = workout.name
         target.editedAt = now
-        let kept = Set(workout.exercises.map(\.id))
-        for row in oldRows where !kept.contains(row.id) {
-            modelContext.delete(row)
-        }
-        // Row ids are unique in the app's own writes; keyed leniently against a store that isn't.
-        let rowsByID = Dictionary(
-            oldRows.map { ($0.id, $0) },
-            uniquingKeysWith: { first, _ in first },
-        )
-        for (position, item) in workout.exercises.enumerated() {
-            let row = rowsByID[item.id] ?? {
-                let row = StoredRoutineExercise(
-                    id: item.id,
-                    exerciseID: item.exercise.id,
-                    position: position,
-                )
-                modelContext.insert(row)
-                row.routine = target
-                return row
-            }()
-            if row.position != position {
-                row.position = position
-            }
-            row.write(item.plan)
-            row.write(roundRest: item.roundRest)
-            if row.supersetID != item.supersetID {
-                row.supersetID = item.supersetID
-            }
+        let rowCount = try writeRows(workout.exercises, of: target)
+        if workout.name.isEmpty, rowCount == 0, !keepsEmpty {
+            modelContext.delete(target)
         }
         try modelContext.save()
     }
@@ -300,8 +271,8 @@ public actor Store {
     }
 
     /// A row whose exercise isn't in `list`, from a newer version, a renamed slug, or a created
-    /// exercise this build can't read, is left out rather than failing the workout. Supersets
-    /// come back whole, as the rules keep them.
+    /// exercise this build can't read, is left out rather than failing the workout, and kept in
+    /// the store by its saves (`writeRows`). Supersets come back whole, as the rules keep them.
     static func workout(
         from stored: StoredRoutine,
         exercises list: ExerciseList,

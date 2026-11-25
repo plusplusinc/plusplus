@@ -57,7 +57,7 @@ extension WorkoutScreen {
             try await laterTurn()
             try check(pressed)
             try await crossfade {
-                session.start(on: pressed)
+                session.start(on: pressed, lead: Self.pushedStartLead)
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
                 phase.fadeIn()
@@ -131,7 +131,7 @@ extension WorkoutScreen {
             }
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
-            session.start(on: pressed)
+            session.start(on: pressed, lead: Self.pushedStartLead)
             phase.grow()
             growthLift = 0
             startDrop = max(drop, 1)
@@ -321,6 +321,11 @@ extension WorkoutScreen {
     static let scrollGiveUp = 1.25
     /// The first exercise growing at Start, the rows below stepping aside.
     static let growBeat = 0.55
+    /// From Start on a workout pushed on the Workouts screen, until its first set's "Start in"
+    /// counts (`AppSession.start(on:at:lead:)`): about as long as the fresh screen at the root
+    /// takes to draw and come in, with or without Reduce Motion, so its 0:05 holds about a
+    /// second at full strength, as the root screen's own Start's does (measured 2026-11-25).
+    static let pushedStartLead = 0.55
     /// From the grow's start until the workout's key starts up, as the rows visibly land: the
     /// snappy curve's last 0.1 s moves them under a point.
     static let keyReturnDelay = 0.45
