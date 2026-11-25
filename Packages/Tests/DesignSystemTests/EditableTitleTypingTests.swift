@@ -128,6 +128,37 @@ struct EditableTitleTypingTests {
         #expect(field.text == "Arm", "The draft no longer reaches the field")
     }
 
+    @Test("A name trimmed as the edit ends reaches the field, though the field held it earlier")
+    func trimmedNameReachesTheField() throws {
+        let (window, field) = try focused(Host(suggestion: nil, log: Log()))
+        defer { window.isHidden = true }
+        for key in ["L", "e", "g", " "] {
+            field.insertText(key)
+            window.settle()
+        }
+        try #require(field.text == "Leg ")
+        try #require(field.resignFirstResponder())
+        window.settle()
+        #expect(field.text == "Leg", "The field kept the untrimmed text after the edit ended")
+    }
+
+    @Test("A suggestion cleared in one edit opens as text again in the next")
+    func suggestionOpensAgainInTheNextEdit() throws {
+        let (window, field) = try focused(Host(suggestion: "Leg", log: Log()))
+        defer { window.isHidden = true }
+        try #require(field.text == "Leg")
+        for _ in 0 ..< 3 {
+            field.deleteBackward()
+            window.settle()
+        }
+        try #require(field.resignFirstResponder())
+        window.settle()
+        try #require(field.text.isEmpty)
+        try #require(field.becomeFirstResponder())
+        window.settle()
+        #expect(field.text == "Leg", "The suggestion didn't open, a text the last edit held")
+    }
+
     @Test("Each letter typed reaches the title before the edit ends")
     func typedLettersReachTheTitle() throws {
         #expect(try typed(["L", "e", "g"], over: nil) == ["L", "Le", "Leg"])
