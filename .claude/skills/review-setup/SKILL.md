@@ -1,6 +1,6 @@
 ---
 name: review-setup
-description: Review the whole setup (tools, packages, CI, scripts, skills, hooks, agent definitions, rules, MCP servers, Claude Code features, Xcode, iOS, and Swift) against what's new and the friction since the last review, asking what to keep, what to swap or cut, and what is missing. Writes a report the maintainer reads in two minutes and cards each change worth doing. The nightly runner starts it as `/review-setup nightly` once a month and once a newer major Xcode is installed; use on request.
+description: Review the whole setup (tools, packages, CI, scripts, skills, hooks, agent definitions, rules, MCP servers, Claude Code features, Xcode, iOS, and Swift) against what's new and the friction since the last review, asking what to keep, what to swap or cut, and what is missing. Writes a report the maintainer reads in two minutes and cards each change worth doing. The night's session starts it with `nightly` once a month and once a newer major Xcode is installed; use on request.
 argument-hint: "[nightly]"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh api:*), Bash(gh release:*), Bash(scripts/board.sh:*), Bash(scripts/conversations.py:*), Bash(scripts/lint-tools.sh:*), Bash(scripts/ci-times.py:*), Bash(claude --version), Bash(xcodebuild -version), Bash(swift --version), Bash(brew outdated:*), Bash(date:*), Read, Write, Glob, Grep, WebFetch, mcp__sosumi__searchAppleDocumentation, mcp__sosumi__fetchAppleDocumentation
 ---
