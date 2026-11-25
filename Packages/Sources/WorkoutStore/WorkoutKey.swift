@@ -96,10 +96,10 @@ public struct WorkoutKey: Sendable {
         // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
         // Its kind is that set's too, "Log early" for a timed one: read from the set drawn below
         // once the rows shift, a reps set's turned to a timed one's "Log early" before the roll.
-        // No rest shows while it holds.
+        // No rest is drawn in these phases, so no rest's keys either.
         if let set = phase.keySet, let text = stored?.hiding([set]).logText {
-            return stored?
-                .loggedCount(of: set) == nil ? .log(text) : .count(String(localized: "Log early"))
+            let isTimed = stored?.loggedCount(of: set) != nil
+            return isTimed ? .count(String(localized: "Log early")) : .log(text)
         }
         if shown.isDone {
             return .finish
