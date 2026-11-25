@@ -40,8 +40,11 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   its sheets). A gesture that did nothing is the tool's until those notes rule it out.
 - Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
   touches, never the full simulator suite. That suite runs on Xcode Cloud when you push a
-  change to the app. Read the budget lines each run prints: a test over its budget is fixed at
-  its cause, or named in your report with its time.
+  change to the app. Each run costs about a minute: run them once a step is whole and after
+  the last change, and `scripts/lint.sh` once before the push (the edit hook lints each
+  file). Read the budget lines each
+  run prints: a test over its budget is fixed at its cause, or named in your report with its
+  time.
 - Push only when CI's answer is needed: when opening the PR, after a round of fixes, and before
   the merge. Commit locally in between, rounds included: each push that changes the app spends
   an Xcode Cloud run.
@@ -67,7 +70,8 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   targeted tests, then open or update the PR with `/pr`. The Card line names the slice's card.
   Report on its own line any fix they offered that you left as too large. Every later push updates the body too, a fix the lead asked only to push included:
   once auto-merge is armed the PR merges as soon as CI passes, and its body is the commit `main`
-  keeps.
+  keeps. Hand back once the push is made: the lead watches CI. A full pass aims at 25 minutes;
+  past that, the report says what took the time.
 - Give `/simplify` and `/code-review` the same target, filled in: `<branch> against origin/main,
   checked out at <worktree>; say which branch and HEAD you reviewed`. Both skills, and every
   agent they start, begin in the lead's checkout, not your worktree; a `cd` does not carry over,
@@ -81,8 +85,8 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 ## Rounds
 
 When the slice has something to see, get a first version running as soon as the maintainer's
-feedback would help, and write the handoff note the lead names; each round after it is a fresh
-builder, bar the lead's own value changes, until the lead ends the loop. A round is one change,
+feedback would help, and write the handoff note the lead names; the lead makes most rounds
+after it itself, and gives a larger one to a fresh builder. A round is one change,
 `scripts/run.sh` on the worktree's simulator so it builds and launches, one look at its
 screenshot, a new commit (never amend), the handoff note brought up to date, and a reply with
 the hash and one line on what changed; the lead installs it. No tests, lint, rules or docs
