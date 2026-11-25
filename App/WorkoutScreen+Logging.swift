@@ -213,9 +213,7 @@ extension WorkoutScreen {
         // row shows the round just done until it rolls on (`focus(of:on:)`).
         withTransaction(\.disablesAnimations, true) {
             if let target {
-                isMakingRoom = true
-                // A row still entering stays where it is, as at Start (`pressStart()`).
-                endFollow = nil
+                makeRoomBelow()
                 liftScroll(to: target)
             }
         }

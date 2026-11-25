@@ -28,11 +28,7 @@ extension WorkoutScreen {
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
         withTransaction(\.disablesAnimations, true) {
-            // Held where it is: after an add's scroll to the list's end, the position stays
-            // bound to that edge, and followed it down into the room, off the screen.
-            scrollPosition.scrollTo(y: scrollBeat.scrolledY)
-            isMakingRoom = true
-            endFollow = nil
+            makeRoomBelow()
             startDrop = 0
             // Where a workout that ended left its current exercise: the first row reports its
             // own place from the press, and the landing's room waits for it.
