@@ -114,9 +114,10 @@ The guard is a net for an agent's mistakes: it reads only what the command line 
 denies the plain spellings, and a path or step spelled through an expansion, a glob, or a
 script the card writes is past it. What holds against a card's branch is elsewhere: the files
 that judge the card run from the main checkout, found from the session folder's path, which
-the app sets; `decide`'s own gates, with its checks before arming that the main checkout's
-guard, this script, and its git hooks are as `begin` hashed them (else it parks the card and
-ends the cards) and that the pre-push hook was on in the card's folder; `begin` closing no phase
+the app sets, which `next` takes no card outside; `decide`'s own gates, with its checks before
+arming that the main checkout's scripts/, .claude/hooks/, and .git/hooks/ are as `next` hashed
+them (else it parks the card and ends the cards) and that the pre-push hook is on in the card's
+folder (on now, not at every push); `begin` closing no phase
 of a session the guard heard lately; and main's ruleset and protected paths. The pre-push hook
 (core.hooksPath in the session folder's own config) refuses a push past the budget, with
 tonight's runs counted from Xcode Cloud itself, and records the branch; `decide` turns
@@ -127,7 +128,6 @@ A deadline holds to within one tool call: a call already running isn't stopped.
 Tests: python3 scripts/nightly-tooling-test.py, against fixtures, with no network.
 """
 import fnmatch
-import hashlib
 import importlib.util
 import json
 import os
@@ -207,9 +207,10 @@ SEEN = "guard-seen"
 PUSHED = "pushed"  # the branches a card's worktree pushed, which its pre-push hook records
 HEARD = "heard"  # touched by the guard at each of the night's calls
 HEARD_LATELY = timedelta(minutes=5)  # a session heard this lately is alive, and `begin` leaves its phase open
-# The main checkout's files that judge a card, with its .git/hooks/: `begin` records their
-# hashes and `decide` compares them before arming.
-JUDGES = (".claude/hooks/night-guard.sh", "scripts/nightly-tooling.py", "scripts/xcresult.py")
+# The main checkout's folders whose files judge a card: `next` records their hashes in the
+# card's entry, after the night's catch-up has moved them, and `decide` compares them before arming.
+JUDGES = ("scripts", ".claude/hooks", ".git/hooks")
+SCRIPT = "scripts/nightly-tooling.py"  # this script, in the main checkout, which runs the night's steps
 WEEKLY_STOP = 97  # percent of a weekly window at which the night skips the retro
 USAGE = "usage.json"  # what the app's usage tool returned, which the night saves
 OUTCOME = "outcome.txt"  # "ran" or "failed: <step>, <why>", which `outcome` writes
@@ -856,29 +857,17 @@ def hooks_off(words):
         any(w.startswith("GIT_CONFIG") for w in words) or {"-i", "-", "--ignore-environment"} & set(words))
 
 
-CONFIG_READS = {"--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l"}
-CONFIG_WRITES = {"--unset", "--unset-all", "--add", "--replace-all", "--remove-section", "--rename-section",
-                 "--edit", "-e"}
-CONFIG_VALUES = {"--file", "-f", "--blob", "--type", "--default", "--comment", "--value"}
+CONFIG_READS = {"--get", "--get-all", "--get-regexp", "--get-urlmatch", "--get-color", "--get-colorbool",
+                "--list", "-l"}
 
 
 def config_write(git):
-    """Whether git's arguments are a `git config` that may write: anything but a read by its
-    options (--get, --list), its subcommand (get, list), or a key alone."""
+    """Whether git's arguments are a `git config` that may write: any but one marked a read by
+    its options (--get, --list) or its first word (get, list). A key alone, a read too, is
+    denied with the rest: a net, not a parser of git's options."""
     _, sub, args = git_call(git)
-    if sub != "config":
-        return False
-    words, i = [], 0
-    while i < len(args):
-        if args[i] in CONFIG_VALUES:
-            i += 1
-        elif not args[i].startswith("-"):
-            words.append(args[i])
-        i += 1
-    if CONFIG_WRITES & set(args) or words[:1] in (["set"], ["unset"], ["rename-section"], ["remove-section"],
-                                                     ["edit"]):
-        return True
-    return not (CONFIG_READS & set(args) or words[:1] in (["get"], ["list"]) or len(words) <= 1)
+    words = [a for a in args if not a.startswith("-")]
+    return sub == "config" and not (CONFIG_READS & set(args) or words[:1] in (["get"], ["list"]))
 
 
 def script_call(words):
@@ -1033,7 +1022,7 @@ def closing(command, cwd, main):
         return False
     script, args = script_call(parsed[0])
     where = Fence.real(script, Path(cwd or main))
-    return where == Fence.real(Path(main) / "scripts/nightly-tooling.py") and args[:1] != [] and args[0] in CLOSING
+    return where == Fence.real(Path(main) / SCRIPT) and args[:1] != [] and args[0] in CLOSING
 
 
 def review_decision(tool, command, path, now, deadline, reports, cwd):
@@ -1220,6 +1209,10 @@ class Night:
         """The main checkout, whose .build/retro/<date>/ this night's folder is."""
         return self.dir.parents[2]
 
+    @property
+    def script(self):
+        return self.main / SCRIPT
+
     def read(self, name, empty):
         try:
             return json.loads((self.dir / name).read_text())
@@ -1310,26 +1303,34 @@ def still_open(folder, now, session):
     """Why `begin` leaves `folder`'s open phase alone, else None: the phase is this session's (by
     its id), or the guard heard a call of the night's session lately, as it does just before a
     card's agent runs a copy of `begin`, however spelled. Only a session that ended leaves a
-    phase for `begin` to close."""
-    phase = folder.state().get("phase")
-    if not phase:
+    phase for `begin` to close. An earlier night's folder it can't read holds no live phase."""
+    age = file_age(folder.dir / HEARD, now)
+    if not (age is not None and age < HEARD_LATELY) and not (session and folder.session() == session):
         return None
     try:
-        heard = now.timestamp() - (folder.dir / HEARD).stat().st_mtime < HEARD_LATELY.total_seconds()
-    except FileNotFoundError:
-        heard = False
-    if not heard and not (session and folder.session() == session):
+        phase = folder.state().get("phase")
+    except FAILURES:
+        if session:
+            raise
         return None
-    step = f"decide {folder.dir} {phase['item']}" if phase["kind"] == "card" else f"review-end {folder.dir}"
+    if not phase:
+        return None
     return (f"The {phase_label(phase)} phase of {folder.dir.name} is still open in a live session, so begin "
-            f"changes nothing. Close it with {folder.main / 'scripts/nightly-tooling.py'} {step}")
+            f"changes nothing. Close it with {closing_step(folder, phase)}; a session that ended leaves it "
+            f"to the next begin, once the guard has heard none of its calls for {HEARD_LATELY.seconds // 60} "
+            "minutes.")
+
+
+def closing_step(night, phase):
+    """The lead's command that closes `phase`: decide for a card, review-end for the review."""
+    step = f"decide {night.dir} {phase['item']}" if phase["kind"] == "card" else f"review-end {night.dir}"
+    return f"{night.script} {step}"
 
 
 def begin(night, now, session):
-    """The night's first step: its folder, its session, the hashes of the files that judge a card,
-    and a phase a run that died left open closed. Returns the lines to print; raises StillOpen
-    when a live session's phase is open, here or on an earlier night, whose session file this
-    removes."""
+    """The night's first step: its folder, its session, and a phase a run that died left open
+    closed. Returns the lines to print; raises StillOpen, changing nothing, when a live
+    session's phase is open, here or on an earlier night."""
     earlier = sorted(f for f in night.dir.parent.glob("20*") if f.name < night.dir.name)
     for folder in [night] + [Night(f) for f in earlier]:
         why = still_open(folder, now, session if folder is night else None)
@@ -1364,18 +1365,17 @@ def begin(night, now, session):
             lines.append(line)
             if folder is not night:
                 night.note("earlier", [line])
-    night.set_state(judges=judge_hashes(night.main))
     return lines
 
 
 def judge_hashes(main):
-    """JUDGES and each file in the main checkout's .git/hooks/, by path, as sha256 (None when
-    missing). The guard reads only plain spellings of a path, so `decide` compares these before
-    arming."""
+    """Each file in the main checkout's JUDGES folders, by path, as sha256. The guard reads only
+    plain spellings of a path, so `decide` compares these before arming."""
+    import hashlib  # here, not at the top: the guard, which runs on every call, never hashes
+
     main = Path(main)
-    files = [main / name for name in JUDGES] + sorted((main / ".git/hooks").glob("*"))
-    return {str(f.relative_to(main)): hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else None
-            for f in files}
+    return {str(f.relative_to(main)): hashlib.sha256(f.read_bytes()).hexdigest()
+            for folder in JUDGES for f in sorted((main / folder).glob("*")) if f.is_file()}
 
 
 def clear_night_hooks(main):
@@ -1496,9 +1496,10 @@ def add_update_cards(rows, dry_run):
     return added, unchecked
 
 
-def usage_age(folder, now):
+def file_age(path, now):
+    """How long ago a file was last written, or None when it can't be read."""
     try:
-        return now - datetime.fromtimestamp((Path(folder) / USAGE).stat().st_mtime).astimezone()
+        return now - datetime.fromtimestamp(Path(path).stat().st_mtime).astimezone()
     except OSError:
         return None
 
@@ -1527,7 +1528,7 @@ def refusal(night, now, session):
         return f"the {phase_label(state['phase'])} is still open, so run decide or review-end first."
     if state.get("stopped"):
         return state["stopped"]
-    return unguarded(night, session) or usage_gate(plan_windows(night.dir), usage_age(night.dir, now), now, window[1], len(night.cards()))
+    return unguarded(night, session) or usage_gate(plan_windows(night.dir), file_age(night.dir / USAGE, now), now, window[1], len(night.cards()))
 
 
 def choose(night, now, tried):
@@ -1569,37 +1570,39 @@ def install_pre_push(night, worktree):
     """The night's pre-push hook, the main checkout's script, in the card worktree's own git
     config, so every push from it meets the hook however it starts, and no other checkout's does.
     `decide` unsets it, and `begin` one a stopped night left."""
-    hooks = night.dir / "git-hooks"
+    hooks = git_hooks(night)
     hooks.mkdir(exist_ok=True)
-    pre_push = hooks / "pre-push"
-    pre_push.write_text(pre_push_text(night))
-    pre_push.chmod(0o755)
+    (hooks / "pre-push").write_text(pre_push_text(night))
+    (hooks / "pre-push").chmod(0o755)
     sh("git", "-C", str(worktree), "config", "--worktree", "core.hooksPath", str(hooks))
 
 
+def git_hooks(night):
+    """The folder the night's pre-push hook is in, which a card's worktree's core.hooksPath names."""
+    return night.dir / "git-hooks"
+
+
 def pre_push_text(night):
-    script = night.main / "scripts/nightly-tooling.py"
-    return (f"#!/bin/sh\nexec /usr/bin/env python3 {shlex.quote(str(script))} "
+    return (f"#!/bin/sh\nexec /usr/bin/env python3 {shlex.quote(str(night.script))} "
             f"pre-push {shlex.quote(str(night.dir))}\n")
 
 
 def tampered(night, entry):
-    """Why a card that passed its gates still isn't armed, else None: the files that judge it
-    changed since `begin`, which also ends the cards, or the night's pre-push hook was off in its
-    folder, so a push may have passed the run budget unchecked."""
-    if judge_hashes(night.main) != night.state().get("judges"):
-        why = "the main checkout's guard, night script, or git hooks changed after begin"
-        night.set_state(stopped=why + ".")
-        return why
-    pre_push = night.dir / "git-hooks/pre-push"
-    if not pre_push.is_file() or pre_push.read_text() != pre_push_text(night):
+    """Why a card that passed its gates still isn't armed, else None: the main checkout's files that
+    judge it, or the night's pre-push hook, changed since `next` took it, which also ends the
+    cards; or the hook is off in its folder now, so a push may have passed the run budget
+    unchecked."""
+    pre_push = git_hooks(night) / "pre-push"
+    if judge_hashes(night.main) != entry.get("judges"):
+        why = "the main checkout's guard, scripts, or git hooks changed while the card ran"
+    elif not pre_push.is_file() or pre_push.read_text() != pre_push_text(night):
         why = "the night's pre-push hook changed after next wrote it"
-        night.set_state(stopped=why + ".")
-        return why
-    hooks = sh("git", "-C", entry["worktree"], "config", "--get", "core.hooksPath", check=False).strip()
-    if hooks != str(night.dir / "git-hooks"):
-        return "the night's pre-push hook was off in the card's folder, so its pushes went unchecked"
-    return None
+    else:
+        hooks = sh("git", "-C", entry["worktree"], "config", "--get", "core.hooksPath", check=False).strip()
+        return None if hooks == str(git_hooks(night)) else (
+            "the night's pre-push hook was off in the card's folder, so its pushes may have gone unchecked")
+    night.set_state(stopped=why + ".")
+    return why
 
 
 def where_it_was(folder):
@@ -1620,6 +1623,10 @@ def next_card(night, now, session, dry_run):
     if folder == night.main:
         return None, ("the night's session runs in the main checkout, whose scripts judge a card; "
                       "cards are built only in a worktree of the session's own.")
+    if folder.parent != night.main / ".claude/worktrees":
+        # HOOK_COMMAND finds the main checkout's guard from this path alone.
+        return None, (f"the night's session runs in {folder}, outside the main checkout's .claude/worktrees/, "
+                      "where the guard can't find the main checkout's copy.")
     if git_status(folder):
         return None, "the session's folder has uncommitted changes, so no card's branch is switched in."
     sh("git", "fetch", "--quiet", "origin", "main")
@@ -1661,7 +1668,7 @@ def next_card(night, now, session, dry_run):
     rows = plan_windows(night.dir)
     night.write(CARDS, night.cards() + [{"item": item, "title": title, "branch": branch, "worktree": str(folder),
                                          "back": back, "usage": plan_usage_line(rows) if not isinstance(rows, str) else rows,
-                                         "decision": "open"}])
+                                         "judges": judge_hashes(night.main), "decision": "open"}])
     night.set_state(hours=detail, phase={"kind": "card", "item": item, "title": title, "worktree": str(folder),
                                          "branch": branch, "handoff": str(handoff), "last_line": str(last_line),
                                          "stop": night_window(now)[1].isoformat()})
@@ -1998,9 +2005,11 @@ def hook_check(folder, text):
                                phase["reports"], call.get("cwd"))
     stop = datetime.fromisoformat(phase["stop"])
     if now >= stop + LAST_CALL:
-        return (f"It is past {(stop + LAST_CALL):%H:%M}, so only the night's own "
-                f"{', '.join(sorted(CLOSING))} run. Close the card with {main / 'scripts/nightly-tooling.py'} "
-                f"decide {night.dir} {phase['item']}, run as one command, then end your turn.")
+        late = f"It is past {(stop + LAST_CALL):%H:%M}, so only the night's own {', '.join(sorted(CLOSING))} run."
+        if caller != "lead":
+            return f"{late} End your turn with your last line."
+        return (f"{late} Write your last line to {phase.get('last_line') or LAST_LINE}, then close the card "
+                f"with {closing_step(night, phase)}, run as one command.")
     # A push's start is recorded by the pre-push hook it then meets; a PR's here.
     return hook_decision(tool, command, now, stop, phase["handoff"],
                          lambda starts: run_budget(night.dir, phase["worktree"], state, record=starts != "push"),
@@ -2254,7 +2263,7 @@ def main(args):
     command, rest = (args[0], args[1:]) if args else ("", [])
     session = os.environ.get("CLAUDE_CODE_SESSION_ID")
     if command == "night" and not rest:
-        print(f"{night_dir(now)}\n{main_checkout() / 'scripts/nightly-tooling.py'}")
+        print(f"{night_dir(now)}\n{main_checkout() / SCRIPT}")
     elif command == "usage" and len(rest) in (1, 2):
         if rest[1:]:  # a Python write, which a session in a worktree of its own may make here
             (Path(rest[0]) / USAGE).write_bytes(Path(rest[1]).read_bytes())

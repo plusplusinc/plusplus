@@ -1543,8 +1543,7 @@ class SessionFolder(unittest.TestCase):
         self.git("worktree", "add", "-q", "-b", "dc/session", str(self.folder), "origin/main")
         real = nightly.sh
         night = nightly.Night(self.main / ".build/retro/2026-10-28")
-        night.write("state.json", {"start": NIGHT.isoformat(), "phase": None, "night_read": True,
-                                   "judges": nightly.judge_hashes(self.main)})
+        night.write("state.json", {"start": NIGHT.isoformat(), "phase": None, "night_read": True})
         (night.dir / "session").write_text(SESSION + "\n")
         (night.dir / "guard-seen").write_text("none\tlead\n")
         write_usage(night.dir, ("Weekly", 10, 100))
@@ -1735,29 +1734,42 @@ class SessionFolder(unittest.TestCase):
 
     def test_a_change_to_the_files_that_judge_a_card_parks_it_and_ends_the_cards(self):
         # The second verifier's probe on #282: a path spelled with an expansion passes the fence.
-        for change in [lambda: (self.main / ".git/hooks/post-checkout").write_text("#!/bin/sh\n"),
-                       lambda: (self.night.dir / "git-hooks/pre-push").write_text("#!/bin/sh\nexit 0\n"),
-                       lambda: (self.main / ".claude/hooks").mkdir(parents=True) or
-                       (self.main / ".claude/hooks/night-guard.sh").write_text("exit 0\n")]:
+        # A change before `next` (the night's catch-up of main) is no change while the card ran.
+        (self.main / "scripts/board.sh").write_text("# caught up\n")
+        (self.main / ".claude/hooks").mkdir(parents=True)
+        for change, decision in [(lambda: (self.main / ".git/hooks/post-checkout").write_text("#!/bin/sh\n"), "parked"),
+                                 (lambda: (self.night.dir / "git-hooks/pre-push").write_text("exit 0\n"), "parked"),
+                                 (lambda: (self.main / ".claude/hooks/night-guard.sh").write_text("exit 0\n"), "parked"),
+                                 (lambda: (self.main / "scripts/board.sh").write_text("exit 0\n"), "parked"),
+                                 (lambda: None, "merged")]:
             self.night.write("cards.json", [])
-            self.night.set_state(phase=None, stopped=None, judges=nightly.judge_hashes(self.main))
+            self.night.set_state(phase=None, stopped=None)
             nightly.run_next(self.night, NIGHT, SESSION, False)
             change()
             entry = self.arm()
-            self.assertEqual(entry["decision"], "parked")
-            self.assertIn("changed after", entry["why"])
-            self.assertIn("changed after", self.night.state()["stopped"])
-        # Unchanged, the same card merges.
-        self.night.write("cards.json", [])
-        self.night.set_state(phase=None, stopped=None, judges=nightly.judge_hashes(self.main))
-        nightly.run_next(self.night, NIGHT, SESSION, False)
-        self.assertEqual(self.arm()["decision"], "merged")
+            self.assertEqual(entry["decision"], decision)
+            if decision == "parked":
+                self.assertIn("changed", entry["why"])
+                self.assertIn("changed", self.night.state()["stopped"])
 
-    def test_begin_records_the_hashes_decide_compares(self):
+    def test_no_card_starts_in_a_folder_outside_the_main_checkouts_worktrees(self):
+        # The hook command finds the main checkout's guard from the session folder's path alone.
+        elsewhere = self.root / "elsewhere"
+        self.git("worktree", "add", "-q", "--detach", str(elsewhere), "origin/main")
+        stub(self, session_folder=lambda: elsewhere)
+        status, text = nightly.run_next(self.night, NIGHT, SESSION, False)
+        self.assertEqual(status, 1)
+        self.assertIn("outside the main checkout's .claude/worktrees/", text)
+        self.assertEqual(self.night.cards(), [])
+
+    def test_begin_reads_past_an_earlier_night_it_cannot_read(self):
+        broken = self.main / ".build/retro/2026-10-01"
+        broken.mkdir()
+        (broken / "state.json").write_text("{")
+        (broken / "heard").touch()
         stub(self, board=lambda *a, stdin=None: "")
-        nightly.begin(self.night, NIGHT, "another-id")
-        self.assertEqual(self.night.state()["judges"], nightly.judge_hashes(self.main))
-        self.assertIn("scripts/nightly-tooling.py", self.night.state()["judges"])
+        tonight = nightly.Night(self.main / ".build/retro/2026-10-29")
+        self.assertEqual(nightly.begin(tonight, datetime.now().astimezone(), "next-session")[0], "Night 2026-10-29: begun")
 
 
 class Bypass(unittest.TestCase):
@@ -2808,7 +2820,10 @@ class GuardPhases(unittest.TestCase):
         # The second verifier's probe on #282: a night's session resumed by day was denied everything
         # but the closing steps, with no word of which to run.
         open_card(self.night, worktree=self.worktree, stop=datetime.now().astimezone() - timedelta(hours=8))
-        self.assertIn(f"Close the card with {self.night_script} decide {self.night.dir} PVTI_1", self.check("ls"))
+        self.assertIn(f"then close the card with {self.night_script} decide {self.night.dir} PVTI_1", self.check("ls"))
+        self.assertIn("Write your last line", self.check("ls"))
+        # A subagent can't run decide, so it is told only to end its turn.
+        self.assertTrue(self.check("ls", agent="builder").endswith("End your turn with your last line."))
 
     def test_a_card_phase_holds_the_cards_gates(self):
         open_card(self.night, worktree=self.worktree, stop=datetime.now().astimezone() + timedelta(hours=1))
@@ -2932,9 +2947,10 @@ class Lesser(unittest.TestCase):
         # hook from one push.
         for command in ["git config user.name x", "git config --global alias.p push", "git config set a.b c",
                         "git config --file x.cfg --add a.b c", "git config unset a.b", "git -C x config a.b c",
-                        "git -c extensions.worktreeConfig=false push", "git config --worktree --edit"]:
+                        "git -c extensions.worktreeConfig=false push", "git config --worktree --edit",
+                        "git config user.name"]:  # a read, denied with the writes: the net reads no key
             self.assertIn("git hooks stay on", decide(command, app=False) or "", command)
-        for command in ["git config --get user.name", "git config user.name", "git config --list",
+        for command in ["git config --get user.name", "git config --get-color color.diff.new blue", "git config --list",
                         "git config get --all remote.origin.url", "git config --file x.cfg --get a.b"]:
             self.assertIsNone(decide(command, app=False), command)
 
