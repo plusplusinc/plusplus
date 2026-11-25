@@ -180,15 +180,16 @@ nonisolated struct KeyReach: Equatable {
     var swapBelow: CGFloat
     /// How far the screen runs on below the bar: a key taken away goes that far past its height.
     var bottomInset: CGFloat
-    /// How far the screen rides the key down: at least off the screen.
-    var drop: CGFloat
     /// The floating button's bottom above the key's top.
     var gap: CGFloat
 
     /// How far below its place the key is drawn, a key `height` tall. With Reduce Motion a swap
-    /// and a key taken away fade in place, so neither is drawn as travel.
+    /// and a key taken away fade in place, so neither is drawn as travel. Ridden down by the
+    /// screen, the key goes as far as one taken away, out of sight and no further, at the pace of
+    /// a key going down (`KeyRide`): ridden a screen's height on the list's own curve, it was out
+    /// of sight in three frames, much faster than any other key going down.
     func depth(_ parts: Parts, height: CGFloat, reduceMotion: Bool = false) -> CGFloat {
-        let ride = parts.drop * max(drop, height + bottomInset + Spacing.sm)
+        let ride = parts.drop * (height + awayBelow)
         guard !reduceMotion else { return ride }
         return parts.swap * (height + swapBelow) + parts.away * (height + awayBelow) + ride
     }

@@ -127,7 +127,7 @@ struct KeyTrayTests {
 
     @Test("Taken away mid-swap, the key leaves the swap and its depth only grows")
     func awayMidSwap() {
-        let reach = KeyReach(swapBelow: 12, bottomInset: 34, drop: 0, gap: 16)
+        let reach = KeyReach(swapBelow: 12, bottomInset: 34, gap: 16)
         var tray = Tray(shown(log))
         tray.follow(shown(back))
         tray.startLeaving()
@@ -163,8 +163,8 @@ struct KeyTrayTests {
     // MARK: The floating button
 
     private nonisolated static let reaches = [
-        KeyReach(swapBelow: 12, bottomInset: 34, drop: 0, gap: 16),
-        KeyReach(swapBelow: 21, bottomInset: 0, drop: 800, gap: 16),
+        KeyReach(swapBelow: 12, bottomInset: 34, gap: 16),
+        KeyReach(swapBelow: 21, bottomInset: 0, gap: 16),
     ]
 
     @Test(

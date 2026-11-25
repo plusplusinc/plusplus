@@ -75,6 +75,43 @@ struct KeyTravel: ViewModifier, Animatable {
     }
 }
 
+/// The bar's key ridden down out of sight by the screen (`drop`), at the pace of a key going down
+/// in a swap (`keyDrop`), whatever the screen's own animation: ridden on the list's grow, a
+/// screen's height on its curve, Start was gone in three frames, much faster than any other key
+/// going down. Coming back is the screen's, with no animation. Adds its part to what
+/// `KeyTravel` sends the floating button, so the button rides it too.
+struct KeyRide: ViewModifier, Animatable {
+    /// How far along the ride the key is, 0 to 1.
+    var drop: CGFloat
+    let reach: KeyReach
+
+    nonisolated var animatableData: CGFloat {
+        get { drop }
+        set { drop = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        let drop = drop
+        let reach = reach
+        content
+            .transformPreference(KeyTrayDrawn.self) { $0.parts.drop = drop }
+            .visualEffect { content, proxy in
+                content.offset(y: reach.depth(
+                    KeyReach.Parts(swap: 0, away: 0, drop: drop),
+                    height: proxy.size.height,
+                ))
+            }
+    }
+}
+
+extension View {
+    /// The key ridden down by `drop`, 0 or 1, at a key's own pace going down (`KeyRide`).
+    func keyRide(_ drop: CGFloat, reach: KeyReach) -> some View {
+        // On the update that changes it alone: the key's other parts don't change then.
+        modifier(KeyRide(drop: drop, reach: reach)).animation(.keyDrop, value: drop)
+    }
+}
+
 /// The bar's key as `KeyTravel` draws it: its bounds at rest and how far down each move has it.
 struct TrayDrawn: Equatable {
     var bounds: Anchor<CGRect>?

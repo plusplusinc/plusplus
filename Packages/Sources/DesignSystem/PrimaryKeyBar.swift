@@ -175,7 +175,6 @@ private struct PrimaryKeyBar<
         KeyReach(
             swapBelow: ledgeLift - drawnLower,
             bottomInset: bottomInset,
-            drop: drop,
             gap: PrimaryKeyButtonStyle.floatingGap,
         )
     }
@@ -223,7 +222,18 @@ private struct PrimaryKeyBar<
                 .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
                     isPresented ? $0 : nil
                 }
-                .modifier(KeyTravel(parts: drawn.targets, reach: reach, isPresented: isPresented))
+                .modifier(KeyTravel(
+                    parts: KeyReach.Parts(
+                        leave: drawn.targets.leave,
+                        arrive: drawn.targets.arrive,
+                        away: drawn.targets.away,
+                        drop: 0,
+                    ),
+                    reach: reach,
+                    isPresented: isPresented,
+                ))
+                // At its own pace, outside the screen's animation.
+                .keyRide(drawn.targets.drop, reach: reach)
                 .hiddenBehindDrawer()
                 .accessibilityShown(isPresented),
         )
