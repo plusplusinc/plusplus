@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The themes from base16 (their palettes and license: `Base16+Schemes.swift`). Each gives its
-/// three hues the jobs PlusPlus's green, purple, and blue do, by what they mean in the theme's
-/// own home (its site, its editor UI, its docs), which each comment names:
+/// The themes from base16 (their palettes and license: `Base16+Schemes.swift`), Ayu to Monokai
+/// here and the rest in `Themes+Base16+NToZ.swift`. Each gives its three hues the jobs
+/// PlusPlus's green, purple, and blue do, by what they mean in the theme's own home (its site,
+/// its editor UI, its docs), which each comment names:
 /// - `accent`, what is active and the + that makes something, is the color the theme's home
 ///   uses for its main action or accent, or for "add" where it has one; never a red
 ///   (`Theme.isRed(_:)`).
@@ -14,11 +15,23 @@ import SwiftUI
 /// ratio on a light background, `Palette` moves it in lightness only; where that would lose the
 /// color (a yellow gone brown), the theme leads with its next color in both looks.
 /// `ThemeContrastTests` holds every look to the ratios.
+///
+/// The neutrals are the theme's own grays by base16's meanings (`Base16.Grays`) wherever they
+/// keep the steps the screens rely on; each comment names the ones it mixes instead, and why.
+/// Steps are OKLab lightness from the background toward the text: PlusPlus's card is about
+/// 0.04, its chip 0.07, its lines 0.15 to 0.21. A card goes from 0.02 to 0.08, a chip at least
+/// 0.025 past the card and no further than 0.14, a line at least 0.07 past the card and no
+/// further than 0.26, and the quieter text at least 0.09 short of the text. A fill whose own
+/// color is a tint (Nord light's blue, Horizon light's salmon) reads as selected, so it is mixed.
 nonisolated extension Theme {
+    /// A dark scheme whose `base01` sits below its background: that is its well, sunk below the
+    /// screen, and its card is mixed.
+    static let sunkenBase01 = Base16.Grays(surface: .mixed, well: .slot(0x01))
+
     /// Active in its accent, the amber orange of Ayu's own UI (`common.accent`, `F29718` light,
     /// `E6B450` dark, ayu-theme/ayu-colors `themes/*.yaml`): base16's orange keyword, `base09`,
     /// the nearest in both looks, as its amber `base0A` darkens to a brown on the light
-    /// background. Done in its purple, arriving in its blue.
+    /// background. Done in its purple, arriving in its blue. Its own grays throughout.
     public static let ayu = Theme(
         id: "ayu",
         name: "Ayu",
@@ -30,32 +43,40 @@ nonisolated extension Theme {
 
     /// Active in its mauve, the accent every Catppuccin port defaults to ("`mauve` is our
     /// default", catppuccin/vscode). Done in its green, arriving in its blue, the style guide's
-    /// color for links.
+    /// color for links. Its own grays; Mocha's mantle (`base01`) is darker than its base, so it
+    /// is the well, and the card is mixed.
     public static let catppuccin = Theme(
         id: "catppuccin",
         name: "Catppuccin",
         looks: .both(
             light: Palette(.catppuccinLatte, roles: .init(accent: 0x0E, done: 0x0B), isDark: false),
-            dark: Palette(.catppuccinMocha, roles: .init(accent: 0x0E, done: 0x0B), isDark: true),
+            dark: Palette(
+                .catppuccinMocha,
+                roles: .init(accent: 0x0E, done: 0x0B),
+                grays: sunkenBase01,
+                isDark: true,
+            ),
         ),
     )
 
     /// Active in its purple (`base0D` here), the color Dracula is known by and the spec's
     /// focus color (draculatheme.com/spec). Done in its green; arriving in its cyan, the
-    /// spec's color for links, as it has no blue.
+    /// spec's color for links, as it has no blue. Its own grays; its `base01` is darker than its
+    /// background, so it is the well, and the card is mixed.
     public static let dracula = Theme(
         id: "dracula",
         name: "Dracula",
         looks: .darkOnly(Palette(
             .dracula,
             roles: .init(accent: 0x0D, done: 0x0B, railJoin: 0x0C),
+            grays: sunkenBase01,
             isDark: true,
         )),
     )
 
     /// Active in its green, the forest's and its status line's first color
     /// (sainnhe/everforest `palette.md`, `statusline1`). Done in its purple, moved a step apart
-    /// in lightness where it shares the green's; arriving in its blue.
+    /// in lightness where it shares the green's; arriving in its blue. Its own grays throughout.
     public static let everforest = Theme(
         id: "everforest",
         name: "Everforest",
@@ -68,26 +89,44 @@ nonisolated extension Theme {
     /// GitHub's own meanings (Primer's color roles, primer.style): green is `success`, its
     /// primary buttons, the one that creates something; purple is `done`, completed and merged;
     /// blue is `accent`, links and what is selected. So active is its green, done its purple,
-    /// arriving its blue.
+    /// arriving its blue. Its own grays; the dark scheme's chip is halfway between its `base01`
+    /// and `base02`, as `base02` alone (0.16) is past a chip's step.
     public static let github = Theme(
         id: "github",
         name: "GitHub",
         looks: .both(
             light: Palette(.github, roles: .init(), isDark: false),
-            dark: Palette(.githubDark, roles: .init(), isDark: true),
+            dark: Palette(
+                .githubDark,
+                roles: .init(),
+                grays: .init(raised: .between(0x01, 0x02)),
+                isDark: true,
+            ),
         ),
     )
 
     /// Active in its aqua. Gruvbox (morhetz/gruvbox) names no accent; its warm yellow and
     /// orange are what it is known by, but on the light background its faded yellow darkens to
     /// a brown and its orange is a rust red, so it leads with the next of its "retro groove"
-    /// colors in both looks. Done in its purple, arriving in its blue.
+    /// colors in both looks. Done in its purple, arriving in its blue. Its own grays (bg1, bg2,
+    /// and between bg2 and bg3), but the quieter text is mixed: its `base04`, fg4, is within
+    /// 0.07 of its text.
     public static let gruvbox = Theme(
         id: "gruvbox",
         name: "Gruvbox",
         looks: .both(
-            light: Palette(.gruvboxLightMedium, roles: .init(accent: 0x0C), isDark: false),
-            dark: Palette(.gruvboxDarkMedium, roles: .init(accent: 0x0C), isDark: true),
+            light: Palette(
+                .gruvboxLightMedium,
+                roles: .init(accent: 0x0C),
+                grays: .init(textSecondary: .mixed),
+                isDark: false,
+            ),
+            dark: Palette(
+                .gruvboxDarkMedium,
+                roles: .init(accent: 0x0C),
+                grays: .init(textSecondary: .mixed),
+                isDark: true,
+            ),
         ),
     )
 
@@ -96,7 +135,9 @@ nonisolated extension Theme {
     /// functions' color: `base0E` in the light scheme, `base0C` in the dark. Done in its
     /// purple: the dark scheme's `base0E`; the light scheme has none, so it takes Horizon
     /// Bright's own keyword purple, `8A31B9`. Arriving in its strings' warm orange, as it has
-    /// no blue: `base09` light, `base0A` dark, the slots its strings' color is in.
+    /// no blue: `base09` light, `base0A` dark, the slots its strings' color is in. Its own
+    /// grays, but the light scheme's fills are mixed: its `base01` and `base02` are a salmon
+    /// pink (`FADAD1`, `F9CBBE`) that made every card and chip a highlight.
     public static let horizon = Theme(
         id: "horizon",
         name: "Horizon",
@@ -104,6 +145,7 @@ nonisolated extension Theme {
             light: Palette(
                 .horizonLight.replacing(0x0F, with: 0x8A31B9),
                 roles: .init(accent: 0x0E, done: 0x0F, railJoin: 0x09),
+                grays: .init(surface: .mixed, raised: .mixed),
                 isDark: false,
             ),
             dark: Palette(
@@ -115,13 +157,15 @@ nonisolated extension Theme {
     )
 
     /// Active in its crystal blue, its functions' and titles' color (rebelot/kanagawa.nvim);
-    /// done in its oni violet; arriving in its yellow.
+    /// done in its oni violet; arriving in its yellow. Its own grays; its `base01`, sumi ink, is
+    /// darker than its background, so it is the well, and the card is mixed.
     public static let kanagawa = Theme(
         id: "kanagawa",
         name: "Kanagawa",
         looks: .darkOnly(Palette(
             .kanagawa,
             roles: .init(accent: 0x0D, railJoin: 0x0A),
+            grays: sunkenBase01,
             isDark: true,
         )),
     )
@@ -130,7 +174,9 @@ nonisolated extension Theme {
     /// (material-theme.com/docs/configuration/accents), and its own is that teal, which
     /// base16's lighter scheme keeps as `base05` and its dark one leaves out, so the dark look
     /// takes it into `base0F` (an unused red). Done in its purple, arriving in its blue. The
-    /// light scheme's `base05` is the teal, so its text is `base07`.
+    /// light scheme's `base05` is the teal, so its text is `base07`. Its own grays, but the light
+    /// scheme's chip and lines are mixed: its `base02` is a pale teal 0.02 past its card, and
+    /// its lines (0.09) would sit almost on the chip.
     public static let material = Theme(
         id: "material",
         name: "Material",
@@ -138,6 +184,7 @@ nonisolated extension Theme {
             light: Palette(
                 .materialLighter,
                 roles: .init(text: 0x07, accent: 0x05),
+                grays: .init(raised: .mixed, line: .mixed),
                 isDark: false,
             ),
             dark: Palette(
@@ -149,180 +196,10 @@ nonisolated extension Theme {
     )
 
     /// Monokai's own color is its pink-red, so active leads with its green, its functions'
-    /// color; done in its purple, arriving in its blue.
+    /// color; done in its purple, arriving in its blue. Its own grays throughout.
     public static let monokai = Theme(
         id: "monokai",
         name: "Monokai",
         looks: .darkOnly(Palette(.monokai, roles: .init(), isDark: true)),
-    )
-
-    /// Active in its frost blue (`base0C`), what the theme is known by (nordtheme.com's
-    /// `nord8`, its primary accent), settled with the maintainer. Done in its purple, `nord15`
-    /// (`B48EAD`), in both looks: base16's light scheme has a raspberry that reads as a red in
-    /// its purple slot, so it takes `nord15` back, darkened for the light background. Arriving in
-    /// its yellow, as its blue (`base0D`) sits beside the frost.
-    public static let nord = Theme(
-        id: "nord",
-        name: "Nord",
-        looks: .both(
-            light: Palette(
-                .nordLight.replacing(0x0E, with: 0xB48EAD),
-                roles: .init(accent: 0x0C, railJoin: 0x0A),
-                isDark: false,
-            ),
-            dark: Palette(.nord, roles: .init(accent: 0x0C, railJoin: 0x0A), isDark: true),
-        ),
-    )
-
-    /// Active in its blue: Atom's One UI takes its accent from the syntax background's hue,
-    /// blue (`@ui-hue` 220, atom/atom `one-dark-ui` and `one-light-ui`). Done in its purple,
-    /// arriving in its cyan.
-    public static let one = Theme(
-        id: "one",
-        name: "One",
-        looks: .both(
-            light: Palette(.oneLight, roles: .init(accent: 0x0D, railJoin: 0x0C), isDark: false),
-            dark: Palette(.onedark, roles: .init(accent: 0x0D, railJoin: 0x0C), isDark: true),
-        ),
-    )
-
-    /// Active in its IBM blue, `0F62FE`, Carbon's primary button and link color
-    /// (carbondesignsystem.com, `$button-primary`), "centered around a vibrant set of blues"
-    /// (nyoom-engineering/oxocarbon.nvim). Done in its purple; arriving in its teal, `08BDBA`,
-    /// `base07` in both of oxocarbon.nvim's palettes; base16's light scheme has a gray there
-    /// and a purple in `base0C`, so it takes the teal back.
-    public static let oxocarbon = Theme(
-        id: "oxocarbon",
-        name: "Oxocarbon",
-        looks: .both(
-            light: Palette(
-                .oxocarbonLight.replacing(0x07, with: 0x08BDBA),
-                roles: .init(text: 0x06, accent: 0x0D, railJoin: 0x07),
-                isDark: false,
-            ),
-            dark: Palette(
-                .oxocarbonDark,
-                roles: .init(accent: 0x0D, railJoin: 0x07),
-                isDark: true,
-            ),
-        ),
-    )
-
-    /// Active in the one color PaperColor calls its accent, `color12`
-    /// (NLKNguyen/papercolor-theme `DESIGN.md`): its orange in light, darkened a step to a
-    /// burnt orange, and its amber in dark; `base0A` in both. Done in its purple, arriving in
-    /// its blue. Text is `base07`: the dark scheme's `base05` is a mid gray that read washed out
-    /// on the workout screen.
-    public static let paperColor = Theme(
-        id: "papercolor",
-        name: "PaperColor",
-        looks: .both(
-            light: Palette(
-                .papercolorLight,
-                roles: .init(text: 0x07, accent: 0x0A),
-                isDark: false,
-            ),
-            dark: Palette(
-                .papercolorDark,
-                roles: .init(text: 0x07, accent: 0x0A),
-                isDark: true,
-            ),
-        ),
-    )
-
-    /// Active in its pine, Rosé Pine's color for "added content" and "constructive or
-    /// affirmative signals" (rosepinetheme.com/en/palette/pine), and half its name; its rose
-    /// and love are reds. Done in its iris, arriving in its foam, its terminal blue.
-    public static let rosePine = Theme(
-        id: "rose-pine",
-        name: "Rosé Pine",
-        looks: .both(
-            light: Palette(.rosePineDawn, roles: .init(done: 0x0D, railJoin: 0x0C), isDark: false),
-            dark: Palette(.rosePine, roles: .init(done: 0x0D, railJoin: 0x0C), isDark: true),
-        ),
-    )
-
-    /// Active in its blue, Selenized's values (jan-warchol/selenized `the-values.md`) naming no
-    /// accent of their own; done in its violet, arriving in its cyan.
-    public static let selenized = Theme(
-        id: "selenized",
-        name: "Selenized",
-        looks: .both(
-            light: Palette(
-                .selenizedLight,
-                roles: .init(text: 0x06, accent: 0x0D, railJoin: 0x0C),
-                isDark: false,
-            ),
-            dark: Palette(
-                .selenizedDark,
-                roles: .init(text: 0x06, accent: 0x0D, railJoin: 0x0C),
-                isDark: true,
-            ),
-        ),
-    )
-
-    /// Active in its blue, Solarized naming no accent of its own (ethanschoonover.com/solarized:
-    /// "eight accent colors"); no color of the light scheme reaches 4.5:1, so its blue darkens
-    /// a step there. Done in its violet, arriving in its cyan. Text is `base06`: `base05` is
-    /// 5:1, leaving no room for a quieter text.
-    public static let solarized = Theme(
-        id: "solarized",
-        name: "Solarized",
-        looks: .both(
-            light: Palette(
-                .solarizedLight,
-                roles: .init(text: 0x06, accent: 0x0D, railJoin: 0x0C),
-                isDark: false,
-            ),
-            dark: Palette(
-                .solarizedDark,
-                roles: .init(text: 0x06, accent: 0x0D, railJoin: 0x0C),
-                isDark: true,
-            ),
-        ),
-    )
-
-    /// Active in its blue, its titles', directories', and normal mode's color
-    /// (folke/tokyonight.nvim); done in its magenta, arriving in its cyan. Text is `base08`,
-    /// which holds Tokyo Night's own foreground in both schemes (`C0CAF5`, `343B58`); their
-    /// `base05` is a dim lavender gray. The dark scheme's `base0D` holds `blue1` (`2AC3DE`), a
-    /// cyan, and its `base0C` a near-white `B4F9F8`, so they take tokyonight's `blue` (`7AA2F7`)
-    /// and `cyan` (`7DCFFF`) back.
-    public static let tokyoNight = Theme(
-        id: "tokyo-night",
-        name: "Tokyo Night",
-        looks: .both(
-            light: Palette(
-                .tokyoNightLight,
-                roles: .init(text: 0x08, accent: 0x0D, railJoin: 0x0C),
-                isDark: false,
-            ),
-            dark: Palette(
-                .tokyoNightDark.replacing(0x0D, with: 0x7AA2F7).replacing(0x0C, with: 0x7DCFFF),
-                roles: .init(text: 0x08, accent: 0x0D, railJoin: 0x0C),
-                isDark: true,
-            ),
-        ),
-    )
-
-    /// Active in its blue, its functions' and directories' color (chriskempson/tomorrow-theme,
-    /// `vim/colors`); its status line's yellow darkens to a brown on white. Done in its purple,
-    /// moved a step apart in lightness; arriving in its aqua.
-    public static let tomorrow = Theme(
-        id: "tomorrow",
-        name: "Tomorrow",
-        looks: .both(
-            light: Palette(.tomorrow, roles: .init(accent: 0x0D, railJoin: 0x0C), isDark: false),
-            dark: Palette(.tomorrowNight, roles: .init(accent: 0x0D, railJoin: 0x0C), isDark: true),
-        ),
-    )
-
-    /// Active in its khaki yellow, its status line's and keywords' color (jnurmine/Zenburn,
-    /// `StatusLine` `CCDC90`, `Keyword` `F0DFAF`); done in its pink-purple; arriving in its
-    /// blue.
-    public static let zenburn = Theme(
-        id: "zenburn",
-        name: "Zenburn",
-        looks: .darkOnly(Palette(.zenburn, roles: .init(accent: 0x0A), isDark: true)),
     )
 }
