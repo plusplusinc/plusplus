@@ -3,7 +3,8 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// What ++ opens: the app's title, then Workouts and Log, each showing in place of the screen
+/// What ++ opens: the app's title, then Workouts, Log, and Settings, each showing in place of the
+/// screen
 /// showing. The place showing is marked; while a workout shows, Workouts is, since an open
 /// workout is one of them, so a drawer never opens with no place marked.
 ///
@@ -51,11 +52,15 @@ struct DrawerMenu: View {
                         go(to: .workouts, from: showing)
                     }
                     // An open workout is one of the Workouts, so it marks their row too.
-                    .buttonStyle(.drawer(isSelected: showing != .log))
+                    .buttonStyle(.drawer(isSelected: showing == .workouts || showing == .workout))
                     Button("Log", systemImage: "book.closed") {
                         go(to: .log, from: showing)
                     }
                     .buttonStyle(.drawer(isSelected: showing == .log))
+                    Button("Settings", systemImage: "gearshape") {
+                        go(to: .settings, from: showing)
+                    }
+                    .buttonStyle(.drawer(isSelected: showing == .settings))
                 }
                 .drawerMarks()
             }
@@ -79,6 +84,7 @@ struct DrawerMenu: View {
             switch place {
             case .workouts: session.showWorkouts()
             case .log: session.showLog()
+            case .settings: session.showSettings()
             case .workout: session.closeDrawer()
             }
         } else {

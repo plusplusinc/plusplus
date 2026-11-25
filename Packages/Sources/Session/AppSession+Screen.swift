@@ -13,13 +13,17 @@ extension AppSession {
         case log
         /// A finished logged workout, pushed onto Log from its History tab.
         case loggedWorkout(LoggedWorkout.ID)
+        /// Settings: Appearance, and the theme in use.
+        case settings
+        /// The themes to pick from, pushed onto Settings from its theme card.
+        case theme
 
         /// Whether something is pushed, so the edge swipe goes back rather than opening the
         /// drawer.
         public var isPushed: Bool {
             switch self {
-            case .pushedWorkout, .loggedWorkout: true
-            case .workout, .workouts, .log: false
+            case .pushedWorkout, .loggedWorkout, .theme: true
+            case .workout, .workouts, .log, .settings: false
             }
         }
     }
@@ -168,7 +172,29 @@ extension AppSession {
         switch place {
         case .workouts: screen = .workouts
         case .log: screen = .log
+        case .settings: screen = .settings
         case .workout: break
+        }
+    }
+
+    /// Shows Settings and closes the drawer, as `showLog()` does for Log.
+    public func showSettings() {
+        endThroughDrawer()
+        screen = .settings
+        closeDrawer()
+    }
+
+    /// Pushes the themes onto Settings.
+    public func openThemes() {
+        if screen == .settings {
+            screen = .theme
+        }
+    }
+
+    /// Pops the themes, showing Settings again, as their back button and back swipe do.
+    public func popThemes() {
+        if screen == .theme {
+            screen = .settings
         }
     }
 
@@ -184,12 +210,14 @@ extension AppSession {
         }
     }
 
-    /// The place showing: the Workouts screen, Log, or a workout, which the drawer marks as
+    /// The place showing: the Workouts screen, Log, Settings, or a workout, which the drawer marks
+    /// as
     /// Workouts while its row still goes to the list.
     public var showing: Showing {
         switch screen {
         case .workouts: .workouts
         case .log, .loggedWorkout: .log
+        case .settings, .theme: .settings
         case .workout, .pushedWorkout: .workout
         }
     }
@@ -212,6 +240,7 @@ extension AppSession {
     public enum Showing {
         case workouts
         case log
+        case settings
         case workout
     }
 }
