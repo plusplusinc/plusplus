@@ -59,9 +59,16 @@ extension PrimaryKeyBarTests {
                 window.layoutIfNeeded()
                 try await Task.sleep(for: .milliseconds(4))
             }
+            // Still on its way, which automation can't read: a removed view leaves the tree.
+            // Past the drop's end, the test would test nothing.
+            #expect(
+                ContinuousClock.now < back + .seconds(0.1),
+                "the drop was over before the return",
+            )
             withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = true }
-            // Where each key is drawn, sample by sample: the one going only goes on down, and
-            // the one coming only rises, neither ever out in a swap.
+            // Where each key is drawn, sample by sample: the one going, back in the tree only if
+            // revived, never comes back up, and the one coming only rises, neither ever out in
+            // a swap.
             var going: [CGFloat] = []
             var coming: [CGFloat] = []
             let limit = ContinuousClock.now + .seconds(10 * PrimaryKeyButtonStyle.swapHalf)
