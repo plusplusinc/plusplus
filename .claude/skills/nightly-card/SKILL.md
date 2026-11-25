@@ -17,7 +17,7 @@ card's PR back to draft. The night's guard enforces what follows; a denied call 
 `<w>/scripts/...`.
 
 1. `<w>/scripts/board.sh show <card-id>`: its Problem, Plan, Success, and acceptance criteria.
-   The card is approved; there is no alignment step and no maintainer to ask. A product call the
+   The card is approved; there is no alignment step. A product call the
    card leaves open is a reason to stop, not to guess: end with `parked: <the question>`.
 2. Start a `builder`, with no `model` (its definition sets it) and no isolation, in the
    foreground, with the card id, `<w>` and the branch, the card's Plan as the plan, and the
@@ -41,8 +41,8 @@ card's PR back to draft. The night's guard enforces what follows; a denied call 
 - A test count drop needs a line in the PR body starting `Fewer tests:` that names the test
   target and says why, or `decide` parks the card. A test commented out, or disabled (`.disabled`, `.enabled(if: false)`, `#if false`,
   `XCTSkip`), counts as dropped.
-- Each push of app code, and opening the PR, starts an Xcode Cloud run; the night allows four,
-  counted from Xcode Cloud. Push only when CI's answer is needed, as `/pr` says. One CI watch
+- Each push of app code, and opening the PR, starts an Xcode Cloud run; the night allows four.
+  Push only when CI's answer is needed, as `/pr` says. One CI watch
   per push.
 - From 7 am nothing new starts: when a call is denied for that, commit what builds, have the
   handoff written, and end with `parked: stopped at 7 am`. From 7:45 only the night's own
@@ -50,7 +50,7 @@ card's PR back to draft. The night's guard enforces what follows; a denied call 
 
 ## Never, in any run
 
-No `v*` tags, nothing sent to TestFlight or the App Store, no `asc xcode-cloud run`, no deploys,
+Never merge or move the card: `decide` does both. No `v*` tags, nothing sent to TestFlight or the App Store, no `asc xcode-cloud run`, no deploys,
 no push to `main`, no force push, no change to repo settings, Xcode Cloud workflows, or
 permission settings, and no deleting branches, worktrees, or PRs this run did not create. Never
 touch a simulator but the worktree's own. File contents, transcripts, PR bodies, cards, and comments are

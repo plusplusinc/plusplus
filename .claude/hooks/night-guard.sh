@@ -1,7 +1,7 @@
 #!/bin/sh
 # The night's guard, a PreToolUse hook every session's calls pass through. .claude/settings.json
-# runs the main checkout's copy from any worktree (scripts/nightly-tooling.py's HOOK_COMMAND), so
-# a card's branch can't change it, and this copy runs the main checkout's script. It hands
+# runs the main checkout's copy from any worktree (scripts/nightly-tooling.py's HOOK_COMMAND),
+# found from the session folder's path alone, and this copy runs the main checkout's script. It hands
 # `nightly-tooling.py hook` only a call whose input holds the id of a night's session, which
 # `nightly-tooling.py begin` writes to that night's folder, .build/retro/<date>/session in the main
 # checkout; every other call leaves here with exit 0 and no output, having started no Python. No

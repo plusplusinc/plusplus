@@ -98,26 +98,31 @@ shell), a push or PR that would start an Xcode Cloud run once tonight's runs rea
 month's PR hours pass 70, and, from 7 am, any new agent, edit but the handoff, or command but
 reading and committing; from 7:45 it denies everything but the lead's own `decide`, `review-end`,
 `digest`, and `outcome`, run as one command, and the lead's Write of its last-line file. It keeps
-a card's writes in its worktree, denies any copy of this script run with one of the night's
-steps, and denies a command naming the night's own files: the main checkout, read from every
-folder a `cd` in the command may leave the shell in, the night's folder, or a dotfile in the home
-folder. During the setup review it denies Edit, commits, pushes, PR writes, brew, and asc, and a
-Write outside the session's .slices/review-setup/; past the review's deadline, all but that
-Write and the lead's closing commands. Once it knows a call is the night's, any error in it
-denies the call.
+a card's writes in its worktree (not its .git file), denies git config writes, a plainly
+spelled copy of this script run with one of the night's steps, and a command naming the night's
+own files: the main checkout, read from every folder a `cd` in the command may leave the shell
+in, the night's folder, or a dotfile in the home folder. During the setup review it denies Edit,
+commits, pushes, PR writes, brew, and asc, and a Write outside the session's
+.slices/review-setup/; past the review's deadline, all but that Write and the lead's closing
+commands. Once it knows a call is the night's, any error in it denies the call.
 
 Where the guard can't tell a call is the night's, it passes it, so no day session is ever held:
-when CLAUDE_PROJECT_DIR names no checkout, the guard never runs. That holds for every call of
-that session, so the guard never judges a call of the night's, and `next` and `review` refuse.
+when CLAUDE_PROJECT_DIR names no checkout with a guard, it never runs. That holds for every call
+of that session, so the guard never judges a call of the night's, and `next` and `review` refuse.
 
-It reads only what the command line shows, and a script file the card writes and runs is past
-it: that is the accepted limit, since the night's agents are no adversaries. Two checks back it:
-git runs the night's `pre-push` hook (core.hooksPath in the session folder's own config) on every
-push, refusing one past the budget, with tonight's runs counted from Xcode Cloud itself, and
-records the branch; and
-`decide` turns auto-merge off on the night's PRs before it decides and lists the PRs from the
-night's branches merged to main that it didn't arm. Other merges, the maintainer's sessions', get
-one plain line. A deadline holds to within one tool call: a call already running isn't stopped.
+The guard is a net for an agent's mistakes: it reads only what the command line shows and
+denies the plain spellings, and a path or step spelled through an expansion, a glob, or a
+script the card writes is past it. What holds against a card's branch is elsewhere: the files
+that judge the card run from the main checkout, found from the session folder's path, which
+the app sets; `decide`'s own gates, with its checks before arming that the main checkout's
+guard, this script, and its git hooks are as `begin` hashed them (else it parks the card and
+ends the cards) and that the pre-push hook was on in the card's folder; `begin` closing no phase
+of a session the guard heard lately; and main's ruleset and protected paths. The pre-push hook
+(core.hooksPath in the session folder's own config) refuses a push past the budget, with
+tonight's runs counted from Xcode Cloud itself, and records the branch; `decide` turns
+auto-merge off on the night's PRs before it decides and lists the PRs from the night's branches
+merged to main that it didn't arm. Other merges, the maintainer's sessions', get one plain line.
+A deadline holds to within one tool call: a call already running isn't stopped.
 
 Tests: python3 scripts/nightly-tooling-test.py, against fixtures, with no network.
 """
