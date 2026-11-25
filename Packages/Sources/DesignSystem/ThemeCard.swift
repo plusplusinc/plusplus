@@ -1,29 +1,23 @@
 import SwiftUI
 
-/// A theme shown as a small current exercise, in that theme's own colors whatever the app is in:
-/// the current exercise's green node on the name's line, the theme's name where an exercise's
-/// goes (at a row title's size), the current exercise's set segments across the text column
-/// under it, one done and two to come, and its looks ("Light and dark", "Dark only") under them
-/// in the "Set 2 of 3" caption's style. It draws the look it is given, `scheme`: a card with both
+/// A theme shown as a tiny phone and its name, in that theme's own colors whatever the app is
+/// in. At the leading edge, a small picture of the workout screen (`TinyPhone`); beside it, the
+/// theme's name at a row title's size and, under it, its looks ("Light and dark", "Dark only")
+/// in the "Set 2 of 3" caption's style; trailing, a mark. The phone, the words, and the mark are
+/// centered on the card's middle. It draws the look it is given, `scheme`: a card with both
 /// looks shows the one Appearance calls for, whatever theme is in use around it
-/// (`Theme.shownScheme(for:phone:)`); a dark-only one shows its dark look in either.
+/// (`Theme.shownScheme(for:phone:)`); a dark-only one shows its dark look in either. At
+/// accessibility sizes the phone and the mark have a line of their own above the words.
 ///
-/// The node sits `Spacing.md` in from the card's left edge and `Spacing.md` down from its top,
-/// still centered on the name's line: the top padding gives up the room the line leaves above
-/// the node, and the bottom the same, so the card is that much shorter and the mark stays
-/// centered. At accessibility sizes, where the node and the mark have a line of their own above
-/// the words, the padding is `Spacing.md` all round.
-///
-/// It is a rounded card, the exercise sheet's value rows' radius. A card that opens the themes is
-/// filled as the value rows are, in `surface`, a step off the page, with no line. A card that
-/// picks one sits on its theme's background, the preview; one not in use draws a hairline of its
-/// separator only where that background is too close to the page's to show an edge
-/// (`edgeContrast`). Trailing,
-/// a mark: a chevron for a card that opens the themes (Settings), or, for a card that picks one
-/// (the Theme screen), the theme in use outlined in its own green (`accent`), two points, and
-/// Checklist's green check, both crossfading in on `.tapChange`; a card not in use has neither,
-/// its check's room kept so every name starts and wraps at one place. VoiceOver reads one
-/// element: the name, the looks as its value, selected when checked.
+/// It is a rounded card, the exercise sheet's value rows' radius, `Spacing.md` in on every side,
+/// filled in its theme's `surface`, a step off the page, so the phone, in its `background`,
+/// reads as a screen on it. A card that picks a theme and is not in use draws a hairline of its
+/// separator only where that fill is too close to the page's background to show an edge
+/// (`edgeContrast`). Trailing, a mark: a chevron for a card that opens the themes (Settings),
+/// or, for a card that picks one (the Theme screen), the theme in use outlined in its own green
+/// (`accent`), two points, and Checklist's green check, both crossfading in on `.tapChange`; a
+/// card not in use has neither, its check's room kept so every name starts and wraps at one
+/// place. VoiceOver reads one element: the name, the looks as its value, selected when checked.
 public struct ThemeCard: View {
     public enum Mark: Equatable {
         case checked(Bool)
@@ -34,12 +28,7 @@ public struct ThemeCard: View {
     private let scheme: ColorScheme
     private let mark: Mark
 
-    @ScaledMetric(relativeTo: .body) private var nodeSize = currentNodeSize
-    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 44
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    /// The height of the node's box, one line of the name (or the node, if taller), as laid out
-    /// (`nodeOnFirstLine`).
-    @State private var lineHeight: CGFloat = 0
     /// The page around the card: its theme and look, before the card sets its own.
     @Environment(\.self) private var page
 
@@ -54,21 +43,21 @@ public struct ThemeCard: View {
     /// today's outline on Log's calendar (1.5), on a much larger shape.
     private static let selectedOutline: CGFloat = 2
 
-    /// The contrast, as WCAG's ratio, under which a card's background shows no edge against the
-    /// page's, so it needs the hairline: the value rows' `surface` stands off `background` at
+    /// The contrast, as WCAG's ratio, under which a card's fill shows no edge against the page's
+    /// background, so it needs the hairline: the value rows' `surface` stands off `background` at
     /// about 1.11 (light) and 1.13 (dark), and reads as a card with no line, so a card at least
-    /// that far off reads as one too. PlusPlus dark on Nord is 1.32.
+    /// that far off reads as one too.
     private static let edgeContrast = 1.1
 
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
         Group {
             if dynamicTypeSize.isAccessibilitySize {
-                // The node and the mark on a line of their own above the words, which take the
+                // The phone and the mark on a line of their own above the words, which take the
                 // card's whole width: beside them, at AX5, "PlusPlus" had room for "PlusPl…".
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     HStack(spacing: Spacing.md) {
-                        node
+                        TinyPhone()
                         Spacer(minLength: 0)
                         markView
                     }
@@ -76,18 +65,15 @@ public struct ThemeCard: View {
                 }
             } else {
                 HStack(spacing: Spacing.md) {
-                    HStack(alignment: .top, spacing: Spacing.md) {
-                        nodeOnFirstLine
-                        words
-                    }
+                    TinyPhone()
+                    words
                     markView
                 }
             }
         }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.md - verticalSlack)
-        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
-        .background(shape.fill(.pp(mark == .opens ? .surface : .background)))
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(shape.fill(.pp(.surface)))
         .overlay {
             shape.strokeBorder(.pp(.separator), lineWidth: 1)
                 .opacity(needsHairline && !isChecked ? 1 : 0)
@@ -111,13 +97,13 @@ public struct ThemeCard: View {
         mark == .checked(true)
     }
 
-    /// A picking card whose background is too close to the page's to show where it ends.
+    /// A picking card whose fill is too close to the page's background to show where it ends.
     private var needsHairline: Bool {
         guard mark != .opens else { return false }
         var own = page
         own.theme = theme
         own.colorScheme = scheme
-        let card = theme.resolve(.background, in: own)
+        let card = theme.resolve(.surface, in: own)
         let around = page.theme.resolve(.background, in: page)
         return DesignSystem.contrast(RGB(card), RGB(around)) < Self.edgeContrast
     }
@@ -127,50 +113,12 @@ public struct ThemeCard: View {
         Spacing.sm + Radius.key
     }
 
-    /// What the card's top and bottom padding give up so the node's top sits `Spacing.md` from
-    /// the card's top edge, as its left does from the left: the room above the node in its
-    /// line's box. None at accessibility sizes, where the node has a line of its own.
-    private var verticalSlack: CGFloat {
-        guard !dynamicTypeSize.isAccessibilitySize else { return 0 }
-        return min(max((lineHeight - nodeSize) / 2, 0), Spacing.md)
-    }
-
-    /// The current exercise's green node, centered on the name's first line: in a box as tall as
-    /// one line of the name at every size. The box's height is read from this layout
-    /// (`lineHeight`), never worked out from the font; a size, not a position, which would move
-    /// with the pixel grid as the padding it sets moves the card, and loop.
-    private var nodeOnFirstLine: some View {
-        ZStack {
-            Text(verbatim: "0")
-                .font(.ppRowTitle)
-                .hidden()
-            node
-        }
-        .fixedSize()
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.height
-        } action: { height in
-            lineHeight = height
-        }
-    }
-
-    private var node: some View {
-        Circle()
-            .fill(.pp(.accent))
-            .frame(width: nodeSize, height: nodeSize)
-    }
-
-    /// The name, the set segments, and the looks, down the text column. Each wraps between
-    /// words where it has to.
+    /// The name and the looks, down the text column. Each wraps between words where it has to.
     private var words: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(theme.name)
                 .font(.ppRowTitle)
                 .foregroundStyle(.pp(.textPrimary))
-            SetSegments(
-                progress: SetProgress(done: 1, total: 3, spoken: ""),
-                isOnSet: false,
-            )
             Text(theme.looksLine)
                 .font(.ppCurrentProgress)
                 .foregroundStyle(.pp(.textSecondary))
@@ -198,6 +146,69 @@ public struct ThemeCard: View {
                 .animation(.tapChange, value: isChecked)
                 .accessibilityHidden(true)
         }
+    }
+}
+
+/// A small picture of the workout screen, in the theme and look around it: a phone-shaped
+/// rounded rectangle in `background` with a `separator` edge, so it shows on any card; inside,
+/// from the top, the current exercise's green dot (`accent`), a bar for its name
+/// (`textPrimary`), its three set bars, one done (`done`) and two to come (`toDo`), and at the
+/// bottom the key at the foot of the screen (`accent`). A picture: no text, hidden from
+/// VoiceOver. Every length is a multiple of the phone's width, which grows with Dynamic Type.
+struct TinyPhone: View {
+    @ScaledMetric(relativeTo: .body) private var width: CGFloat = 44
+
+    /// Points at the default text size; `scale` turns them into this size's.
+    private enum Base {
+        static let width: CGFloat = 44
+        static let height: CGFloat = 72
+        static let corner: CGFloat = 9
+        static let inset: CGFloat = 7
+        static let gap: CGFloat = 5
+        static let dot: CGFloat = 7
+        static let nameWidth: CGFloat = 22
+        static let nameHeight: CGFloat = 3
+        static let setHeight: CGFloat = 2
+        static let setGap: CGFloat = 2
+        static let keyHeight: CGFloat = 10
+        static let edge: CGFloat = 1
+    }
+
+    private var scale: CGFloat {
+        width / Base.width
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Base.corner * scale, style: .continuous)
+        VStack(alignment: .leading, spacing: Base.gap * scale) {
+            Circle()
+                .fill(.pp(.accent))
+                .frame(width: Base.dot * scale, height: Base.dot * scale)
+            Capsule()
+                .fill(.pp(.textPrimary))
+                .frame(width: Base.nameWidth * scale, height: Base.nameHeight * scale)
+            HStack(spacing: Base.setGap * scale) {
+                setBar(.done)
+                setBar(.toDo)
+                setBar(.toDo)
+            }
+            Spacer(minLength: 0)
+            Capsule()
+                .fill(.pp(.accent))
+                .frame(height: Base.keyHeight * scale)
+        }
+        .padding(Base.inset * scale)
+        .frame(width: width, height: Base.height * scale, alignment: .topLeading)
+        .background(shape.fill(.pp(.background)))
+        .overlay(shape.strokeBorder(.pp(.separator), lineWidth: Base.edge))
+        .accessibilityHidden(true)
+    }
+
+    private func setBar(_ token: ColorToken) -> some View {
+        Capsule()
+            .fill(.pp(token))
+            .frame(maxWidth: .infinity)
+            .frame(height: Base.setHeight * scale)
     }
 }
 
