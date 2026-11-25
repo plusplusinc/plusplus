@@ -78,15 +78,16 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Active in its yellow, the warm color gruvbox (morhetz/gruvbox) is known by beside its
-    /// orange; the light scheme's yellow is gruvbox's own faded `B57614`, darkened a step, and
-    /// its orange reads as a rust red there. Done in its purple, arriving in its blue.
+    /// Active in its aqua. Gruvbox (morhetz/gruvbox) names no accent; its warm yellow and
+    /// orange are what it is known by, but on the light background its faded yellow darkens to
+    /// a brown and its orange is a rust red, so it leads with the next of its "retro groove"
+    /// colors in both looks. Done in its purple, arriving in its blue.
     public static let gruvbox = Theme(
         id: "gruvbox",
         name: "Gruvbox",
         looks: .both(
-            light: Palette(.gruvboxLightMedium, roles: .init(accent: 0x0A), isDark: false),
-            dark: Palette(.gruvboxDarkMedium, roles: .init(accent: 0x0A), isDark: true),
+            light: Palette(.gruvboxLightMedium, roles: .init(accent: 0x0C), isDark: false),
+            dark: Palette(.gruvboxDarkMedium, roles: .init(accent: 0x0C), isDark: true),
         ),
     )
 

@@ -29,12 +29,12 @@ struct ThemeSnapshotTests {
         assertThemedSnapshots(of: view, width: Self.width)
     }
 
-    @Test("A workout mid-set in Gruvbox: active in its yellow, done in its blue")
+    @Test("A workout mid-set in Gruvbox: active in its aqua, done in its purple")
     func gruvboxMidSet() {
         assertThemedSnapshots(of: midSet(in: .gruvbox), width: Self.width, includingLight: true)
     }
 
-    @Test("A workout mid-set in Nord: active in its frost blue, done in its purple or green")
+    @Test("A workout mid-set in Nord: active in its frost blue, done in its purple slot")
     func nordMidSet() {
         assertThemedSnapshots(of: midSet(in: .nord), width: Self.width, includingLight: true)
     }
