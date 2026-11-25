@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The night's steps (.claude/skills/night/SKILL.md), each a command its scheduled session runs.
 
+    scripts/nightly-tooling.py night                         # tonight's folder, then the script to run
     scripts/nightly-tooling.py begin <night-dir>             # record the session; park a card a dead run left open
-    scripts/nightly-tooling.py usage <night-dir>             # exits 1 when a weekly window is at 97%
+    scripts/nightly-tooling.py usage <night-dir> [<file>]    # exits 1 when a weekly window is at 97%
     scripts/nightly-tooling.py tally <night-dir>             # the agents' tallies, for the retro and the review
     scripts/nightly-tooling.py outcome <night-dir> ran | failed <step> <why>
     scripts/nightly-tooling.py review <night-dir>            # exits 0 when a setup review is due, opening it
@@ -13,7 +14,8 @@
     scripts/nightly-tooling.py hook <night-dir>              # the guard, behind .claude/hooks/night-guard.sh
     scripts/nightly-tooling.py pre-push <night-dir>          # a card's git pre-push hook
 
-The night's folder, .build/retro/<date>/ in the main checkout, holds the night's state, so each
+The night's folder, .build/retro/<date>/ in the main checkout, which `night` prints with the main
+checkout's copy of this script from any worktree, holds the night's state, so each
 command reads what the last one wrote: `session` (the night's session id, which `begin` takes
 from CLAUDE_CODE_SESSION_ID), state.json (the night's start, this month's Xcode Cloud hours,
 main's test counts, and the open phase: a card, the setup review, or none), cards.json (each
@@ -21,7 +23,8 @@ card taken and what was decided), notes.json (what the digest says besides the c
 guard-seen (each phase and caller the guard judged a call for), starts (the Xcode Cloud runs the
 hooks let start), and pushed (the branches a card's worktree pushed).
 
-`usage` reads the usage.json the night saved from the app's usage tool and prints one line; it
+`usage` reads the usage.json the night saved from the app's usage tool, copied first from <file>
+when given, and prints one line; it
 exits 1 when a window whose label names a week is at 97% or more, and 0 when the file can't be
 read, which the digest then says. `outcome` writes outcome.txt. `digest <night-dir>` makes the
 closing reads (Xcode Cloud, main's tests, PRs behind main, tonight's merges), each failure a "Not
@@ -1067,6 +1070,12 @@ def main_checkout():
     return Path(sh("git", "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).parent
 
 
+def night_dir(now):
+    """Tonight's folder, the main checkout's, wherever the session runs: the app may start it in a
+    worktree of its own."""
+    return main_checkout() / ".build/retro" / f"{now:%Y-%m-%d}"
+
+
 def slug(title):
     words = re.findall(r"[a-z0-9]+", title.lower())
     return "night-" + "-".join(words[:6])
@@ -1922,7 +1931,11 @@ def main(args):
     now = datetime.now().astimezone()
     command, rest = (args[0], args[1:]) if args else ("", [])
     session = os.environ.get("CLAUDE_CODE_SESSION_ID")
-    if command == "usage" and len(rest) == 1:
+    if command == "night" and not rest:
+        print(f"{night_dir(now)}\n{main_checkout() / 'scripts/nightly-tooling.py'}")
+    elif command == "usage" and len(rest) in (1, 2):
+        if rest[1:]:  # a Python write, which a session in a worktree of its own may make here
+            (Path(rest[0]) / USAGE).write_bytes(Path(rest[1]).read_bytes())
         go_on, line = usage_check(rest[0])
         print(line)
         sys.exit(0 if go_on else 1)

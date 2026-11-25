@@ -3,6 +3,7 @@
 
     scripts/conversations.py <since> [file]
     scripts/conversations.py --retro-reply
+    scripts/conversations.py --last-run [<time>]
 
 <since> is a local date (2026-10-13, meaning midnight), a local time (2026-10-13T21:30), or a
 time with an offset (2026-10-13T04:00:00Z). Prints, per session and oldest first, what the
@@ -23,10 +24,11 @@ worked in the checkout (a session started one folder up keeps its transcript the
 sessions of #133 to #140 did). Files not modified since <since> are not opened. With a file, writes the conversation there
 (making its folder) and prints only the first line: how many sessions, or "No sessions since".
 
-With --retro-reply, prints instead the last reply of the newest night's session in the main
-checkout: all the text it showed since the last message it received (a prompt or a
+With --retro-reply, prints instead the last reply of the newest night's session, in the main
+checkout's folder or a worktree's: all the text it showed since the last message it received (a prompt or a
 subagent's hand-back), API errors included, after a line with its local time. That is a
-night's report, for scripts/nightly-retro.sh show.
+night's report, for scripts/nightly-retro.sh show. --last-run prints the main checkout's
+.build/retro/last-run, the retro's last run, if any; with a time, it writes it there.
 """
 import json
 import re
@@ -347,10 +349,13 @@ def session(path, since):
 def opens_night(lines):
     """Whether a transcript's lines, up to its first user message, are the night's: a scheduled
     run of the plusplus-night task, or a launchd run titled "Nightly retro" (`claude --name`
-    wrote that title as the first line).
+    wrote that title as the first line). A session the app starts in a worktree of its own opens
+    with a reminder saying so, before the task.
 
     >>> opens_night(['{"type":"queue-operation"}',
     ...     '{"type":"user","message":{"content":"<scheduled-task name=\\\\"plusplus-night\\\\" file=\\\\"x\\\\">\\\\n/night"}}'])
+    True
+    >>> opens_night(['{"type":"user","message":{"content":"<system-reminder>\\\\nIn a worktree.</system-reminder>\\\\n\\\\n<scheduled-task name=\\\\"plusplus-night\\\\">"}}'])
     True
     >>> opens_night(['{"type":"custom-title","customTitle":"Nightly retro"}', '{"type":"user","message":{"content":"/retro nightly"}}'])
     True
@@ -367,7 +372,8 @@ def opens_night(lines):
         if entry.get("type") == "custom-title" and entry.get("customTitle") == RETRO_SESSION_TITLE:
             return True
         if entry.get("type") == "user":
-            return (text_parts(entry.get("message", {}).get("content")) or "").startswith(NIGHT_TASK)
+            text = text_parts(entry.get("message", {}).get("content")) or ""
+            return REMINDER.sub("", text).lstrip().startswith(NIGHT_TASK)
     return False
 
 
@@ -377,8 +383,9 @@ def is_night(path):
 
 
 def retro_session():
-    """The newest night's transcript in the main checkout, or None."""
-    paths = sorted(project_folders()[0].glob("*.jsonl"), key=lambda path: path.stat().st_mtime, reverse=True)
+    """The newest night's transcript, in the main checkout's folder or a worktree's, or None."""
+    paths = sorted((path for folder in project_folders() for path in folder.glob("*.jsonl")),
+                   key=lambda path: path.stat().st_mtime, reverse=True)
     return next((path for path in paths if is_night(path)), None)
 
 
@@ -404,7 +411,7 @@ def last_reply(path):
 def print_retro_reply():
     path = retro_session()
     if path is None:
-        print(f"No night's session in {project_folders()[0]}.", file=sys.stderr)
+        print(f"No night's session in {project_folders()[0]} or its worktrees'.", file=sys.stderr)
         sys.exit(1)
     reply = last_reply(path)
     if reply is None:
@@ -414,9 +421,24 @@ def print_retro_reply():
     print(f"Last reply, {local(timestamp, '%a %d %b %H:%M')}:\n\n{text}")
 
 
+def last_run(argv):
+    """Prints the main checkout's .build/retro/last-run, or with a time writes it. A Python write,
+    since a session the app starts in a worktree of its own may not Write in the main checkout."""
+    path = main_checkout() / ".build/retro/last-run"
+    if argv:
+        parse_since(argv[0])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(argv[0].strip() + "\n")
+    elif path.exists():
+        print(path.read_text().strip())
+
+
 def main():
     if sys.argv[1:] == ["--retro-reply"]:
         print_retro_reply()
+        return
+    if sys.argv[1:2] == ["--last-run"] and len(sys.argv) <= 3:
+        last_run(sys.argv[2:])
         return
     if len(sys.argv) not in (2, 3) or sys.argv[1].startswith("-"):
         usage()

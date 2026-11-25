@@ -292,6 +292,13 @@ class NightDigest(unittest.TestCase):
                 self.assertEqual(self.main("outcome", *args)[1], 64)
         self.assertFalse((self.night / "outcome.txt").exists())
 
+    def test_usage_saved_in_the_sessions_own_folder_is_copied_into_the_nights(self):
+        self.usage(("Weekly", 40))
+        saved = self.night.parent / "saved-usage.json"
+        (self.night / "usage.json").rename(saved)
+        self.assertEqual(self.main("usage", str(saved)), ("Usage: Weekly 40%\n", 0))
+        self.assertEqual((self.night / "usage.json").read_bytes(), saved.read_bytes())
+
     def test_a_weekly_window_at_97_percent_stops_the_night(self):
         self.usage(("Current session", 99), ("Weekly (all models)", 96.5))
         self.assertEqual(self.main("usage"), ("Usage: Current session 99%, Weekly (all models) 96.5%\n", 0))
@@ -2230,11 +2237,30 @@ class GuardPassesOtherSessions(unittest.TestCase):
         # A guard that denies whatever it is handed, so a call that reaches it shows.
         (self.root / "scripts/nightly-tooling.py").write_text("import sys\nprint('reached', file=sys.stderr)\n"
                                                               "sys.exit(2)\n")
+        subprocess.run(["git", "init", "-q", "-b", "main", str(self.root)], check=True)
 
-    def guard(self, stdin):
+    def guard(self, stdin, project=None):
         script = SCRIPTS.parent / ".claude/hooks/night-guard.sh"
         return subprocess.run([str(script)], input=stdin, capture_output=True, text=True,
-                              env={**os.environ, "CLAUDE_PROJECT_DIR": str(self.root)})
+                              env={**os.environ, "CLAUDE_PROJECT_DIR": str(project or self.root)})
+
+    def test_a_session_in_a_worktree_of_its_own_meets_the_main_checkouts_night(self):
+        git = ["git", "-C", str(self.root), "-c", "user.email=t@example.com", "-c", "user.name=t"]
+        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run(git + ["commit", "-qm", "base"], check=True)
+        worktree = self.root / ".claude/worktrees/session"
+        subprocess.run(git + ["worktree", "add", "-q", str(worktree)], check=True)
+        (worktree / "scripts/nightly-tooling.py").write_text("import sys\nprint(sys.argv[2], file=sys.stderr)\n"
+                                                             "sys.exit(2)\n")
+        self.night("2026-10-28")
+        self.assertEqual(self.guard(hook_input(session="day-session"), worktree).returncode, 0)
+        result = self.guard(hook_input(), worktree)
+        self.assertEqual((result.returncode, result.stderr), (2, f"{self.root}/.build/retro/2026-10-28\n"))
+
+    def test_outside_git_every_call_passes(self):
+        shutil.rmtree(self.root / ".git")
+        self.night("2026-10-28")
+        self.assertEqual(self.guard(hook_input()).returncode, 0)
 
     def night(self, date, session=SESSION):
         folder = self.root / ".build/retro" / date
@@ -2267,6 +2293,28 @@ class GuardPassesOtherSessions(unittest.TestCase):
         self.assertEqual(self.guard(hook_input()).returncode, 0)
         (self.root / ".build/retro/2026-10-28/session").write_text("")
         self.assertEqual(self.guard(hook_input()).returncode, 0)
+
+
+class NightFromAWorktree(unittest.TestCase):
+    """A session the app starts in a worktree of its own still finds the main checkout's night."""
+
+    def test_night_prints_the_main_checkouts_folder_and_script(self):
+        root = Path(os.path.realpath(tempfile.mkdtemp()))
+        self.addCleanup(shutil.rmtree, root, True)
+        (root / "scripts").mkdir()
+        for name in ("nightly-tooling.py", "xcresult.py"):
+            shutil.copy(SCRIPTS / name, root / "scripts" / name)
+        git = ["git", "-C", str(root), "-c", "user.email=t@example.com", "-c", "user.name=t"]
+        subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
+        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run(git + ["commit", "-qm", "base"], check=True)
+        worktree = root / ".claude/worktrees/session"
+        subprocess.run(git + ["worktree", "add", "-q", str(worktree)], check=True)
+        result = subprocess.run([sys.executable, str(worktree / "scripts/nightly-tooling.py"), "night"], cwd=worktree,
+                                capture_output=True, text=True)
+        today = datetime.now().astimezone().strftime("%Y-%m-%d")
+        self.assertEqual((result.returncode, result.stdout),
+                         (0, f"{root}/.build/retro/{today}\n{root}/scripts/nightly-tooling.py\n"), result.stderr)
 
 
 class GuardPhases(unittest.TestCase):

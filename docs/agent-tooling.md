@@ -85,8 +85,7 @@ simulators left on them. `scripts/common.sh` moves each checkout's simulator ont
 
 `.claude/hooks/night-guard.sh` is the night's guard (see "The nightly retro"), for
 `.claude/settings.json` to run as a `PreToolUse` hook on every session's calls; until it does, no
-night card or review runs. It hands on only a call whose input holds the id in the newest
-`.build/retro/<date>/session`, so any other leaves at once.
+night card or review runs. Its header says which calls it hands on.
 
 Before writing a hook or a script that makes Claude Code behave a certain way, check whether its
 own configuration does it: an agent definition's `model:`, `tools:`, and `hooks:` (a hook for
@@ -225,17 +224,18 @@ lives in packages.
 
 ## The nightly retro
 
-A scheduled task in the Claude desktop app, `plusplus-night`, starts a session in the main
-checkout every midnight whose stored prompt is one line that runs `/night`
+A scheduled task in the Claude desktop app, `plusplus-night`, starts a session every midnight
+in a worktree of its own, cut from `main`, whose stored prompt is one line that runs `/night`
 (`.claude/skills/night/SKILL.md`), so what the night does lives in the repo. The session uses the
 app's login and the app's usage tool. Its permission mode is set once by the maintainer in the
 app, to Auto, since a run in the default mode stops at its first command to ask. The task runs
 only while the app is open; a midnight it missed runs at the app's next launch.
 
-The night fast-forwards the main checkout to `origin/main`,
-since it runs that checkout's scripts and skills; one off `main`, or whose uncommitted change
-`origin/main` also changed, stays as it is, and the digest's top says so. The tallies (see
-"Agent records") go to the night's folder, `.build/retro/<date>/`, so no agent needs
+The night fast-forwards the main checkout to `origin/main`, since it runs that checkout's
+`scripts/nightly-tooling.py` and the next night's worktree is cut from its `main`; one off `main`,
+or whose uncommitted change `origin/main` also changed, stays as it is, and the digest's top says
+so. The tallies (see "Agent records") go to the night's folder, the main checkout's
+`.build/retro/<date>/`, so no agent needs
 `scripts/agent-record.py`. The retro reads the conversation through `scripts/conversations.py`,
 which drops the tool calls and the night's own sessions, so a day reads in tens of kilobytes.
 A failed night says so in the digest's first line and, if the session lasts to its digest, in
