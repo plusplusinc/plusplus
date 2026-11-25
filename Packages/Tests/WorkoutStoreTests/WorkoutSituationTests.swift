@@ -9,8 +9,6 @@ import Testing
 @Suite("Workout situation")
 struct WorkoutSituationTests {
     static let start = Date(timeIntervalSinceReferenceDate: 1000)
-    /// From a count's "Start in" to its set's start: its length and its hold at 0:00.
-    static let lead = Double(LiveWorkout.startIn) + LiveWorkout.startInHold
 
     /// Push-ups, 2 sets resting 60 s, between them and before what follows; then a plank,
     /// 2 × 30 s resting `plankRest` s between sets.
@@ -96,7 +94,7 @@ struct WorkoutSituationTests {
         live = try live.logging(at: live.at(clock: 80))
         Self.expectAgrees(live, at: live.at(clock: 100))
         let toPlank = try #require(live.rest()?.leaveClock)
-        live = live.begun(at: live.at(clock: toPlank + 0.5))
+        live = live.countBegun(at: live.at(clock: toPlank + 0.5))
         Self.expectAgrees(live, at: live.at(clock: toPlank + 1))
         let timed = try #require(live.timedSet)
         Self.expectAgrees(live, at: live.at(clock: timed.startClock + 1))
@@ -104,13 +102,16 @@ struct WorkoutSituationTests {
             timed.set,
             timed,
         ))
+        // Run out with nobody watching, it is still the set being done until a screen logs it,
+        // as the count's stage and a screen opening then say (`caughtUp`).
+        Self.expectAgrees(live, at: live.at(clock: timed.endClock + 5))
 
         // Logged early, a rest; its end noticed within a second: the next plank counts from the
         // rest's move on, with none due before it.
         live = try live.logging(at: live.at(clock: timed.startClock + 10))
         Self.expectAgrees(live, at: live.at(clock: timed.startClock + 30))
         let between = try #require(live.rest()?.leaveClock)
-        live = live.begun(at: live.at(clock: between + 0.9))
+        live = live.countBegun(at: live.at(clock: between + 0.9))
         #expect(live.timedSet?.startClock == between)
         Self.expectAgrees(live, at: live.at(clock: between + 0.9))
     }
@@ -144,7 +145,7 @@ struct WorkoutSituationTests {
 
         // After a timed set's log with no rest, before its next set: a timed set always opens on
         // a count.
-        live = live.begun(at: live.at(clock: toPlank))
+        live = live.countBegun(at: live.at(clock: toPlank))
         let timed = try #require(live.timedSet)
         live = try live.logging(at: live.at(clock: timed.startClock + 10))
         #expect(live.rest() == nil)
@@ -242,7 +243,6 @@ struct WorkoutSituationTests {
 
         var finished = live
         finished.loggedWorkout = live.finishing(at: now)
-        #expect(WorkoutPhase(resuming: nil, at: now) == .idle)
         #expect(Self.situation(finished, at: now.addingTimeInterval(60)) == .notStarted)
     }
 
@@ -256,7 +256,7 @@ struct WorkoutSituationTests {
         live = try live.logging(at: live.at(clock: 80))
         let toPlank = try #require(live.rest()?.leaveClock)
         moments.append((live, toPlank + 3))
-        live = live.begun(at: live.at(clock: toPlank))
+        live = live.countBegun(at: live.at(clock: toPlank))
         moments.append((live, toPlank + 3))
         moments.append((live, toPlank + 10))
         for (live, clock) in moments {
@@ -292,7 +292,7 @@ extension LiveWorkout {
     }
 
     /// The workout with the current set's count begun at `now`, as the screen begins it.
-    fileprivate func begun(at now: Date) -> Self {
+    fileprivate func countBegun(at now: Date) -> Self {
         Self(workout: workout, loggedWorkout: beginningCount(at: now))
     }
 }

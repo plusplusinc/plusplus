@@ -15,7 +15,8 @@ import Foundation
 /// - `countingIn(count)`: "Start in" runs to `count.startClock`; the key takes no log. Its end
 ///   leads to `doing`.
 /// - `doing(set, timed)`: the set is up. Reps (`timed` nil): a log ends it. Timed: its count
-///   runs, a log ends it early, +15 s lengthens it, and its end logs it. A log leads to
+///   runs, a log ends it early, +15 s lengthens it, and its end logs it; a count run out while
+///   nobody watched still reads as `doing` until a screen logs it (`caughtUp`). A log leads to
 ///   `resting`, `comingUp`, `doing` (the same exercise's next set, none due), or `allLogged`.
 /// - `resting(rest)`: from a log with a rest after it until the screen moves on
 ///   (`WorkoutRest.leaveClock`). +15 s lengthens it; Skip rest cuts it. Its end leads to the
@@ -49,6 +50,6 @@ extension LiveWorkout {
         if let count = setCount {
             return count.startClock > clock ? .countingIn(count) : .doing(set, timedSet)
         }
-        return workout.startIn(before: set) > 0 || isOnTimedSet ? .comingUp(set) : .doing(set, nil)
+        return isCountDue ? .comingUp(set) : .doing(set, nil)
     }
 }
