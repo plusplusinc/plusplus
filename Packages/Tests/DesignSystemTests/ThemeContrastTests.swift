@@ -12,7 +12,7 @@ import Testing
 @Suite("Theme contrast")
 nonisolated struct ThemeContrastTests {
     /// One theme in one look, at a contrast setting. PlusPlus's colorsets also have Increase
-    /// Contrast variants; the base16 looks have one value each.
+    /// Contrast variants; the other themes' looks have one value each.
     struct Look: CustomTestStringConvertible, Sendable {
         let theme: Theme
         let scheme: ColorScheme
@@ -44,7 +44,7 @@ nonisolated struct ThemeContrastTests {
     /// The pairs that must keep a ratio: a token drawn, the ground it is drawn on, the ratio.
     /// Text is `textPrimary` and `textSecondary`; `textTertiary`, a finished exercise's detail
     /// line, is 3.9:1 in PlusPlus dark and is held to the rail's 3:1, as it draws in `rail`'s
-    /// color in every base16 look.
+    /// color in every other theme's look.
     private static let pairs: [Pair] = [
         Pair(.accent, on: .background, 4.5),
         Pair(.textPrimary, on: .background, 4.5),
@@ -63,7 +63,7 @@ nonisolated struct ThemeContrastTests {
 
     /// Done drawn as text (Log's counts and figures) on the screen and on a card, and under a
     /// done day's number, which draws in the background's color on it. PlusPlus light's purple
-    /// is 4.26:1 on its white and has its own card, so the pairs hold the base16 looks.
+    /// is 4.26:1 on its white and has its own card, so the pairs hold the other themes' looks.
     private static let doneTextPairs: [Pair] = [
         Pair(.doneText, on: .background, 4.5),
         Pair(.doneText, on: .surface, 4.5),
@@ -91,8 +91,8 @@ nonisolated struct ThemeContrastTests {
                 ratio >= pair.ratio,
                 """
                 \(look.testDescription): \(pair.drawn) on \(pair.ground) is \
-                \(Self.shown(ratio)):1, under \(Self.shown(pair.ratio)):1. Pick another \
-                of the theme's slots (Base16.Roles) before moving a value.
+                \(Self.shown(ratio)):1, under \(Self.shown(pair.ratio)):1. Move the theme's \
+                color in lightness in Themes.swift, its hue kept.
                 """,
             )
         }
@@ -100,15 +100,11 @@ nonisolated struct ThemeContrastTests {
 
     /// Two 4 pt bars side by side whose hues are close (a purple beside a blue) read as one color
     /// unless further apart in lightness (`Palette.doneGap`).
-    @Test(
-        "Done stands apart from active, further where their hues are close, and to-do from done",
-        arguments: looks,
-    )
+    @Test("Done stands apart from active, further where their hues are close", arguments: looks)
     func doneStandsApart(look: Look) {
         let accentLab = OKLab(RGB(look.color(.accent)))
         let doneLab = OKLab(RGB(look.color(.done)))
         let (accent, done) = (accentLab.lightness, doneLab.lightness)
-        let toDo = Self.lightness(look.color(.toDo))
         let hues = accentLab.hueDistance(to: doneLab)
         let needed = hues < Palette.closeHues ? Palette.closeHueGap : Palette.lightnessGap
         #expect(
@@ -118,9 +114,22 @@ nonisolated struct ThemeContrastTests {
             in OKLab lightness, under \(Self.shown(needed)) for hues \(Int(hues))° apart.
             """,
         )
+    }
+
+    /// A set done and a set still to do sit side by side as bars; where done is a gray (Mono),
+    /// lightness is all that tells them apart, and to-do is the quieter, nearer the background.
+    @Test("A set still to do stands apart from a done one, and quieter", arguments: looks)
+    func toDoStandsApartFromDone(look: Look) {
+        let done = Self.lightness(look.color(.done))
+        let toDo = Self.lightness(look.color(.toDo))
+        let background = Self.lightness(look.color(.background))
         #expect(
             abs(done - toDo) >= 0.10,
             "\(look.testDescription): done and toDo are \(Self.shown(abs(done - toDo))) apart",
+        )
+        #expect(
+            abs(toDo - background) < abs(done - background),
+            "\(look.testDescription): toDo is further from the background than done",
         )
     }
 
@@ -137,6 +146,21 @@ nonisolated struct ThemeContrastTests {
         #expect(
             distance >= Palette.nodeDistance,
             "\(look.testDescription): done and rail are \(Self.shown(distance)) apart in OKLab",
+        )
+    }
+
+    /// A row joining a rail draws its node in `railJoin`, then settles to `rail`: unless the two
+    /// stand apart, the arrival shows nothing. In Mono only lightness tells them apart.
+    @Test("An arriving node stands apart from a resting one", arguments: looks)
+    func arrivingStandsApart(look: Look) {
+        let (join, rail) = (OKLab(RGB(look.color(.railJoin))), OKLab(RGB(look.color(.rail))))
+        let distance = (
+            pow(join.lightness - rail.lightness, 2) + pow(join.greenRed - rail.greenRed, 2)
+                + pow(join.blueYellow - rail.blueYellow, 2),
+        ).squareRoot()
+        #expect(
+            distance >= Palette.nodeDistance,
+            "\(look.testDescription): railJoin and rail are \(Self.shown(distance)) apart in OKLab",
         )
     }
 

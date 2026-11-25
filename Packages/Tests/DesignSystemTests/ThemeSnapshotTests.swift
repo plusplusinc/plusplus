@@ -6,37 +6,37 @@ import SwiftUI
 import Testing
 
 /// The themes as they are drawn: the Theme screen's cards, each in its own theme's colors over
-/// the page around it, and a workout mid-set drawn in two base16 themes, in light and dark. What
+/// the page around it, and a workout mid-set drawn in two other themes, in light and dark. What
 /// every theme's colors keep (their ratios, active never red) is `ThemeContrastTests`'; these
 /// hold how they land on screen.
 @Suite("Themes")
 struct ThemeSnapshotTests {
     private static let width: CGFloat = 390
 
-    /// Cards on the Theme screen: PlusPlus in use, with its outline and check; Dracula, dark
-    /// only; Tokyo Night, whose name is the longest. Under them, Settings' card, which opens the
+    /// Cards on the Theme screen: PlusPlus in use, with its outline and check; Sunset, dark
+    /// only; Lavender, one of the longest names. Under them, Settings' card, which opens the
     /// themes.
     @Test("Theme cards: in use, dark only, a long name, and Settings' card that opens them")
     func cards() {
         let view = VStack(spacing: Spacing.sm) {
             ThemeCard(theme: .plusPlus, scheme: .dark, mark: .checked(true))
-            ThemeCard(theme: .dracula, scheme: .dark, mark: .checked(false))
-            ThemeCard(theme: .tokyoNight, scheme: .dark, mark: .checked(false))
-            ThemeCard(theme: .nord, scheme: .dark, mark: .opens)
+            ThemeCard(theme: .sunset, scheme: .dark, mark: .checked(false))
+            ThemeCard(theme: .lavender, scheme: .dark, mark: .checked(false))
+            ThemeCard(theme: .slate, scheme: .dark, mark: .opens)
         }
         .padding(Spacing.md)
         .background(Color.pp(.background))
         assertThemedSnapshots(of: view, width: Self.width)
     }
 
-    @Test("A workout mid-set in Gruvbox: active in its aqua, done in its purple")
-    func gruvboxMidSet() {
-        assertThemedSnapshots(of: midSet(in: .gruvbox), width: Self.width, includingLight: true)
+    @Test("A workout mid-set in Mono: active, done, and to-do told apart by lightness alone")
+    func monoMidSet() {
+        assertThemedSnapshots(of: midSet(in: .mono), width: Self.width, includingLight: true)
     }
 
-    @Test("A workout mid-set in Nord: active in its green, done in its purple")
-    func nordMidSet() {
-        assertThemedSnapshots(of: midSet(in: .nord), width: Self.width, includingLight: true)
+    @Test("A workout mid-set in Plum: active in its orchid, done in its gold")
+    func plumMidSet() {
+        assertThemedSnapshots(of: midSet(in: .plum), width: Self.width, includingLight: true)
     }
 
     private struct Row: Identifiable {

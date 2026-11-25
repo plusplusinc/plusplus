@@ -1,13 +1,13 @@
 import Testing
 @testable import DesignSystem
 
-/// The arithmetic every base16 look is worked out with. What it makes of each palette is held by
+/// The arithmetic every theme's look is worked out with. What it makes of each palette is held by
 /// `ThemeContrastTests`; these hold the steps it is made of.
 @Suite("Color math")
 nonisolated struct ColorMathTests {
     @Test("sRGB to OKLab and back returns the color within one 8-bit step")
     func oklabRoundTrips() {
-        for hex: UInt32 in [0x000000, 0xFFFFFF, 0x2E3440, 0x88C0D0, 0xFE8019, 0x8839EF] {
+        for hex: UInt32 in [0x000000, 0xFFFFFF, 0x17191D, 0x5AA2FF, 0xFF9F45, 0x7C3AED] {
             let color = RGB(hex)
             let back = OKLab(color).rgb
             for (one, two) in [
@@ -22,7 +22,7 @@ nonisolated struct ColorMathTests {
 
     @Test("A mix at 0 and at 1 returns its ends")
     func mixReturnsEnds() {
-        let (from, to) = (RGB(0x2E3440), RGB(0xE5E9F0))
+        let (from, to) = (RGB(0x17191D), RGB(0xE8EAEE))
         #expect(contrast(mix(from, to, 0), from) < 1.01)
         #expect(contrast(mix(from, to, 1), to) < 1.01)
     }
@@ -31,14 +31,14 @@ nonisolated struct ColorMathTests {
         "A nudge moves lightness only away from the ground, and stops at the first step that holds",
     )
     func nudgeStopsAtRatio() {
-        let background = RGB(0xFDF6E3)
-        let blue = RGB(0x268BD2)
+        let background = RGB(0xF6EFE2)
+        let blue = RGB(0x3A8FD8)
         let nudged = nudge(blue, to: 4.5, on: [background], awayFrom: background)
         #expect(contrast(nudged, background) >= 4.5)
         #expect(OKLab(nudged).lightness < OKLab(blue).lightness)
         let oneStepBack = withLightness(blue, OKLab(nudged).lightness + 0.01)
         #expect(contrast(oneStepBack, background) < 4.5)
-        let passing = RGB(0x073642)
+        let passing = RGB(0x2B251D)
         #expect(nudge(passing, to: 4.5, on: [background], awayFrom: background) == passing)
     }
 

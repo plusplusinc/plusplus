@@ -5,7 +5,7 @@ import SwiftUI
 /// only one there is.
 ///
 /// PlusPlus's own values are the asset catalog's colorsets, Increase Contrast variants
-/// included; every other theme's are worked out from a base16 palette (`Palette`).
+/// included; every other theme's are worked out from its five colors (`Palette`, `Themes.swift`).
 public nonisolated struct Theme: Identifiable, Sendable, Equatable {
     /// Stored as the person's choice (`Look`), so never changed once shipped.
     public let id: String
@@ -25,12 +25,8 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
 
     public static let plusPlus = Self(id: "plusplus", name: "PlusPlus", looks: .catalog)
 
-    /// PlusPlus first, then the rest by name.
-    public static let all: [Self] = [.plusPlus] + [
-        .ayu, .catppuccin, .dracula, .everforest, .github, .gruvbox, .horizon, .kanagawa,
-        .material, .monokai, .nord, .one, .oxocarbon, .paperColor, .rosePine, .selenized,
-        .solarized, .tokyoNight, .tomorrow, .zenburn,
-    ].sorted { $0.name < $1.name }
+    /// PlusPlus first, then the rest in their curated order (`ours`).
+    public static let all: [Self] = [.plusPlus] + ours
 
     /// The color schemes this theme has a look for.
     public var schemes: [ColorScheme] {
@@ -40,9 +36,8 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
     /// Whether a color reads as a red, which `accent` never is: it fills the + that adds an
     /// exercise, and a red + reads as a warning. A red is a color with OKLab chroma of at least
     /// 0.05 (not a gray) whose OKLab hue is from 350° round to 40°: from the pinks' edge to where
-    /// orange begins. Monokai's pink-red and Horizon's coral (7° to 17°) and Gruvbox's light
-    /// orange, a rust on screen (39°), fall inside; Catppuccin's peach (42°) and Dracula's pink
-    /// (347°) outside.
+    /// orange begins. A pink-red and a coral (7° to 17°) and an orange that reads as rust (39°)
+    /// fall inside; a peach (42°), a hot pink (347°), and Plum's orchid (338°) outside.
     public static func isRed(_ color: Color.Resolved) -> Bool {
         let lab = OKLab(RGB(color))
         let chroma = (lab.greenRed * lab.greenRed + lab.blueYellow * lab.blueYellow).squareRoot()
@@ -53,7 +48,8 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
         return chroma >= 0.05 && (hue >= 350 || hue < 40)
     }
 
-    /// The theme a stored id names, or PlusPlus for one that names none.
+    /// The theme a stored id names, or PlusPlus for one that names none, such as an id an
+    /// earlier build stored for a theme since dropped (`nord`).
     public static func stored(id: String?) -> Self {
         all.first { $0.id == id } ?? .plusPlus
     }

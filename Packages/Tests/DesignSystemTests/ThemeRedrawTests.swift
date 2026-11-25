@@ -49,11 +49,11 @@ struct ThemeRedrawTests {
         defer { window.isHidden = true }
         window.settle()
         let before = try Self.center(of: host)
-        picked.theme = .gruvbox
+        picked.theme = .ocean
         window.settle()
         let after = try Self.center(of: host)
         #expect(Self.near(before, Self.dark(.plusPlus)), "Before: \(before)")
-        #expect(Self.near(after, Self.dark(.gruvbox)), "After the change: \(after)")
+        #expect(Self.near(after, Self.dark(.ocean)), "After the change: \(after)")
     }
 
     /// The theme's dark `accent`, as 8-bit sRGB.

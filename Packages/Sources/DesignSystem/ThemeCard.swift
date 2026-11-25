@@ -249,8 +249,8 @@ extension ButtonStyle where Self == CardButtonStyle {
         VStack(spacing: Spacing.sm) {
             ThemeCard(theme: .plusPlus, scheme: .dark, mark: .checked(true))
             ThemeCard(theme: .plusPlus, scheme: .light, mark: .checked(false))
-            ThemeCard(theme: .nord, scheme: .dark, mark: .checked(false))
-            ThemeCard(theme: .nord, scheme: .dark, mark: .opens)
+            ThemeCard(theme: .slate, scheme: .dark, mark: .checked(false))
+            ThemeCard(theme: .slate, scheme: .dark, mark: .opens)
         }
         .padding(Spacing.md)
     }
@@ -260,8 +260,8 @@ extension ButtonStyle where Self == CardButtonStyle {
 #Preview("Long names") {
     ScrollView {
         VStack(spacing: Spacing.sm) {
-            ThemeCard(theme: .catppuccin, scheme: .light, mark: .checked(false))
-            ThemeCard(theme: .tokyoNight, scheme: .dark, mark: .checked(true))
+            ThemeCard(theme: .lavender, scheme: .light, mark: .checked(false))
+            ThemeCard(theme: .phosphor, scheme: .dark, mark: .checked(true))
         }
         .padding(Spacing.md)
     }

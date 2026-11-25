@@ -5,7 +5,8 @@ import SwiftUI
 /// Named for the job a color does, not the color it is, so each theme gives every job its own
 /// color. PlusPlus's light and dark pairs live in `Tokens.xcassets` under the raw value; a case
 /// without a colorset renders clear, which the palette snapshot makes obvious. Every other
-/// theme's come from its base16 palette (`Palette`). The colors named below are PlusPlus's.
+/// theme's come from its five colors (`Palette`). The colors named below are PlusPlus's; another
+/// theme gives each job a color of its own, never a red to active.
 public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// Green: what's active, and a value that went up; also the ++ mark, and the controls that
     /// make something: the fill of the + that adds an exercise (`FloatingButtonStyle`), the one

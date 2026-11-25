@@ -23,10 +23,10 @@ struct LookTests {
         try withDefaults { defaults in
             let first = Look(defaults: defaults)
             first.appearance = .light
-            first.theme = .solarized
+            first.theme = .paper
             let relaunched = Look(defaults: defaults)
             #expect(relaunched.appearance == .light)
-            #expect(relaunched.theme == .solarized)
+            #expect(relaunched.theme == .paper)
         }
     }
 
@@ -35,7 +35,8 @@ struct LookTests {
         try withDefaults { defaults in
             #expect(Look(defaults: defaults).appearance == .dark)
             #expect(Look(defaults: defaults).theme == .plusPlus)
-            defaults.set("sepia", forKey: Look.themeKey)
+            // An editor theme's id, which an earlier build of the themes stored.
+            defaults.set("nord", forKey: Look.themeKey)
             defaults.set("dusk", forKey: Look.appearanceKey)
             let look = Look(defaults: defaults)
             #expect(look.theme == .plusPlus)
@@ -53,22 +54,22 @@ struct LookTests {
 
     @Test("A theme with both looks is held to the appearance, and to nothing on Auto")
     func bothLooksFollowAppearance() {
-        #expect(Theme.nord.colorScheme(for: .light) == .light)
-        #expect(Theme.nord.colorScheme(for: .dark) == .dark)
-        #expect(Theme.nord.colorScheme(for: .auto) == nil)
+        #expect(Theme.slate.colorScheme(for: .light) == .light)
+        #expect(Theme.slate.colorScheme(for: .dark) == .dark)
+        #expect(Theme.slate.colorScheme(for: .auto) == nil)
     }
 
     @Test("A dark-only theme is held dark whatever the appearance, and draws the same in light")
     func darkOnlyStaysDark() {
         for appearance in Appearance.allCases {
-            #expect(Theme.dracula.colorScheme(for: appearance) == .dark)
+            #expect(Theme.sunset.colorScheme(for: appearance) == .dark)
         }
         var light = EnvironmentValues()
         light.colorScheme = .light
         var dark = EnvironmentValues()
         dark.colorScheme = .dark
         for token in ColorToken.allCases {
-            #expect(Theme.dracula.resolve(token, in: light) == Theme.dracula.resolve(
+            #expect(Theme.sunset.resolve(token, in: light) == Theme.sunset.resolve(
                 token,
                 in: dark,
             ))
