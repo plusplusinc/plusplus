@@ -2,14 +2,14 @@
 """The night's steps (.claude/skills/night/SKILL.md), each a command its scheduled session runs.
 
     scripts/nightly-tooling.py night                         # tonight's folder, then the script to run
-    scripts/nightly-tooling.py begin <night-dir>             # record the session; park a card a dead run left open
+    scripts/nightly-tooling.py begin <night-dir>             # record the session; park and undo what a dead run left
     scripts/nightly-tooling.py usage <night-dir> [<file>]    # exits 1 when a weekly window is at 97%
     scripts/nightly-tooling.py tally <night-dir>             # the agents' tallies, for the retro and the review
     scripts/nightly-tooling.py outcome <night-dir> ran | failed <step> <why>
     scripts/nightly-tooling.py review <night-dir>            # exits 0 when a setup review is due, opening it
-    scripts/nightly-tooling.py review-end <night-dir> <the review's last line>
+    scripts/nightly-tooling.py review-end <night-dir> [<file holding the review's last line>]
     scripts/nightly-tooling.py next <night-dir> [--dry-run]  # exits 0 with the card to take, 1 when none may start
-    scripts/nightly-tooling.py decide <night-dir> <card> [<its lead's last line>]   # exits 3 while armed
+    scripts/nightly-tooling.py decide <night-dir> <card> [<file holding its lead's last line>]  # 3 while armed
     scripts/nightly-tooling.py digest [<night-dir>]          # a night's digest, written; bare, the last night's, printed
     scripts/nightly-tooling.py hook <night-dir>              # the guard, behind .claude/hooks/night-guard.sh
     scripts/nightly-tooling.py pre-push <night-dir>          # a card's git pre-push hook
@@ -44,9 +44,14 @@ to Done the cards a night parked or left waiting whose PR has merged since. Then
 first eligible card that names no file an open PR changes (a retro PR's Markdown under .claude/
 and docs/ holds none back, and a card held back tops the digest) and, when it may change the
 app, fits this month's 70 Xcode Cloud PR hours and leaves room for EXPECTED_RUNS of the night's
-four runs. It makes the card's worktree from main with the night's pre-push hook in that
-worktree's own git config, moves the card to In Progress, opens its phase, and prints the card,
-title, worktree, branch, and handoff. --dry-run prints the same, or why not, and changes nothing.
+four runs. A card is built in the session's own folder, since Claude Code refuses a subagent's
+edits in another worktree: never the main checkout, whose copies of this script and the guard
+judge the card, and never with uncommitted changes there. `next` makes the card's branch from
+main, switches the session's folder to it with the night's pre-push hook in that worktree's own
+git config, moves the card to In Progress, opens its phase, and prints the card, title,
+worktree, branch, handoff, and last-line file. --dry-run prints the same, or why not, and
+changes nothing. What the night keeps outside that folder (a handoff, the review's report) is
+written in it and carried across by `decide` and `review-end`.
 
 `decide` first turns auto-merge off on every open PR from the night's branches, the ones `next`
 made or a card's worktree pushed, then reads the PR on the card's branch. It arms auto-merge only after a passing verifier
@@ -55,13 +60,17 @@ unexplained, and a line in guard-seen from one of the card's subagents; a PR tou
 path or only .claude/ and docs/ waits for the maintainer, and a failed card's PR goes back to
 draft. Armed, it waits for the merge until eight minutes after it started and exits 3 when it hasn't come, so the
 session runs it again; a failed PR check, or an hour armed, parks the card. A PR from the night's
-branches merged that the night didn't arm ends the cards and tops the digest. Every outcome
-closes the phase.
+branches merged that the night didn't arm, or a list of tonight's merges it can't read, ends the
+cards and tops the digest. Every outcome closes the phase, carries the handoff to the main
+checkout's .slices/, unsets the hook, and switches the folder back (when it can't, no more cards
+start). A card decided before is left as it is, and exits 0. The lead's last line comes from a
+file it wrote, since a line on the command line may hold what the guard won't pass.
 
 `review` is due from midnight to 5 am, on the first night of a month with no setup review's
 report in .slices/review-setup/ yet, or on a newer major Xcode installed since the last report,
-on at most two nights a month. Due, and with the guard able to hold the session's calls (as for
-a card), it opens the review's phase, for 90 minutes or until 5 am, and exits 0; the session then
+on at most two nights a month that started one. Due, and with the guard able to hold the
+session's calls (as for a card), it opens the review's phase, for 90 minutes or until 5 am, and
+exits 0; the session then
 runs /review-setup nightly, and `review-end` closes the phase and keeps the review's last line
 for the digest. It exits 1 when the review isn't due or can't run guarded, and 2 when it failed.
 
@@ -74,9 +83,10 @@ fetch's requests are cut off after three minutes together; a tally that fails or
 writes "No tally tonight: <why>" in its file instead, and the night goes on. `review` writes the
 review's file itself when the night's `tally` didn't.
 
-`hook` is the guard. .claude/hooks/night-guard.sh, once .claude/settings.json runs it as a
-PreToolUse hook on every session's calls, hands it only the calls whose input holds the night's
-session id; such a hook runs before the permission rules, and its deny wins over their allow. With no phase open it allows everything,
+`hook` is the guard. The main checkout's .claude/hooks/night-guard.sh, once .claude/settings.json
+runs it (HOOK_COMMAND) as a PreToolUse hook on every session's calls, hands it only the calls
+whose input holds the session id of a night's folder; such a hook runs before the permission
+rules, and its deny wins over their allow. With no phase open it allows everything,
 so the retro runs unguarded. During a card it reads each Bash command as the shell would split
 it, `bash -c`, `eval`, and `$(...)` included, and denies a merge of a PR (`gh pr merge`, `gh api`
 on a merge path, a GraphQL mutation), any `asc xcode-cloud` command that starts or changes a
@@ -85,16 +95,22 @@ hooks, a shell or interpreter run on inline or piped code (`python3 -c`, `| sh`,
 shell), a push or PR that would start an Xcode Cloud run once tonight's runs reach four or this
 month's PR hours pass 70, and, from 7 am, any new agent, edit but the handoff, or command but
 reading and committing; from 7:45 it denies everything but the lead's own `decide`, `review-end`,
-`digest`, and `outcome`, run as one command. It keeps a card's writes in its worktree and the
-main checkout's .slices/, and denies a command naming the night's own files: the main checkout
-(a path after `cd <worktree>` is the worktree's), the night's folder, or a dotfile in the home
+`digest`, and `outcome`, run as one command, and the lead's Write of its last-line file. It keeps
+a card's writes in its worktree, denies any copy of this script run with one of the night's
+steps, and denies a command naming the night's own files: the main checkout, read from every
+folder a `cd` in the command may leave the shell in, the night's folder, or a dotfile in the home
 folder. During the setup review it denies Edit, commits, pushes, PR writes, brew, and asc, and a
-Write outside .slices/review-setup/; past the review's deadline, all but that Write and the
-lead's closing commands. Once it knows a call is the night's, any error in it denies the call.
+Write outside the session's .slices/review-setup/; past the review's deadline, all but that
+Write and the lead's closing commands. Once it knows a call is the night's, any error in it
+denies the call.
+
+Where the guard can't tell a call is the night's, it passes it, so no day session is ever held:
+when CLAUDE_PROJECT_DIR names no checkout, the guard never runs. That holds for every call of
+that session, so the guard never judges a call of the night's, and `next` and `review` refuse.
 
 It reads only what the command line shows, and a script file the card writes and runs is past
 it: that is the accepted limit, since the night's agents are no adversaries. Two checks back it:
-git runs the night's `pre-push` hook (core.hooksPath in the card worktree's own config) on every
+git runs the night's `pre-push` hook (core.hooksPath in the session folder's own config) on every
 push, refusing one past the budget, with tonight's runs counted from Xcode Cloud itself, and
 records the branch; and
 `decide` turns auto-merge off on the night's PRs before it decides and lists the PRs from the
@@ -183,6 +199,18 @@ PUSHED = "pushed"  # the branches a card's worktree pushed, which its pre-push h
 WEEKLY_STOP = 97  # percent of a weekly window at which the night skips the retro
 USAGE = "usage.json"  # what the app's usage tool returned, which the night saves
 OUTCOME = "outcome.txt"  # "ran" or "failed: <step>, <why>", which `outcome` writes
+# In the session's own folder: the lead's last line for `decide` or `review-end`, which the lead
+# Writes there, since a line given on the command line may hold what the guard won't pass.
+LAST_LINE = ".build/last-line.txt"
+# The night's steps, which only its lead runs, from the main checkout's script.
+NIGHT_STEPS = {"night", "begin", "usage", "tally", "outcome", "review", "review-end", "next", "decide",
+               "settle", "digest", "hook", "pre-push"}
+# .claude/settings.json's PreToolUse command: the main checkout's guard, found from the session's
+# folder by the shell alone (a worktree's .git file reads "gitdir: <main>/.git/worktrees/<name>"),
+# with no git or other program that could fail, whatever branch that folder is on, since a card's
+# branch could change its own copy.
+HOOK_COMMAND = ('d=$CLAUDE_PROJECT_DIR; if [ -f "$d/.git" ]; then read -r g < "$d/.git"; g=${g#gitdir: }; '
+                'd=${g%/.git/worktrees/*}; fi; exec /bin/sh "$d/.claude/hooks/night-guard.sh"')
 
 
 def checkout_note(folder):
@@ -265,7 +293,7 @@ def last_review(folder):
 
 def review_tries(retro, now):
     """How many nights this month started a setup review: the night folders in .build/retro/ whose
-    notes say its phase opened."""
+    notes say its phase opened (a due review that couldn't run guarded is "review_blocked")."""
     tries = 0
     for path in Path(retro).glob(f"{now:%Y-%m}-[0-9][0-9]/{NOTES}"):
         try:
@@ -628,7 +656,8 @@ def commands(command, depth=0, targets=False):
             if targets and not redirect.endswith("&"):
                 words.append((">" if ">" in redirect else "<") + token)
             redirect = None
-        elif token in SEPARATORS:
+        # shlex keeps a run of punctuation as one token: `$(cat x); y` ends `cat` with ");".
+        elif token in SEPARATORS or (set(token) <= set(";&|()") and set(token) & set(";|()")):
             if words:
                 found.append(words)
             words = []
@@ -804,6 +833,15 @@ def hooks_off(words):
         any(w.startswith("GIT_CONFIG") for w in words) or {"-i", "-", "--ignore-environment"} & set(words))
 
 
+def night_step(words):
+    """Whether a simple command runs a copy of this script with one of the night's steps."""
+    name, args = program(words)
+    if INTERPRETERS.fullmatch(name):
+        files = [i for i, arg in enumerate(args) if not arg.startswith("-")]
+        name, args = (args[files[0]].rsplit("/", 1)[-1], args[files[0] + 1:]) if files else ("", [])
+    return name == "nightly-tooling.py" and args[:1] != [] and args[0] in NIGHT_STEPS
+
+
 def safe_late(words):
     if words[0] in SAFE_LATE:
         return True
@@ -811,19 +849,20 @@ def safe_late(words):
 
 
 class Fence:
-    """Where a card's agents may write: its worktree and the main checkout's .slices/, but not the
-    worktree's Claude Code settings, which the running session reloads. What a command names may
-    not be the night's own files: the main checkout (this script, the guard, the night's folder,
-    git's config), this script's own checkout, or a dotfile in the home folder (gh's, git's,
-    Claude Code's, and asc's config)."""
+    """Where a card's agents may write: its worktree, the session's own folder on the card's
+    branch, but not its Claude Code settings, which the running session reloads. What a command
+    names may not be the night's own files: the main checkout (the scripts and guard that judge
+    the card, the night's folder, git's config), this script's own checkout, or a dotfile in the
+    home folder (gh's, git's, Claude Code's, and asc's config)."""
 
     def __init__(self, worktree, main, night, cwd=None):
         self.cwd = self.real(cwd or worktree)
         worktree = self.real(worktree)
-        self.writable = [worktree, self.real(main) / ".slices"]
+        self.main = self.real(main)
+        self.writable = [worktree]
         self.live = [worktree / ".claude/settings*.json", worktree / ".mcp.json"]
         self.home = self.real("~")
-        self.guarded_roots = [self.real(main), self.real(ROOT), self.real(night), self.home / "Library/LaunchAgents"]
+        self.guarded_roots = [self.main, self.real(ROOT), self.real(night), self.home / "Library/LaunchAgents"]
 
     @staticmethod
     def real(path, cwd=None):
@@ -850,20 +889,23 @@ class Fence:
 
     def named(self, parsed):
         """The night's own files a Bash command names, in a word, an option's value, or a
-        redirection; parsed is commands(command, targets=True). A `cd <dir>` moves where the words
-        after it resolve, since a subagent's shell starts in the main checkout at every call and
-        `cd <worktree> && scripts/build.sh` is how it works there. A cd whose directory a reader
-        can't know (a variable, a substitution, a glob, `cd -`) leaves them at the call's own
-        directory."""
-        found, cwd = [], self.cwd
+        redirection; parsed is commands(command, targets=True). A word is read from every folder
+        the shell may be in when it runs: the call's own, and each `cd` or `pushd` before it,
+        since one in a subshell, a pipe, or `bash -c` moves nothing after it. A folder a reader
+        can't know (a variable, a substitution, a glob, `cd -`) adds the main checkout, where
+        the night's own files are."""
+        found, folders = [], [self.cwd]
         for words in parsed:
             for word in words:
                 for part in {word.lstrip("<>@"), word.split("=", 1)[-1].lstrip("<>@")}:
-                    if (part.startswith(("/", "~", ".", "$HOME", "${HOME}")) or "/" in part) and self.guarded(part, cwd):
+                    if (part.startswith(("/", "~", ".", "$HOME", "${HOME}")) or "/" in part) and any(
+                            self.guarded(part, cwd) for cwd in folders):
                         found.append(part)
-            if words[0] == "cd":
-                target = words[1] if len(words) > 1 else "~"
-                cwd = self.cwd if target == "-" or re.search(r"[`*?\[]|\$(?!HOME\b|\{HOME\})", target) else self.real(target, cwd)
+            if words[0] in ("cd", "pushd"):
+                target = next((w for w in words[1:] if not w.startswith("-")), "~")
+                unknown = words[1:2] == ["-"] or re.search(r"[`*?\[]|\$(?!HOME\b|\{HOME\})", target)
+                moved = [self.main] if unknown else [self.real(target, cwd) for cwd in folders]
+                folders = list(dict.fromkeys(folders + moved))
         return sorted(set(found))
 
 
@@ -887,9 +929,9 @@ def hook_decision(tool, command, now, stop, handoff, run_gate, fence, path="", i
     late = now >= stop
     late_reason = (f"It is past {STOP_HOUR} am, so the night starts nothing new. Commit what builds, "
                    f"write the handoff note to {handoff}, and end your turn.")
-    fenced = ("At night a card writes only in its worktree and the main checkout's .slices/, and no "
-              "command names the night's own files (the main checkout, its scripts, the night's folder, "
-              "git's, gh's, asc's, or Claude Code's config): ")
+    fenced = ("At night a card writes only in its worktree, the session's own folder (its handoff and "
+              "scratch files in .slices/ there), and no command names the night's own files (the main "
+              "checkout, its scripts, the night's folder, git's, gh's, asc's, or Claude Code's config): ")
     if tool in ("Edit", "Write", "NotebookEdit"):
         if not fence.may_write(path):
             return fenced + path
@@ -903,6 +945,9 @@ def hook_decision(tool, command, now, stop, handoff, run_gate, fence, path="", i
     if never:
         return never
     parsed = commands(command, targets=True)
+    if any(night_step(words) for words in parsed):
+        return ("During a card only the night's lead runs the night's steps, from the main checkout's "
+                "script, never a worktree's copy.")
     named = fence.named(parsed)
     if named:
         return fenced + ", ".join(named)
@@ -1081,18 +1126,27 @@ def slug(title):
     return "night-" + "-".join(words[:6])
 
 
-def paths(title):
-    """A worktree and branch whose name no worktree, branch, or PR has used, so an earlier card's
-    PR can never be read as this one's."""
+def branch_name(title):
+    """A branch whose name no branch or PR has used, so an earlier card's PR can never be read as
+    this one's."""
     name = slug(title)
     used = set(sh("git", "for-each-ref", "--format=%(refname:lstrip=-1)", "refs/heads",
                   "refs/remotes/origin").split())
     used |= {pr["headRefName"] for pr in gh_json("pr", "list", "--state", "all", "--search",
                                                  f"head:{name}", "--json", "headRefName")}
-    worktree, n = main_checkout() / ".claude/worktrees" / name, 2
-    while worktree.exists() or worktree.name in used:
-        worktree, n = main_checkout() / ".claude/worktrees" / f"{name}-{n}", n + 1
-    return worktree, worktree.name
+    branch, n = name, 2
+    while branch in used:
+        branch, n = f"{name}-{n}", n + 1
+    return branch
+
+
+def session_folder():
+    """The checkout the night's session runs in: its shell's, where the lead runs each step."""
+    return Path(sh("git", "rev-parse", "--show-toplevel", cwd=Path.cwd()).strip()).resolve()
+
+
+def git_status(folder):
+    return sh("git", "-C", str(folder), "status", "--porcelain").strip()
 
 
 class NoCard(Exception):
@@ -1200,6 +1254,11 @@ def begin(night, now, session):
     else:
         (night.dir / SESSION).unlink(missing_ok=True)
         lines.append("No session id: no card will start tonight.")
+    try:
+        lines += [f"Unset the night's pre-push hook a stopped night left in {tree}."
+                  for tree in clear_night_hooks(night.dir.parents[2])]
+    except FAILURES as error:
+        night.note("unchecked", [f"the pre-push hooks a stopped night may have left ({error})"])
     # The night before's session may have died mid-card too, and no later begin of its own runs.
     earlier = sorted(f for f in night.dir.parent.glob("20*") if f.name < night.dir.name)
     for folder in ([Night(earlier[-1])] if earlier else []) + [night]:
@@ -1215,6 +1274,43 @@ def begin(night, now, session):
             if folder is not night:
                 night.note("earlier", [line])
     return lines
+
+
+def clear_night_hooks(main):
+    """Unsets core.hooksPath in each worktree whose own config points it into a night's folder, as
+    a night that ended before its `decide` leaves it, so no day's push meets the night's hook.
+    Returns the worktrees it was unset in."""
+    retro, cleared = (Path(main) / ".build/retro").resolve(), []
+    for line in sh("git", "-C", str(main), "worktree", "list", "--porcelain").splitlines():
+        tree = line.removeprefix("worktree ")
+        if tree == line:
+            continue
+        hooks = sh("git", "-C", tree, "config", "--worktree", "--get", "core.hooksPath", check=False).strip()
+        if hooks and retro in Path(hooks).resolve().parents:
+            sh("git", "-C", tree, "config", "--worktree", "--unset", "core.hooksPath")
+            cleared.append(tree)
+    return cleared
+
+
+def leave_card(night, entry):
+    """Leaves the session's folder as `next` found it, once a card is decided: the card's handoff
+    carried to the main checkout's .slices/, the night's pre-push hook unset, and the branch it was
+    on switched back to. Returns why it couldn't, or None; the folder then stays on the card's
+    branch, and no more cards start."""
+    folder, branch = Path(entry["worktree"]), entry["branch"]
+    handoff = folder / ".slices" / f"{branch}-handoff.md"
+    if handoff.exists():
+        slices = night.dir.parents[2] / ".slices"
+        slices.mkdir(parents=True, exist_ok=True)
+        (slices / handoff.name).write_bytes(handoff.read_bytes())
+    sh("git", "-C", str(folder), "config", "--worktree", "--unset", "core.hooksPath", check=False)
+    back = entry.get("back")
+    if not back:
+        return None  # `next` never switched it
+    if git_status(folder):
+        return f"the session's folder has uncommitted changes on {branch}, so it stays there"
+    sh("git", "-C", str(folder), "switch", *(["--detach", back["commit"]] if back.get("commit") else [back["branch"]]))
+    return None
 
 
 def park_left_open(folder, tonight, now):
@@ -1238,6 +1334,13 @@ def park_left_open(folder, tonight, now):
               "- Next: a daytime /onward reads the PR and the handoff in `.slices/`.\n")
     except FAILURES as error:
         tonight.note("unchecked", [f"parking \"{phase['title']}\", left open by a run that ended ({error})"])
+    try:
+        entry = folder.entry(phase["item"])
+        left = entry and leave_card(folder, entry)
+    except FAILURES as error:
+        left = str(error)
+    if left:
+        tonight.note("unchecked", [f"putting back the folder \"{phase['title']}\" was built in ({left})"])
     return f"Parked \"{phase['title']}\" of {folder.dir.name}: {why}."
 
 
@@ -1349,15 +1452,23 @@ def choose(night, now, tried):
 
 
 def install_pre_push(night, worktree):
-    """The night's pre-push hook, in the card worktree's own git config, so every push from it
-    meets the hook however it starts, and no other checkout's does."""
+    """The night's pre-push hook, the main checkout's script, in the card worktree's own git
+    config, so every push from it meets the hook however it starts, and no other checkout's does.
+    `decide` unsets it, and `begin` one a stopped night left."""
     hooks = night.dir / "git-hooks"
     hooks.mkdir(exist_ok=True)
     pre_push = hooks / "pre-push"
-    pre_push.write_text(f"#!/bin/sh\nexec /usr/bin/env python3 {shlex.quote(str(ROOT / 'scripts/nightly-tooling.py'))} "
+    script = night.dir.parents[2] / "scripts/nightly-tooling.py"
+    pre_push.write_text(f"#!/bin/sh\nexec /usr/bin/env python3 {shlex.quote(str(script))} "
                         f"pre-push {shlex.quote(str(night.dir))}\n")
     pre_push.chmod(0o755)
     sh("git", "-C", str(worktree), "config", "--worktree", "core.hooksPath", str(hooks))
+
+
+def where_it_was(folder):
+    """The branch the session's folder is on, or its commit when detached, for `decide` to go back to."""
+    branch = sh("git", "-C", str(folder), "symbolic-ref", "-q", "--short", "HEAD", check=False).strip()
+    return {"branch": branch} if branch else {"commit": sh("git", "-C", str(folder), "rev-parse", "HEAD").strip()}
 
 
 def next_card(night, now, session, dry_run):
@@ -1365,6 +1476,15 @@ def next_card(night, now, session, dry_run):
     why = refusal(night, now, session)
     if why:
         return None, why
+    # A card is built in the session's own folder, switched to the card's branch: Claude Code
+    # refuses a subagent's edits in a worktree its session doesn't sit in. Never the main
+    # checkout, whose scripts and guard judge the card.
+    folder = session_folder()
+    if folder == night.dir.parents[2].resolve():
+        return None, ("the night's session runs in the main checkout, whose scripts judge a card; "
+                      "cards are built only in a worktree of the session's own.")
+    if git_status(folder):
+        return None, "the session's folder has uncommitted changes, so no card's branch is switched in."
     sh("git", "fetch", "--quiet", "origin", "main")
     if not night.state().get("night_read"):
         # Once a night: main's tests, the cards whose PR merged by day, and the update cards.
@@ -1385,29 +1505,32 @@ def next_card(night, now, session, dry_run):
     if not card:
         return None, detail
     item, title, _ = card
-    worktree, branch = paths(title)
-    handoff = main_checkout() / ".slices" / f"{branch}-handoff.md"
-    lines = [f"card {item}", f"title {title}", f"worktree {worktree}", f"branch {branch}", f"handoff {handoff}"]
+    branch = branch_name(title)
+    handoff, last_line = folder / ".slices" / f"{branch}-handoff.md", folder / LAST_LINE
+    lines = [f"card {item}", f"title {title}", f"worktree {folder}", f"branch {branch}", f"handoff {handoff}",
+             f"last-line {last_line}"]
     if dry_run:
         return lines, None
-    sh("git", "worktree", "add", "--no-track", str(worktree), "-b", branch, "origin/main")
+    back = where_it_was(folder)
+    sh("git", "-C", str(folder), "switch", "--no-track", "-c", branch, "origin/main")
     try:
-        install_pre_push(night, worktree)
+        install_pre_push(night, folder)
     except FAILURES as error:
-        sh("git", "worktree", "remove", "--force", str(worktree), check=False)
-        sh("git", "branch", "-D", branch, check=False)
-        raise NoCard(f"the worktree for \"{title}\" couldn't take the night's pre-push hook ({error}), "
+        leave_card(night, {"worktree": str(folder), "branch": branch, "back": back})
+        sh("git", "-C", str(folder), "branch", "-D", branch, check=False)
+        raise NoCard(f"the session's folder couldn't take the night's pre-push hook ({error}), "
                      "and no card runs without it.") from error
+    last_line.unlink(missing_ok=True)
     rows = plan_windows(night.dir)
-    night.write(CARDS, night.cards() + [{"item": item, "title": title, "branch": branch, "worktree": str(worktree),
-                                         "usage": plan_usage_line(rows) if not isinstance(rows, str) else rows,
+    night.write(CARDS, night.cards() + [{"item": item, "title": title, "branch": branch, "worktree": str(folder),
+                                         "back": back, "usage": plan_usage_line(rows) if not isinstance(rows, str) else rows,
                                          "decision": "open"}])
-    night.set_state(hours=detail, phase={"kind": "card", "item": item, "title": title, "worktree": str(worktree),
-                                         "branch": branch, "handoff": str(handoff),
+    night.set_state(hours=detail, phase={"kind": "card", "item": item, "title": title, "worktree": str(folder),
+                                         "branch": branch, "handoff": str(handoff), "last_line": str(last_line),
                                          "stop": night_window(now)[1].isoformat()})
     board("status", item, "In Progress")
-    board("state", item, stdin=f"- Nightly run of {night.dir.name}: led by the night's session.\n- Worktree: "
-          f"`.claude/worktrees/{branch}`, branch `{branch}`; handoff `.slices/{branch}-handoff.md`.\n")
+    board("state", item, stdin=f"- Nightly run of {night.dir.name}: led by the night's session, on branch "
+          f"`{branch}`; handoff `.slices/{branch}-handoff.md` in the main checkout.\n")
     return lines, None
 
 
@@ -1557,11 +1680,13 @@ def audit(night):
 
 
 def decide(night, item, last, now):
-    """(decision, line) for the open card `item`: merged, parked, waiting, unarmed, or armed (run
-    decide again)."""
+    """(decision, line) for the open card `item`: merged, parked, waiting, unarmed, armed (run
+    decide again), or already, for a card decided before, which it leaves as it is."""
     entry = night.entry(item)
-    if not entry or entry["decision"] not in ("open", "armed"):
-        raise ValueError(f"no card {item} is open tonight")
+    if not entry:
+        raise ValueError(f"no card {item} was taken tonight")
+    if entry["decision"] not in ("open", "armed"):
+        return "already", f"\"{entry['title']}\" was already decided: {entry['decision']}."
     if entry["decision"] == "armed":
         return wait_merge(night, entry)
     # Whatever happens next, no PR the card opened merges unless `decide` arms it below.
@@ -1654,16 +1779,38 @@ def open_review(night, now, session):
         return None
     blocked = unguarded(night, session)
     if blocked:
-        night.note("review", f"due ({why}), not run: {blocked}")
+        # Not "review": only a review that started counts as one of the month's tries.
+        night.note("review_blocked", f"due ({why}), not run: {blocked}")
         raise NoCard(blocked)
     if night.state().get("phase"):
         raise ValueError(f"the {phase_label(night.state()['phase'])} is still open")
     if not (night.dir / REVIEW_TALLY).exists():
         tallies(night.dir, now, review_only=True)
     deadline = min(night_window(now)[0], now + REVIEW_LIMIT)
-    night.set_state(phase={"kind": "review", "deadline": deadline.isoformat(), "reports": str(main / REVIEW_REPORTS)})
+    # The report is written in the session's own folder, which `review-end` carries to the main
+    # checkout's: Claude Code refuses a Write outside the folder a session sits in.
+    folder = session_folder()
+    night.set_state(phase={"kind": "review", "deadline": deadline.isoformat(), "reports": str(folder / REVIEW_REPORTS),
+                           "last_line": str(folder / LAST_LINE)})
+    (folder / LAST_LINE).unlink(missing_ok=True)
     night.note("review", None)
     return why
+
+
+def end_review(night, line_file):
+    """`review-end`: the review's reports carried from the session's folder to the main
+    checkout's, its phase closed, and its last line kept for the digest. Returns that line."""
+    phase = night.state().get("phase") or {}
+    if phase.get("kind") == "review":
+        reports, main = Path(phase["reports"]), night.dir.parents[2] / REVIEW_REPORTS
+        if reports.resolve() != main.resolve():
+            main.mkdir(parents=True, exist_ok=True)
+            for report in reports.glob("report-*.md"):
+                (main / report.name).write_bytes(report.read_bytes())
+        close_phase(night)
+    line = last_line(line_file)
+    night.note("review", line)
+    return line
 
 
 def hook(folder):
@@ -1702,6 +1849,9 @@ def hook_check(folder, text):
     main, now = night.dir.parents[2], datetime.now().astimezone()
     if caller == "lead" and tool == "Bash" and closing(command, call.get("cwd"), main):
         return None
+    if (caller == "lead" and tool == "Write" and phase.get("last_line")
+            and Fence.real(path, Path(call.get("cwd") or main)) == Fence.real(phase["last_line"])):
+        return None  # the line for decide or review-end, at any hour
     if phase["kind"] == "review":
         return review_decision(tool, command, path, now, datetime.fromisoformat(phase["deadline"]),
                                phase["reports"], call.get("cwd"))
@@ -1843,8 +1993,8 @@ def night_digest(folder):
     lines.append(f"Not checked: usage, {rows}" if isinstance(rows, str) else plan_usage_line(rows))
     if state.get("night_read") or cards:
         lines += card_lines(folder, state, cards, notes)
-    if "review" in notes:
-        lines.append(f"Setup review: {notes['review'] or 'no reply'}")
+    if "review" in notes or notes.get("review_blocked"):
+        lines.append(f"Setup review: {notes.get('review') or notes.get('review_blocked') or 'no reply'}")
     if notes.get("ended"):
         lines.append(f"{'Ended' if cards else 'No card started'}: {notes['ended']}")
     return lines
@@ -1902,22 +2052,57 @@ def run_next(night, now, session, dry_run):
     return 1, f"No card: {why}"
 
 
-def run_decide(night, item, last, now):
-    """`decide`'s (exit status, text): 0 when decided, 3 while armed, and 2 when deciding failed,
-    which parks the card and turns auto-merge off on the night's PRs."""
+def last_line(path):
+    """The lead's last line, from the file it wrote in its own folder, which is then removed so
+    the next card's line is its own; "nothing" when there is none."""
+    if not path:
+        return "nothing"
     try:
-        decision, line = decide(night, item, last, now)
+        text = " ".join(Path(path).read_text(errors="replace").split())
+        Path(path).unlink()
+    except OSError:
+        return "nothing"
+    return text or "nothing"
+
+
+def put_back(night, item):
+    """leave_card for a decided card; when the session's folder can't be put back, no more cards
+    start and the digest says why."""
+    try:
+        why = leave_card(night, night.entry(item))
+    except FAILURES as error:
+        why = f"putting the session's folder back failed ({error})"
+    if why:
+        night.note("unchecked", [why])
+        night.set_state(stopped=why + ".")
+
+
+def run_decide(night, item, line_file, now):
+    """`decide`'s (exit status, text): 0 when decided, or decided before, 3 while armed, and 2 when
+    deciding failed, which parks the card and turns auto-merge off on the night's PRs. Decided,
+    the session's folder goes back as `next` found it."""
+    try:
+        # Read only for a card still open, so a decide run again changes nothing.
+        open_ = (night.entry(item) or {}).get("decision") == "open"
+        decision, line = decide(night, item, last_line(line_file) if open_ else "", now)
+        if decision == "already":
+            return 0, line
         if decision != "armed":
+            put_back(night, item)
             try:
                 audit(night)
             except FAILURES as error:
+                # As when gates were skipped: what the night can't see, it doesn't build on.
                 night.note("unchecked", [f"tonight's merges after \"{item}\" ({error})"])
+                night.set_state(stopped=f"reading tonight's merges after \"{item}\" failed ({error}).")
         return (3 if decision == "armed" else 0), line
     except Exception as error:  # noqa: BLE001 - whatever failed, the card is parked and its PR disarmed
         why = f"deciding failed: {type(error).__name__}: {error}"
         entry = night.entry(item)
         if entry and entry["decision"] in ("open", "armed"):
             night.update(item, decision="parked", why=why, where="its PR, if any, with auto-merge off")
+        if entry:
+            put_back(night, item)
         if (night.state().get("phase") or {}).get("item") == item:
             close_phase(night)
         try:
@@ -1949,15 +2134,12 @@ def main(args):
         exit_with(*run_decide(Night(rest[0]), rest[1], rest[2] if len(rest) == 3 else "", now))
     elif command == "review" and len(rest) == 1:
         exit_with(*run_review(Night(rest[0]), now, session))
-    elif command == "review-end" and len(rest) == 2:
+    elif command == "review-end" and len(rest) in (1, 2):
         night = Night(rest[0])
         if "review" not in night.notes():
             print("No setup review opened tonight.", file=sys.stderr)
             sys.exit(1)
-        if phase_label(night.state().get("phase")) == "review":
-            close_phase(night)
-        night.note("review", rest[1])
-        print(f"Setup review: {rest[1]}")
+        print(f"Setup review: {end_review(night, rest[1] if rest[1:] else '')}")
     elif command == "tally" and len(rest) == 1:
         tallies(rest[0], now)
     elif command == "hook" and len(rest) == 1:

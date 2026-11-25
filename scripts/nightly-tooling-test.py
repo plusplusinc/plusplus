@@ -854,9 +854,11 @@ class SetupReview(unittest.TestCase):
 
     def review(self, now, due="none has run in December 2026 yet"):
         night = night_folder(self)
-        reports = night.dir.parents[2] / ".slices/review-setup"
+        folder = night.dir.parents[2] / ".claude/worktrees/session"
+        reports = folder / ".slices/review-setup"
         (night.dir / nightly.REVIEW_TALLY).write_text("tally\n")
-        stub(self, review_reason=lambda now: (due, night.dir.parents[2]), tallies=lambda *a, **k: self.fail(a))
+        stub(self, review_reason=lambda now: (due, night.dir.parents[2]), tallies=lambda *a, **k: self.fail(a),
+             session_folder=lambda: folder)
         return night, nightly.open_review(night, now, SESSION), reports
 
     def test_a_due_review_opens_its_phase_with_ninety_minutes_or_five_am_whichever_is_first(self):
@@ -865,8 +867,10 @@ class SetupReview(unittest.TestCase):
             with self.subTest(now=now):
                 night, why, reports = self.review(now)
                 self.assertEqual(why, "none has run in December 2026 yet")
+                # The report is written in the session's own folder, where Claude Code lets it write.
                 self.assertEqual(night.state()["phase"], {"kind": "review", "deadline": deadline.isoformat(),
-                                                          "reports": str(reports)})
+                                                          "reports": str(reports),
+                                                          "last_line": str(reports.parents[1] / ".build/last-line.txt")})
                 self.assertIn("review", night.notes())
                 self.assertIn("Setup review: no reply", nightly.night_digest(night.dir))
 
@@ -900,12 +904,31 @@ class SetupReview(unittest.TestCase):
         self.assertEqual(nightly.run_review(night, self.FIRST, SESSION),
                          (2, "review failed: ValueError: the review is still open"))
 
-    def test_review_end_closes_the_phase_and_the_digest_shows_its_line(self):
-        night, _, _ = self.review(self.FIRST)
-        line = "Setup review 2026-12-01: 3 cards, 1 question; report in .slices/review-setup/"
-        io_of(lambda: nightly.main(["review-end", str(night.dir), line]))
+    def test_review_end_carries_the_report_closes_the_phase_and_the_digest_shows_its_line(self):
+        night, _, reports = self.review(self.FIRST)
+        reports.mkdir(parents=True)
+        (reports / "report-2026-12-01.md").write_text("# Setup review 2026-12-01, Xcode 27.1\n")
+        line = "Setup review 2026-12-01: 3 cards, 1 question; report in `.slices/review-setup/` $(x)"
+        line_file = reports.parents[1] / ".build/last-line.txt"
+        line_file.parent.mkdir()
+        line_file.write_text(line + "\n")
+        io_of(lambda: nightly.main(["review-end", str(night.dir), str(line_file)]))
         self.assertIsNone(night.state()["phase"])
         self.assertIn(f"Setup review: {line}", nightly.night_digest(night.dir))
+        main_reports = night.dir.parents[2] / ".slices/review-setup"
+        self.assertEqual(nightly.last_review(main_reports), ("2026-12", "27"))
+
+    def test_only_a_review_that_started_counts_as_a_try(self):
+        # The verifier's probe on #282: two nights the guard couldn't hold left December no review.
+        retro = night_folder(self, seen=False).dir.parent
+        for day in ("2026-12-01", "2026-12-02"):
+            night = nightly.Night(retro / day)
+            night.write("state.json", {"start": NIGHT.isoformat(), "phase": None})
+            (night.dir / "session").write_text(SESSION + "\n")
+            stub(self, review_reason=lambda now: ("none has run in December 2026 yet", retro.parents[1]))
+            self.assertEqual(nightly.run_review(night, self.FIRST, SESSION)[0], 1)
+        self.assertEqual(nightly.review_tries(retro, self.FIRST), 0)
+        self.assertIsNotNone(nightly.review_due(("2026-11", "27"), self.FIRST.replace(day=3), "27", tries=0))
 
     def test_only_at_night(self):
         for hour in (5, 12, 23):
@@ -1180,8 +1203,7 @@ class Decide(unittest.TestCase):
     def test_a_branch_or_pr_name_already_used_is_never_reused(self):
         self.git("branch", "night-card")
         stub(self, gh_json=lambda *a: [{"headRefName": "night-card-2"}])
-        worktree, branch = nightly.paths("Card")
-        self.assertEqual((branch, worktree.name), ("night-card-3", "night-card-3"))
+        self.assertEqual(nightly.branch_name("Card"), "night-card-3")
 
     def test_a_scheme_or_lint_script_change_waits(self):
         for name in ("PlusPlus.xcodeproj/xcshareddata/xcschemes/PlusPlus.xcscheme", "scripts/lint.sh"):
@@ -1257,10 +1279,32 @@ class Armed(unittest.TestCase):
                 self.assertEqual(self.decide()[0], 0)
                 entry = self.night.entry("PVTI_1")
                 del self.calls[:]
-                self.assertEqual(self.decide(), (2, "deciding failed: ValueError: no card PVTI_1 is open tonight"))
+                # Exit 0, which the night skill doesn't record as a failed night, touching nothing.
+                self.assertEqual(self.decide(), (0, f'"Card" was already decided: {decision}.'))
                 self.assertEqual(self.night.entry("PVTI_1"), entry)
                 self.assertIsNone(self.night.state()["phase"])
-                self.assertFalse([c for c in self.calls if "--auto " in c or c.startswith("board.sh")], self.calls)
+                self.assertEqual(self.calls, [])
+
+    def test_a_second_decide_leaves_another_armed_card_armed(self):
+        # The verifier's probe on #282: it turned PVTI_2's auto-merge off while its entry said armed.
+        self.night.update("PVTI_1", decision="parked", why="x", where="no PR")
+        open_card(self.night, item="PVTI_2", branch="night-other")
+        self.night.update("PVTI_2", decision="armed", pr=8, pr_title="Card", armed_at=NIGHT.isoformat())
+        self.assertEqual(self.decide(), (0, '"Card" was already decided: parked.'))
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.night.entry("PVTI_2")["decision"], "armed")
+        self.assertEqual(self.night.state()["phase"]["item"], "PVTI_2")
+
+    def test_tonights_merges_unread_after_a_card_end_the_cards(self):
+        # As on main: what the night can't see, it doesn't build on.
+        def gh(*args):
+            if args[:2] == ("pr", "view"):
+                return {"state": "MERGED", "mergeCommit": {"oid": "f" * 40}, "statusCheckRollup": []}
+            raise RuntimeError("gh: HTTP 502")
+        stub(self, gh_json=gh)
+        self.assertEqual(self.decide()[0], 0)
+        self.assertIn("HTTP 502", self.night.state()["stopped"])
+        self.assertEqual(nightly.refusal(self.night, NIGHT, SESSION), self.night.state()["stopped"])
 
     def test_every_outcome_closes_the_phase(self):
         outcomes = {"merged": [{"state": "MERGED", "mergeCommit": {"oid": "f" * 40}, "statusCheckRollup": []}],
@@ -1296,14 +1340,19 @@ class Next(unittest.TestCase):
         self.kind = "app: scripts/a.py"
         self.cards = [(f"PVTI_{i}", "Definitely", "-", f"card {i}", self.BODY) for i in range(5)]
         self.outdated = subprocess.CompletedProcess([], 0, "", "")
+        self.folder, self.dirty = self.root / ".claude/worktrees/session", ""
         stub(self, board_rows=lambda: [], board_cards=lambda rows: self.cards, xcode_cloud_runs=lambda *a: [],
              month_hours=lambda runs, now: self.hours, gh_json=self.gh, classify=lambda files: self.kind,
              sh=self.sh, test_counts=lambda rev: {"WorkoutStoreTests": 3}, outdated_tools=lambda: self.outdated,
-             board=self.board, main_checkout=lambda: self.root, install_pre_push=lambda night, worktree: None)
+             board=self.board, main_checkout=lambda: self.root, install_pre_push=lambda night, worktree: None,
+             session_folder=lambda: self.folder)
 
     def sh(self, *args, **kwargs):
         self.calls.append(" ".join(map(str, args)))
-        return "scripts/a.py\n" if args[:2] == ("git", "ls-tree") else ""
+        if "status" in args:
+            return self.dirty
+        return {"ls-tree": "scripts/a.py\n", "symbolic-ref": "dc/session\n"}.get(
+            next((a for a in args if a in ("ls-tree", "symbolic-ref")), ""), "")
 
     def gh(self, *args):
         return self.prs if args[-1] == "number,files,title" else []
@@ -1326,16 +1375,27 @@ class Next(unittest.TestCase):
 
     def test_a_taken_card_opens_its_phase_goes_in_progress_and_prints_where(self):
         status, text = self.next()
-        worktree = self.root / ".claude/worktrees/night-card-0"
+        folder = self.folder
         self.assertEqual((status, text.splitlines()), (0, [
-            "card PVTI_0", "title card 0", f"worktree {worktree}", "branch night-card-0",
-            f"handoff {self.root / '.slices/night-card-0-handoff.md'}"]))
-        self.assertIn(f"git worktree add --no-track {worktree} -b night-card-0 origin/main", self.calls)
+            "card PVTI_0", "title card 0", f"worktree {folder}", "branch night-card-0",
+            f"handoff {folder / '.slices/night-card-0-handoff.md'}", f"last-line {folder / '.build/last-line.txt'}"]))
+        # Built in the session's own folder, switched to the card's branch; no worktree of its own.
+        self.assertIn(f"git -C {folder} switch --no-track -c night-card-0 origin/main", self.calls)
+        self.assertNotIn("git worktree add", " ".join(self.calls))
         self.assertIn("board.sh status PVTI_0 In Progress", self.calls)
         phase = self.night.state()["phase"]
-        self.assertEqual((phase["kind"], phase["item"], phase["worktree"], phase["stop"]),
-                         ("card", "PVTI_0", str(worktree), STOP.isoformat()))
-        self.assertEqual(self.night.entry("PVTI_0")["usage"], "Usage: Weekly · all models 40%")
+        self.assertEqual((phase["kind"], phase["item"], phase["worktree"], phase["stop"], phase["last_line"]),
+                         ("card", "PVTI_0", str(folder), STOP.isoformat(), str(folder / ".build/last-line.txt")))
+        entry = self.night.entry("PVTI_0")
+        self.assertEqual((entry["usage"], entry["back"]), ("Usage: Weekly · all models 40%", {"branch": "dc/session"}))
+
+    def test_no_card_in_the_main_checkout_or_a_folder_with_changes(self):
+        self.folder = self.root
+        self.assertIn("runs in the main checkout", self.next()[1])
+        self.folder, self.dirty = self.root / ".claude/worktrees/session", " M App/Root.swift\n"
+        self.assertIn("uncommitted changes", self.next()[1])
+        self.assertNotIn("switch", " ".join(self.calls))
+        self.assertIsNone(self.night.state()["phase"])
 
     def test_no_card_from_five_to_midnight(self):
         for hour in (5, 12, 23):
@@ -1351,7 +1411,7 @@ class Next(unittest.TestCase):
     def test_no_card_when_the_guard_never_saw_this_session(self):
         (self.night.dir / "guard-seen").write_text("card PVTI_9\tbuilder\n")
         self.assertIn("the guard never judged this session's calls", self.next()[1])
-        self.assertNotIn("git worktree add", " ".join(self.calls))
+        self.assertNotIn(" switch ", " ".join(self.calls))
 
     def test_no_card_when_the_recorded_session_is_not_this_one(self):
         self.assertEqual(self.next(session="another"), (1, "No card: this session isn't the one the night's start recorded."))
@@ -1374,11 +1434,11 @@ class Next(unittest.TestCase):
         write_usage(self.night.dir, ("Weekly · all models", 40, TO_SEVEN))
         self.assertEqual(self.next()[1].splitlines()[0], "card PVTI_3")
 
-    def test_at_four_runs_no_app_card_starts_and_no_worktree_is_made(self):
+    def test_at_four_runs_no_app_card_starts_and_no_branch_is_switched_in(self):
         self.runs_tonight(4)
         status, text = self.next()
         self.assertEqual(status, 1)
-        self.assertNotIn("git worktree add", " ".join(self.calls))
+        self.assertNotIn(" switch ", " ".join(self.calls))
         self.assertNotIn("board.sh status", " ".join(self.calls))
         self.assertIsNone(self.night.state()["phase"])
         self.assertTrue(nightly.night_digest(self.night.dir)[-1].startswith(
@@ -1408,7 +1468,7 @@ class Next(unittest.TestCase):
         self.assertEqual((status, text.splitlines()[0]), (0, "card PVTI_0"))
         self.assertIn("Dry run: would add: Update swiftlint to 0.65.1", err.getvalue())
         self.assertEqual(sorted((p.name, p.read_bytes()) for p in self.night.dir.iterdir()), before)
-        self.assertFalse([c for c in self.calls if c.startswith(("board.sh", "git worktree"))])
+        self.assertFalse([c for c in self.calls if c.startswith("board.sh") or " switch " in c])
         self.runs_tonight(4)
         before = sorted((p.name, p.read_bytes()) for p in self.night.dir.iterdir())
         self.assertEqual(self.next(dry_run=True)[0], 1)
@@ -1442,9 +1502,16 @@ class Next(unittest.TestCase):
         self.assertEqual(self.next(), (1, "No card: merged to main tonight without the night's gates: #50."))
 
 
-class WorktreeHook(unittest.TestCase):
-    """The card's worktree `next` makes, in a real clone whose git takes per-worktree config, as
-    the Claude app sets the main checkout's."""
+def link_script(main):
+    """The main checkout's scripts/nightly-tooling.py, which the night's hooks run, as this one."""
+    (Path(main) / "scripts").mkdir(parents=True, exist_ok=True)
+    (Path(main) / "scripts/nightly-tooling.py").symlink_to(SCRIPTS / "nightly-tooling.py")
+
+
+class SessionFolder(unittest.TestCase):
+    """A card built in the session's own worktree, which `next` switches to the card's branch and
+    `decide` switches back, in a real clone whose git takes per-worktree config, as the Claude app
+    sets the main checkout's."""
 
     def setUp(self):
         self.root = Path(os.path.realpath(tempfile.mkdtemp()))
@@ -1452,9 +1519,14 @@ class WorktreeHook(unittest.TestCase):
         self.main = self.root / "main"
         subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(self.root / "origin.git")], check=True)
         subprocess.run(["git", "clone", "-q", str(self.root / "origin.git"), str(self.main)], check=True, capture_output=True)
-        self.git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "base")
+        (self.main / ".gitignore").write_text(".build/\n.slices/\nscripts/\n")
+        self.git("add", "-A")
+        self.git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "base")
         self.git("push", "-q", "origin", "main")
         self.git("config", "extensions.worktreeConfig", "true")
+        link_script(self.main)
+        self.folder = self.main / ".claude/worktrees/session"
+        self.git("worktree", "add", "-q", "-b", "dc/session", str(self.folder), "origin/main")
         real = nightly.sh
         night = nightly.Night(self.main / ".build/retro/2026-10-28")
         night.write("state.json", {"start": NIGHT.isoformat(), "phase": None, "night_read": True})
@@ -1465,27 +1537,69 @@ class WorktreeHook(unittest.TestCase):
         cards = [("PVTI_1", "Definitely", "-", "A card", Next.BODY)]
         stub(self, sh=lambda *a, cwd=None, **k: real(*a, cwd=self.main, **k), gh_json=lambda *a: [],
              board_rows=lambda: [], board_cards=lambda rows: cards, xcode_cloud_runs=lambda *a: [],
-             classify=lambda files: "app: x", board=lambda *a, stdin=None: "")
+             classify=lambda files: "app: x", board=lambda *a, stdin=None: "", session_folder=lambda: self.folder,
+             audit=lambda night: None, disarm=lambda night: None)
 
     def git(self, *args, cwd=None):
         return subprocess.run(["git", *args], cwd=cwd or self.main, check=True, capture_output=True, text=True).stdout.strip()
 
-    def test_the_card_taken_gets_a_worktree_with_the_nights_pre_push_hook(self):
+    def hooks(self, cwd):
+        return subprocess.run(["git", "config", "--worktree", "--get", "core.hooksPath"], cwd=cwd,
+                              capture_output=True, text=True).stdout.strip()
+
+    def test_the_card_is_built_in_the_sessions_folder_with_the_nights_pre_push_hook(self):
         status, text = nightly.run_next(self.night, NIGHT, SESSION, False)
         self.assertEqual(status, 0, text)
-        worktree = self.main / ".claude/worktrees/night-a-card"
-        self.assertIn(f"worktree {worktree}", text)
-        self.assertEqual(self.git("config", "--worktree", "--get", "core.hooksPath", cwd=worktree),
-                         str(self.night.dir / "git-hooks"))
+        self.assertIn(f"worktree {self.folder}", text)
+        self.assertEqual(self.git("branch", "--show-current", cwd=self.folder), "night-a-card")
+        self.assertEqual(self.hooks(self.folder), str(self.night.dir / "git-hooks"))
         self.assertEqual(subprocess.run(["git", "config", "--get", "core.hooksPath"], cwd=self.main).returncode, 1)
-        self.assertIn(f"pre-push {self.night.dir}", (self.night.dir / "git-hooks/pre-push").read_text())
+        # The main checkout's script, never the card's own copy.
+        self.assertIn(f"{self.main}/scripts/nightly-tooling.py pre-push {self.night.dir}",
+                      (self.night.dir / "git-hooks/pre-push").read_text())
 
-    def test_a_worktree_that_cannot_take_the_hook_is_removed_and_no_card_starts(self):
+    def test_decide_carries_the_handoff_unsets_the_hook_and_switches_back(self):
+        # The verifier's probe on #282: the card's hook outlived the night, refusing a day's push.
+        nightly.run_next(self.night, NIGHT, SESSION, False)
+        (self.folder / ".slices").mkdir()
+        (self.folder / ".slices/night-a-card-handoff.md").write_text("handoff\n")
+        (self.folder / ".build").mkdir()
+        (self.folder / ".build/last-line.txt").write_text("parked: `scripts/x.sh` failed $(twice)\n")
+        status, text = nightly.run_decide(self.night, "PVTI_1", str(self.folder / ".build/last-line.txt"), NIGHT)
+        self.assertEqual((status, text), (0, 'Parked "A card": no PR; its lead ended with: parked: `scripts/x.sh` '
+                                             "failed $(twice) (no PR)."))
+        self.assertEqual((self.main / ".slices/night-a-card-handoff.md").read_text(), "handoff\n")
+        self.assertEqual(self.hooks(self.folder), "")
+        self.assertEqual(self.git("branch", "--show-current", cwd=self.folder), "dc/session")
+        self.assertFalse((self.folder / ".build/last-line.txt").exists())
+        self.assertIsNone(self.night.state().get("stopped"))
+        self.assertEqual(nightly.run_next(self.night, NIGHT, SESSION, True),
+                         (1, "No card: no eligible tooling card left in Definitely."))
+
+    def test_a_folder_left_with_changes_stays_on_the_cards_branch_and_ends_the_cards(self):
+        nightly.run_next(self.night, NIGHT, SESSION, False)
+        (self.folder / "App.swift").write_text("x\n")
+        self.assertEqual(nightly.run_decide(self.night, "PVTI_1", "", NIGHT)[0], 0)
+        self.assertEqual(self.hooks(self.folder), "")
+        self.assertEqual(self.git("branch", "--show-current", cwd=self.folder), "night-a-card")
+        self.assertIn("uncommitted changes", self.night.state()["stopped"])
+        self.assertIn("uncommitted changes", nightly.refusal(self.night, NIGHT, SESSION))
+
+    def test_begin_unsets_a_hook_a_stopped_night_left(self):
+        nightly.run_next(self.night, NIGHT, SESSION, False)  # and the session ended before decide
+        tonight = nightly.Night(self.main / ".build/retro/2026-10-29")
+        stub(self, board=lambda *a, stdin=None: "")
+        lines = nightly.begin(tonight, NIGHT + timedelta(days=1), "next-session")
+        self.assertIn(f"Unset the night's pre-push hook a stopped night left in {self.folder}.", lines)
+        self.assertEqual(self.hooks(self.folder), "")
+        self.assertEqual(self.git("branch", "--show-current", cwd=self.folder), "dc/session")
+
+    def test_a_folder_that_cannot_take_the_hook_goes_back_and_no_card_starts(self):
         self.git("config", "--unset", "extensions.worktreeConfig")
         status, text = nightly.run_next(self.night, NIGHT, SESSION, False)
         self.assertEqual(status, 1)
-        self.assertTrue(text.startswith("No card: the worktree for \"A card\" couldn't take the night's pre-push hook"), text)
-        self.assertFalse((self.main / ".claude/worktrees/night-a-card").exists())
+        self.assertTrue(text.startswith("No card: the session's folder couldn't take the night's pre-push hook"), text)
+        self.assertEqual(self.git("branch", "--show-current", cwd=self.folder), "dc/session")
         self.assertEqual(self.git("branch", "--list", "night-a-card"), "")
         self.assertEqual(self.night.cards(), [])
         self.assertIsNone(self.night.state()["phase"])
@@ -1614,6 +1728,7 @@ class PrePush(unittest.TestCase):
         self.git("worktree", "add", "-q", "--no-track", str(self.w), "-b", "card", "origin/main", cwd=self.main)
         self.night = nightly.Night(self.main / ".build/retro/2026-10-28")
         self.night.write("state.json", {"start": NIGHT.isoformat(), "hours": 1})
+        link_script(self.main)
         nightly.install_pre_push(self.night, self.w)
 
     def git(self, *args, cwd=None):
@@ -2194,13 +2309,17 @@ class AutoMergeOff(unittest.TestCase):
 
 
 class WritesStayInTheWorktree(unittest.TestCase):
-    """A card writes only in its worktree and .slices/, and names none of the night's own files."""
+    """A card writes only in its worktree, the session's own folder, and names none of the night's
+    own files."""
 
-    def test_an_edit_outside_the_worktree_and_slices_is_denied(self):
+    def test_an_edit_outside_the_worktree_is_denied(self):
+        # The main checkout's .slices/ too: the handoff is written in the session's folder, and
+        # `decide` carries it there.
         for path in ["/tmp/x", str(Path.home() / ".zshrc"), str(nightly.ROOT / "App/Root.swift"),
-                     str(WORKTREE / ".claude/settings.json"), str(WORKTREE / "../other/x")]:
+                     str(WORKTREE / ".claude/settings.json"), str(WORKTREE / "../other/x"),
+                     str(nightly.ROOT / ".slices/night-card-handoff.md")]:
             self.assertIn("only in its worktree", decide(tool="Edit", path=path) or "", path)
-        for path in [str(WORKTREE / "scripts/x.py"), "scripts/x.py", str(nightly.ROOT / ".slices/night-card-handoff.md"),
+        for path in [str(WORKTREE / "scripts/x.py"), "scripts/x.py", str(WORKTREE / ".slices/night-card-handoff.md"),
                      str(WORKTREE / ".claude/skills/x/SKILL.md")]:
             self.assertIsNone(decide(tool="Write", path=path), path)
 
@@ -2208,14 +2327,24 @@ class WritesStayInTheWorktree(unittest.TestCase):
         for command in ["cat >> ~/.config/gh/config.yml <<EOF\naliases: {}\nEOF", "echo x > $HOME/.gitconfig",
                         f"cp x {NIGHT_DIR}/state.json", "cd .. && rm -rf night-card", "cd ../../.. && git config x y",
                         f"bash -c 'echo x > {nightly.ROOT}/.git/config'", "ln -s ~/.claude/settings.json s",
-                        f"git -C {nightly.ROOT} commit -am x", "tee ${HOME}/.asc/config.json"]:
+                        f"git -C {nightly.ROOT} commit -am x", "tee ${HOME}/.asc/config.json",
+                        f"cat {nightly.ROOT}/.slices/night-card-plan.md"]:
             self.assertIn("night's own files", decide(command, app=False) or "", command)
 
     def test_ordinary_commands_are_allowed(self):
         for command in ["git push -u origin night-card", "scripts/test.sh 2>&1 | tail -5", "ls > /dev/null",
-                        "/usr/bin/env python3 scripts/x.py", f"cat {nightly.ROOT}/.slices/night-card-plan.md",
-                        "echo x > /tmp/y", "git diff origin/main...HEAD", "ls ~", 'git commit -m "Read ~/.config/gh"']:
+                        "/usr/bin/env python3 scripts/x.py", f"cat {WORKTREE}/.slices/night-card-plan.md",
+                        "echo x > /tmp/y", "git diff origin/main...HEAD", "ls ~", 'git commit -m "Read ~/.config/gh"',
+                        "python3 scripts/nightly-tooling-test.py", "scripts/nightly-tooling.py"]:
             self.assertIsNone(decide(command, app=False), command)
+
+    def test_no_copy_of_the_nights_script_runs_a_night_step(self):
+        # The verifier's probe on #282: a worktree's copy of decide, the folder in a variable.
+        for command in [f"N={NIGHT_DIR}; {WORKTREE}/scripts/nightly-tooling.py decide $N PVTI_1",
+                        f"NIGHT=$(cat {WORKTREE}/x); {WORKTREE}/scripts/nightly-tooling.py next $NIGHT",
+                        "python3 -u scripts/nightly-tooling.py decide x PVTI_1", "scripts/nightly-tooling.py settle x",
+                        "cd /tmp && env python3 ./nightly-tooling.py review-end x"]:
+            self.assertIn("only the night's lead runs the night's steps", decide(command, app=False) or "", command)
 
     def test_relative_paths_resolve_from_the_calls_directory(self):
         self.assertIsNotNone(decide("echo x > scripts/nightly-tooling.py", app=False, cwd=nightly.ROOT))
@@ -2233,76 +2362,108 @@ class WritesStayInTheWorktree(unittest.TestCase):
         self.assertIsNotNone(decide(tool="mcp__xcode__XcodeWrite", inputs=[str(nightly.ROOT / "App/A.swift"), "x"]))
         self.assertIsNone(decide(tool="mcp__xcode__XcodeWrite", inputs=[str(WORKTREE / "App/A.swift")]))
 
-    def test_a_relative_path_after_cd_into_the_worktree_is_the_worktrees(self):
-        # The lead's calls start in the main checkout, so its subagents work as `cd <worktree> && ...`.
-        for command in [f"cd {WORKTREE} && echo x > scripts/x.py", f"cd {WORKTREE}; sed -i '' s/a/b/ scripts/x.py"]:
-            self.assertIsNone(decide(command, app=False, cwd=nightly.ROOT), command)
-        for command in ["echo x > scripts/x.py", f"cd {WORKTREE} && cd $DIR && echo x > scripts/x.py",
-                        f"cd {WORKTREE} && cd - && echo x > scripts/x.py", f"cd {WORKTREE}/.. && echo x > s"]:
+    def test_a_relative_path_is_read_from_every_folder_a_cd_may_leave_the_shell_in(self):
+        # The night's calls start in the session's folder, the card's worktree.
+        for command in [f"cd {WORKTREE} && echo x > scripts/x.py", "(cd /tmp) && echo x > scripts/x.py",
+                        f"cd {WORKTREE}/App; sed -i '' s/a/b/ {WORKTREE}/scripts/x.py"]:
+            self.assertIsNone(decide(command, app=False, cwd=WORKTREE), command)
+        # The verifier's probes on #282: a cd in a subshell or `bash -c` moves nothing after it, so
+        # from the main checkout these write its own script.
+        for command in [f"(cd {WORKTREE}) && echo x > scripts/nightly-tooling.py",
+                        f"bash -c 'cd {WORKTREE}' ; echo x > scripts/nightly-tooling.py",
+                        f"cd {WORKTREE} | true; echo x > scripts/nightly-tooling.py",
+                        f"cd {WORKTREE} && echo x > scripts/x.py"]:
             self.assertIsNotNone(decide(command, app=False, cwd=nightly.ROOT), command)
+        # The cost: a path out of a subfolder is read from the call's own folder too.
+        for command in ["cd $DIR && echo x > scripts/x.py", "cd - && echo x > scripts/x.py", "pushd $(cat f); echo x > s/x",
+                        f"cd {WORKTREE}/.. && echo x > s", "cd App; sed -i '' s/a/b/ ../scripts/x.py"]:
+            self.assertIsNotNone(decide(command, app=False, cwd=WORKTREE), command)
 
 
 class GuardPassesOtherSessions(unittest.TestCase):
-    """.claude/hooks/night-guard.sh, which every session's calls pass through: only the night's
-    session's reach the guard."""
+    """The PreToolUse command (HOOK_COMMAND) and .claude/hooks/night-guard.sh, which every
+    session's calls pass through: only a night's session's reach the guard, the main checkout's."""
+
+    # A guard that denies whatever it is handed, saying which copy and night, so a call that reaches it shows.
+    FAKE = "import sys\nprint('reached', sys.argv[2], file=sys.stderr)\nsys.exit(2)\n"
 
     def setUp(self):
         self.root = Path(os.path.realpath(tempfile.mkdtemp()))
         self.addCleanup(shutil.rmtree, self.root, True)
         (self.root / "scripts").mkdir()
-        # A guard that denies whatever it is handed, so a call that reaches it shows.
-        (self.root / "scripts/nightly-tooling.py").write_text("import sys\nprint('reached', file=sys.stderr)\n"
-                                                              "sys.exit(2)\n")
+        (self.root / ".claude/hooks").mkdir(parents=True)
+        (self.root / "scripts/nightly-tooling.py").write_text(self.FAKE)
+        shutil.copy(SCRIPTS.parent / ".claude/hooks/night-guard.sh", self.root / ".claude/hooks/night-guard.sh")
         subprocess.run(["git", "init", "-q", "-b", "main", str(self.root)], check=True)
 
-    def guard(self, stdin, project=None):
-        script = SCRIPTS.parent / ".claude/hooks/night-guard.sh"
-        return subprocess.run([str(script)], input=stdin, capture_output=True, text=True,
-                              env={**os.environ, "CLAUDE_PROJECT_DIR": str(project or self.root)})
-
-    def test_a_session_in_a_worktree_of_its_own_meets_the_main_checkouts_night(self):
-        git = ["git", "-C", str(self.root), "-c", "user.email=t@example.com", "-c", "user.name=t"]
-        subprocess.run(git + ["add", "-A"], check=True)
-        subprocess.run(git + ["commit", "-qm", "base"], check=True)
-        worktree = self.root / ".claude/worktrees/session"
-        subprocess.run(git + ["worktree", "add", "-q", str(worktree)], check=True)
-        (worktree / "scripts/nightly-tooling.py").write_text("import sys\nprint(sys.argv[2], file=sys.stderr)\n"
-                                                             "sys.exit(2)\n")
-        self.night("2026-10-28")
-        self.assertEqual(self.guard(hook_input(session="day-session"), worktree).returncode, 0)
-        result = self.guard(hook_input(), worktree)
-        self.assertEqual((result.returncode, result.stderr), (2, f"{self.root}/.build/retro/2026-10-28\n"))
-
-    def test_outside_git_every_call_passes(self):
-        shutil.rmtree(self.root / ".git")
-        self.night("2026-10-28")
-        self.assertEqual(self.guard(hook_input()).returncode, 0)
+    def guard(self, stdin, project=None, path=None):
+        env = {**os.environ, "CLAUDE_PROJECT_DIR": str(project or self.root), "PATH": path or os.environ["PATH"]}
+        return subprocess.run(["/bin/sh", "-c", nightly.HOOK_COMMAND], input=stdin, capture_output=True, text=True,
+                              env=env)
 
     def night(self, date, session=SESSION):
         folder = self.root / ".build/retro" / date
         folder.mkdir(parents=True)
         if session is not None:
             (folder / "session").write_text(session + "\n")
+        return folder
+
+    def test_a_session_in_a_worktree_on_a_cards_branch_meets_the_main_checkouts_guard(self):
+        git = ["git", "-C", str(self.root), "-c", "user.email=t@example.com", "-c", "user.name=t"]
+        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run(git + ["commit", "-qm", "base"], check=True)
+        worktree = self.root / ".claude/worktrees/session"
+        subprocess.run(git + ["worktree", "add", "-q", "-b", "night-card", str(worktree)], check=True)
+        # The card's branch changes its own copies, which judge nothing.
+        (worktree / ".claude/hooks/night-guard.sh").write_text("exit 0\n")
+        (worktree / "scripts/nightly-tooling.py").write_text("raise SystemExit(0)\n")
+        folder = self.night("2026-10-28")
+        self.assertEqual(self.guard(hook_input(session="day-session"), worktree).returncode, 0)
+        result = self.guard(hook_input(), worktree)
+        self.assertEqual((result.returncode, result.stderr), (2, f"reached {folder}\n"))
+
+    def test_without_git_the_nights_call_still_reaches_the_guard(self):
+        # The verifier's probe on #282: with no git on PATH, the night's merge passed.
+        tools = self.root / "bin"
+        tools.mkdir()
+        # Only what the guard needs: /bin/sh, cat, and Python for the night's calls.
+        (tools / "cat").symlink_to(shutil.which("cat"))
+        (tools / "python3").symlink_to(sys.executable)
+        self.night("2026-10-28")
+        result = self.guard(hook_input("gh pr merge 7"), path=str(tools))
+        self.assertEqual(result.returncode, 2, result.stderr)
+
+    def test_a_session_whose_project_folder_is_gone_is_never_judged_so_no_card_starts(self):
+        # The case left to fail open: the guard can't be found, for every call of that session,
+        # so it never writes guard-seen, which `next` and `review` need.
+        folder = self.night("2026-10-28")
+        self.assertNotEqual(self.guard(hook_input(), project=self.root / "gone").returncode, 2)
+        self.assertFalse((folder / "guard-seen").exists())
+        night = nightly.Night(folder)
+        self.assertIn("the guard never judged this session's calls", nightly.unguarded(night, SESSION))
 
     def test_no_night_folder_passes(self):
         self.assertEqual(self.guard(hook_input()).returncode, 0)
 
     def test_another_sessions_call_passes_and_the_nights_reaches_the_guard(self):
-        self.night("2026-10-28")
+        folder = self.night("2026-10-28")
         self.assertEqual(self.guard(hook_input(session="day-session")).returncode, 0)
         result = self.guard(hook_input())
-        self.assertEqual((result.returncode, result.stderr), (2, "reached\n"))
+        self.assertEqual((result.returncode, result.stderr), (2, f"reached {folder}\n"))
 
     def test_a_guard_that_fails_any_other_way_denies(self):
         self.night("2026-10-28")
         (self.root / "scripts/nightly-tooling.py").write_text("raise SystemExit(1)\n")
         self.assertEqual(self.guard(hook_input()).returncode, 2)
 
-    def test_only_the_newest_nights_session_counts(self):
-        self.night("2026-10-27", session="old-night")
-        self.night("2026-10-28")
-        self.assertEqual(self.guard(hook_input(session="old-night")).returncode, 0)
-        self.assertEqual(self.guard(hook_input()).returncode, 2)
+    def test_the_folder_naming_the_session_is_its_night_whatever_folder_is_newer(self):
+        # The verifier's probe on #282: a later-dated folder with no session file let the night's calls by.
+        older = self.night("2026-10-27", session="old-night")
+        tonight = self.night("2026-10-28")
+        self.night("2026-10-29", session=None)
+        self.assertEqual(self.guard(hook_input()).stderr, f"reached {tonight}\n")
+        self.assertEqual(self.guard(hook_input(session="old-night")).stderr, f"reached {older}\n")
+        self.assertEqual(self.guard(hook_input(session="day-session")).returncode, 0)
 
     def test_a_night_with_no_session_recorded_passes(self):
         self.night("2026-10-28", session=None)
@@ -2430,6 +2591,15 @@ class GuardPhases(unittest.TestCase):
         for command in [f"{self.night_script} decide x PVTI_1 && gh pr merge 7", f"{self.night_script} next x",
                         f"{self.worktree}/scripts/nightly-tooling.py decide x PVTI_1"]:
             self.assertIn("only the night's own", self.check(command), command)
+
+    def test_the_leads_last_line_file_is_written_at_any_hour_and_by_the_lead_alone(self):
+        last_line = self.worktree / ".build/last-line.txt"
+        for stop in (datetime.now().astimezone() + timedelta(hours=1), datetime.now().astimezone() - timedelta(minutes=46)):
+            open_card(self.night, worktree=self.worktree, stop=stop)
+            self.night.set_state(phase={**self.night.state()["phase"], "last_line": str(last_line)})
+            self.assertIsNone(self.check(tool="Write", file_path=str(last_line), cwd=self.worktree))
+        self.assertIsNotNone(self.check(tool="Write", file_path=str(last_line), agent="builder"))
+        self.assertIsNotNone(self.check(tool="Write", file_path=str(self.worktree / "App/x.swift")))
 
     def test_the_review_writes_only_its_report(self):
         reports = self.main / ".slices/review-setup"
