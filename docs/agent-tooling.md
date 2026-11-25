@@ -112,9 +112,9 @@ general-purpose on `CLAUDE_CODE_SUBAGENT_MODEL` when it is set, else the caller'
 the caller's model and Explore on the caller's (or the `opus` alias's when the caller runs
 Fable), since that variable alone doesn't change either; claude-code-guide on Haiku and
 statusline-setup on Sonnet. `/code-review` and `/simplify` start their own reviewers, on models
-this table doesn't set. `/retro` starts its work in a general-purpose agent, which its text says
-to start with `model: fable`, the retro row's family: that one call follows the table by
-instruction, not by the check. `lookup` and `reviewer` keep Bash, which could write or commit;
+this table doesn't set. The retro row is the general-purpose agent the retro skill starts: the
+Agent tool takes an alias and no effort, so the check finds `model: fable` in the skill and the
+effort is the night session's. `lookup` and `reviewer` keep Bash, which could write or commit;
 only their instructions keep them from changing anything.
 
 | Role | Set in | Model | Effort | Why | Set | Evidence |
@@ -123,7 +123,7 @@ only their instructions keep them from changing anything.
 | planner | `.claude/agents/planner.md` | `claude-fable-5-2` | high | A plan's mistakes cost every later phase | 2026-11-11 | The card's starting choice; no record yet |
 | builder | `.claude/agents/builder.md` | `claude-opus-5-5` | high | Builds from a written plan, the longest phase, so a mid-tier model | 2026-11-11 | The card's starting choice; Opus built every slice before this table |
 | verifier | `.claude/agents/verifier.md` | `claude-fable-5-2` | high | Finds what the builder missed, so the strongest, and not the builder's model | 2026-11-11 | The card's starting choice; no record yet |
-| retro | `scripts/nightly-retro.sh RETRO` | `claude-fable-5-2` | high | Judges a day's work and edits the rules | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
+| retro | `.claude/skills/retro/SKILL.md` | `fable` | — | Judges a day's work and edits the rules | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
 | night card lead | `scripts/nightly-tooling.py CARD` | `claude-fable-5-2` | high | Leads a card alone, with no maintainer to catch it | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
 | setup review | `scripts/nightly-tooling.py REVIEW` | `claude-fable-5-2` | high | Weighs the whole setup once a month | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
 | lookup | `.claude/agents/lookup.md` | `claude-haiku-5-5` | low | Finds a file, a symbol, or a fact, or reads documentation and quotes what it says | 2026-11-11 | The card's starting choice; no record yet |

@@ -59,7 +59,7 @@ fi
 # path list holding what sets a model, as a docs-only PR's lint is.
 models=$whole_tree
 for path in "$@"; do
-    case "$path" in docs/agent-tooling.md | .claude/agents/* | scripts/nightly-*) models=true ;; esac
+    case "$path" in docs/agent-tooling.md | .claude/agents/* | .claude/skills/* | scripts/nightly-*) models=true ;; esac
 done
 if $models; then
     python3 -I scripts/models.py check || status=1
