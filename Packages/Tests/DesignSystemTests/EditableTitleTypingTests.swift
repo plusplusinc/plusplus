@@ -41,14 +41,8 @@ struct EditableTitleTypingTests {
     /// what the title handed on, with the edit still open.
     private func typed(_ keys: [String], over suggestion: String?) throws -> [String] {
         let log = Log()
-        let host = UIHostingController(rootView: Host(suggestion: suggestion, log: log))
-        let window = UIWindow.sceneless(hosting: host, at: .large)
+        let (window, field) = try focused(Host(suggestion: suggestion, log: log))
         defer { window.isHidden = true }
-        window.layoutIfNeeded()
-        let field = try #require(Self.field(in: host.view))
-        window.settle()
-        try #require(field.becomeFirstResponder())
-        window.settle()
         for key in keys {
             if key.isEmpty {
                 field.deleteBackward()
@@ -61,8 +55,19 @@ struct EditableTitleTypingTests {
         return log.names
     }
 
-    private static func field(in view: UIView) -> UITextView? {
-        view as? UITextView ?? view.subviews.lazy.compactMap(field(in:)).first
+    /// A window showing `root`, and its title's field, focused. The caller hides the window.
+    private func focused(_ root: some View) throws -> (UIWindow, UITextView) {
+        func field(in view: UIView) -> UITextView? {
+            view as? UITextView ?? view.subviews.lazy.compactMap(field(in:)).first
+        }
+        let host = UIHostingController(rootView: root)
+        let window = UIWindow.sceneless(hosting: host, at: .large)
+        window.layoutIfNeeded()
+        let field = try #require(field(in: host.view))
+        window.settle()
+        try #require(field.becomeFirstResponder())
+        window.settle()
+        return (window, field)
     }
 
     /// A draft that hands the field `shown`, which the test moves on by hand, so an update can
@@ -100,14 +105,8 @@ struct EditableTitleTypingTests {
     @Test("A draft behind the field's typing never puts back what was typed over")
     func laggingDraftKeepsTyping() throws {
         let draft = LaggingDraft("Leg")
-        let host = UIHostingController(rootView: LaggingHost(draft: draft))
-        let window = UIWindow.sceneless(hosting: host, at: .large)
+        let (window, field) = try focused(LaggingHost(draft: draft))
         defer { window.isHidden = true }
-        window.layoutIfNeeded()
-        let field = try #require(Self.field(in: host.view))
-        window.settle()
-        try #require(field.becomeFirstResponder())
-        window.settle()
         field.deleteBackward()
         field.deleteBackward()
         // An update with the draft still at a text the field has typed past.
@@ -115,7 +114,12 @@ struct EditableTitleTypingTests {
         window.settle()
         #expect(field.text == "L", "An update put a text typed over back in the field")
         draft.shown = "Le"
-        draft.pass += 1
+        window.settle()
+        #expect(field.text == "L", "An update put a text typed over back in the field")
+        // Caught up, and then a read from before that.
+        draft.shown = "L"
+        window.settle()
+        draft.shown = "Leg"
         window.settle()
         #expect(field.text == "L", "An update put a text typed over back in the field")
         // A text the field never held still reaches it.
