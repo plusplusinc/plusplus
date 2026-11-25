@@ -13,28 +13,27 @@ import Testing
 struct ThemeSnapshotTests {
     private static let width: CGFloat = 390
 
-    /// Cards on the Theme screen: PlusPlus in use, with its outline and check; Sunset, dark
-    /// only; Lavender, one of the longest names. Under them, Settings' card, which opens the
-    /// themes.
+    /// Cards on the Theme screen: PlusPlus in use, with its outline and check; Black, dark
+    /// only; Lavender, the longest name. Under them, Settings' card, which opens the themes.
     @Test("Theme cards: in use, dark only, a long name, and Settings' card that opens them")
     func cards() {
         let view = VStack(spacing: Spacing.sm) {
             ThemeCard(theme: .plusPlus, scheme: .dark, mark: .checked(true))
-            ThemeCard(theme: .sunset, scheme: .dark, mark: .checked(false))
+            ThemeCard(theme: .black, scheme: .dark, mark: .checked(false))
             ThemeCard(theme: .lavender, scheme: .dark, mark: .checked(false))
-            ThemeCard(theme: .slate, scheme: .dark, mark: .opens)
+            ThemeCard(theme: .iron, scheme: .dark, mark: .opens)
         }
         .padding(Spacing.md)
         .background(Color.pp(.background))
         assertThemedSnapshots(of: view, width: Self.width)
     }
 
-    @Test("A workout mid-set in Mono: active, done, and to-do told apart by lightness alone")
-    func monoMidSet() {
-        assertThemedSnapshots(of: midSet(in: .mono), width: Self.width, includingLight: true)
+    @Test("A workout mid-set in Chalk: active, done, and to-do told apart by lightness alone")
+    func chalkMidSet() {
+        assertThemedSnapshots(of: midSet(in: .chalk), width: Self.width, includingLight: true)
     }
 
-    @Test("A workout mid-set in Plum: active in its orchid, done in its gold")
+    @Test("A workout mid-set in Plum: active in its purple, done in its gold")
     func plumMidSet() {
         assertThemedSnapshots(of: midSet(in: .plum), width: Self.width, includingLight: true)
     }

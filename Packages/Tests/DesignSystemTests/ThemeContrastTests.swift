@@ -116,7 +116,7 @@ nonisolated struct ThemeContrastTests {
         )
     }
 
-    /// A set done and a set still to do sit side by side as bars; where done is a gray (Mono),
+    /// A set done and a set still to do sit side by side as bars; where done is a gray (Chalk),
     /// lightness is all that tells them apart, and to-do is the quieter, nearer the background.
     @Test("A set still to do stands apart from a done one, and quieter", arguments: looks)
     func toDoStandsApartFromDone(look: Look) {
@@ -150,7 +150,7 @@ nonisolated struct ThemeContrastTests {
     }
 
     /// A row joining a rail draws its node in `railJoin`, then settles to `rail`: unless the two
-    /// stand apart, the arrival shows nothing. In Mono only lightness tells them apart.
+    /// stand apart, the arrival shows nothing. In Chalk only lightness tells them apart.
     @Test("An arriving node stands apart from a resting one", arguments: looks)
     func arrivingStandsApart(look: Look) {
         let (join, rail) = (OKLab(RGB(look.color(.railJoin))), OKLab(RGB(look.color(.rail))))

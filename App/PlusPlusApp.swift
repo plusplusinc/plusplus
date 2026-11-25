@@ -17,7 +17,7 @@ struct PlusPlusApp: App {
     init() {
         #if DEBUG
         // A fresh start forgets the look chosen too, before it is read. A launch argument
-        // (`-appearance light`, `-theme slate`) still answers, from its own domain.
+        // (`-appearance light`, `-theme iron`) still answers, from its own domain.
         if LaunchOptions.resetsStore {
             UserDefaults.standard.removeObject(forKey: Look.appearanceKey)
             UserDefaults.standard.removeObject(forKey: Look.themeKey)

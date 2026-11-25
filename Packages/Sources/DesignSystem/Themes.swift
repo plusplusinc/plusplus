@@ -7,10 +7,9 @@ import SwiftUI
 /// never a red (`Theme.isRed(_:)`), and done stands apart from active and from to-do.
 nonisolated extension Theme {
     /// The order on the Theme screen after PlusPlus: curated, the quiet grounds first and the
-    /// loud ones last.
+    /// playful ones last.
     static let ours: [Self] = [
-        .black, .slate, .mono, .midnight, .ocean, .forest, .lavender, .rose, .paper, .mocha,
-        .plum, .candy, .sunset, .volt, .phosphor,
+        .black, .iron, .chalk, .navy, .ocean, .forest, .lavender, .rose, .paper, .plum, .candy,
     ]
 
     /// PlusPlus dark's own colors on true black, for an OLED screen: active green, done purple,
@@ -27,33 +26,35 @@ nonisolated extension Theme {
         )),
     )
 
-    /// Cool blue-gray, like a well-made tool: active blue, done green, arriving violet.
-    public static let slate = Theme(
-        id: "slate",
-        name: "Slate",
+    /// Steel and rust: active steel blue, done rust, arriving brass.
+    public static let iron = Theme(
+        id: "iron",
+        name: "Iron",
         looks: .both(
             light: Palette(
-                ground: 0xF4F5F7,
-                text: 0x1B1E23,
-                active: 0x0A66F0,
-                done: 0x1A8F60,
-                arriving: 0x8250DF,
+                ground: 0xF3F4F5,
+                text: 0x1C1F23,
+                active: 0x3F5F7F,
+                done: 0xB5562B,
+                arriving: 0x7A6A1F,
             ),
             dark: Palette(
-                ground: 0x17191D,
-                text: 0xE8EAEE,
-                active: 0x5AA2FF,
-                done: 0x5FD4A0,
-                arriving: 0xC9A4FF,
+                ground: 0x17191C,
+                text: 0xE6E8EB,
+                active: 0x9DB7D1,
+                done: 0xD98A54,
+                arriving: 0xD8C27A,
             ),
         ),
     )
 
     /// No hue at all, told apart by lightness alone: active the strongest tone (white on dark,
     /// black on light), done a mid gray, arriving a gray between them, to-do quieter than done.
-    public static let mono = Theme(
-        id: "mono",
-        name: "Mono",
+    /// The light look's done is `8C8C8C`, as the dark's, not the darker `6E6E6E` first drawn:
+    /// there the rail had no gray left that stood apart from both done and arriving.
+    public static let chalk = Theme(
+        id: "chalk",
+        name: "Chalk",
         looks: .both(
             light: Palette(
                 ground: 0xFAFAFA,
@@ -72,68 +73,68 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Deep navy: active blue, done pink, arriving aqua.
-    public static let midnight = Theme(
-        id: "midnight",
-        name: "Midnight",
+    /// Navy and brass, sober: active blue, done brass, arriving sky.
+    public static let navy = Theme(
+        id: "navy",
+        name: "Navy",
         looks: .both(
             light: Palette(
-                ground: 0xF3F6FC,
-                text: 0x131C30,
-                active: 0x1A66E8,
-                done: 0xC8358A,
-                arriving: 0x0E8F8C,
+                ground: 0xF4F6FB,
+                text: 0x121B33,
+                active: 0x1F3F99,
+                done: 0x8F6B10,
+                arriving: 0x0F7F9C,
             ),
             dark: Palette(
-                ground: 0x0F1626,
-                text: 0xE6ECF8,
-                active: 0x5AA8FF,
-                done: 0xF28CC4,
-                arriving: 0x7DE3E0,
+                ground: 0x0E1830,
+                text: 0xE6EBF7,
+                active: 0x7FA8F5,
+                done: 0xD9B45A,
+                arriving: 0x8FD3E8,
             ),
         ),
     )
 
-    /// Deep sea teal: active aquamarine, done periwinkle, arriving sand.
+    /// Blue water: active sea blue, done seafoam, arriving sand.
     public static let ocean = Theme(
         id: "ocean",
         name: "Ocean",
         looks: .both(
             light: Palette(
-                ground: 0xEEF7F8,
-                text: 0x0D2E37,
-                active: 0x087F6B,
-                done: 0x5266D6,
-                arriving: 0xA66A00,
+                ground: 0xEEF6FA,
+                text: 0x0C2C3A,
+                active: 0x0B74AD,
+                done: 0x178A6E,
+                arriving: 0x96701A,
             ),
             dark: Palette(
-                ground: 0x07212B,
-                text: 0xDDF1F3,
-                active: 0x4FE3C1,
-                done: 0xA3B4FF,
-                arriving: 0xFFD27A,
+                ground: 0x06202E,
+                text: 0xDDEFF5,
+                active: 0x4CC3F0,
+                done: 0x7FE0C0,
+                arriving: 0xEAD2A0,
             ),
         ),
     )
 
-    /// Moss and bark: active leaf green, done wood tan, arriving pool teal.
+    /// Forest green and bark: active leaf green, done bark brown, arriving ochre.
     public static let forest = Theme(
         id: "forest",
         name: "Forest",
         looks: .both(
             light: Palette(
-                ground: 0xF3F6EC,
-                text: 0x1C2A1E,
-                active: 0x3E7C17,
-                done: 0x96702E,
-                arriving: 0x1F8A7C,
+                ground: 0xF3F5EC,
+                text: 0x1B291D,
+                active: 0x2E6B34,
+                done: 0x8A5A2B,
+                arriving: 0x8A7A12,
             ),
             dark: Palette(
-                ground: 0x121C15,
-                text: 0xE6EEDD,
-                active: 0xB5E05A,
-                done: 0xDDBE8C,
-                arriving: 0x7CCFC0,
+                ground: 0x111B14,
+                text: 0xE5ECDD,
+                active: 0x6FBF73,
+                done: 0xC9A06F,
+                arriving: 0xD9C36A,
             ),
         ),
     )
@@ -182,68 +183,46 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Ink on warm paper, at its best in light: active teal, done terracotta, arriving violet.
+    /// Cream paper, at its best in light: active ink blue, done sepia, arriving teal.
     public static let paper = Theme(
         id: "paper",
         name: "Paper",
         looks: .both(
             light: Palette(
-                ground: 0xF6EFE2,
-                text: 0x2B251D,
-                active: 0x0E7A70,
-                done: 0xBF5A2E,
-                arriving: 0x6C55B8,
+                ground: 0xF5EEDD,
+                text: 0x23201B,
+                active: 0x234FA8,
+                done: 0x9C5A32,
+                arriving: 0x0F7A70,
             ),
             dark: Palette(
-                ground: 0x1E1A15,
-                text: 0xEFE6D6,
-                active: 0x5CCFC2,
-                done: 0xF09A74,
-                arriving: 0xB7A4F2,
+                ground: 0x1F1C17,
+                text: 0xEFE7D6,
+                active: 0x8FB0F5,
+                done: 0xD99A72,
+                arriving: 0x6FCFC4,
             ),
         ),
     )
 
-    /// Coffee browns: active saffron, done sage, arriving clay.
-    public static let mocha = Theme(
-        id: "mocha",
-        name: "Mocha",
-        looks: .both(
-            light: Palette(
-                ground: 0xF5EDE2,
-                text: 0x2E221A,
-                active: 0x8A5A00,
-                done: 0x4A7C52,
-                arriving: 0xB4552B,
-            ),
-            dark: Palette(
-                ground: 0x1F1814,
-                text: 0xF2E5D5,
-                active: 0xE9C46A,
-                done: 0x9FC59A,
-                arriving: 0xE8A27E,
-            ),
-        ),
-    )
-
-    /// Dark plum: active orchid pink, done gold, arriving periwinkle.
+    /// Plum and gold: active plum purple, done gold, arriving pink.
     public static let plum = Theme(
         id: "plum",
         name: "Plum",
         looks: .both(
             light: Palette(
-                ground: 0xFBF4FB,
-                text: 0x2B1B33,
-                active: 0xB8259A,
+                ground: 0xFAF4FB,
+                text: 0x2A1A31,
+                active: 0x7A2E9E,
                 done: 0x96690A,
-                arriving: 0x4A63D6,
+                arriving: 0xC2407F,
             ),
             dark: Palette(
-                ground: 0x1E1428,
-                text: 0xF3E8F6,
-                active: 0xF58AD8,
-                done: 0xEBC56E,
-                arriving: 0x9DB4FF,
+                ground: 0x1F1226,
+                text: 0xF2E7F5,
+                active: 0xC58BF2,
+                done: 0xE6C063,
+                arriving: 0xF29AC0,
             ),
         ),
     )
@@ -268,44 +247,5 @@ nonisolated extension Theme {
                 arriving: 0xFFE066,
             ),
         ),
-    )
-
-    /// Dusk embers: active orange, done violet, arriving gold.
-    public static let sunset = Theme(
-        id: "sunset",
-        name: "Sunset",
-        looks: .darkOnly(Palette(
-            ground: 0x1F1410,
-            text: 0xF7E9DD,
-            active: 0xFF9F45,
-            done: 0xC58CFF,
-            arriving: 0xFFD166,
-        )),
-    )
-
-    /// Near black with an electric edge: active lime, done cyan, arriving coral orange.
-    public static let volt = Theme(
-        id: "volt",
-        name: "Volt",
-        looks: .darkOnly(Palette(
-            ground: 0x111214,
-            text: 0xF2F3F0,
-            active: 0xD7FF3F,
-            done: 0x5AD1E8,
-            arriving: 0xFF9F6B,
-        )),
-    )
-
-    /// An old green terminal: active phosphor green, done amber, arriving cyan.
-    public static let phosphor = Theme(
-        id: "phosphor",
-        name: "Phosphor",
-        looks: .darkOnly(Palette(
-            ground: 0x050B06,
-            text: 0xB8F5C0,
-            active: 0x39FF6A,
-            done: 0xFFB000,
-            arriving: 0x7DF9FF,
-        )),
     )
 }

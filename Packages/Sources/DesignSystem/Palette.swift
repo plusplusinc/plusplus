@@ -18,7 +18,7 @@ nonisolated struct Palette: Sendable {
     /// 3.95 and 3.54, the quieter text 5.93 and 5.48. Contrast, not a share of the way to the
     /// text, as near black a share is too small to see: Black's card was `010101`. A dark well
     /// sinks below the ground, as PlusPlus dark's does, where the ground has room below it;
-    /// Black's and Phosphor's rise a step instead, as a light look's does. The three meaningful
+    /// Black's rises a step instead, as a light look's does. The three meaningful
     /// colors and the text are moved in lightness only, as far as the contrast each job needs.
     /// A ground darker than mid gray makes a dark look.
     init(ground: UInt32, text: UInt32, active: UInt32, done: UInt32, arriving: UInt32) {
@@ -39,7 +39,6 @@ nonisolated struct Palette: Sendable {
         let finished = Self.apart(
             nudged(RGB(done), 3, on: marks),
             from: accent,
-            background: background,
             grounds: marks,
         )
         let joining = nudged(RGB(arriving), 3, on: marks)
@@ -174,24 +173,20 @@ nonisolated struct Palette: Sendable {
     }
 
     /// `done` kept apart from `accent` in lightness as well as hue, by `doneGap`: short of it,
-    /// `done` moves to `accent`'s lightness that gap plus 0.005 nearer the background, or as far
-    /// away from it if nearer loses 3:1 on `grounds`. Its hue stays the theme's; on a light look
-    /// a close pair usually ends with `done` the darker, as nearer has no room.
-    private static func apart(
-        _ done: RGB,
-        from accent: RGB,
-        background: RGB,
-        grounds: [RGB],
-    ) -> RGB {
+    /// `done` moves to `accent`'s lightness that gap plus 0.005 above or below, whichever is the
+    /// smaller move and keeps 3:1 on `grounds`, so it stays as near its designed color as it can.
+    /// Its hue stays the theme's; on a light look a close pair usually ends with `done` the
+    /// darker, as lighter loses 3:1.
+    private static func apart(_ done: RGB, from accent: RGB, grounds: [RGB]) -> RGB {
         let (doneLightness, accentLightness) = (OKLab(done).lightness, OKLab(accent).lightness)
         let gap = doneGap(done, accent)
         guard abs(doneLightness - accentLightness) < gap else { return done }
         let margin = gap + 0.005
-        let toward = OKLab(background).lightness < accentLightness ? -margin : margin
-        let nearer = withLightness(done, accentLightness + toward)
-        if grounds.allSatisfy({ contrast(nearer, $0) >= 3 }) {
-            return nearer
-        }
-        return withLightness(done, accentLightness - toward)
+        let candidates = [accentLightness - margin, accentLightness + margin]
+            .filter { $0 >= 0 && $0 <= 1 }
+            .sorted { abs($0 - doneLightness) < abs($1 - doneLightness) }
+            .map { withLightness(done, $0) }
+        return candidates.first { moved in grounds.allSatisfy { contrast(moved, $0) >= 3 } }
+            ?? candidates.last ?? done
     }
 }

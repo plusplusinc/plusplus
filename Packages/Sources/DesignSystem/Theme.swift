@@ -37,7 +37,7 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
     /// exercise, and a red + reads as a warning. A red is a color with OKLab chroma of at least
     /// 0.05 (not a gray) whose OKLab hue is from 350° round to 40°: from the pinks' edge to where
     /// orange begins. A pink-red and a coral (7° to 17°) and an orange that reads as rust (39°)
-    /// fall inside; a peach (42°), a hot pink (347°), and Plum's orchid (338°) outside.
+    /// fall inside; a peach (42°), and a hot pink (347°) outside.
     public static func isRed(_ color: Color.Resolved) -> Bool {
         let lab = OKLab(RGB(color))
         let chroma = (lab.greenRed * lab.greenRed + lab.blueYellow * lab.blueYellow).squareRoot()

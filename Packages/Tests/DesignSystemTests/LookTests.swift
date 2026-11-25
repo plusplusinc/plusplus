@@ -54,22 +54,22 @@ struct LookTests {
 
     @Test("A theme with both looks is held to the appearance, and to nothing on Auto")
     func bothLooksFollowAppearance() {
-        #expect(Theme.slate.colorScheme(for: .light) == .light)
-        #expect(Theme.slate.colorScheme(for: .dark) == .dark)
-        #expect(Theme.slate.colorScheme(for: .auto) == nil)
+        #expect(Theme.iron.colorScheme(for: .light) == .light)
+        #expect(Theme.iron.colorScheme(for: .dark) == .dark)
+        #expect(Theme.iron.colorScheme(for: .auto) == nil)
     }
 
     @Test("A dark-only theme is held dark whatever the appearance, and draws the same in light")
     func darkOnlyStaysDark() {
         for appearance in Appearance.allCases {
-            #expect(Theme.sunset.colorScheme(for: appearance) == .dark)
+            #expect(Theme.black.colorScheme(for: appearance) == .dark)
         }
         var light = EnvironmentValues()
         light.colorScheme = .light
         var dark = EnvironmentValues()
         dark.colorScheme = .dark
         for token in ColorToken.allCases {
-            #expect(Theme.sunset.resolve(token, in: light) == Theme.sunset.resolve(
+            #expect(Theme.black.resolve(token, in: light) == Theme.black.resolve(
                 token,
                 in: dark,
             ))
