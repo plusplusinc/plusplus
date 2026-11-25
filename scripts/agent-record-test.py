@@ -72,6 +72,8 @@ elif args[:2] == ["api", "graphql"]:
     pages = json.loads((here / "pages.json").read_text())
     count = sum(1 for line in (here / "calls.log").read_text().splitlines() if "search(type" in line)
     print(json.dumps(pages[count - 1]))
+elif args[:2] == ["pr", "view"]:
+    print("true" if (here / "verified").exists() else "false")
 """)
         gh.chmod(0o755)
         self.pages([PRS])
@@ -157,6 +159,17 @@ elif args[:2] == ["api", "graphql"]:
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertEqual(self.calls(), [{"args": ["pr", "comment", "159", "--body-file", "-"],
                                          "stdin": "Agent record\n" + "\n".join(lines)}])
+
+    def test_post_names_a_pr_whose_verifier_left_no_record(self):
+        run = self.run_script("post", "171", RECORD_171.splitlines()[3])
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertIn("PR #171 has no comment that starts `Verifier record`", run.stderr)
+        self.assertEqual([call["args"][:2] for call in self.calls()], [["pr", "comment"], ["pr", "view"]])
+
+    def test_post_is_quiet_when_the_verifiers_record_is_there(self):
+        (self.folder / "verified").touch()
+        run = self.run_script("post", "171", RECORD_171.splitlines()[3])
+        self.assertEqual((run.returncode, run.stderr), (0, ""))
 
     def test_post_refuses_a_hand_written_line(self):
         run = self.run_script("post", "159", "- builder on opus, about 20 minutes")
