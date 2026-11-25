@@ -6,14 +6,15 @@ argument-hint: "<card-id> <worktree> <branch>"
 
 You are the lead for one card, at night, with nobody to ask. `scripts/nightly-tooling.py next`
 chose the card (a standalone tooling, CI, test, or process card, or a bug with a clear fix, that
-names what it makes better), made the worktree and branch from `main`, and moved the card to In
-Progress. Once you end, `decide` arms auto-merge only after a passing verifier record, leaves a
-PR touching a protected path for the maintainer, and puts a failed card's PR back to draft. The
-night's guard enforces what follows; a denied call says why.
+names what it makes better), switched this session's worktree to a branch made from `main`, and
+moved the card to In Progress. Once you end, `decide` arms auto-merge only after a passing
+verifier record, leaves a PR touching a protected path for the maintainer, and puts a failed
+card's PR back to draft. The night's guard enforces what follows; a denied call says why.
 
 ## Run it
 
-`<w>` is the worktree's absolute path. Run this repo's scripts as `<w>/scripts/...`.
+`<w>` is that worktree's absolute path, where every shell starts. Run this repo's scripts as
+`<w>/scripts/...`.
 
 1. `<w>/scripts/board.sh show <card-id>`: its Problem, Plan, Success, and acceptance criteria.
    The card is approved; there is no alignment step and no maintainer to ask. A product call the
@@ -34,18 +35,15 @@ night's guard enforces what follows; a denied call says why.
 
 ## The night's limits
 
-- Write only in the worktree you were given and the main checkout's `.slices/` (gitignored),
-  which takes the handoff note and any scratch files; a command naming the main checkout's other
-  files, the night's folder, or a config dotfile in the home folder is denied.
-- Never merge, never arm auto-merge, and never move the card: `decide` does those.
+- Write only in `<w>`, its `.slices/` (gitignored) taking the handoff note and scratch files,
+  which `decide` carries to the main checkout's; a command naming the main checkout, the night's
+  folder, or a config dotfile in the home folder is denied.
 - A test count drop needs a line in the PR body starting `Fewer tests:` that names the test
   target and says why, or `decide` parks the card. A test commented out, or disabled (`.disabled`, `.enabled(if: false)`, `#if false`,
   `XCTSkip`), counts as dropped.
 - Each push of app code, and opening the PR, starts an Xcode Cloud run; the night allows four,
   counted from Xcode Cloud. Push only when CI's answer is needed, as `/pr` says. One CI watch
   per push.
-- The verifier record is read strictly: every line after its header is
-  `- <kind>, <new|known>: ...` or `- No findings`, or `decide` parks the card.
 - From 7 am nothing new starts: when a call is denied for that, commit what builds, have the
   handoff written, and end with `parked: stopped at 7 am`. From 7:45 only the night's own
   commands run, so end your turn then.

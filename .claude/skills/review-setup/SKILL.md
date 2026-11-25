@@ -6,7 +6,7 @@ allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fet
 ---
 
 The retro fixes what tripped up one night's work; this asks, once a month, whether the setup is
-still the right one. Run it in the main checkout. Its output is a report and cards, never an
+still the right one. Its output is a report and cards, never an
 edit: a change it finds is a card, built like any other, and that includes making
 `docs/agent-tooling.md`, where today's choices and their reasons live, true again.
 
@@ -113,7 +113,8 @@ it qualifies. It stays at the bottom of Definitely.
 
 ## 4. Report
 
-Write `<main checkout>/.slices/review-setup/report-<today>.md`. Its first line is exactly
+Write `.slices/review-setup/report-<today>.md`: with `nightly` in this session's folder, which
+`review-end` carries to the main checkout's; by day, in the main checkout's. Its first line is exactly
 `# Setup review <today>, Xcode <version>`: `scripts/nightly-tooling.py review` reads the name
 and that line to tell when the next is due. Under 40 lines, one line per item with its reason:
 
