@@ -29,7 +29,7 @@ extension WorkoutScreen {
         // ahead of the grow's scroll: a scroll in the same transaction stops at the old end.
         withTransaction(\.disablesAnimations, true) {
             makeRoomBelow()
-            startDrop = 0
+            endStartRide()
             // Where a workout that ended left its current exercise: the first row reports its
             // own place from the press, and the landing's room waits for it.
             currentPlace = nil
@@ -75,7 +75,8 @@ extension WorkoutScreen {
         try await beat(until: .now + .seconds(Self.keyReturnDelay))
         withTransaction(\.disablesAnimations, true) {
             phase.landStart()
-            startDrop = 0
+            // The + stays low from here as the key's room is kept (`keyKeepsRoom`).
+            endStartRide()
         }
         letRoomGo()
         // On a later turn of the run loop, once Start has gone: in the same update, away and
@@ -141,6 +142,16 @@ extension WorkoutScreen {
             // places (`listResizes(_:)`).
             resizes += 1
         }
+        // The + goes down as Start leaves, on the swap a rest's end moves it on: left for the
+        // landing, it hung over no key for a third of a second, then dropped on one frame.
+        withAnimation(SetMotion.restSwap) { plusLeftWithStart = true }
+    }
+
+    /// Start's ride down is over, in the caller's transaction: the key back in its place, and
+    /// the + no longer held low by it.
+    func endStartRide() {
+        startDrop = 0
+        plusLeftWithStart = false
     }
 
     /// Where the list lands the current exercise while it is landing on it or resting on it:

@@ -52,6 +52,9 @@ struct WorkoutScreen: View {
     @State var isTitleUnderBar = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
     @State var startDrop: CGFloat = 0
+    /// Whether the + has gone low as Start rides down, set on its own curve as Start leaves
+    /// (`plusSitsLow`), and cleared as the ride ends (`endStartRide()`) or Start comes back.
+    @State var plusLeftWithStart = false
     /// While the current exercise is scrolled away, which way the key points back to it,
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleWayBack()`); none while it logs.

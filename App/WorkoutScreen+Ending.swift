@@ -125,7 +125,11 @@ extension WorkoutScreen {
                 withTransaction(\.disablesAnimations, true) { startDrop = 0 }
                 try await laterTurn()
             }
-            keyReturns { phase.rest() }
+            // The + Start's ride took down comes back up with it.
+            keyReturns {
+                plusLeftWithStart = false
+                return phase.rest()
+            }
         }
     }
 
