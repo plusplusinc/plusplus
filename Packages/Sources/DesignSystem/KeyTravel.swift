@@ -9,10 +9,10 @@ extension Animation {
 }
 
 /// The bar's key drawn down from its place by its one depth (`KeyReach.depth`), each part run by
-/// the animation of the update that changed its target: a swap's halves, the screen taking the
-/// key away or bringing it back, and the screen riding it down (`drop`), worked out frame by
-/// frame alongside the layout of a list it rides with; animated as an offset, a ride ran two
-/// frames ahead of the list's rows. Its height is the one drawn that frame, so a key that starts
+/// the animation of the update that changed its target: a swap's halves, and the screen taking
+/// the key away or bringing it back. The screen riding it down is `KeyRide`'s, at its own pace,
+/// which adds its part to what goes to the floating button. Its height is the one drawn that
+/// frame, so a key that starts
 /// out of sight is out of sight from its first frame. A swap takes it down to the screen's
 /// bottom edge and no further, so the key coming in starts up as the one going clears the edge:
 /// with 8 pt more, the two halves had frames with no key between them.

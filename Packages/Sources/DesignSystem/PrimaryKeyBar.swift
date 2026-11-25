@@ -15,9 +15,9 @@ extension View {
     /// floats: its ledge's bottom 21 pt above the screen's bottom, and its sides 21 pt from the
     /// screen's. Each time `finishes` goes up, the finish's "++" pops off the key's top
     /// (`FinishBurst`); the key holds still under it, so it plays at the key's bounds as they
-    /// are drawn, unseen with no key. `drop` moves the key down by that much, at least off the
-    /// screen, which an animation carries it along at its own
-    /// pace. The keyboard covers the key, and the screen with it, rather than lifting them.
+    /// are drawn, unseen with no key. While `drop` is above 0 the key rides down out of sight, at
+    /// the pace of a key going down in a swap whatever the update's animation (`KeyRide`), and
+    /// takes no tap. The keyboard covers the key, and the screen with it, rather than lifting them.
     ///
     /// `floating`, a button drawn in the `floating` style, floats above the key's right end, its
     /// right edge on the key's and 16 pt above the key's top, and rides on the key as one piece
@@ -211,8 +211,9 @@ private struct PrimaryKeyBar<
     /// presented, out of sight with no room, no taps, and nothing for VoiceOver.
     private func trayKey(_ drawn: KeyTray<Face>.Drawn) -> some View {
         let isPresented = isPresented
+        let inSight = inputs.inSight
         return placed(
-            key(drawn.face, drawn.isOut || !isPresented)
+            key(drawn.face, drawn.isOut || !inSight)
                 .buttonStyle(.primaryKey)
                 // Another key in place of the one drawn, at once under any animation: the move is
                 // the tray's.
@@ -222,26 +223,17 @@ private struct PrimaryKeyBar<
                 .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
                     isPresented ? $0 : nil
                 }
-                .modifier(KeyTravel(
-                    parts: KeyReach.Parts(
-                        leave: drawn.targets.leave,
-                        arrive: drawn.targets.arrive,
-                        away: drawn.targets.away,
-                        drop: 0,
-                    ),
-                    reach: reach,
-                    isPresented: isPresented,
-                ))
+                .modifier(KeyTravel(parts: drawn.travel, reach: reach, isPresented: isPresented))
                 // At its own pace, outside the screen's animation.
-                .keyRide(drawn.targets.drop, reach: reach)
+                .keyRide(drawn.ride, reach: reach)
                 .hiddenBehindDrawer()
-                .accessibilityShown(isPresented),
+                .accessibilityShown(inSight),
         )
         .fixedSize(horizontal: false, vertical: true)
         // Its resting place stays put as its room goes.
         .frame(height: isPresented ? nil : 0, alignment: .bottom)
         // An offset drawn moves nothing of where taps land, and the low floating button is there.
-        .allowsHitTesting(isPresented)
+        .allowsHitTesting(inSight)
     }
 
     /// `floating` riding on the key as `KeyTravel` draws it, its height from its bounds.

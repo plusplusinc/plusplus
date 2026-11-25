@@ -42,11 +42,13 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
     }
 
     /// What the bar draws: the face, whether the key is out in a swap, and where each part of
-    /// its depth is headed, 0 or 1, for the animation of the update that drew it to run to.
+    /// its depth is headed, 0 or 1, for the animation of the update that drew it to run to: the
+    /// moves `KeyTravel` runs, and the screen's ride (`KeyRide`), which runs at its own pace.
     struct Drawn: Equatable {
         var face: Face
         var isOut: Bool
-        var targets: KeyReach.Parts
+        var travel: KeyReach.Parts
+        var ride: CGFloat
     }
 
     private(set) var stage: Stage
@@ -62,7 +64,7 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
     /// place; another key's, before the swap has started, the key as it was.
     var face: Face {
         switch stage {
-        case let .showing(face): face.id == live.id ? live : face
+        case let .showing(face): face
         case let .leaving(face), let .away(face): face
         case .arriving: live
         }
@@ -98,12 +100,13 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
         Drawn(
             face: face,
             isOut: isOut,
-            targets: KeyReach.Parts(
+            travel: KeyReach.Parts(
                 leave: stage.isLeaving ? 1 : 0,
                 arrive: stage == .arriving ? 1 : 0,
                 away: inputs.isPresented ? 0 : 1,
-                drop: inputs.isDropped ? 1 : 0,
+                drop: 0,
             ),
+            ride: inputs.isDropped ? 1 : 0,
         )
     }
 
@@ -151,7 +154,7 @@ nonisolated struct KeyReach: Equatable {
         /// with no animation as the key going goes, so the next one starts out of sight however
         /// far the drop's animation had got: as one part, a drop that started a frame or two late
         /// turned back up 30 pt short, and the next key's words showed on the way.
-        var arrive: CGFloat = 0
+        var arrive: CGFloat
         /// Taken away by the screen.
         var away: CGFloat
         /// Ridden down by the screen (`drop`).

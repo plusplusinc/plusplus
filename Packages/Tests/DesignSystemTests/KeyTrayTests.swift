@@ -107,7 +107,7 @@ struct KeyTrayTests {
         var tray = Tray(shown(back))
         tray.follow(away(log))
         #expect(tray.face == back)
-        #expect(tray.drawn(for: away(log)).targets.away == 1)
+        #expect(tray.drawn(for: away(log)).travel.away == 1)
         tray.follow(shown(log))
         #expect(tray.stage == .showing(log))
         #expect(!tray.needsSwap)
@@ -131,9 +131,9 @@ struct KeyTrayTests {
         var tray = Tray(shown(log))
         tray.follow(shown(back))
         tray.startLeaving()
-        let swapping = tray.drawn(for: shown(back)).targets
+        let swapping = tray.drawn(for: shown(back)).travel
         tray.follow(away(back))
-        let gone = tray.drawn(for: away(back)).targets
+        let gone = tray.drawn(for: away(back)).travel
         #expect(gone.swap == 0 && gone.away == 1)
         #expect(reach.depth(gone, height: 56) > reach.depth(swapping, height: 56))
     }

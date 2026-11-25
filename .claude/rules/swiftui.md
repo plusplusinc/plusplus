@@ -91,7 +91,7 @@ Each of these cost a round; the code at the named spot works around it.
 - An offset or stroke that has to move with animating rows is an `Animatable` modifier or
   `Shape` worked out from the rows' layout, on the same transaction. A plain `.offset` runs
   ahead of the rows, and a stroke drawn from an animating row's measured size jumps to its end
-  (`GrowthLift`, `KeyTravel`, `RailDrawing`).
+  (`GrowthLift`, `RailDrawing`).
 - A state set inside `withAnimation` already holds its end value; what is drawn mid-animation
   only an `Animatable` sees. To read it back, record it from a modifier that draws with it: an
   `Animatable` modifier that only passes its content through has its body skipped
