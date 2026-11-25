@@ -231,7 +231,7 @@ private struct PrimaryKeyBar<
                             )
                         }
                         .transition(KeyBarTransition(below: bottomInset))
-                        .id(round.id)
+                        .id(round.id(presenting: face.id))
                     } else if keepsRoom {
                         // Its room and the burst's place, with no drop or swap to run.
                         unseenKey.hidden()
@@ -270,8 +270,8 @@ private struct PrimaryKeyBar<
     }
 }
 
-/// Keeps the bar's `KeyRound` with the key: after the update that changed it, so a key taken away
-/// keeps the id it went with.
+/// Keeps the bar's `KeyRound` with the key, after each update that presents it, takes it away, or
+/// changes its kind.
 private struct FollowsRound<Kind: Hashable>: ViewModifier {
     @Binding var round: KeyRound<Kind>
     let isPresented: Bool
@@ -279,18 +279,8 @@ private struct FollowsRound<Kind: Hashable>: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: kind) { _, kind in
-                if isPresented {
-                    round.follow(kind)
-                }
-            }
-            .onChange(of: isPresented ? nil : kind) { was, away in
-                if let away {
-                    round.away(as: away, justLeft: was == nil)
-                } else {
-                    round.follow(kind)
-                }
-            }
+            .onChange(of: kind) { round.follow(kind, isPresented: isPresented) }
+            .onChange(of: isPresented) { round.follow(kind, isPresented: isPresented) }
     }
 }
 

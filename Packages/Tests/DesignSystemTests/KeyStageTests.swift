@@ -128,15 +128,19 @@ struct KeyStageTests {
     func round() {
         var round = KeyRound(kind: 1)
         // Swapped to a rest's keys, then taken away as Log set comes due, as at Skip rest.
-        round.follow(2)
-        let going = round.id
-        round.away(as: 1, justLeft: true)
-        #expect(round.id != going)
-        // Back to the kind it went as, while still away: the one going turns back.
-        round.away(as: 2, justLeft: false)
-        #expect(round.id == going)
-        round.follow(2)
-        round.away(as: 2, justLeft: true)
-        #expect(round.id == going)
+        round.follow(2, isPresented: true)
+        let going = round.id(presenting: 2)
+        round.follow(1, isPresented: false)
+        #expect(round.id(presenting: 1) != going)
+        // Back as the kind it went as: the one going turns back.
+        #expect(round.id(presenting: 2) == going)
+        // Back as Log set: a new key, which stays that key as it is followed.
+        let back = round.id(presenting: 1)
+        round.follow(1, isPresented: true)
+        #expect(round.id(presenting: 1) == back)
+        // Taken away with its face unchanged, and back as another kind in one update.
+        round.follow(1, isPresented: false)
+        #expect(round.id(presenting: 3) != back)
+        #expect(round.id(presenting: 1) == back)
     }
 }
