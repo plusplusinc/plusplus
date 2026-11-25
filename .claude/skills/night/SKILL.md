@@ -6,7 +6,8 @@ description: The night's whole job, run by the Claude app's scheduled task "plus
 Nobody is here to ask, so never ask: a step that can't go on records why and goes to step 6.
 `<night>` is `.build/retro/<date +%F>/` in this session's folder, the main checkout. In order:
 
-1. **Note the start.** Make `<night>`, and keep the contents of `.build/retro/last-run`, if any.
+1. **Note the start.** Make `<night>`, remove its `outcome.txt` and `usage.json` if a run earlier
+   today left them, and keep the contents of `.build/retro/last-run`, if any.
 2. **Read usage.** Load `mcp__ccd_session_mgmt__get_usage` with ToolSearch (`select:` it), call
    it with no arguments, and Write what it returned, as it is, to `<night>/usage.json`, or its
    error if it fails. Run `scripts/nightly-tooling.py usage <night>`. When it exits 1, run
@@ -19,6 +20,7 @@ Nobody is here to ask, so never ask: a step that can't go on records why and goe
 6. **Digest.** `scripts/nightly-tooling.py digest <night>`. When its first line says "failed",
    and only then, load `PushNotification` with ToolSearch and send that line after "PlusPlus: ".
 
-Steps 3 and 4 never stop the night: each writes its own failure where the digest reads it. Any
+Steps 3 and 4 never stop the night: a failed catch-up tops the digest, and the retro reports a
+failed tally. Any
 other step that can't be done runs `outcome <night> failed <step> "<why>"`. After the retro's
 report, write no text but a failure's line: `scripts/nightly-retro.sh show` prints that reply.

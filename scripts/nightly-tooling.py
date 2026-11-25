@@ -1779,6 +1779,8 @@ def main(args):
         else:
             text = "\n".join(night_digest(folders[-1]))
             if len(args) > 1:  # the night's own step; show only reads
+                # A night whose first step failed has no folder yet, and still gets its digest.
+                folders[-1].mkdir(parents=True, exist_ok=True)
                 (folders[-1] / "digest.md").write_text(text + "\n")
             print(text)
     else:
