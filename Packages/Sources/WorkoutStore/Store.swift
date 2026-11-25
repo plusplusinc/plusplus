@@ -181,14 +181,11 @@ public actor Store {
 
     /// Saves the workout as it is now, edited at `now`, or deletes it once it is empty, unless
     /// `keepsEmpty`, as while it is in progress: the empty workout is stored, and deleted by the
-    /// next save without it.
+    /// next save without it. Empty is judged on what is stored: a workout still holding a row this
+    /// build can't read is kept (`writeRows`).
     public func save(_ workout: Workout, at now: Date = .now, keepsEmpty: Bool = false) throws {
         let stored = try stored(id: workout.id)
-        guard !workout.isEmpty || keepsEmpty else {
-            if let stored {
-                modelContext.delete(stored)
-                try modelContext.save()
-            }
+        if stored == nil, workout.isEmpty, !keepsEmpty {
             return
         }
         let target = stored ?? {
@@ -198,7 +195,10 @@ public actor Store {
         }()
         target.name = workout.name
         target.editedAt = now
-        try writeRows(workout.exercises, of: target)
+        let rowCount = try writeRows(workout.exercises, of: target)
+        if workout.name.isEmpty, rowCount == 0, !keepsEmpty {
+            modelContext.delete(target)
+        }
         try modelContext.save()
     }
 
@@ -272,8 +272,7 @@ public actor Store {
 
     /// A row whose exercise isn't in `list`, from a newer version, a renamed slug, or a created
     /// exercise this build can't read, is left out rather than failing the workout, and kept in
-    /// the store by its saves (`writeRows`). Supersets
-    /// come back whole, as the rules keep them.
+    /// the store by its saves (`writeRows`). Supersets come back whole, as the rules keep them.
     static func workout(
         from stored: StoredRoutine,
         exercises list: ExerciseList,
