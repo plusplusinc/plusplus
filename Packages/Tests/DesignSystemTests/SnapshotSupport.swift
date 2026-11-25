@@ -7,9 +7,8 @@ import Testing
 @testable import DesignSystem
 
 /// Snapshots a view as users see it, dark, at the default text size and at the largest
-/// accessibility size. The app shows only in dark appearance, so light renders only with
-/// `includingLight`, which the token palette passes while the light palette exists; light
-/// screen snapshots come back with the card "Choose light, dark, or automatic appearance". The
+/// accessibility size: the app opens dark on a new install. Light renders only with
+/// `includingLight`, which the token palette and the themes' snapshots pass. The
 /// test plan pins the language so the system font's line height, which follows the device's
 /// preferred languages, is the same everywhere.
 ///

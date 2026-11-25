@@ -194,9 +194,9 @@ don't add another; if not, say why it doesn't.
   on macOS compiles them out; the simulator run exercises them.
 - Snapshots go through `assertThemedSnapshots(of:width:)` in `DesignSystemTests`, which owns
   the explicit width, the precision, and the appearances: dark, and dark at AX5 (the image
-  named `xxxl` is `accessibilityExtraExtraExtraLarge`), as users see the app, which shows only
-  in dark. Light renders only in `TokenSnapshotTests`, through `includingLight`, while the light
-  palette exists. Every pixel must match within perceptual
+  named `xxxl` is `accessibilityExtraExtraExtraLarge`), as the app opens on a new install.
+  Light renders only through `includingLight`: the token palette and `ThemeSnapshotTests`.
+  Every pixel must match within perceptual
   0.98: a looser pixel share lets a `_` move a cell or vanish unseen. Do not call `assertSnapshot`
   directly. Re-record by deleting a suite's files, or its whole folder, under `__Snapshots__/`.
 - The scheme's test plan, `PlusPlus.xctestplan`, holds four settings to keep, and it is the

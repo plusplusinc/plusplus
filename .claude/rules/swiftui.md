@@ -8,7 +8,8 @@ Leaf views take plain values and closures so they preview and snapshot without a
 
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
-  token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is what's
+  token is missing, add a `ColorToken` case, its colorset, and its base16 value (`Palette`).
+  In PlusPlus, green (`accent`) is what's
   active, and a value that went up: data, and the controls that make something
   (`makesSomething()`). Purple (`done`) is done: a finished exercise's node, the bars of
   the sets logged, and a timed set's key filling as it counts (`KeyFill`); a set still to do is `toDo`, a filled gray. A resting row shows its
@@ -16,7 +17,7 @@ Leaf views take plain values and closures so they preview and snapshot without a
   Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
   just made, and a generated name typing into the title, for the moment it arrives, then gives way to the thing's own color; nothing
   rests in it. Whatever the rail draws keeps at least 3:1 on
-  `background` and on `well`, where a held superset shows.
+  `background` and on `well`, where a held superset shows (`ThemeContrastTests`).
 - Numbers on a row's detail line and in a sheet's values are SF Mono, set with
   `AttributedString.monoNumbers(_:font:)`; the words around them stay in the system font.
 - Every font token scales with Dynamic Type: built on a `Font.TextStyle`, or sized with

@@ -2,14 +2,15 @@ import SwiftUI
 
 /// Semantic color tokens.
 ///
-/// Named for the job a color does, not the color it is, so a palette change touches only the
-/// asset catalog. Light and dark pairs live in `Tokens.xcassets` under the raw value; a case
-/// without a colorset renders clear, which the palette snapshot makes obvious.
+/// Named for the job a color does, not the color it is, so each theme gives every job its own
+/// color. PlusPlus's light and dark pairs live in `Tokens.xcassets` under the raw value; a case
+/// without a colorset renders clear, which the palette snapshot makes obvious. Every other
+/// theme's come from its base16 palette (`Palette`). The colors named below are PlusPlus's.
 public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// Green: what's active, and a value that went up; also the ++ mark, and the controls that
     /// make something: the fill of the + that adds an exercise (`FloatingButtonStyle`), the one
     /// control filled green, and those drawn in it (`makesSomething()`). At least 4.5:1 on
-    /// `background` in both palettes.
+    /// `background` in every theme and look, and never a red (`Theme.isRed(_:)`).
     case accent = "ppAccent"
     case background = "ppBackground"
     /// Laid over the screen the drawer slides aside, deepening as the drawer opens.
