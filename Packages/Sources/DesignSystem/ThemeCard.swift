@@ -139,12 +139,14 @@ public struct ThemeCard: View {
                 .font(.ppRowTitle)
                 .imageScale(.small)
                 .foregroundStyle(.pp(.textSecondary))
+                .accessibilityHidden(true)
         case let .checked(isChecked):
             Image(systemName: "checkmark.circle.fill")
                 .font(.ppCheckMark)
                 .foregroundStyle(.pp(.accent))
                 .opacity(isChecked ? 1 : 0)
                 .animation(.tapChange, value: isChecked)
+                .accessibilityHidden(true)
         }
     }
 }

@@ -35,6 +35,10 @@ struct SettingsSheet: View {
                         ThemeCard(theme: look.theme, scheme: colorScheme, mark: .opens)
                     }
                     .buttonStyle(.card)
+                    // What it sets, then the theme in use, as a settings row reads: "Theme,
+                    // PlusPlus". Its looks are the Theme screen's to say.
+                    .accessibilityLabel("Theme")
+                    .accessibilityValue(look.theme.name)
                     .accessibilityHint("Shows the themes")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
