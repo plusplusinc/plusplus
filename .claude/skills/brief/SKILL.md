@@ -26,7 +26,7 @@ card is in In Progress.
 prior work; the code for what exists; the memory for product context. A default drawn from
 research is set by each variable the research ties it to, not only by the kinds the code
 already has. A brief that ignores a
-card already in Todo is a duplicate, not a brief.
+card already in Definitely is a duplicate, not a brief.
 
 ## 3. Write the card
 
@@ -106,7 +106,7 @@ and keep the "Aligned" list to what may be published (section 3).
 
 ## 5. Queue it
 
-`/onward` works through one queue: the Todo cards in board order, top first, the order the
+`/onward` works through one queue: the Definitely cards in board order, top first, the order the
 maintainer drags them into. A new card lands at the bottom; place it with
 `scripts/board.sh move <id> top` or `scripts/board.sh move <id> <card-it-follows>`
 (`scripts/board.sh list` shows the queue). Rank it yourself:
@@ -115,8 +115,8 @@ maintainer drags them into. A new card lands at the bottom; place it with
 - A slice goes where its feature's sequence needs it.
 - Everything else goes after the current feature's remaining slices, unless the maintainer said
   when they want it.
-- A hunch, or a card the maintainer said to park, goes to Backlog
-  (`scripts/board.sh status <id> Backlog`), which nothing picks up.
+- A hunch, or a card the maintainer said to park, goes to Maybe
+  (`scripts/board.sh status <id> Maybe`), which nothing picks up.
 
 ## 6. Hand off
 

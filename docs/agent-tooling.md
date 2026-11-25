@@ -250,7 +250,7 @@ closes; an Amphetamine trigger for when the power adapter is connected, with clo
 mode, does.
 
 After the retro, the same run hands over to `scripts/nightly-tooling.py`. It first adds a card,
-"Update <tool> to <version>", at the top of Todo for each lint tool `scripts/lint-tools.sh outdated`
+"Update <tool> to <version>", at the top of Definitely for each lint tool `scripts/lint-tools.sh outdated`
 names (Dependabot can't read that pin; it covers the Swift package and the actions), unless the
 board has one by that title or an open one for the tool. Then it takes standalone
 cards carrying a `Nightly:` line (the /brief skill says which qualify) one at a time: up to three
