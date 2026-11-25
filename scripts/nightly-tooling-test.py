@@ -1246,6 +1246,22 @@ class Armed(unittest.TestCase):
         self.assertEqual(nightly.run_decide(self.night, "PVTI_2", "", NIGHT)[0], 0)
         self.assertIn("didn't finish within the hour", self.night.entry("PVTI_2")["why"])
 
+    def test_a_second_decide_on_a_decided_card_arms_nothing_and_leaves_its_decision(self):
+        merged = [{"state": "MERGED", "mergeCommit": {"oid": "f" * 40}, "statusCheckRollup": []}]
+        parked = [{"state": "OPEN", "statusCheckRollup": [{"name": "PR check", "conclusion": "FAILURE"}]}]
+        for decision, views in (("merged", merged), ("parked", parked)):
+            with self.subTest(decision=decision):
+                self.night.set_state(phase={"kind": "card", "item": "PVTI_1"})
+                self.night.update("PVTI_1", decision="armed")
+                self.views = views
+                self.assertEqual(self.decide()[0], 0)
+                entry = self.night.entry("PVTI_1")
+                del self.calls[:]
+                self.assertEqual(self.decide(), (2, "deciding failed: ValueError: no card PVTI_1 is open tonight"))
+                self.assertEqual(self.night.entry("PVTI_1"), entry)
+                self.assertIsNone(self.night.state()["phase"])
+                self.assertFalse([c for c in self.calls if "--auto " in c or c.startswith("board.sh")], self.calls)
+
     def test_every_outcome_closes_the_phase(self):
         outcomes = {"merged": [{"state": "MERGED", "mergeCommit": {"oid": "f" * 40}, "statusCheckRollup": []}],
                     "parked": [{"state": "OPEN", "statusCheckRollup": [{"name": "PR check", "conclusion": "FAILURE"}]}]}
@@ -2315,6 +2331,59 @@ class NightFromAWorktree(unittest.TestCase):
         today = datetime.now().astimezone().strftime("%Y-%m-%d")
         self.assertEqual((result.returncode, result.stdout),
                          (0, f"{root}/.build/retro/{today}\n{root}/scripts/nightly-tooling.py\n"), result.stderr)
+
+    def test_the_nights_files_land_in_the_main_checkout_and_show_reads_them_from_a_worktree(self):
+        # The night of 2026-11-25: the app started the session in a worktree of its own, and its
+        # usage, outcome, digest, and last-run landed in that worktree's .build/retro/.
+        root = Path(os.path.realpath(tempfile.mkdtemp()))
+        self.addCleanup(shutil.rmtree, root, True)
+        main, home = root / "main", root / "home"
+        (main / "scripts").mkdir(parents=True)
+        for name in ("nightly-tooling.py", "xcresult.py", "conversations.py", "nightly-retro.sh"):
+            shutil.copy(SCRIPTS / name, main / "scripts" / name)
+        (main / ".gitignore").write_text(".build/\n")
+        git = ["git", "-C", str(main), "-c", "user.email=t@example.com", "-c", "user.name=t"]
+        subprocess.run(["git", "init", "-q", "-b", "main", str(main)], check=True)
+        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run(git + ["commit", "-qm", "base"], check=True)
+        worktree = main / ".claude/worktrees/session"
+        subprocess.run(git + ["worktree", "add", "-q", str(worktree)], check=True)
+        # The night's transcript, in the worktree's project folder, opening as the app writes it.
+        transcripts = home / ".claude/projects" / (re.sub(r"[^A-Za-z0-9]", "-", str(main)) + "--claude-worktrees-session")
+        transcripts.mkdir(parents=True)
+        (transcripts / "night.jsonl").write_text("\n".join(json.dumps(entry) for entry in [
+            {"type": "user", "timestamp": "2026-10-28T05:00:00Z", "message": {"content": (
+                "<system-reminder>\nIn a worktree.</system-reminder>\n\n<scheduled-task name=\"plusplus-night\">\n/night")}},
+            {"type": "assistant", "timestamp": "2026-10-28T06:00:00Z", "message": {"model": "<synthetic>", "content": [
+                {"type": "text", "text": "Nightly retro 2026-10-28: no PR"}]}}]) + "\n")
+        env = {**os.environ, "HOME": str(home), "NIGHTLY_RETRO_LABEL": "inc.plusplus.test-no-such-agent"}
+        env.pop("CLAUDE_CODE_SESSION_ID", None)
+
+        def run(script, *args):
+            result = subprocess.run([str(worktree / "scripts" / script), *map(str, args)], cwd=worktree, env=env,
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, (script, args, result.stderr))
+            return result.stdout
+
+        night, tool = run("nightly-tooling.py", "night").splitlines()
+        self.assertEqual(Path(night).parent, main / ".build/retro")
+        saved = worktree / ".build/usage.json"  # where the session may Write
+        saved.parent.mkdir()
+        saved.write_text(json.dumps({"plan": {"windows": [
+            {"label": "Weekly", "percentUsed": 40, "resetsAt": "2026-10-30T11:00:00.066Z"}]}}))
+        self.assertEqual(run("conversations.py", "--last-run"), "")
+        for args in (["begin", night], ["usage", night, saved], ["outcome", night, "ran"], ["digest", night]):
+            subprocess.run([tool, *map(str, args)], cwd=worktree, env=env, check=True, capture_output=True)
+        run("conversations.py", "--last-run", "2026-10-28T05:00:00Z")
+        self.assertEqual(run("conversations.py", "--last-run"), "2026-10-28T05:00:00Z\n")
+        self.assertEqual((main / ".build/retro/last-run").read_text(), "2026-10-28T05:00:00Z\n")
+        self.assertEqual({path.name for path in Path(night).iterdir()},
+                         {"state.json", "usage.json", "outcome.txt", "digest.md"})
+        self.assertEqual([path.name for path in (worktree / ".build").iterdir()], ["usage.json"])
+        digest = [f"Night {Path(night).name}: ran", "Usage: Weekly 40%"]
+        self.assertEqual(run("nightly-tooling.py", "digest").splitlines(), digest)
+        shown = run("nightly-retro.sh", "show").splitlines()
+        self.assertEqual((shown[0][:11], shown[2], shown[-2:]), ("Last reply,", "Nightly retro 2026-10-28: no PR", digest))
 
 
 class GuardPhases(unittest.TestCase):
