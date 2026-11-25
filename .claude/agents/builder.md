@@ -64,9 +64,8 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 - When it works: `/simplify` once, and in the message starting its helper agents, one more
   agent that runs `/code-review`, so both review one HEAD side by side. Commit `/simplify`'s
   fixes, then fix what `/code-review` found that still applies, then `scripts/lint.sh` and the
-  targeted tests, then open or update the PR with `/pr`. Friction in the body comes from this
-  session; the Card line names the slice's card. Report the PR's "PR check" result if it has
-  finished. Every later push updates the body too, a fix the lead asked only to push included:
+  targeted tests, then open or update the PR with `/pr`. The Card line names the slice's card.
+  Report on its own line any fix they offered that you left as too large. Every later push updates the body too, a fix the lead asked only to push included:
   once auto-merge is armed the PR merges as soon as CI passes, and its body is the commit `main`
   keeps.
 - Give `/simplify` and `/code-review` the same target, filled in: `<branch> against origin/main,
