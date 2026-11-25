@@ -54,14 +54,10 @@ struct SettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    // The bar draws its own Close natively, outside any glass of ours.
-                    if look.theme.glassTint(in: colorScheme) == nil {
-                        Button(role: .close) { dismiss() }
-                    } else {
-                        GlassCloseButton("Close") { dismiss() }
-                    }
+                    Button(role: .close) { dismiss() }
+                        .barLabelStyle()
+                        .themedBarButton()
                 }
-                .themedSharedGlass(look.theme, colorScheme)
             }
         }
         // A sheet is a presentation of its own: the window's held scheme reached it as it

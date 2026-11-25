@@ -20,7 +20,7 @@ struct MenuButton: View {
         } label: {
             Text(verbatim: "++")
                 .font(.ppMark)
-                .foregroundStyle(.pp(.accent))
+                .barLabelStyle(.accent)
                 // The glass sizes itself to its label. Reserving less width than the mark's
                 // advance draws the mark large in a compact button.
                 .fixedSize()

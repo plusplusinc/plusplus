@@ -15,43 +15,80 @@ extension View {
     }
 }
 
-extension ToolbarContent {
-    /// The bar's shared glass, which takes no tint, hidden under a theme whose glass is tinted,
-    /// so the item's own (`themedBarGlass()`) draws in its place rather than inside it.
-    public func themedSharedGlass(_ theme: Theme, _ colorScheme: ColorScheme)
-        -> some ToolbarContent
-    {
-        sharedBackgroundVisibility(theme.glassTint(in: colorScheme) == nil ? .automatic : .hidden)
-    }
-}
-
 extension View {
-    /// A bar item's glass in the theme's tint, drawn in place of the bar's shared glass
-    /// (`themedSharedGlass(_:_:)`) at the bar's own size: 44 pt tall, at least as wide, a word
-    /// inset as the bar insets its buttons. One glass around all the item holds, so it changes
-    /// size with what shows rather than one glass crossfading into another. Under PlusPlus,
-    /// nothing: the bar's own.
-    public func themedBarGlass() -> some View {
-        modifier(ThemedBarGlass())
+    /// The bar buttons in it, under a tinted theme: the system's prominent glass
+    /// (`.glassProminent`), which the bar draws apart from its shared glass, tinted with
+    /// `ThemedBarButton.tint`, their labels in `ThemedBarButton.label` where that is set
+    /// (`barLabelStyle(_:)`). A menu takes no prominent glass: the bar draws it in its own
+    /// (`themedBarMenu()`). Under PlusPlus, nothing: the bar's own glass.
+    public func themedBarButton() -> some View {
+        modifier(ThemedBarButton())
+    }
+
+    /// A bar button's label in the prominent glass's label color (`themedBarButton()`) where
+    /// one is set, else in `own`, else as the button draws it.
+    public func barLabelStyle(_ own: ColorToken? = nil) -> some View {
+        modifier(BarLabelStyle(own: own))
+    }
+
+    /// A menu in a bar under a tinted theme: the bar draws it in its own untinted glass whatever
+    /// its style, and colors its label with the tint, so the label takes the prominent glass's
+    /// label color, or `textPrimary`.
+    public func themedBarMenu() -> some View {
+        modifier(ThemedBarMenu())
     }
 }
 
-private struct ThemedBarGlass: ViewModifier {
-    @Environment(\.theme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
-    @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
+nonisolated extension EnvironmentValues {
+    /// The color a bar button's label takes on a tinted theme's prominent glass in place of its
+    /// own (`themedBarButton()`); none keeps the label's own.
+    @Entry public var barLabel: ColorToken?
+}
+
+private struct ThemedBarButton: ViewModifier {
+    /// The prominent glass's tint, and the color its labels take in place of their own.
+    private static let tint: ColorToken = .surface
+    private static let label: ColorToken? = nil
+
+    @Environment(\.self) private var environment
 
     func body(content: Content) -> some View {
-        if theme.glassTint(in: colorScheme) == nil {
+        if environment.theme.glassTint(in: environment.colorScheme) == nil {
             content
         } else {
             content
-                .frame(minWidth: height, minHeight: height)
-                // Proposed less than its width, the item's glass came out a 44 pt circle with
-                // End squeezed inside it.
-                .fixedSize()
-                .contentShape(.capsule)
-                .themedGlass(interactive: true, in: .capsule)
+                .buttonStyle(.glassProminent)
+                // Resolved here: the bar resolved a token's color in PlusPlus.
+                .tint(Color(Color.pp(Self.tint).resolve(in: environment)))
+                .environment(\.barLabel, Self.label)
+        }
+    }
+}
+
+private struct BarLabelStyle: ViewModifier {
+    let own: ColorToken?
+
+    @Environment(\.barLabel) private var barLabel
+
+    func body(content: Content) -> some View {
+        if let token = barLabel ?? own {
+            content.foregroundStyle(.pp(token))
+        } else {
+            content
+        }
+    }
+}
+
+private struct ThemedBarMenu: ViewModifier {
+    @Environment(\.self) private var environment
+
+    func body(content: Content) -> some View {
+        if environment.theme.glassTint(in: environment.colorScheme) == nil {
+            content
+        } else {
+            content.tint(
+                Color(Color.pp(environment.barLabel ?? .textPrimary).resolve(in: environment)),
+            )
         }
     }
 }

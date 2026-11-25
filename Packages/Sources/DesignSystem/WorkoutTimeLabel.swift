@@ -26,11 +26,11 @@ public struct WorkoutTimeLabel: View {
                 Image(systemName: isPaused ? Self.play : Self.pause)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .foregroundStyle(.pp(.textPrimary))
+            .barLabelStyle(.textPrimary)
             .imageScale(.small)
             .accessibilityHidden(true)
             Text(text)
-                .foregroundStyle(.pp(.textPrimary))
+                .barLabelStyle(.textPrimary)
         }
         .font(.ppWorkoutTime)
         .padding(.horizontal, Spacing.xs)

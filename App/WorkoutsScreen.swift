@@ -52,8 +52,6 @@ struct WorkoutsScreen: View {
     /// The filter's sheet showing, if any.
     @State private var choosing: WorkoutsSheet?
     @Environment(\.locale) private var locale
-    @Environment(\.theme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -160,9 +158,8 @@ struct WorkoutsScreen: View {
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
-                        .themedBarGlass()
+                        .themedBarButton()
                 }
-                .themedSharedGlass(theme, colorScheme)
             }
             // Where the workout screen's + sits on an empty workout.
             .floatingButton(
