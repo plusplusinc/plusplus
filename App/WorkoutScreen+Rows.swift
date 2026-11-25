@@ -20,7 +20,7 @@ extension WorkoutScreen {
             .id(item.id)
             .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
             // Only while it is read: as the list scrolls, every change redraws the screen.
-            .reportingPlace(tracking.isOn && item.id == tracking.placing, to: placeCurrent)
+            .reportingPlace(item.id == tracking.placing, to: placeCurrent)
             // Until an added row has entered it takes no taps, and its frame is where it will be
             // rather than where it is drawn, so VoiceOver and the UI tests find it once it has. On
             // the label, the row's one element: on the row, `false` would un-hide the rail's node.
@@ -161,11 +161,18 @@ extension WorkoutScreen {
     }
 }
 
-/// Which rows report where they are, read once per pass of the screen, so the rows' closure
-/// holds it as a value (`listRow`).
+/// Which rows report where they are, as `screen` read it for the pass. A value, so the rows'
+/// closure holds it: read in the closure, which runs again as the stored log changes, it read
+/// the log ahead of the screen's phase, and the next exercise reported its place for a pass
+/// between two where the row left did, which SwiftUI logged as a geometry action cycling.
 struct RowTracking {
     /// Every row reports its frame: in a workout, and from Start's press.
     let isOn: Bool
-    /// The row that reports its place (`WorkoutScreen.growingID`).
+    /// The row that reports its place (`WorkoutScreen.growingID(in:current:)`), while `isOn`.
     let placing: WorkoutExercise.ID?
+
+    init(isOn: Bool, growing: WorkoutExercise.ID?) {
+        self.isOn = isOn
+        placing = isOn ? growing : nil
+    }
 }

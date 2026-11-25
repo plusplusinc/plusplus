@@ -26,7 +26,7 @@ extension WorkoutScreen {
         guard phase == .idle, session.canStart(on: workout.id) else { return }
         // The list's end lies under the first row until it grows, so a short workout may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
-        // ahead of the scroll: a scroll in the same transaction stops at the old end.
+        // ahead of the grow's scroll: a scroll in the same transaction stops at the old end.
         withTransaction(\.disablesAnimations, true) {
             makeRoomBelow()
             startDrop = 0

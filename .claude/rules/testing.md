@@ -69,7 +69,7 @@ lose data, or if it costs under about 2 s.
 
 ## Where each guarantee goes
 
-The tests' display names are the inventory of what each tier holds.
+Cheapest first. The tests' display names are the inventory of what each tier holds.
 
 | Guarantee | Tier |
 |---|---|
@@ -146,8 +146,8 @@ and the drawer through `SideDrawer`'s `progress:`; a suggestion's arrival comes 
 
 There is one UI test per launch configuration, split by feature where one test would pass the
 UI test budget, each a series of named `XCTContext.runActivity` checks:
-`RenameUITests/testRenameAtDefaultSize`, `RowDragUITests/testDragAndDeleteRows` (the rows
-seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize` and
+`RenameUITests/testRenameAtDefaultSize`, `RowDragUITests/testDragAndDeleteRows`,
+`TitleWrappingUITests/testWrappedTitleAtLargestTextSize` and
 `testWorkoutAndFiltersAtLargestTextSize`,
 `WorkoutAutosaveUITests/testWorkoutSurvivesRelaunch`,
 `WorkoutDrawerUITests/testDrawerSwitchesWorkouts` (a workout seeded),

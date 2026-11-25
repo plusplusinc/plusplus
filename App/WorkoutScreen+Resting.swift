@@ -240,13 +240,15 @@ extension WorkoutScreen {
         land(.down, scrollingTo: target)
     }
 
-    /// Puts room under the list's end, out of sight (`isMakingRoom`), with the list held where it
-    /// is: after an add's scroll to the list's end, the position stays bound to that edge, and
-    /// followed it down into the room, off the screen, the rows gone for a rest's length. The
-    /// hold goes in ahead of the room, so no pass lays the room out with the position still on
-    /// the edge. A row still entering stays where it is. In a transaction with animations off.
+    /// Puts room under the list's end, out of sight (`isMakingRoom`). A position bound to an edge,
+    /// as an add's scroll to the list's end leaves it, is held where the list is first: left on
+    /// the edge, it followed the end down into the room, off the screen, the rows gone for a
+    /// rest's length. Only then, so a list still coasting from a flick carries on. A row still
+    /// entering stays where it is. In a transaction with animations off.
     func makeRoomBelow() {
-        scrollPosition.scrollTo(y: scrollBeat.scrolledY)
+        if scrollPosition.edge != nil {
+            scrollPosition.scrollTo(y: scrollBeat.scrolledY)
+        }
         isMakingRoom = true
         endFollow = nil
     }

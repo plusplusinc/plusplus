@@ -152,13 +152,13 @@ extension WorkoutScreen {
         }
     }
 
-    /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
-    /// first, which Start grows.
-    var growingID: WorkoutExercise.ID? {
+    /// The row that grows, or stands grown, with `shown` and `current` as read for the pass: the
+    /// current exercise, or, out of a workout, the first, which Start grows.
+    func growingID(in shown: LiveWorkout?, current: WorkoutExercise.ID?) -> WorkoutExercise.ID? {
         guard shown != nil else { return workout.exercises.first?.id }
         // Relaunched into a rest between exercises, no row is grown until it ends: the list opens
         // on the row the rest is drawn in.
-        return currentID ?? (opensOnCurrent ? restDotRow : nil)
+        return current ?? (opensOnCurrent ? restDotRow : nil)
     }
 
     /// Plays `step`, what logging `set` led to, the set already stored: the screen's one entry

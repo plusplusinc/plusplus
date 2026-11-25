@@ -204,11 +204,10 @@ struct WorkoutScreen: View {
         let currentID = currentID
         let shown = shown
         let rows = rowParts(in: shown, current: currentID)
-        // Read here, not in the rows' closure: there, run again as the stored log changed, it
-        // read the log ahead of the screen's phase, which hides the set until its motion shows
-        // it, and the next exercise reported its place for a pass between two where the row left
-        // did, which SwiftUI logged as a geometry action cycling.
-        let tracking = RowTracking(isOn: shown != nil || isStarting, placing: growingID)
+        let tracking = RowTracking(
+            isOn: shown != nil || isStarting,
+            growing: growingID(in: shown, current: currentID),
+        )
         let underBar = underBarCut
         return ScrollView {
             // One over the other, as a crossfade has them: in the scroll view's own stack, the
