@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """scripts/models.py's check, against a copy of this repo's table, definitions, and nightly
-scripts.
+scripts, plus a script that starts `claude -p` itself, which none of this repo's does today.
 
     python3 scripts/models-test.py    # scripts/test.sh runs it
 """
@@ -15,8 +15,17 @@ spec = importlib.util.spec_from_file_location("models", ROOT / "scripts" / "mode
 models = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(models)
 
-COPIED = ["docs/agent-tooling.md", ".claude/agents", ".claude/skills", "scripts/nightly-retro.sh",
-          "scripts/nightly-tooling.py"]
+COPIED = ["docs/agent-tooling.md", ".claude/agents", ".claude/skills", "scripts/nightly-retro.sh"]
+SCRIPT = "scripts/runner.py"  # the fixture's script, with a row for each model it sets
+RUNNER = '''CARD_MODEL = "claude-fable-5-2"
+CARD_EFFORT = "high"
+REVIEW_MODEL = "claude-fable-5-2"
+REVIEW_EFFORT = "high"
+subprocess.run(["claude", "-p", "--model", CARD_MODEL, "--effort", CARD_EFFORT, "/card"])
+subprocess.run(["claude", "-p", "--model", REVIEW_MODEL, "--effort", REVIEW_EFFORT, "/review"])
+'''
+ROWS = "".join(f"| {role} | `{SCRIPT} {name}` | `claude-fable-5-2` | high | x | 2026-11-11 | x |\n"
+               for role, name in (("card lead", "CARD"), ("script review", "REVIEW")))
 
 
 class Fixture(unittest.TestCase):
@@ -27,6 +36,10 @@ class Fixture(unittest.TestCase):
             source, target = ROOT / path, self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             (shutil.copytree if source.is_dir() else shutil.copy)(source, target)
+        (self.root / SCRIPT).write_text(RUNNER)
+        reviewer = next(line for line in (self.root / "docs/agent-tooling.md").read_text().splitlines()
+                        if line.startswith("| reviewer |"))
+        self.edit("docs/agent-tooling.md", reviewer + "\n", reviewer + "\n" + ROWS)
 
     def edit(self, path, old, new):
         file = self.root / path
@@ -50,10 +63,10 @@ class Check(Fixture):
 
     def test_a_definition_or_script_on_another_effort_fails(self):
         self.edit(".claude/agents/planner.md", "effort: high", "effort: low")
-        self.edit("scripts/nightly-tooling.py", 'CARD_EFFORT = "high"', 'CARD_EFFORT = "medium"')
+        self.edit(SCRIPT, 'CARD_EFFORT = "high"', 'CARD_EFFORT = "medium"')
         self.assertEqual(models.problems(self.root),
                          ['.claude/agents/planner.md: effort: is "low", the table says "high"',
-                          'scripts/nightly-tooling.py: CARD_EFFORT is "medium", the table says "high"'])
+                          f'{SCRIPT}: CARD_EFFORT is "medium", the table says "high"'])
 
     def test_a_malformed_table_fails_the_check(self):
         self.edit("docs/agent-tooling.md", "| Role | Set in | Model |", "| Role | Where | Model |")
@@ -62,23 +75,29 @@ class Check(Fixture):
         self.assertEqual(models.check(self.root), 1)
 
     def test_a_script_on_another_model_fails(self):
-        self.edit("scripts/nightly-tooling.py", 'CARD_MODEL = "claude-fable-5-2"', 'CARD_MODEL = "claude-opus-5-5"')
+        self.edit(SCRIPT, 'CARD_MODEL = "claude-fable-5-2"', 'CARD_MODEL = "claude-opus-5-5"')
         self.assertEqual(models.problems(self.root),
-                         ['scripts/nightly-tooling.py: CARD_MODEL is "claude-opus-5-5", the table says "claude-fable-5-2"'])
+                         [f'{SCRIPT}: CARD_MODEL is "claude-opus-5-5", the table says "claude-fable-5-2"'])
 
     def test_a_model_set_but_never_passed_fails(self):
-        self.edit("scripts/nightly-tooling.py", '"--model", REVIEW_MODEL, ', "")
+        self.edit(SCRIPT, '"--model", REVIEW_MODEL, ', "")
         found = models.problems(self.root)
-        self.assertEqual(found[0], "scripts/nightly-tooling.py: REVIEW_MODEL is set but never passed")
-        self.assertTrue(found[1].startswith("scripts/nightly-tooling.py: a claude start passes no model the table sets"))
+        self.assertEqual(found[0], f"{SCRIPT}: REVIEW_MODEL is set but never passed")
+        self.assertTrue(found[1].startswith(f"{SCRIPT}: a claude start passes no model the table sets"))
 
     def test_a_scripts_model_with_no_row_fails(self):
-        self.edit("docs/agent-tooling.md", "| setup review | `scripts/nightly-tooling.py REVIEW`", "| setup review | user settings")
-        self.assertIn('scripts/nightly-tooling.py: REVIEW_MODEL has no row "scripts/nightly-tooling.py REVIEW" in '
+        self.edit("docs/agent-tooling.md", f"| script review | `{SCRIPT} REVIEW`", "| script review | user settings")
+        self.assertIn(f'{SCRIPT}: REVIEW_MODEL has no row "{SCRIPT} REVIEW" in '
                       'docs/agent-tooling.md\'s "Models by task" table', models.problems(self.root))
 
     def test_every_start_of_claude_is_found(self):
-        self.assertEqual(len(models.starts((ROOT / "scripts/nightly-tooling.py").read_text(), shell=False)), 2)
+        self.assertEqual(len(models.starts(RUNNER, shell=False)), 2)
+
+    def test_no_script_of_this_repo_starts_claude(self):
+        # The night's session leads its cards and review itself (.claude/skills/night/SKILL.md).
+        for path in sorted((ROOT / "scripts").glob("*.py")) + sorted((ROOT / "scripts").glob("*.sh")):
+            if not path.stem.endswith("-test"):
+                self.assertEqual(models.starts(path.read_text(), shell=path.suffix == ".sh"), [], path.name)
 
     def test_a_skills_row_needs_the_alias_it_passes_and_no_effort(self):
         self.edit(".claude/skills/retro/SKILL.md", "`model: fable`", "`model: opus`")
@@ -92,8 +111,8 @@ class Check(Fixture):
         self.assertTrue(found[1].startswith('retro: "claude-opus-5-5" is not an alias'))
 
     def test_a_start_with_no_table_model_fails(self):
-        for script, line in (("scripts/nightly-tooling.py", '\nsubprocess.run(["claude", "-p", "/retro"])\n'),
-                             ("scripts/nightly-tooling.py", '\nsubprocess.run(["claude", "-p", "--model", "opus"])\n'),
+        for script, line in ((SCRIPT, '\nsubprocess.run(["claude", "-p", "/retro"])\n'),
+                             (SCRIPT, '\nsubprocess.run(["claude", "-p", "--model", "opus"])\n'),
                              ("scripts/nightly-retro.sh", '\n    claude -p "/retro" >> out\n'),
                              ("scripts/nightly-retro.sh", '\n  x && claude --name y \\\n    --print "/z"\n')):
             with self.subTest(line=line):
@@ -116,13 +135,12 @@ class Check(Fixture):
     def test_an_alias_fails_where_a_row_pins_a_model(self):
         self.edit("docs/agent-tooling.md", "| `claude-haiku-5-5` |", "| `haiku` |")
         self.edit(".claude/agents/lookup.md", "model: claude-haiku-5-5", "model: haiku")
-        self.edit("scripts/nightly-tooling.py", 'CARD_MODEL = "claude-fable-5-2"', 'CARD_MODEL = "fable"')
-        self.edit("docs/agent-tooling.md", "| `scripts/nightly-tooling.py CARD` | `claude-fable-5-2` |",
-                  "| `scripts/nightly-tooling.py CARD` | `fable` |")
+        self.edit(SCRIPT, 'CARD_MODEL = "claude-fable-5-2"', 'CARD_MODEL = "fable"')
+        self.edit("docs/agent-tooling.md", f"| `{SCRIPT} CARD` | `claude-fable-5-2` |", f"| `{SCRIPT} CARD` | `fable` |")
         found = models.problems(self.root)
         self.assertEqual(len(found), 2, found)
-        self.assertTrue(found[0].startswith('scripts/nightly-tooling.py CARD: "fable" is an alias'))
-        self.assertTrue(found[1].startswith('.claude/agents/lookup.md: "haiku" is an alias'))
+        self.assertTrue(found[0].startswith('.claude/agents/lookup.md: "haiku" is an alias'))
+        self.assertTrue(found[1].startswith(f'{SCRIPT} CARD: "fable" is an alias'))
 
     def test_two_definitions_of_one_name_fail(self):
         (self.root / ".claude/agents/finder.md").write_text(
@@ -139,14 +157,14 @@ class Check(Fixture):
                           ("planner", "builder", "verifier", "lookup", "repro", "edit", "reviewer")})
 
     def test_a_skill_passing_a_model_to_a_repo_agent_fails(self):
-        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, with no `model`,",
+        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, with no `model` and no isolation,",
                   'Start a `verifier` (`model: "opus"`),')
         found = models.problems(self.root)
         self.assertEqual(len(found), 1, found)
         self.assertRegex(found[0], r"^\.claude/skills/nightly-card/SKILL\.md:\d+: passes a model to `verifier`")
 
     def test_a_model_passed_to_a_built_in_agent_passes(self):
-        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, with no `model`,",
+        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, with no `model` and no isolation,",
                   "Start a `general-purpose` agent (`model: fable`), then a `verifier`, with no `model`,")
         self.assertEqual(models.problems(self.root), [])
 

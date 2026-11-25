@@ -30,7 +30,7 @@ case "$MODE" in
             status=$?
         xcresult package "$log"
         [ "$status" -eq 0 ] || exit "$status"
-        # The scripts' own tests: the night runner's gates, the PR check's revert guard, the
+        # The scripts' own tests: the night's steps and gates, the PR check's revert guard, the
         # models check, board.sh's readme, the agent records' tally, tidy's choice of unused
         # simulators, device.sh's arguments, the times' parsing, and the conversation extract's
         # queued messages. Nothing else runs them, CI included, and they need no simulator or

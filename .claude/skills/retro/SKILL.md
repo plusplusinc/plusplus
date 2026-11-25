@@ -199,32 +199,31 @@ a finding and opens no PR.
 
 At night, read it from `agent-tally.txt` in the newest `<main checkout>/.build/retro/20*/`,
 which the night writes first; never run the command then.
-A file that reads "No tally tonight: <why>" means the tally failed tonight: the digest says that
-line in place of the tally, and nothing else changes. A missing file at night is the same, with
-the reason "agent-tally.txt is missing". Run by hand in a session, where there is no night's
+A file reading "No tally tonight: <why>", or none ("agent-tally.txt is missing"), means the tally
+failed: the digest says that line in place of the tally, and nothing else changes. Run by hand in a session, where there is no night's
 file, run `scripts/agent-record.py tally <the date 30 days ago>` yourself, which a person can
 approve.
 
 ## How it runs
 
 The night skill (`.claude/skills/night/`), which a scheduled task in the Claude app runs at
-midnight in the main checkout, starts `/retro nightly` after it reads usage, catches up, and
-tallies, and writes the digest after it (`docs/agent-tooling.md`, "The nightly retro").
-`scripts/nightly-retro.sh show` prints the night's last reply and digest. Each `/retro nightly`
-does this, in order:
+midnight, starts `/retro nightly` between its tally and its digest (`docs/agent-tooling.md`,
+"The nightly retro").
+`scripts/nightly-retro.sh show` prints the night's last reply and digest. `<main checkout>`, from any worktree, is the parent of `git rev-parse --path-format=absolute
+--git-common-dir`. Each `/retro nightly` does this, in order:
 
 1. **Note the start.** `date -u +%Y-%m-%dT%H:%M:%SZ`, kept to save in step 5, so work that
    happens while the retro runs is covered next time.
 2. **Find the last run and the merges.** `git fetch --quiet origin`. The retro PRs, newest
    first, whose titles name every PR they covered:
    `gh pr list --state all --search "Retro of in:title sort:created-desc" --json number,title,state,createdAt`.
-   The last run is `.build/retro/last-run` in the main checkout (gitignored), else the newest
+   The last run is what `scripts/conversations.py --last-run` prints, else the newest
    retro PR's `createdAt`. The merges are those since the last run,
    `gh pr list --state merged --base main --search "merged:>=<last run>" --json number,title`,
    less retro PRs and PRs an open or merged retro's title names. A run that finds nothing opens
    no PR, so a merge it read counts as covered by the last run, not by a title.
 3. **Extract the conversation.**
-   `scripts/conversations.py <last run> .build/retro/conversations.md` writes it there and
+   `scripts/conversations.py <last run> <main checkout>/.build/retro/conversations.md` writes it there and
    prints one line: how many sessions, or "No sessions since".
 4. **Hand it to a subagent**, unless there is neither a merge nor a session, in which case
    print one line, "Nightly retro: nothing since <last run>.", and go to step 5. Start one
@@ -236,7 +235,7 @@ does this, in order:
    Open the PR with `/pr` when there is something to fix; otherwise remove the worktree and
    the branch it made. Reply with the PR URL or "no PR", one line per finding, then the digest.
 5. **Report and save.** When the extract ran and the subagent finished (or there was
-   nothing), write the start time from step 1 to `.build/retro/last-run`. If either failed,
+   nothing), save the start time from step 1: `scripts/conversations.py --last-run <it>`. If either failed,
    leave the file, so the next night covers this one too. Print: "Nightly retro <date>: <PR URL, or no PR>", the
    findings, and the digest: `show` prints that reply.
 
