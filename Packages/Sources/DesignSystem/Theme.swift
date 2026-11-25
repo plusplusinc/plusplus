@@ -26,7 +26,31 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
     public static let plusPlus = Self(id: "plusplus", name: "PlusPlus", looks: .catalog)
 
     /// PlusPlus first, then the rest by name.
-    public static let all: [Self] = [.plusPlus] + [.nord].sorted { $0.name < $1.name }
+    public static let all: [Self] = [.plusPlus] + [
+        .ayu, .catppuccin, .dracula, .everforest, .github, .gruvbox, .horizon, .kanagawa,
+        .material, .monokai, .nord, .one, .oxocarbon, .paperColor, .rosePine, .selenized,
+        .solarized, .tokyoNight, .tomorrow, .zenburn,
+    ].sorted { $0.name < $1.name }
+
+    /// The color schemes this theme has a look for.
+    public var schemes: [ColorScheme] {
+        isDarkOnly ? [.dark] : [.light, .dark]
+    }
+
+    /// Whether a color reads as a red, which `accent` never is: it fills the + that adds an
+    /// exercise, and a red + reads as a warning. A red is a color with OKLab chroma of at least
+    /// 0.05 (not a gray) whose OKLab hue is from 350° round to 35°: from the pinks' edge to where
+    /// orange begins. Rust and coral (Monokai's and Horizon's 7° to 17°) fall inside; Gruvbox's
+    /// light orange (39°) and Dracula's pink (347°) outside.
+    public static func isRed(_ color: Color.Resolved) -> Bool {
+        let lab = OKLab(RGB(color))
+        let chroma = (lab.greenRed * lab.greenRed + lab.blueYellow * lab.blueYellow).squareRoot()
+        var hue = atan2(lab.blueYellow, lab.greenRed) * 180 / .pi
+        if hue < 0 {
+            hue += 360
+        }
+        return chroma >= 0.05 && (hue >= 350 || hue < 35)
+    }
 
     /// The theme a stored id names, or PlusPlus for one that names none.
     public static func stored(id: String?) -> Self {
