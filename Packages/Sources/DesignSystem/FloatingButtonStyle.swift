@@ -91,7 +91,8 @@ struct FloatingPlace<Key: View, Floating: View>: View {
     /// comes back up with the next, as one piece with them.
     var dip: CGFloat = 0
     var swapBelow: CGFloat = 0
-    /// Which key `key` is a copy of.
+    /// Which key `key` is a copy of; a change of it while `dip` has the key down moves the
+    /// button's place with no animation.
     var keyID: AnyHashable?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var keyHeight: CGFloat = 0
