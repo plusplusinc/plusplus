@@ -59,7 +59,7 @@ with the feature.
   `RowLabel.swift` (`RowFocus`, `CaptionLine`, `ProgressLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
   Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
 - The key at the bottom: `WorkoutKey`, `WorkoutScreen+Key.swift`,
-  `PrimaryKeyButtonStyle.swift`, its bar `PrimaryKeyBar.swift`. A finish: `WorkoutScreen+Ending.swift`, `FinishBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
+  `PrimaryKeyButtonStyle.swift`, `PrimaryKeyBar.swift`. A finish: `WorkoutScreen+Ending.swift`, `FinishBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
   `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
 - Logging a set and moving on to the next exercise: `WorkoutScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
