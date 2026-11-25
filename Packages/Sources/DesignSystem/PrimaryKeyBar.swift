@@ -115,12 +115,8 @@ private struct PrimaryKeyBar<
     /// coming in has it from its first frame: measured on the key, it came in 16 pt from the
     /// sides, then narrowed to its place on the screen's next animation.
     @State private var bottomInset: CGFloat = 0
-    /// Which key the staged key is, as the view it is: the kind it was presented as while it is,
-    /// so its swaps are its own, and the face's kind while it isn't. A key taken away still goes
-    /// down as it was; one presented again as another kind before it is gone comes in as a new
-    /// key. Put back as the one going, it came back with that key's stage and swapped on its
-    /// way up: Skip rest's keys went down, up, and down again before Log set rose (2026-11-25).
-    @State private var keyKind: Face.ID
+    /// Which staged key the bar presents, as the view it is.
+    @State private var round: KeyRound<Face.ID>
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
@@ -141,7 +137,7 @@ private struct PrimaryKeyBar<
         self.floatsLow = floatsLow
         self.key = key
         self.floating = floating
-        _keyKind = State(initialValue: face.id)
+        _round = State(initialValue: KeyRound(kind: face.id))
     }
 
     /// The key's inset from the screen's sides: `lowInset`, and with no home indicator, as far as
@@ -235,19 +231,14 @@ private struct PrimaryKeyBar<
                             )
                         }
                         .transition(KeyBarTransition(below: bottomInset))
-                        .id(keyKind)
+                        .id(round.id)
                     } else if keepsRoom {
                         // Its room and the burst's place, with no drop or swap to run.
                         unseenKey.hidden()
                     }
                 }
             }
-            // After the update that took the key away, so the one going keeps its own.
-            .onChange(of: isPresented ? nil : face.id) { _, kind in
-                if let kind {
-                    keyKind = kind
-                }
-            }
+            .modifier(FollowsRound(round: $round, isPresented: isPresented, kind: face.id))
             .background {
                 Color.clear.onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
                     bottomInset = $0
@@ -276,6 +267,30 @@ private struct PrimaryKeyBar<
             // where they are as it rises. Everything above measures inside this, where the
             // keyboard's inset is taken away.
             .ignoresSafeArea(.keyboard, edges: .bottom)
+    }
+}
+
+/// Keeps the bar's `KeyRound` with the key: after the update that changed it, so a key taken away
+/// keeps the id it went with.
+private struct FollowsRound<Kind: Hashable>: ViewModifier {
+    @Binding var round: KeyRound<Kind>
+    let isPresented: Bool
+    let kind: Kind
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: kind) { _, kind in
+                if isPresented {
+                    round.follow(kind)
+                }
+            }
+            .onChange(of: isPresented ? nil : kind) { was, away in
+                if let away {
+                    round.away(as: away, justLeft: was == nil)
+                } else {
+                    round.follow(kind)
+                }
+            }
     }
 }
 
