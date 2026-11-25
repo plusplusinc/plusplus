@@ -60,7 +60,7 @@ month. Read only what changed since.
 
 Also look for what we don't use yet, in these places only: Anthropic's engineering posts and
 Claude Code's docs for new capabilities; the skill and plugin catalogs and the MCP registry;
-Apple's developer news and WWDC sessions, for frameworks that bear on a card in Todo; and a few
+Apple's developer news and WWDC sessions, for frameworks that bear on a card in Definitely; and a few
 well-regarded write-ups on agent-led development and on iOS engineering practice. Report a
 candidate only when it answers a present need (friction on record or a queued card), with its
 cost and what it replaces; at most three go under "Worth trying", each with the cheapest trial
@@ -99,7 +99,7 @@ trial weighed on the record (its "Agent records" section).
   each model's API ID and default effort), and Claude Code's
   [model configuration](https://code.claude.com/docs/en/model-config) for what each alias picks
   by default. A model newer than any the table pins, or an alias or default that changed since
-  the last review, gets one trial card naming the roles it could serve and why. It waits in Todo
+  the last review, gets one trial card naming the roles it could serve and why. It waits in Definitely
   until no other trial runs.
 
 The tally, the trial's state, and what the models page showed each take a line under "Kept" or
@@ -109,7 +109,7 @@ The tally, the trial's state, and what the models page showed each take a line u
 
 For each change worth doing, look for a card by title first, then add one with
 `scripts/board.sh add` as `/brief` writes a standalone card, its `Nightly:` line included when
-it qualifies. It stays at the bottom of Todo.
+it qualifies. It stays at the bottom of Definitely.
 
 ## 4. Report
 
