@@ -69,7 +69,7 @@ lose data, or if it costs under about 2 s.
 
 ## Where each guarantee goes
 
-Cheapest first. The tests' display names are the inventory of what each tier holds.
+The tests' display names are the inventory of what each tier holds.
 
 | Guarantee | Tier |
 |---|---|
@@ -109,7 +109,7 @@ a distinct claim. A test's 90 s rises only with a new launch configuration.
 | `DesignSystemTests` | 30 s | 24 s |
 | a `DesignSystemTests` test | 2 s | 1.6 s |
 | each UI test | 90 s | 66.7 s |
-| the UI tests together, 10 | 500 s | 370 s |
+| the UI tests together, 11 | 550 s | 407 s |
 
 A PR run's start-to-finish time has no budget: about 250 s is Xcode Cloud's own steps.
 
@@ -151,8 +151,9 @@ seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize` and
 `testWorkoutAndFiltersAtLargestTextSize`,
 `WorkoutAutosaveUITests/testWorkoutSurvivesRelaunch`,
 `WorkoutDrawerUITests/testDrawerSwitchesWorkouts` (a workout seeded),
-`LiveWorkoutUITests/testLiveWorkoutSurvivesRelaunch`, and
-`WorkoutFinishUITests/testFinishKeyKeepsTheWorkout` (one exercise of one set seeded). A new check joins the test for its launch only
+`LiveWorkoutUITests/testLiveWorkoutSurvivesRelaunch`,
+`WorkoutFinishUITests/testFinishKeyKeepsTheWorkout` (one exercise of one set seeded), and
+`RestAfterAddUITests/testRowsStayThroughARestAfterAnAdd`. A new check joins the test for its launch only
 when it names what only the running app shows (G) and the lower test that holds the rest, sets
 its state up by launch argument, and keeps its test within the UI budget; otherwise it goes in
 a cheaper tier. Every test launches with `-resetStore YES`, so it starts from a new workout and
