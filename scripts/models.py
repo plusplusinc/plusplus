@@ -5,7 +5,9 @@
 
 `check` reads the table and compares it with what sets each model: an agent definition's `model:`
 and `effort:` in .claude/agents/, and a nightly script's <NAME>_MODEL and <NAME>_EFFORT for a row
-set in "scripts/<file> <NAME>". It fails naming each disagreement, a definition with no row, a row
+set in "scripts/<file> <NAME>". A row set in a skill (".claude/skills/<name>/SKILL.md") is one
+Agent call that skill makes: the Agent tool takes only an alias and no effort, so its Model is an
+alias the skill passes as `model: <alias>`, and its Effort is "—". It fails naming each disagreement, a definition with no row, a row
 whose definition or script doesn't exist, two definitions of one name, a model that isn't a full
 ID, and a verifier on the builder's model. In each script in
 scripts/ but the tests, it also fails on a <NAME>_MODEL with no row, and on a start of claude
@@ -31,6 +33,7 @@ MODEL_ID = re.compile(r"claude-([a-z]+)-\d+(-\d+)*$")
 EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 SET = re.compile(r"\d{4}-\d{2}-\d{2}(, trial for \d+ PRs)?")  # a row on trial says for how many PRs
 USER_SETTINGS = "user settings"  # the lead's row: the maintainer's choice, not the repo's
+NO_EFFORT = "—"  # a skill's row: the Agent tool takes no effort
 
 
 def cells(line):
@@ -130,6 +133,23 @@ def passed(root, names):
     return found
 
 
+def skill_row(root, row):
+    """What disagrees in a row set in a skill: an alias the skill passes, and no effort."""
+    role, where, model = row["Role"], row["Set in"], row["Model"]
+    found = []
+    if row["Effort"] != NO_EFFORT:
+        found.append(f"{role}: effort is \"{row['Effort']}\"; the Agent tool sets none, so a skill's row says \"{NO_EFFORT}\"")
+    if model not in ALIASES:
+        found.append(f"{role}: \"{model}\" is not an alias; the Agent tool takes only {', '.join(sorted(ALIASES))}")
+    try:
+        text = (Path(root) / where).read_text()
+    except OSError:
+        return found + [f"{role}: {where} doesn't exist"]
+    if model in ALIASES and not re.search(rf"\bmodel:\s*{model}\b", text):
+        found.append(f"{where}: passes no `model: {model}`, which the table says it starts its agent with")
+    return found
+
+
 def problems(root):
     """What disagrees with the table, one line each; empty when everything agrees."""
     root = Path(root)
@@ -151,6 +171,9 @@ def problems(root):
         if not SET.fullmatch(row["Set"]):
             found.append(f"{role}: Set is \"{row['Set']}\", not a date like 2026-11-11, or one on trial "
                          "like \"2026-11-11, trial for 5 PRs\"")
+        if where.startswith(".claude/skills/"):
+            found += skill_row(root, row)
+            continue
         if model in ALIASES:
             found.append(f"{where}: \"{model}\" is an alias, which follows its family's newest release; "
                          "a definition or a script pins a full model ID such as claude-opus-5-5")
@@ -170,7 +193,7 @@ def problems(root):
         script, _, name = where.partition(" ")
         if not script.startswith("scripts/") or not name:
             found.append(f"{role}: Set in \"{where}\" is none of: {USER_SETTINGS}, "
-                         ".claude/agents/<file>.md, scripts/<file> <NAME>")
+                         ".claude/agents/<file>.md, .claude/skills/<name>/SKILL.md, scripts/<file> <NAME>")
             continue
         try:
             if script not in scripts:

@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
-"""After the nightly retro, runs eligible tooling cards one at a time, each with its own lead.
+"""The night's steps (.claude/skills/night/SKILL.md), and the tooling cards' runner.
 
-    scripts/nightly-tooling.py run <night-dir> [--dry-run] [--now 2026-10-29T01:30]
+    scripts/nightly-tooling.py usage <night-dir>             # exits 1 when a weekly window is at 97%
     scripts/nightly-tooling.py tally <night-dir>             # the agents' tallies, for the retro and the review
+    scripts/nightly-tooling.py outcome <night-dir> ran | failed <step> <why>
+    scripts/nightly-tooling.py digest [<night-dir>]          # a night's digest, written; bare, the last night's, printed
+    scripts/nightly-tooling.py run <night-dir> [--dry-run] [--now 2026-10-29T01:30]
     scripts/nightly-tooling.py review <night-dir>            # the setup review, when one is due
     scripts/nightly-tooling.py hook <night-dir> <worktree>   # a card's PreToolUse hook
     scripts/nightly-tooling.py pre-push <night-dir>          # a card's git pre-push hook
-    scripts/nightly-tooling.py digest [<night-dir>]          # a night's digest; the last by default
 
-scripts/nightly-retro.sh run calls `run` after the retro, with the night's folder in
+The night skill calls `usage`, `tally`, `outcome`, and `digest`. `usage` reads the usage.json the
+night saved from the app's usage tool and prints one line; it exits 1 when a window whose label
+names a week is at 97% or more, and 0 when the file can't be read, which the digest's top then
+says. `outcome` writes the night's outcome.txt. `digest <night-dir>` writes the night's digest.md
+and prints it; bare, it only prints the newest night's. Its first line is "Night <date>: ran" or "Night <date>: failed: <step>, <why>", and "no
+outcome recorded: still running, or it stopped early" when none was.
+
+Nothing calls `run` and `review` since the night moved to the app's scheduled task; the card
+"Run the night's tooling cards and setup review inside the scheduled session" rewires them. What
+follows describes them as they are. `run` takes the night's folder in
 .build/retro/, where the retro's stream-json log already is. It first puts a card, "Update <tool>
 to <version>", at the top of Definitely for each lint tool `scripts/lint-tools.sh outdated` names, unless
 the board has one by that title or an open one for that tool. `run` holds the night's gates, so
@@ -22,17 +33,17 @@ makes the card's worktree from main, runs one `claude -p` lead with the nightly-
 then decides on the PR itself: auto-merge is armed only after a passing verifier record, never
 for a PR touching a protected path or only .claude/ and docs/, which wait for the maintainer;
 a failed card's PR goes back to draft. It ends with a private digest, saved in the night's
-folder, which `scripts/nightly-retro.sh show` prints. --dry-run reads everything and prints the
+folder. --dry-run reads everything and prints the
 card it would take and the command it would run, then stops before changing anything. Each run
 also moves to Done the cards a night parked or left waiting whose PR has merged since.
 
-scripts/nightly-retro.sh run calls `review` between the retro and `run`. From midnight to 5 am,
+`review` is meant to run between the retro and `run`. From midnight to 5 am,
 on the first night of a month with no setup review's report in .slices/review-setup/ yet, or on
 a newer major Xcode installed since the last report, it runs one `claude -p` with
 `/review-setup nightly` in the main checkout, for at most 90 minutes, on at most two nights a
 month, and without the tools in REVIEW_DENIED. Its reply's last line goes in the digest.
 
-scripts/nightly-retro.sh run calls `tally` before the retro, so neither agent runs
+The night calls `tally` before the retro, so neither agent runs
 scripts/agent-record.py, which their skills' allowed tools don't hold. It writes the retro's agents'
 tally, over the PRs merged in the last 30 days, to agent-tally.txt in the night's folder, and, when
 the setup review runs tonight, the review's, since its last report and since each trial's start
@@ -144,22 +155,9 @@ FAILURES = (RuntimeError, OSError, ValueError, KeyError, subprocess.SubprocessEr
 RECORD_LINE = re.compile(r"- (criterion|test|design|crash|other), (new|known): \S")
 
 
-def update_note(folder):
-    """The digest's line on the night's Claude Code update, from claude-update.txt, which
-    scripts/nightly-retro.sh run writes: a failure goes with the unchecked, a version change is one
-    plain line, and "already the latest" is left out."""
-    try:
-        text = (Path(folder) / "claude-update.txt").read_text(errors="replace").strip()
-    except OSError:
-        return []
-    if text.startswith("Claude Code update failed"):
-        return [f"Not checked: {text}"]
-    return [text] if "→" in text else []
-
-
 def checkout_note(folder):
-    """The digest's line when scripts/nightly-retro.sh run couldn't bring the main checkout up to
-    origin/main, from main-checkout.txt, which it writes only then: the night ran older scripts."""
+    """The digest's line when scripts/nightly-retro.sh catch-up couldn't bring the main checkout up
+    to origin/main, from main-checkout.txt, which it writes only then: the night ran older scripts."""
     try:
         text = (Path(folder) / "main-checkout.txt").read_text(errors="replace").strip()
     except OSError:
@@ -1491,12 +1489,12 @@ class Night:
 
     def top_lines(self):
         """What the digest says first: merges that skipped the gates, a main checkout the night
-        couldn't bring up to date, the night's Claude Code update
-        when it changed the version or failed, what went unchecked, and the cards an open PR held back, so a day session merges or closes that PR first."""
+        couldn't bring up to date, what went unchecked, and the cards an open PR held back, so a
+        day session merges or closes that PR first."""
         return [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
-                for pr in self.unarmed] + checkout_note(self.dir) + update_note(self.dir) + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)] + [
+                for pr in self.unarmed] + checkout_note(self.dir) + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)] + [
                     f"Waits on an open PR: {h}" for h in self.held]
 
     def digest(self):
@@ -1691,8 +1689,76 @@ def pre_push(folder):
         sys.exit(1)
 
 
+WEEKLY_STOP = 97  # percent of a weekly window at which the night skips the retro
+USAGE = "usage.json"  # what the app's usage tool returned, which the night saves
+OUTCOME = "outcome.txt"  # "ran" or "failed: <step>, <why>", which `outcome` writes
+
+
+def plan_windows(folder):
+    """The plan's usage windows from the night's usage.json, as (label, percent used, resets at),
+    or a string saying why they can't be read."""
+    try:
+        data = json.loads((Path(folder) / USAGE).read_text())
+        found = data["plan"]["windows"]
+        rows = [(str(w["label"]), float(w["percentUsed"]), w.get("resetsAt")) for w in found]
+    except OSError:
+        return f"{USAGE} is missing"
+    except (ValueError, KeyError, TypeError) as error:
+        return f"{USAGE} isn't the usage tool's plan.windows ({type(error).__name__}: {error})"
+    return rows or f"{USAGE} lists no windows"
+
+
+def usage_check(folder):
+    """(go on, the line to print): the night stops only when a weekly window is at WEEKLY_STOP or
+    more, and goes on when usage.json can't be read."""
+    rows = plan_windows(folder)
+    if isinstance(rows, str):
+        return True, f"Usage unreadable: {rows}"
+    full = [f"{label} at {used:g}%, resetting {resets or 'at an unknown time'}"
+            for label, used, resets in rows if "week" in label.lower() and used >= WEEKLY_STOP]
+    if full:
+        return False, "; ".join(full)
+    return True, plan_usage_line(rows)
+
+
+def plan_usage_line(rows):
+    return "Usage: " + ", ".join(f"{label} {used:g}%" for label, used, _ in rows)
+
+
+def night_digest(folder):
+    """The night's digest: its outcome first, then what went unchecked, then its usage."""
+    folder = Path(folder)
+    try:
+        outcome = (folder / OUTCOME).read_text().strip()
+    except OSError:
+        outcome = ""
+    lines = [f"Night {folder.name}: {outcome or 'no outcome recorded: still running, or it stopped early'}", *checkout_note(folder)]
+    rows = plan_windows(folder)
+    return lines + [f"Not checked: usage, {rows}" if isinstance(rows, str) else plan_usage_line(rows)]
+
+
+def record_outcome(folder, args):
+    """Writes outcome.txt from `ran` or `failed <step> <why>` and returns its text, or None when
+    args are neither."""
+    if args == ["ran"]:
+        text = "ran"
+    elif len(args) >= 3 and args[0] == "failed":
+        text = f"failed: {args[1]}, {' '.join(args[2:])}"
+    else:
+        return None
+    Path(folder).mkdir(parents=True, exist_ok=True)
+    (Path(folder) / OUTCOME).write_text(text + "\n")
+    return text
+
+
 def main(args):
-    if args[:1] == ["run"] and len(args) >= 2:
+    if args[:1] == ["usage"] and len(args) == 2:
+        go_on, line = usage_check(args[1])
+        print(line)
+        sys.exit(0 if go_on else 1)
+    elif args[:1] == ["outcome"] and len(args) >= 3 and (text := record_outcome(args[1], args[2:])):
+        print(f"Night {Path(args[1]).name}: {text}")
+    elif args[:1] == ["run"] and len(args) >= 2:
         now = datetime.now().astimezone()
         if "--now" in args:
             now = datetime.fromisoformat(args[args.index("--now") + 1]).astimezone()
@@ -1706,15 +1772,17 @@ def main(args):
     elif args[:1] == ["pre-push"] and len(args) == 2:
         pre_push(args[1])
     elif args[:1] == ["digest"]:
+        # The newest night's, never an earlier one, which would read as this one's.
         folders = [Path(args[1])] if len(args) > 1 else sorted((main_checkout() / ".build/retro").glob("20*"))
         if not folders:
-            print("No nightly tooling digest yet.")
-        elif (folders[-1] / "digest.md").exists():
-            print((folders[-1] / "digest.md").read_text().rstrip())
+            print("No night yet: .build/retro/ holds no night's folder.")
         else:
-            # Never an earlier night's digest, which would read as this one's.
-            print(f"No tooling digest for {folders[-1].name}: the runner is still going, or ended "
-                  "without one; its output is in .build/retro/nightly.log.")
+            text = "\n".join(night_digest(folders[-1]))
+            if len(args) > 1:  # the night's own step; show only reads
+                # A night whose first step failed has no folder yet, and still gets its digest.
+                folders[-1].mkdir(parents=True, exist_ok=True)
+                (folders[-1] / "digest.md").write_text(text + "\n")
+            print(text)
     else:
         print(__doc__.split("\n\n")[1], file=sys.stderr)
         sys.exit(64)
