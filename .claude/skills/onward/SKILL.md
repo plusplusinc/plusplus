@@ -10,13 +10,13 @@ judge, with the reason for each, since the cases it meets are never quite the on
 
 ## Start
 
-1. Find the card: the In Progress card, otherwise the topmost Todo card (`scripts/board.sh
+1. Find the card: the In Progress card, otherwise the topmost Definitely card (`scripts/board.sh
    list` prints the queue in order, then `scripts/board.sh show <id>`). A card with a Feature is
-   a slice of that feature, one without is a standalone task, and a Backlog card is never
+   a slice of that feature, one without is a standalone task, and a Maybe card is never
    picked. Its State section names the worktree, branch, PR, phase, next step, and the leading
    session's id. An In Progress card led by another session that is still active
    (`get_session` with that id, and its worktree's processes) is left to it, and you take the
-   next Todo card; one naming this session's own id is yours.
+   next Definitely card; one naming this session's own id is yours.
 2. Retitle the session for the card (`set_session_title`, with the `session_id` that
    `get_session` with no arguments returns), so the maintainer can find it later.
 3. An open nightly retro PR (`gh pr list --search "Retro of in:title"`) comes first: update it
