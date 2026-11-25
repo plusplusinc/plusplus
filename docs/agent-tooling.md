@@ -241,7 +241,7 @@ closed-display mode, keeps the Mac awake with the lid closed.
 
 Nothing calls the tooling runner, `scripts/nightly-tooling.py run` and `review`, until a card
 moves them into the night. It first adds a card,
-"Update <tool> to <version>", at the top of Todo for each lint tool `scripts/lint-tools.sh outdated`
+"Update <tool> to <version>", at the top of Definitely for each lint tool `scripts/lint-tools.sh outdated`
 names (Dependabot can't read that pin; it covers the Swift package and the actions), unless the
 board has one by that title or an open one for the tool. Then it takes standalone
 cards carrying a `Nightly:` line (the /brief skill says which qualify) one at a time: up to three

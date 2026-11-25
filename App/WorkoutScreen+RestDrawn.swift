@@ -28,7 +28,7 @@ extension WorkoutScreen {
            let loggedWorkout = session.loggedWorkout,
            let row = restRow(after: move.set, isBack: move.isBack, in: loggedWorkout)
         {
-            // Gray still where the skip came in a pause.
+            // Held as a pause holds it, where the skip came in one.
             let block = RestBlock(
                 stage: .none,
                 length: 0,

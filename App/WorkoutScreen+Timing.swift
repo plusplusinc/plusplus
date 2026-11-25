@@ -70,7 +70,6 @@ extension WorkoutScreen {
             length: Double(timed.length),
             ends: loggedWorkout.date(ofClock: timed.endClock),
             pausedLeft: loggedWorkout.isPaused ? timed.remaining(atClock: clock) : nil,
-            isPaused: loggedWorkout.isPaused,
         )
     }
 

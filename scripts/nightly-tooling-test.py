@@ -210,7 +210,7 @@ class OpenPRs(unittest.TestCase):
     BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n\n## Plan\n- Edit `{}`.\n"
 
     def night(self, prs, names):
-        cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY.format(name)) for i, name in enumerate(names)]
+        cards = [(f"PVTI_{i}", "Definitely", "-", f"card {i}", self.BODY.format(name)) for i, name in enumerate(names)]
         stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
                  "gh_json": lambda *a: prs if a[-1] == "number,files,title" else self.fail(a), "classify": lambda files: "docs",
                  "sh": lambda *a, **k: self.REPO}
@@ -298,8 +298,8 @@ class NightDigest(unittest.TestCase):
         self.assertEqual(self.digest(), ["Night 2026-11-26: failed: retro, the retro skill isn't there",
                                          "Not checked: Main checkout not brought up to date: x", "Usage: Weekly 40%"])
 
-    def test_a_night_with_no_outcome_did_not_finish(self):
-        self.assertEqual(self.digest(), ["Night 2026-11-26: failed: the night did not finish",
+    def test_a_night_with_no_outcome_says_it_is_running_or_stopped_early(self):
+        self.assertEqual(self.digest(), ["Night 2026-11-26: no outcome recorded: still running, or it stopped early",
                                          "Not checked: usage, usage.json is missing"])
 
     def test_an_outcome_needs_ran_or_a_step_and_why(self):
@@ -446,13 +446,13 @@ class Eligibility(unittest.TestCase):
     BODY = "## Problem\nx\n\nNightly: faster CI; the PR check's time\n\n## Success\nRun it: it passes.\n\n## Plan\n- y\n"
 
     def test_an_eligible_card(self):
-        self.assertIsNone(nightly.eligibility("Todo", "-", self.BODY))
+        self.assertIsNone(nightly.eligibility("Definitely", "-", self.BODY))
 
     def test_product_and_unmarked_cards_wait_for_the_day(self):
-        self.assertIn("feature", nightly.eligibility("Todo", "Routine screen", self.BODY))
-        self.assertIn("Nightly", nightly.eligibility("Todo", "-", self.BODY.replace("Nightly:", "Later:")))
-        self.assertIn("Backlog", nightly.eligibility("Backlog", "-", self.BODY))
-        self.assertIn("check", nightly.eligibility("Todo", "-", self.BODY.replace("## Success\nRun it: it passes.\n", "")))
+        self.assertIn("feature", nightly.eligibility("Definitely", "Routine screen", self.BODY))
+        self.assertIn("Nightly", nightly.eligibility("Definitely", "-", self.BODY.replace("Nightly:", "Later:")))
+        self.assertIn("Maybe", nightly.eligibility("Maybe", "-", self.BODY))
+        self.assertIn("check", nightly.eligibility("Definitely", "-", self.BODY.replace("## Success\nRun it: it passes.\n", "")))
 
 
 class CloseMerged(unittest.TestCase):
@@ -471,7 +471,7 @@ class CloseMerged(unittest.TestCase):
     def close(self, states, dry_run=False):
         cards = [("PVTI_1", "In Progress", "-", "parked", self.PARKED),
                  ("PVTI_2", "In Progress", "-", "waiting", self.WAITING),
-                 ("PVTI_3", "Todo", "-", "queued", self.PARKED)]
+                 ("PVTI_3", "Definitely", "-", "queued", self.PARKED)]
         calls = []
         stubs = {"board_rows": lambda: [c[:4] for c in cards],
                  "board_bodies": lambda rows: [c for c in cards if c[:4] in rows],
@@ -505,14 +505,14 @@ class UpdateCards(unittest.TestCase):
         return [title for title, _ in nightly.update_cards(self.OUTDATED, rows)]
 
     def test_each_outdated_tool_gets_an_eligible_card(self):
-        cards = nightly.update_cards(self.OUTDATED, [("PVTI_1", "Todo", "-", "Speed up CI")])
+        cards = nightly.update_cards(self.OUTDATED, [("PVTI_1", "Definitely", "-", "Speed up CI")])
         self.assertEqual([t for t, _ in cards], ["Update swiftformat to 0.64.5", "Update swiftlint to 0.65.1"])
         for _, body in cards:
-            self.assertIsNone(nightly.eligibility("Todo", "-", body))
+            self.assertIsNone(nightly.eligibility("Definitely", "-", body))
 
     def test_a_card_by_its_title_in_any_status_is_never_duplicated(self):
         self.assertEqual(self.titles([("PVTI_1", "Done", "-", "Update swiftformat to 0.64.5"),
-                                      ("PVTI_2", "Backlog", "-", "Update swiftlint to 0.65.1")]), [])
+                                      ("PVTI_2", "Maybe", "-", "Update swiftlint to 0.65.1")]), [])
 
     def test_an_open_card_for_an_older_release_holds_its_tool_back(self):
         self.assertEqual(self.titles([("PVTI_1", "In Progress", "-", "Update swiftformat to 0.64.3"),
@@ -1029,7 +1029,7 @@ class Loop(unittest.TestCase):
 
     def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: [],
               outdated=subprocess.CompletedProcess([], 0, "", "")):
-        cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
+        cards = [(f"PVTI_{i}", "Definitely", "-", f"card {i}", self.BODY) for i in range(4)]
         stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
                  "gh_json": gh, "classify": lambda files: "app: x", "sh": lambda *a, **k: "",
                  "test_counts": lambda rev: {}, "outdated_tools": lambda: outdated}
@@ -1115,7 +1115,7 @@ class Loop(unittest.TestCase):
         night = self.night(["merged"] * 4, weekly_resets=100, finish=True, outdated=outdated)
         self.assertEqual(calls[:2], [("add", "Update swiftlint to 0.65.1"), ("move", "PVTI_new", "top")])
         digest = (night.dir / "digest.md").read_text()
-        self.assertIn("Added: Update swiftlint to 0.65.1, at the top of Todo", digest)
+        self.assertIn("Added: Update swiftlint to 0.65.1, at the top of Definitely", digest)
         self.assertIn("Not checked: which lint tools have a newer release (could not read swiftformat's", digest)
 
     def test_the_uncapped_night_takes_the_fourth(self):
@@ -1326,7 +1326,7 @@ class Malformed(unittest.TestCase):
                 Path(root, ".build/retro", night).mkdir(parents=True)
             Path(root, ".build/retro/2026-10-27/digest.md").write_text("old digest\n")
             out = io_of(lambda: nightly.main(["digest"]))
-            self.assertEqual(out, "Night 2026-10-28: failed: the night did not finish\n"
+            self.assertEqual(out, "Night 2026-10-28: no outcome recorded: still running, or it stopped early\n"
                                   "Not checked: usage, usage.json is missing\n")
             self.assertNotIn("old digest", out)
             self.assertFalse(Path(root, ".build/retro/2026-10-28/digest.md").exists(), "a bare digest only reads")

@@ -8,9 +8,6 @@ public struct KeyFill: Equatable, Sendable {
     public let length: Double
     public let ends: Date
     public let pausedLeft: Double?
-    /// Held by a pause: the fill takes the gray the paused count does, and its purple back on
-    /// resume. A fill held by its log stays purple.
-    public let isPaused: Bool
     /// The count is over: the fill is full. Ended early, it runs on to full from where it was,
     /// quickly, easing out, rather than jumping or running back to the seconds done.
     public let isOver: Bool
@@ -19,13 +16,11 @@ public struct KeyFill: Equatable, Sendable {
         length: Double,
         ends: Date,
         pausedLeft: Double? = nil,
-        isPaused: Bool = false,
         isOver: Bool = false,
     ) {
         self.length = length
         self.ends = ends
         self.pausedLeft = pausedLeft
-        self.isPaused = isPaused
         self.isOver = isOver
     }
 
@@ -70,7 +65,8 @@ public struct KeyFill: Equatable, Sendable {
 }
 
 /// A key face's fill from its leading edge, redrawn each frame while it runs, in `color`: the
-/// done purple, gray while paused. As a mask, the part of the label over it.
+/// done purple, held in it while paused, as the key swaps to Continue. As a mask, the part of
+/// the label over it.
 struct FillingFace: View {
     let filling: KeyFill
     var color: ColorToken?
@@ -80,7 +76,7 @@ struct FillingFace: View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: filling.holds)) { context in
             GeometryReader { geometry in
                 Rectangle()
-                    .fill(.pp(color ?? (filling.isPaused ? .textSecondary : .done)))
+                    .fill(.pp(color ?? .done))
                     .frame(width: geometry.size.width * filling.share(at: context.date))
                     .animation(KeyFill.runOn, value: filling.isOver)
             }

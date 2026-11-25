@@ -52,17 +52,16 @@ extension View {
 /// The workout's time, in the bar, which a tap pauses or resumes. It ticks on the elapsed
 /// time's whole seconds while running, and draws once while paused.
 struct WorkoutTimeKey: View {
-    let session: AppSession
     let loggedWorkout: LoggedWorkout
+    /// The screen's pause or resume (`WorkoutScreen.togglePause()`), which animates the key.
+    let togglePause: () -> Void
 
     @Environment(\.locale) private var locale
     /// The moment the time is drawn for: now, as each whole second of it comes (`tick()`).
     @State private var shownAt = Date.now
 
     var body: some View {
-        Button {
-            session.togglePause()
-        } label: {
+        Button(action: togglePause) {
             label(at: loggedWorkout.pausedAt ?? shownAt)
         }
         .hiddenBehindDrawer()

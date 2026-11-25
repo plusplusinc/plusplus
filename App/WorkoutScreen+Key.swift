@@ -3,7 +3,8 @@ import SwiftUI
 import WorkoutStore
 
 /// The screen's one key, at the bottom: Start, then in a workout what logs its sets, goes back
-/// to the current exercise while it is scrolled away, and finishes the workout.
+/// to the current exercise while it is scrolled away, and finishes the workout; while the
+/// workout is paused, Continue, which resumes it (VoiceOver: "Continue workout").
 extension WorkoutScreen {
     /// The key as the workout stands: what it says, which the bar swaps as its kind changes
     /// (`primaryKeyBar`), and what a tap does.
@@ -59,6 +60,9 @@ extension WorkoutScreen {
         case let .back(exercise, isAbove):
             // Whole, wrapping at the largest text sizes rather than cut short.
             Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
+        case .continueWorkout:
+            // The word alone, in Log set's light key (decided 2026-11-24).
+            Text("Continue")
         case .log, .finish, .rest, .count:
             // One branch, so words that stay are the same view: a branch per role crossfaded
             // "Log last set" into itself as the last set's row closed, which dimmed it.
@@ -73,6 +77,7 @@ extension WorkoutScreen {
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
         case .finish: String(localized: "Finish workout")
         case .rest: String(localized: "Skip rest")
+        case .continueWorkout: String(localized: "Continue workout")
         }
     }
 
@@ -113,6 +118,15 @@ extension WorkoutScreen {
         session.skipRest(override: restOverride, at: now)
     }
 
+    /// Pauses or resumes the workout, from the time key at the top or from Continue. Where that
+    /// brings the key in or takes it away (`WorkoutKey.pauseMovesKey`), as in a set's "Start in",
+    /// Continue comes up in and goes down out on the swap that brings the set's key in as "Start
+    /// in" ends (`SetMotion.restSwap`), the + rising and settling with it; with Reduce Motion,
+    /// the bar fades it. Elsewhere the key changes kind, which the bar swaps on its own.
+    func togglePause() {
+        withAnimation(liveKey.pauseMovesKey ? SetMotion.restSwap : nil) { session.togglePause() }
+    }
+
     /// Whether the + sits low, at the screen's bottom, with no key under it: with no exercises,
     /// and in a workout wherever the key's room is kept empty, so it never floats over a key
     /// that isn't there (decided 2026-11-24). It goes down and comes back up on the update that
@@ -121,7 +135,8 @@ extension WorkoutScreen {
         footShowsEmpty || keyKeepsRoom
     }
 
-    /// The fill of Skip rest: running while the rest runs, gray and held while paused; held where
+    /// The fill of Skip rest: running while the rest runs, held where it stood while paused, in
+    /// its own color, seen only as the keys swap out for Continue; held where
     /// it stood where End came mid-rest; else full, as the keys leave once the rest is over.
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,
@@ -136,12 +151,7 @@ extension WorkoutScreen {
               resting.remaining(atClock: loggedWorkout.clock(at: .now)) > 0
         else { return .over }
         let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
-        return KeyFill(
-            length: Double(resting.length),
-            ends: ends,
-            pausedLeft: pausedLeft,
-            isPaused: loggedWorkout.isPaused,
-        )
+        return KeyFill(length: Double(resting.length), ends: ends, pausedLeft: pausedLeft)
     }
 
     /// What a tap on the key, or on Skip rest or +15 s, does. A log is stored through the session
@@ -163,6 +173,11 @@ extension WorkoutScreen {
             extendRest(by: seconds)
         case let .extendCount(seconds):
             session.extendCount(by: seconds)
+        case .continueWorkout:
+            // As the time key at the top resumes it; only ever a resume.
+            if session.loggedWorkout?.isPaused == true {
+                togglePause()
+            }
         case .nothing:
             break
         }

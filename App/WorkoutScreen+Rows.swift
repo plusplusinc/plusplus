@@ -5,14 +5,14 @@ import WorkoutStore
 
 extension WorkoutScreen {
     /// One row of the rail as the list draws it: its content, where it reports its place and
-    /// frame, its tap, and its swipe. `current`, `parts`, `shown`, and `tracksRows` are the
+    /// frame, its tap, and its swipe. `current`, `parts`, `shown`, and `tracking` are the
     /// values the rows' closure holds (`screen`).
     func listRow(
         _ item: WorkoutExercise,
         current currentID: WorkoutExercise.ID?,
         parts: RowParts?,
         in shown: LiveWorkout?,
-        tracksRows: Bool,
+        tracking: RowTracking,
     ) -> some View {
         rowContent(item, current: currentID, on: shown?.currentSet, parts: parts)
             .environment(\.exerciseMoveWay, moveWay)
@@ -20,7 +20,7 @@ extension WorkoutScreen {
             .id(item.id)
             .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
             // Only while it is read: as the list scrolls, every change redraws the screen.
-            .reportingPlace(item.id == growingID && tracksRows, to: placeCurrent)
+            .reportingPlace(item.id == tracking.placing, to: placeCurrent)
             // Until an added row has entered it takes no taps, and its frame is where it will be
             // rather than where it is drawn, so VoiceOver and the UI tests find it once it has. On
             // the label, the row's one element: on the row, `false` would un-hide the rail's node.
@@ -32,7 +32,7 @@ extension WorkoutScreen {
                 rowFrames.restingPitch[item.id] = $0
             }
             // The whole row, its insets included, as the rail stacks it.
-            .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
+            .reportingFrame(tracking.isOn) { rowFrames.tops[item.id] = $0.minY }
             .contentShape(.rect)
             .onTapGesture {
                 guard item.id != entering else { return }
@@ -158,5 +158,21 @@ extension WorkoutScreen {
         if let place = currentPlace {
             scrollPosition.scrollTo(y: place.landingY)
         }
+    }
+}
+
+/// Which rows report where they are, as `screen` read it for the pass. A value, so the rows'
+/// closure holds it: read in the closure, which runs again as the stored log changes, it read
+/// the log ahead of the screen's phase, and the next exercise reported its place for a pass
+/// between two where the row left did, which SwiftUI logged as a geometry action cycling.
+struct RowTracking {
+    /// Every row reports its frame: in a workout, and from Start's press.
+    let isOn: Bool
+    /// The row that reports its place (`WorkoutScreen.growingID(in:current:)`), while `isOn`.
+    let placing: WorkoutExercise.ID?
+
+    init(isOn: Bool, growing: WorkoutExercise.ID?) {
+        self.isOn = isOn
+        placing = isOn ? growing : nil
     }
 }
