@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A base16 color scheme's sixteen slots, as `tinted-theming/schemes` gives them.
 nonisolated struct Base16: Sendable {
-    let slots: [RGB]
+    private(set) var slots: [RGB]
 
     /// `base00` to `base0F`, in order.
     init(_ hexes: [UInt32]) {
@@ -14,10 +14,19 @@ nonisolated struct Base16: Sendable {
         slots[slot]
     }
 
-    /// Which slot does which job. The background is always `base00` and the comment gray
-    /// `base03`; the rest differ by scheme: Dracula's purple is `base0D`, Rosé Pine has no
-    /// green, and Nord is known by its frost blue, `base0C`. A theme names its own where the
-    /// defaults miss what it is.
+    /// This scheme with one slot holding another of the theme's own colors, for a job its
+    /// base16 file has no color for (Horizon's light scheme has no purple).
+    func replacing(_ slot: Int, with hex: UInt32) -> Self {
+        var copy = self
+        copy.slots[slot] = RGB(hex)
+        return copy
+    }
+
+    /// Which slot does which job: `text` the names and figures, `accent` what is active and
+    /// makes something, `done` what is finished, `railJoin` what is arriving. The background is
+    /// always `base00` and the comment gray `base03`; the rest differ by scheme: Dracula's
+    /// purple is `base0D`, Rosé Pine has no green, and Nord is known by its frost blue,
+    /// `base0C`. A theme names its own where the defaults miss what it is.
     struct Roles: Sendable {
         var text = 0x05
         var accent = 0x0B
