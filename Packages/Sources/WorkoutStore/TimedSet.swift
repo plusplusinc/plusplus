@@ -164,6 +164,13 @@ extension LiveWorkout {
         return true
     }
 
+    /// Whether the current set's turn begins a count: a "Start in" is due before it, or it is
+    /// timed. A reps set with none due begins nothing.
+    public var isCountDue: Bool {
+        guard let set = currentSet else { return false }
+        return workout.startIn(before: set) > 0 || isOnTimedSet
+    }
+
     /// The logged workout as `edited` replaces the workout: a count kept for a set whose row
     /// changed measure, reps to a time or back, goes, so it never comes back with its old start
     /// and the set opens on the "Start in" due before it from the edit
@@ -235,7 +242,7 @@ extension LiveWorkout {
         if !restJustEnded, lead == 0, isOnTimedSet {
             lead = Self.startIn
         }
-        guard lead > 0 || isOnTimedSet else { return begun }
+        guard isCountDue else { return begun }
         let held = lead > 0 ? Double(lead) + Self.startInHold : 0
         begun.count = SetCount(set: set, startClock: base + held)
         return clock < 0 ? Self.timeStartingAtCount(begun) : begun
