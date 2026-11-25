@@ -99,7 +99,7 @@ public struct WorkoutKey: Sendable {
         // No rest is drawn in these phases, so no rest's keys either.
         if let set = phase.keySet, let text = stored?.hiding([set]).logText {
             let isTimed = stored?.loggedCount(of: set) != nil
-            return isTimed ? .count(String(localized: "Log early")) : .log(text)
+            return isTimed ? .logEarly : .log(text)
         }
         if shown.isDone {
             return .finish
@@ -120,7 +120,7 @@ public struct WorkoutKey: Sendable {
             return .rest
         }
         return switch drawnCount {
-        case .startIn, .counting: .count(String(localized: "Log early"))
+        case .startIn, .counting: .logEarly
         case nil: .log(text)
         }
     }
@@ -255,6 +255,11 @@ extension WorkoutKey {
         /// The workout paused: "Continue", which resumes it, in every other key's place but
         /// Start's and Finish workout's (`continues`).
         case continueWorkout
+
+        /// A timed set's log key, its words while it counts or waits on its "Start in".
+        static var logEarly: Self {
+            .count(String(localized: "Log early"))
+        }
 
         /// Which key this is: a change of kind swaps the key for another, a change within one,
         /// as "Log left" to "Log right", changes its words.
