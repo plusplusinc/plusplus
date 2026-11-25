@@ -94,8 +94,12 @@ public struct WorkoutKey: Sendable {
         // While the workout moves on from a set, the key is still that set's until the next row
         // shows its own, so it changes with the row: read from the workout, it said the next
         // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
+        // Its kind is that set's too, "Log early" for a timed one: read from the set drawn below
+        // once the rows shift, a reps set's turned to a timed one's "Log early" before the roll.
+        // No rest shows while it holds.
         if let set = phase.keySet, let text = stored?.hiding([set]).logText {
-            return logRole(text)
+            return stored?
+                .loggedCount(of: set) == nil ? .log(text) : .count(String(localized: "Log early"))
         }
         if shown.isDone {
             return .finish

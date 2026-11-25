@@ -154,6 +154,43 @@ struct WorkoutKeyCountTests {
         #expect(landed.waitsToStart)
     }
 
+    /// The reps set's key is Log set, and stays it once the rows shift, though the timed set
+    /// shown below waits on its "Start in": read from that set, it turned to a full "Log early"
+    /// with +15 s for a few frames before the roll took it away.
+    @Test("On from a reps set to a timed one the key stays Log set until it leaves")
+    func moveFromRepsToTimed() throws {
+        var plank = try WorkoutExercise.builtIn("Plank") { $0.sets = 1 }
+        plank.plan.target = .time(seconds: 30)
+        let workout = try Workout(exercises: [
+            WorkoutExercise.builtIn("Push-up") { $0.sets = 1 },
+            plank,
+        ])
+        let begun = LiveWorkout(
+            workout: workout,
+            loggedWorkout: LoggedWorkout(
+                workoutID: workout.id,
+                workoutName: "Test",
+                startedAt: Self.start,
+            ),
+        )
+        let set = try #require(begun.currentSet)
+        let row = try #require(begun.currentExercise)
+        let live = LiveWorkout(
+            workout: workout,
+            loggedWorkout: begun.logging(set, of: row, at: Self.start.addingTimeInterval(20)),
+        )
+        #expect(live.isOnTimedSet)
+        var move = WorkoutPhase.Move(set: set, isBack: false, startsRound: false, beat: .shown)
+        for beat in [WorkoutPhase.Move.Beat.shown, .landed, .shifting] {
+            move.beat = beat
+            let key = Self.key(live, phase: .movingOn(move))
+            #expect(key.role == .log("Log set"), "At \(beat)")
+            #expect(!key.waitsToStart, "At \(beat)")
+        }
+        move.beat = .rolled
+        #expect(Self.key(live, phase: .movingOn(move)).waitsToStart, "Rolled, no key")
+    }
+
     @Test("Moving out of a rest onto the same exercise the key is the count's, the rest's end's")
     func fromRest() throws {
         var live = try Self.live()
