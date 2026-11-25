@@ -53,7 +53,10 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
             .task(id: stage.isOut) { await swap() }
             // In the update that changes the stage, so the floating button, laid out over this
             // face, moves under that update's animation: with the rise, never ahead of it.
-            .preference(key: FloatingFace<Face>.self, value: stage.floatingFace(for: face))
+            .preference(
+                key: FloatingFace<Face>.self,
+                value: FloatingOver(face: stage.floatingFace(for: face), isOut: stage.isOut),
+            )
     }
 
     /// Follows the face changing to `new`: another key starts the one showing leaving with its
@@ -121,13 +124,20 @@ private struct KeyBarPlace: ViewModifier {
 /// The face of the key the bar's floating button sits over, from the staged key, while the bar
 /// presents one.
 struct FloatingFace<Face: Equatable>: PreferenceKey {
-    static var defaultValue: Face? {
+    static var defaultValue: FloatingOver<Face>? {
         nil
     }
 
-    static func reduce(value: inout Face?, nextValue: () -> Face?) {
+    static func reduce(value: inout FloatingOver<Face>?, nextValue: () -> FloatingOver<Face>?) {
         value = value ?? nextValue()
     }
+}
+
+/// The key the floating button sits over, and whether it is out in a swap, which the button
+/// goes down and comes back up with.
+struct FloatingOver<Face: Equatable>: Equatable {
+    let face: Face
+    let isOut: Bool
 }
 
 /// The bar's floating button going low into the key's row as the key leaves: it takes no tap from

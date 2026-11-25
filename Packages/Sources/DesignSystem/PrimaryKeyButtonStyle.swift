@@ -268,18 +268,18 @@ private struct PrimaryKeyBar<
         )
     }
 
-    /// `floating` over an unseen copy of the key it sits over, `shown` (the staged key's
-    /// `KeyStage.floatingFace(for:)`) or, with no key presented, the key as things stand, so a
-    /// key coming in leaves it where it is. The copy's ledge sits where the key's does,
-    /// `ledgeLift` above the screen's bottom.
-    private func floatingPlace(over shown: Face?) -> some View {
+    /// `floating` over an unseen copy of `shown` (`KeyStage.floatingFace(for:)`), else the live
+    /// key, its ledge `ledgeLift` up, going down and up with a swap's keys (`FloatingPlace.isOut`).
+    private func floatingPlace(over shown: FloatingOver<Face>?) -> some View {
         FloatingPlace(
-            key: key(shown ?? face, true).buttonStyle(.primaryKey),
+            key: key(shown?.face ?? face, true).buttonStyle(.primaryKey),
             floating: floating,
             gap: PrimaryKeyButtonStyle.floatingGap,
             sides: sideInset,
             bottom: ledgeLift - bottomInset,
             isLow: floatsLow,
+            isOut: shown?.isOut ?? false,
+            outBelow: ledgeLift + PrimaryKeyButtonStyle.ledge,
         )
     }
 

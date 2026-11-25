@@ -86,7 +86,13 @@ struct FloatingPlace<Key: View, Floating: View>: View {
     let sides: CGFloat
     let bottom: CGFloat
     let isLow: Bool
+    /// Whether the key under it is out in a swap: the button goes down with it, by the key's
+    /// height and `outBelow`, under the swap's own animations, and comes back up with the next.
+    /// With Reduce Motion, where the swap only fades, it stays put.
+    var isOut = false
+    var outBelow: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var keyHeight: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .trailing, spacing: gap) {
@@ -98,8 +104,13 @@ struct FloatingPlace<Key: View, Floating: View>: View {
                 .transition(.opacity)
                 // Outside the id, so the crossfade keeps the wait.
                 .modifier(LowSettle(isLow: isLow))
+                .modifier(SwapDip(
+                    progress: isOut && !isLow && !reduceMotion ? 1 : 0,
+                    travel: keyHeight + outBelow,
+                ))
             if !isLow {
                 key.hidden()
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { keyHeight = $0 }
             }
         }
         .padding(.horizontal, sides)
@@ -107,6 +118,22 @@ struct FloatingPlace<Key: View, Floating: View>: View {
         // Trailing, for when there is no copy of the key to span the width.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .ignoresSafeArea(.keyboard)
+    }
+}
+
+/// The floating button moved down by `travel` as far along as `progress`, which the swap's
+/// animations run through, as the key's own `KeySwap` is.
+private struct SwapDip: ViewModifier, Animatable {
+    var progress: CGFloat
+    let travel: CGFloat
+
+    nonisolated var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.offset(y: progress * travel)
     }
 }
 
