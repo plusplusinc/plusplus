@@ -23,10 +23,10 @@ struct LookTests {
         try withDefaults { defaults in
             let first = Look(defaults: defaults)
             first.appearance = .light
-            first.theme = .paper
+            first.theme = .ink
             let relaunched = Look(defaults: defaults)
             #expect(relaunched.appearance == .light)
-            #expect(relaunched.theme == .paper)
+            #expect(relaunched.theme == .ink)
         }
     }
 

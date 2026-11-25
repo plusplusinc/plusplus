@@ -9,7 +9,7 @@ nonisolated extension Theme {
     /// The order on the Theme screen after PlusPlus: curated, the quiet grounds first and the
     /// playful ones last.
     static let ours: [Self] = [
-        .black, .iron, .chalk, .navy, .ocean, .forest, .lavender, .rose, .paper, .plum, .candy,
+        .black, .iron, .chalk, .navy, .ocean, .forest, .lavender, .rose, .ink, .plum, .candy,
     ]
 
     /// PlusPlus dark's own colors on true black, for an OLED screen: active green, done purple,
@@ -183,10 +183,11 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Cream paper, at its best in light: active ink blue, done sepia, arriving teal.
-    public static let paper = Theme(
-        id: "paper",
-        name: "Paper",
+    /// Fountain-pen ink blue for active and sepia for done, on cream in light and warm near-black
+    /// in dark; arriving teal.
+    public static let ink = Theme(
+        id: "ink",
+        name: "Ink",
         looks: .both(
             light: Palette(
                 ground: 0xF5EEDD,
