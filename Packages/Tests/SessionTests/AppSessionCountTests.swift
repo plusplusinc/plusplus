@@ -47,14 +47,26 @@ struct AppSessionCountTests {
         session.showWorkouts()
         await session.open(workout.id, weightUnit: .pounds)
         #expect(session.screen == .pushedWorkout)
-        session.start(on: workout.id, at: Self.at(10))
+        session.start(on: workout.id, at: Self.at(10), lead: 0.5)
         // What the fresh root screen reads as it is made (`WorkoutPhase(resuming:)`).
         let loggedWorkout = try #require(session.loggedWorkout)
         let live = LiveWorkout(workout: session.opened, loggedWorkout: loggedWorkout)
         #expect(WorkoutPhase(resuming: live, at: Self.at(10)) == .timing(.startIn))
-        #expect(loggedWorkout.clock(at: Self.at(10 + Self.lead)) == 0)
+        // "Start in" counts from the lead, as if a screen's Start had landed then: its full
+        // count left there, and the workout's time starting as it ends.
+        let landedThen = LiveWorkout(
+            workout: workout,
+            loggedWorkout: LoggedWorkout(
+                workoutID: workout.id,
+                workoutName: loggedWorkout.workoutName,
+                startedAt: Self.at(10),
+            ),
+        ).landingStart(at: Self.at(10.5))
+        #expect(loggedWorkout.startedAt == landedThen.startedAt)
+        #expect(loggedWorkout.count == landedThen.count)
+        #expect(loggedWorkout.clock(at: Self.at(10.5 + Self.lead)) == 0)
         // The pushed screen's own landing, as its Start ends or as it goes, changes nothing.
-        session.landOnFirstSet(at: Self.at(10.45))
+        session.landOnFirstSet(at: Self.at(10.5))
         session.landOnFirstSet(override: 0, at: Self.at(12))
         #expect(session.loggedWorkout == loggedWorkout)
     }

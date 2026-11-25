@@ -57,7 +57,9 @@ extension WorkoutScreen {
             try await laterTurn()
             try check(pressed)
             try await crossfade {
-                session.start(on: pressed)
+                // From a pushed workout, "Start in" counts from the crossfade's end, where this
+                // screen's own Start lands on the first set.
+                session.start(on: pressed, lead: Self.crossfadeDuration)
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
                 phase.fadeIn()
@@ -134,7 +136,9 @@ extension WorkoutScreen {
             }
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
-            session.start(on: pressed)
+            // From a pushed workout, "Start in" counts from where this screen's own Start lands
+            // on the first set, as the key returns.
+            session.start(on: pressed, lead: Self.keyReturnDelay)
             phase.grow()
             growthLift = 0
             startDrop = max(drop, 1)
