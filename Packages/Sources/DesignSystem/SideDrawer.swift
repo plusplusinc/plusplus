@@ -4,7 +4,9 @@ import SwiftUI
 /// view. A swipe in from the left edge opens it, following the finger; a tap on the sliver, a
 /// swipe left, or VoiceOver's escape closes it. With Reduce Motion the screen moves at once and
 /// the drawer fades in beside it, or out before it moves back.
-/// The screen darkens as the drawer opens. A haptic plays the moment the drawer starts to open,
+/// The screen darkens as the drawer opens; in Void its ground also lifts to the sheets' gray
+/// (`Palette.voidUnderDrawer`), above the black drawer. A haptic plays the moment the drawer starts
+/// to open,
 /// and another, firmer, the moment it starts to shut; a swipe plays one only as it is let go,
 /// and a swipe that springs back to where it began plays none.
 ///
@@ -40,6 +42,8 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     /// an opacity transition faded it in but, on removal, dropped it in one frame.
     @State private var isDrawerFaded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isVoid) private var isVoid
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(
         isOpen: Binding<Bool>,
@@ -118,6 +122,20 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                             .ignoresSafeArea()
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
+                    }
+                    .overlay {
+                        // In Void the dimmed screen was as black as the drawer: its ground
+                        // lifts to the sheets' gray instead, lightening only what is darker
+                        // than that gray, so the dimmed content keeps its look. On the dim's
+                        // own `progress`, so it moves in the drawer's transaction.
+                        if isVoid, colorScheme == .dark {
+                            Color(Palette.voidUnderDrawer)
+                                .opacity(progress)
+                                .blendMode(.lighten)
+                                .ignoresSafeArea()
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
                     }
                     .overlay {
                         if isOpen {
