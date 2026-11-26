@@ -14,7 +14,6 @@ struct SettingsSheet: View {
     @State private var phone: ColorScheme?
 
     var body: some View {
-        @Bindable var look = look
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -37,8 +36,9 @@ struct SettingsSheet: View {
         }
         // A sheet is a presentation of its own: the window's held scheme reached it as it
         // opened but not as it changed, and a choice of Light left the sheet dark over a light
-        // window. Nor does a sheet drop a scheme it was given when given nil, so on Auto it is
-        // held to the phone's own: given nil, Dark then Auto on a light phone stayed dark.
+        // window. Nor does a sheet drop a scheme it was given when given nil, so with Automatic on
+        // it is held to the phone's own: given nil, Dark then Automatic on a light phone stayed
+        // dark.
         // Before the phone is read, nil, as the sheet opens following it.
         .preferredColorScheme(look.colorScheme ?? phone)
         .phoneScheme($phone)
@@ -61,6 +61,7 @@ struct AppearanceChoice: View {
     let phone: ColorScheme?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         let shown = look.shown(phone: phone)
@@ -80,7 +81,7 @@ struct AppearanceChoice: View {
             }
             .padding(.vertical, Spacing.md)
             .sensoryFeedback(.selection, trigger: shown)
-            Divider().overlay(Color.pp(.separator))
+            separator
             SwitchRow(
                 "Automatic",
                 hint: "Follows your phone's light or dark",
@@ -88,7 +89,7 @@ struct AppearanceChoice: View {
             )
             if look.offersVoid {
                 VStack(spacing: 0) {
-                    Divider().overlay(Color.pp(.separator))
+                    separator
                     SwitchRow(
                         "Void",
                         hint: "True black whenever the app is dark",
@@ -102,6 +103,13 @@ struct AppearanceChoice: View {
         .background(shape.fill(.pp(.surface)))
         .clipShape(shape)
         .animation(reduceMotion ? Self.crossfade : .snappy, value: look.offersVoid)
+    }
+
+    /// A Settings group's divider, as the exercise sheet's are (`ValueRow`): two pixels thick.
+    private var separator: some View {
+        Rectangle()
+            .fill(.pp(.separator))
+            .frame(height: 2 / displayScale)
     }
 
     /// Void's row coming and going with Reduce Motion: a fade, as the search field's is.

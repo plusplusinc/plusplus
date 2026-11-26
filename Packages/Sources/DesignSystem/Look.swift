@@ -6,7 +6,7 @@ import SwiftUI
 /// black (`isVoid`). Each is stored as it changes. A stored look that names none reads as
 /// `Appearance.initial`. Values stored by earlier builds read as the same choice: the four
 /// appearances (light, dark, auto, black-belt) before the switches, and the Void switch
-/// under its earlier key (`legacyVoidKeys`).
+/// under its earlier key (`legacyVoidKey`).
 @Observable
 public final class Look {
     public var appearance: Appearance {
@@ -24,20 +24,21 @@ public final class Look {
 
     @ObservationIgnored private let defaults: UserDefaults
 
-    public static let appearanceKey = "appearance"
-    public static let automaticKey = "appearance-automatic"
-    public static let voidKey = "void"
+    static let appearanceKey = "appearance"
+    static let automaticKey = "appearance-automatic"
+    static let voidKey = "void"
     /// Where earlier builds kept the Void switch.
-    static let legacyVoidKeys = ["black-belt"]
-    public static let keys = [appearanceKey, automaticKey, voidKey] + legacyVoidKeys
+    static let legacyVoidKey = "black-belt"
+    /// Every key the look is stored under, for a reset.
+    public static let keys = [appearanceKey, automaticKey, voidKey, legacyVoidKey]
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let stored = defaults.string(forKey: Self.appearanceKey)
         var automatic = defaults.bool(forKey: Self.automaticKey)
-        let legacy = Self.legacyVoidKeys.first { defaults.object(forKey: $0) != nil }
+        let hasLegacy = defaults.object(forKey: Self.legacyVoidKey) != nil
         var void = defaults.object(forKey: Self.voidKey) == nil
-            ? legacy.map { defaults.bool(forKey: $0) } ?? false
+            ? defaults.bool(forKey: Self.legacyVoidKey)
             : defaults.bool(forKey: Self.voidKey)
         switch stored {
         case "auto":
@@ -51,13 +52,11 @@ public final class Look {
         }
         isAutomatic = automatic
         isVoid = void
-        if (stored != nil && stored != appearance.rawValue) || legacy != nil {
+        if (stored != nil && stored != appearance.rawValue) || hasLegacy {
             defaults.set(appearance.rawValue, forKey: Self.appearanceKey)
             defaults.set(automatic, forKey: Self.automaticKey)
             defaults.set(void, forKey: Self.voidKey)
-            for key in Self.legacyVoidKeys {
-                defaults.removeObject(forKey: key)
-            }
+            defaults.removeObject(forKey: Self.legacyVoidKey)
         }
     }
 

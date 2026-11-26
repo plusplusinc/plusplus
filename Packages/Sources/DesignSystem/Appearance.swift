@@ -60,12 +60,7 @@ extension View {
 
 private struct SheetGround: ViewModifier {
     let filled: Bool
-    @Environment(\.isVoid) private var voidOn
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var isVoid: Bool {
-        voidOn && colorScheme == .dark
-    }
+    @Environment(\.drawsVoid) private var isVoid
 
     func body(content: Content) -> some View {
         let lifted = content

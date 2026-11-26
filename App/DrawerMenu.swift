@@ -72,6 +72,9 @@ struct DrawerMenu: View {
         // from the places, at the bottom.
         .safeAreaInset(edge: .bottom, spacing: Spacing.sm) {
             Button("Settings", systemImage: "gearshape") {
+                // Not once a way through the drawer has moved its mark: the drawer is closing
+                // onto another place, and the sheet would open over it.
+                guard session.drawerMark == nil else { return }
                 isSettingsOpen = true
             }
             .buttonStyle(.drawer(isSelected: false))

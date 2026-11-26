@@ -24,7 +24,16 @@ nonisolated struct Palette: Sendable {
     /// sheets' step off black (1.11:1 to the sheets' 1.23:1), quieter than a sheet. A step lower,
     /// 0F0F10 (1.10:1), still showed an edge on the simulator, but an OLED screen crushes the
     /// last steps above black.
-    static let voidUnderDrawer = RGB(0x111113).resolved()
+    static let voidUnderDrawer = RGB(0x111113)
+
+    /// The drawer's dim (`dim`): a gray twice `voidUnderDrawer`, at half, so over the black
+    /// screen it lands on that ground, and every step above black dims in place rather than
+    /// flattening. PlusPlus's dim is black at half.
+    private static let dim = RGB(
+        red: 2 * voidUnderDrawer.red,
+        green: 2 * voidUnderDrawer.green,
+        blue: 2 * voidUnderDrawer.blue,
+    ).resolved(opacity: 0.5)
 
     /// Every neutral is mixed in OKLab from the ground toward the white text, so it carries the
     /// ground's tint, as far from the ground as PlusPlus dark's own gray for that job stands from
@@ -69,7 +78,7 @@ nonisolated struct Palette: Sendable {
             .accent: nudged(RGB(0x46D17C), 4.5, on: marks).resolved(),
             .done: nudged(RGB(0xB08CF0), 3, on: marks).resolved(),
             .railJoin: nudged(RGB(0x5CA8F5), 3, on: marks).resolved(),
-            .dim: black.resolved(opacity: 0.5),
+            .dim: Self.dim,
             .shadow: black.resolved(opacity: 0.4),
         ]
     }
