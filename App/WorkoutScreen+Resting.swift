@@ -26,8 +26,8 @@ import WorkoutStore
 /// Through any rest the key at the bottom swaps, as keys swap, for Skip rest, wide, gray, filling
 /// with the done purple from its leading edge as the rest runs (`restKeyFill`), full at 0:00,
 /// and +15 s beside it (`CountKeys`), the + above it staying put. There is no bar under the
-/// countdown. Skip rest cuts the rest at the tap (`skipRest()`): its keys go, the + sitting low
-/// with none (`plusSitsLow`), and its count holds the time it had left a quarter second
+/// countdown. Skip rest cuts the rest at the tap (`skipRest()`): its keys go, the + riding down
+/// with them to sit low, and its count holds the time it had left a quarter second
 /// (`LiveWorkout.skipHold`), then as it goes, never 0:00 (`WorkoutPhase.skipRest(left:)`), and
 /// the screen moves on as at a rest's end; +15 s steps the fill back and turns the countdown,
 /// the dot staying put. A pause holds the countdown, white, and swaps the keys for Continue

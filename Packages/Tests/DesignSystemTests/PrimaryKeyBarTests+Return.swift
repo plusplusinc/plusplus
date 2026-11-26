@@ -38,7 +38,7 @@ extension PrimaryKeyBarTests {
 
     /// Put back as the key going, the new kind came back up as the old one, then swapped: down
     /// and up a second time (2026-11-25).
-    @Test("A key presented again as another kind mid-leave rises once, with no swap")
+    @Test("A key presented again as another kind mid-leave turns back up once, as the new kind")
     func returnMidLeaveRisesOnce() async throws {
         try await AccessibilityTree.whileOn {
             let inputs = ReturnInputs()
@@ -59,38 +59,39 @@ extension PrimaryKeyBarTests {
                 window.layoutIfNeeded()
                 try await Task.sleep(for: .milliseconds(4))
             }
-            // Still on its way, which automation can't read: a removed view leaves the tree.
+            // Still on its way, which automation can't read: a key taken away leaves the tree.
             // Past the drop's end, the test would test nothing.
             #expect(
                 ContinuousClock.now < back + .seconds(0.1),
                 "the drop was over before the return",
             )
             withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = true }
-            // Where each key is drawn, sample by sample: the one going, back in the tree only if
-            // revived, never comes back up, and the one coming only rises, neither ever out in
-            // a swap.
-            var going: [CGFloat] = []
-            var coming: [CGFloat] = []
+            // Where the one key is drawn, sample by sample: from the return on, the new kind,
+            // only rising, never out in a swap.
+            var tops: [CGFloat] = []
             let limit = ContinuousClock.now + .seconds(10 * PrimaryKeyButtonStyle.swapHalf)
             while ContinuousClock.now < limit {
                 window.layoutIfNeeded()
                 try await Task.sleep(for: .milliseconds(4))
-                for key in leaves() {
+                // Labeled only: the host's `Color.clear` is an unlabeled leaf of no size.
+                let keys = leaves().filter { $0.accessibilityLabel != nil }
+                #expect(keys.count <= 1, "two keys at once: \(keys.map(\.accessibilityLabel))")
+                for key in keys {
                     #expect(key.accessibilityValue != "out", "the key swapped on its way up")
-                    let top = key.accessibilityFrame.minY
-                    if key.accessibilityLabel == "Skip rest" {
-                        going.append(top)
-                    } else if key.accessibilityLabel == "Log set" {
-                        coming.append(top)
-                    }
+                    #expect(key.accessibilityLabel == "Log set", "it rose as the key going")
+                    tops.append(key.accessibilityFrame.minY)
                 }
-                if let top = coming.last, abs(top - rest.minY) < 0.5 {
+                if let top = tops.last, abs(top - rest.minY) < 0.5 {
                     break
                 }
             }
-            #expect(abs((coming.last ?? .infinity) - rest.minY) < 0.5, "it never rose: \(coming)")
-            #expect(zip(going, going.dropFirst()).allSatisfy { $1 >= $0 }, "came back: \(going)")
-            #expect(zip(coming, coming.dropFirst()).allSatisfy { $1 <= $0 }, "went down: \(coming)")
+            #expect(abs((tops.last ?? .infinity) - rest.minY) < 0.5, "it never rose: \(tops)")
+            // One turn: on down as far as the leave carries it, then only up.
+            let lowest = tops.indices.max { tops[$0] < tops[$1] } ?? 0
+            let down = tops[...lowest]
+            let up = tops[lowest...]
+            #expect(zip(down, down.dropFirst()).allSatisfy { $1 >= $0 }, "came back: \(tops)")
+            #expect(zip(up, up.dropFirst()).allSatisfy { $1 <= $0 }, "went down again: \(tops)")
         }
     }
 }

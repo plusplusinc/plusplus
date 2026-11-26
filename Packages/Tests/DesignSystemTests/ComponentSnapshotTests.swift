@@ -55,7 +55,7 @@ struct ComponentSnapshotTests {
             alignment: .topLeading,
         )
         .emptyNote("No exercises", isEmpty: rows.isEmpty)
-        .primaryKeyBar(isPresented: !rows.isEmpty, floatsLow: rows.isEmpty) {
+        .primaryKeyBar(isPresented: !rows.isEmpty) {
             Button("Start", systemImage: "play.fill") { }
         } floating: {
             Button("Add exercise", systemImage: "plus") { }

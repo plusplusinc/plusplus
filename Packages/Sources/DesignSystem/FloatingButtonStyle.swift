@@ -70,53 +70,35 @@ public struct FloatingButtonRoom: View {
     }
 }
 
-/// `floating` in the floating style, its right edge on `key`'s and `gap` above it, over `key`
-/// laid out unseen, `sides` in from the screen's sides and its bottom `bottom` up from the safe
-/// area's. Laid out over the copy rather than placed from its measured height, so when the key
-/// it sits over changes in an animated update, the button moves under that update's animation:
-/// placed from a measurement, which lands after the update, it jumped. While `isLow`, with no
-/// copy, its bottom sits where the key's ledge's bottom would, and it rises to its place above
-/// the key, or comes back down, on the update that brings the key in or takes it away; with
-/// Reduce Motion it fades out of one place and into the other. Gone low, it takes no tap until
-/// it has rested there a while (`LowSettle`).
-struct FloatingPlace<Key: View, Floating: View>: View {
-    let key: Key
+/// `floating` in the floating style at its low place, `sides` in from the screen's sides and its
+/// bottom `bottom` up from the safe area's, where a key's ledge's bottom is, drawn `lift` above
+/// it, under no animation of its own: the lift is worked out from the key as drawn that frame
+/// (`KeyReach.floatingLift`), and animated, the button would trail the key. While `isLow`, as
+/// with no key in sight, with Reduce Motion it fades out of one place and into the other. Gone
+/// low, it takes no tap until it has rested there a while (`LowSettle`).
+struct FloatingPlace<Floating: View>: View {
     let floating: Floating
-    let gap: CGFloat
     let sides: CGFloat
     let bottom: CGFloat
+    var lift: CGFloat = 0
     let isLow: Bool
-    /// How far along a swap the key under it is drawn, 0 to 1 (`FloatingOver.dip`): the button
-    /// goes down with it, as far as the key goes, its height and `swapBelow` (`KeySwap`), and
-    /// comes back up with the next, as one piece with them.
-    var dip: CGFloat = 0
-    var swapBelow: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var keyHeight: CGFloat = 0
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: gap) {
-            floating
-                .buttonStyle(.floating)
-                .hiddenBehindDrawer()
-                // Another button in each place, so it crossfades rather than travels.
-                .id(reduceMotion && isLow)
-                .transition(.opacity)
-                // Outside the id, so the crossfade keeps the wait.
-                .modifier(LowSettle(isLow: isLow))
-                // Drawn where the key is this frame, under no animation of its own: animated, it
-                // would trail the key.
-                .animation(nil) { $0.offset(y: isLow ? 0 : dip * (keyHeight + swapBelow)) }
-            if !isLow {
-                key.hidden()
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { keyHeight = $0 }
-            }
-        }
-        .padding(.horizontal, sides)
-        .padding(.bottom, bottom)
-        // Trailing, for when there is no copy of the key to span the width.
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-        .ignoresSafeArea(.keyboard)
+        floating
+            .buttonStyle(.floating)
+            .hiddenBehindDrawer()
+            .animation(nil) { $0.offset(y: -lift) }
+            // Another button in each place, so it crossfades rather than travels; inside the
+            // id, the one going keeps the place it had.
+            .id(reduceMotion && isLow)
+            .transition(.opacity)
+            // Outside the id, so the crossfade keeps the wait.
+            .modifier(LowSettle(isLow: isLow))
+            .padding(.horizontal, sides)
+            .padding(.bottom, bottom)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .ignoresSafeArea(.keyboard)
     }
 }
 
@@ -157,9 +139,7 @@ private struct FloatingButtonPlacement<Floating: View>: ViewModifier {
         content
             .overlay {
                 FloatingPlace(
-                    key: EmptyView(),
                     floating: button,
-                    gap: 0,
                     sides: KeyInsets.side(
                         bottomInset: bottomInset,
                         dynamicTypeSize: dynamicTypeSize,
