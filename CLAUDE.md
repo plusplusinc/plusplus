@@ -34,6 +34,7 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 App ──> DesignSystem   (SwiftUI only, no domain code)
  ├────> Session ──> WorkoutStore   (the open workout and its logged sets, observable; no UI)
  │         └────> Health ──> WorkoutStore   (Apple Health, via HealthKit)
+ ├────> Health
  └────> WorkoutStore   (domain types, SwiftData, and workout naming; no UI)
 ```
 
