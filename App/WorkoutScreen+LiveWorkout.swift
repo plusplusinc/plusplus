@@ -57,7 +57,7 @@ extension WorkoutScreen {
             try await laterTurn()
             try check(pressed)
             try await crossfade {
-                session.start(on: pressed, lead: Self.pushedStartLead)
+                session.start(on: pressed)
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
                 phase.fadeIn()
@@ -131,7 +131,7 @@ extension WorkoutScreen {
             }
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
-            session.start(on: pressed, lead: Self.pushedStartLead)
+            session.start(on: pressed)
             phase.grow()
             growthLift = 0
             startDrop = max(drop, 1)
@@ -281,8 +281,8 @@ extension WorkoutScreen {
     /// list was landed on it and what is above it changes height, as after a text size change
     /// or a rename to a longer name, the list lands on it again: the title's text view settles
     /// its height a pass after the rest, so one landing as the change came in fell short. A
-    /// landing counts once asked for (`ScrollBeat.rests(on:asked:)`): after Start on a pushed
-    /// workout, the fresh root screen's row rises into place, and one landing was reported late.
+    /// landing counts once asked for (`ScrollBeat.rests(on:asked:)`): a scroll is reported a
+    /// frame or more after it is asked for, and the row's place can change in between.
     func placeCurrent(_ place: CurrentPlace) {
         let old = currentPlace
         currentPlace = place
@@ -321,11 +321,6 @@ extension WorkoutScreen {
     static let scrollGiveUp = 1.25
     /// The first exercise growing at Start, the rows below stepping aside.
     static let growBeat = 0.55
-    /// From Start on a workout pushed on the Workouts screen, until its first set's "Start in"
-    /// counts (`AppSession.start(on:at:lead:)`): about as long as the fresh screen at the root
-    /// takes to draw and come in, with or without Reduce Motion, so its 0:05 holds about a
-    /// second at full strength, as the root screen's own Start's does (measured 2026-11-25).
-    static let pushedStartLead = 0.55
     /// From the grow's start until the workout's key starts up, as the rows visibly land: the
     /// snappy curve's last 0.1 s moves them under a point.
     static let keyReturnDelay = 0.45

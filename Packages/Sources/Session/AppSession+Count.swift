@@ -11,8 +11,7 @@ extension AppSession {
     }
 
     /// Start has landed on the first set: its "Start in" begins now, and the workout's time
-    /// starts as it ends (`LiveWorkout.landingStart(at:restOverride:)`). Nothing, for a workout
-    /// started from the Workouts screen, whose "Start in" began at Start (`start(on:at:)`).
+    /// starts as it ends (`LiveWorkout.landingStart(at:restOverride:)`).
     public func landOnFirstSet(override: Int? = nil, at now: Date = .now) {
         changeLive { $0.landingStart(at: now, restOverride: override) }
     }
