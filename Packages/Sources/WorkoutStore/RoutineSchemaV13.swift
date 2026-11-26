@@ -1,9 +1,9 @@
 import Foundation
 import SwiftData
 
-/// As #298 shipped it: V12's, with each logged set keeping where the workout's clock stood at a
-/// Skip
-/// rest tap on the rest after it, so a skip is stored as what happened, not as a cut length.
+/// As #298 shipped it: V12's, with each logged set keeping where the workout's clock stood at
+/// a Skip rest tap on the rest after it, so a skip is stored as what happened, not as a cut
+/// length.
 enum RoutineSchemaV13: VersionedSchema {
     static let versionIdentifier = Schema.Version(13, 0, 0)
     static var models: [any PersistentModel.Type] {
