@@ -46,6 +46,8 @@ public final class HealthSaving {
             }
         case .failure(.timesNotKept):
             Logger.session.notice("Not saved to Apple Health: its pauses' times aren't kept")
+        case .failure(.noLength):
+            Logger.session.notice("Not saved to Apple Health: it ends at or before its start")
         case .failure(.notFinished):
             Logger.session.notice("Not saved to Apple Health: it hasn't ended")
         }

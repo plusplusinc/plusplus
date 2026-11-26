@@ -20,21 +20,34 @@ extension StoredWorkout {
         update(\.countSide, to: loggedWorkout.count?.set.side?.rawValue)
         update(\.countStartClock, to: loggedWorkout.count?.startClock)
         update(\.countAdded, to: loggedWorkout.count?.added ?? 0)
-        let pauseTimes = loggedWorkout.pauses.flatMap { [$0.start, $0.end] }
-        update(\.pauseTimes, to: pauseTimes.isEmpty ? nil : pauseTimes)
-        update(\.healthActivity, to: loggedWorkout.healthActivity?.rawValue)
-        // Not `healthWorkoutID`: only the store's mark sets it, so a save from a copy read
-        // before it never clears it.
+        // A stored pause list or type it couldn't read, as from a newer version, read as none
+        // and is left as it is, as `healthWorkoutID` is, unless the workout now has its own.
+        if !loggedWorkout.pauses.isEmpty || pauses != nil {
+            let pauseTimes = loggedWorkout.pauses.flatMap { [$0.start, $0.end] }
+            update(\.pauseTimes, to: pauseTimes.isEmpty ? nil : pauseTimes)
+        }
+        if loggedWorkout.healthActivity != nil || !holdsUnreadActivity {
+            update(\.healthActivity, to: loggedWorkout.healthActivity?.rawValue)
+        }
+        // Not `healthWorkoutID`: nothing in the app writes it yet, and a save never clears it.
     }
 
-    /// Each kept pause, when the stored times pair up in order; none otherwise.
-    private var pauses: [DateInterval] {
-        guard let pauseTimes, pauseTimes.count.isMultiple(of: 2),
-              zip(pauseTimes, pauseTimes.dropFirst()).allSatisfy({ $0 <= $1 })
-        else { return [] }
-        return stride(from: 0, to: pauseTimes.count, by: 2).map {
-            DateInterval(start: pauseTimes[$0], end: pauseTimes[$0 + 1])
+    /// Whether the stored type is one this version doesn't know.
+    private var holdsUnreadActivity: Bool {
+        healthActivity.map { HealthActivity(rawValue: $0) == nil } ?? false
+    }
+
+    /// Each kept pause, none when nothing is stored; nil when the stored times don't pair
+    /// up, each pause's start at or before its end. Their order across pauses is
+    /// `LoggedWorkout.healthWithheld`'s to judge.
+    private var pauses: [DateInterval]? {
+        guard let pauseTimes else { return [] }
+        guard pauseTimes.count.isMultiple(of: 2) else { return nil }
+        let pairs = stride(from: 0, to: pauseTimes.count, by: 2).map {
+            (pauseTimes[$0], pauseTimes[$0 + 1])
         }
+        guard pairs.allSatisfy({ $0 <= $1 }) else { return nil }
+        return pairs.map { DateInterval(start: $0, end: $1) }
     }
 
     /// The count under way, when its row, round, and start clock are all stored.
@@ -57,7 +70,7 @@ extension StoredWorkout {
             startedAt: startedAt,
             pausedAt: pausedAt,
             pausedSeconds: pausedSeconds,
-            pauses: pauses,
+            pauses: pauses ?? [],
             endedAt: endedAt,
             sets: (sets ?? []).sorted { $0.position < $1.position }.compactMap(\.loggedSet),
             count: count,

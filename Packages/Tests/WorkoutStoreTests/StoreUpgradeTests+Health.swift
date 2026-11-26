@@ -67,16 +67,6 @@ private struct V13Store {
         }
         try context.save()
     }
-
-    /// The store opened under today's schema, as a launch after the update opens it.
-    func opened() throws -> Store {
-        let container = try ModelContainer(
-            for: Store.schema,
-            migrationPlan: StoreMigrationPlan.self,
-            configurations: ModelConfiguration(schema: Store.schema, url: url),
-        )
-        return Store(modelContainer: container)
-    }
 }
 
 extension StoreUpgradeTests {
@@ -86,7 +76,7 @@ extension StoreUpgradeTests {
         defer { try? FileManager.default.removeItem(at: old.folder) }
         try old.write()
 
-        let store = try old.opened()
+        let store = try Self.current(at: old.url)
         let finished = try await store.finishedLoggedWorkouts()
         #expect(finished.map(\.id) == [V13Store.paused.id, V13Store.neverPaused.id])
         #expect(finished.map(\.startedAt) == [V13Store.at(100), V13Store.at(10)])
@@ -108,7 +98,7 @@ extension StoreUpgradeTests {
         defer { try? FileManager.default.removeItem(at: old.folder) }
         try old.write()
 
-        let store = try old.opened()
+        let store = try Self.current(at: old.url)
         var running = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
         running = running.resuming(at: V13Store.at(1150))
             .pausing(at: V13Store.at(1200))
@@ -118,7 +108,7 @@ extension StoreUpgradeTests {
         try await store.save(running)
 
         // A second container on the file: what a relaunch reads.
-        let reread = try await old.opened().finishedLoggedWorkouts()
+        let reread = try await Self.current(at: old.url).finishedLoggedWorkouts()
         #expect(reread.count == 3)
         let kept = try #require(reread.first { $0.id == V13Store.inProgress.id })
         // The pause under way at the update is kept from its start; the time paused before it
@@ -131,5 +121,29 @@ extension StoreUpgradeTests {
         #expect(kept.endedAt == V13Store.at(1300))
         #expect(kept.healthActivity == .functionalStrength)
         #expect(kept.healthWorkoutID == nil)
+    }
+
+    @Test("Pause times read back from a file exactly, so they add up to the time paused")
+    func pauseTimesExact() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appending(path: "PlusPlus.store")
+        let workout = Workout(name: "Upper")
+        try await Self.current(at: url).save(workout, at: V13Store.at(1))
+        // Times with no short binary fraction, as a tap's are.
+        let finished = LoggedWorkout(
+            workoutID: workout.id,
+            workoutName: workout.name,
+            startedAt: V13Store.at(784_000_000.123_456_7),
+        )
+        .pausing(at: V13Store.at(784_000_010.1)).resuming(at: V13Store.at(784_000_013.3))
+        .pausing(at: V13Store.at(784_000_020.7)).finishing(at: V13Store.at(784_000_029.9))
+        try await Self.current(at: url).save(finished)
+
+        let reread = try await Self.current(at: url).finishedLoggedWorkouts()
+        #expect(reread == [finished])
+        #expect(reread.first?.healthWithheld == nil)
     }
 }

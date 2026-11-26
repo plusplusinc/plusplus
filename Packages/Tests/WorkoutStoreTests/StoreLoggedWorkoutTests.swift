@@ -56,11 +56,6 @@ struct StoreLoggedWorkoutTests {
         try await relaunch().save(finished)
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
         #expect(stored.map(\.loggedWorkout) == [finished])
-        #expect(stored.first?.loggedWorkout.pauses == [
-            DateInterval(start: Self.at(20), end: Self.at(50)),
-            DateInterval(start: Self.at(60), end: Self.at(70)),
-        ])
-        #expect(stored.first?.loggedWorkout.healthActivity == .flexibility)
     }
 
     @Test("Finished logged workouts read back newest finish first, one in progress left out")

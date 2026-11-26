@@ -82,13 +82,16 @@ struct HealthActivityTests {
 
     @Test("A stored type reads back by its raw string, an unknown one as none")
     func rawValues() {
-        for activity in [
-            HealthActivity.traditionalStrength,
-            .functionalStrength,
-            .highIntensityIntervals,
-            .flexibility,
-        ] {
-            #expect(HealthActivity(rawValue: activity.rawValue) == activity)
+        // The strings stored: a renamed case would read every workout stored before as none.
+        let stored: [String: HealthActivity] = [
+            "traditionalStrength": .traditionalStrength,
+            "functionalStrength": .functionalStrength,
+            "highIntensityIntervals": .highIntensityIntervals,
+            "flexibility": .flexibility,
+        ]
+        for (raw, activity) in stored {
+            #expect(activity.rawValue == raw)
+            #expect(HealthActivity(rawValue: raw) == activity)
         }
         #expect(HealthActivity(rawValue: "swimming") == nil)
     }

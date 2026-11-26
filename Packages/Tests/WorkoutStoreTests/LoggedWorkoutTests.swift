@@ -69,17 +69,39 @@ struct LoggedWorkoutTests {
         #expect(setBack.pauses == [DateInterval(start: at(50), duration: 0)])
     }
 
-    @Test("A set logged before the time starts drops the pauses before it, its clock still 0")
-    func startingClockDropsPauses() throws {
-        let row = try WorkoutExercise.builtIn("Push-up")
-        // Started at 0 with its time due at 10, paused through "Start in", then logged at 8.
+    /// Started at 0 with its time due at 10, as through the first set's "Start in".
+    private var startingIn: LoggedWorkout {
         var early = loggedWorkout
         early.startedAt = at(10)
-        let paused = early.pausing(at: at(2)).resuming(at: at(5))
+        return early
+    }
+
+    @Test("A pause before the time starts moves the start on, the clock unchanged, no pause kept")
+    func pauseBeforeStart() throws {
+        let paused = startingIn.pausing(at: at(2))
+        let resumed = paused.resuming(at: at(5))
+        #expect(resumed.startedAt == at(13))
+        #expect(resumed.pauses.isEmpty)
+        #expect(resumed.pausedSeconds == 0)
+        #expect(resumed.clock(at: at(5)) == paused.clock(at: at(5)))
+        #expect(resumed.clock(at: at(9)) == startingIn.clock(at: at(6)))
+        // "Start in" runs out and a set is logged as usual: Health gets the start, no pause.
+        let row = try WorkoutExercise.builtIn("Push-up")
+        let finished = resumed
+            .logging(PlannedSet(row: row.id, round: 1), of: row, at: at(20))
+            .finishing(at: at(30))
+        let health = try HealthWorkout(finished, in: .builtIn)
+        #expect(health.start == at(13))
+        #expect(health.pauses.isEmpty)
+    }
+
+    @Test("A set logged ahead of the clock starts the time at the log, after a pause too")
+    func startingClockAfterPause() throws {
+        let row = try WorkoutExercise.builtIn("Push-up")
+        let paused = startingIn.pausing(at: at(2)).resuming(at: at(5))
         let logged = paused.logging(PlannedSet(row: row.id, round: 1), of: row, at: at(8))
         #expect(logged.startedAt == at(8))
         #expect(logged.pauses.isEmpty)
-        #expect(logged.pausedSeconds == 0)
         #expect(logged.clock(at: at(8)) == 0)
     }
 

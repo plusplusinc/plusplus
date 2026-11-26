@@ -36,12 +36,14 @@ enum RoutineSchemaV14: VersionedSchema {
         var countStartClock: Double?
         var countAdded = 0
         /// `LoggedWorkout.pauses`, each resumed pause's start then end, in order; nil for a
-        /// workout from before V14. An odd count, or one out of order, reads as none.
+        /// workout from before V14. An odd count, or a pause ending before it starts, reads as
+        /// none, and a save leaves it as it is.
         var pauseTimes: [Date]?
         /// `HealthActivity`'s raw value, worked out at Finish; nil before V14 or while in
-        /// progress, and an unknown one reads as nil.
+        /// progress. An unknown one reads as nil, and a save leaves it as it is.
         var healthActivity: String?
-        /// The id of the workout Apple Health saved for it; nil until one is.
+        /// The id of the workout Apple Health saved for it. Read, never written by a save;
+        /// nothing writes it yet.
         var healthWorkoutID: UUID?
 
         init(id: UUID) {

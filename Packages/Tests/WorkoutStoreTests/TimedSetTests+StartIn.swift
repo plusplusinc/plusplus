@@ -76,8 +76,12 @@ extension TimedSetTests {
 
         // Under way, a landing only begins a count: the clock is never set back.
         #expect(logged.landingStart(at: Self.at(30)).startedAt == Self.at(2.5))
-        var resumed = made
-        resumed.pausedSeconds = 3
+        let resumed = LoggedWorkout(
+            workoutID: workout.id,
+            workoutName: "Test",
+            startedAt: Self.at(0),
+            pausedSeconds: 3,
+        )
         var paused = made
         paused.pausedAt = Self.at(0.2)
         for kept in [resumed, paused] {

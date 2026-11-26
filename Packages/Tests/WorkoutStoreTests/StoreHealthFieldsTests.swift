@@ -37,18 +37,27 @@ struct StoreHealthFieldsTests {
         return (finished, stored)
     }
 
-    @Test("Stored pause times that don't pair up in order, or a type unknown, read as none")
-    func unreadablePausesAndType() async throws {
+    @Test(
+        "Pause times that don't pair up, or a type unknown, read as none and a save keeps them",
+        arguments: [[20.0, 30, 40], [30, 20]],
+    )
+    func unreadablePausesAndType(times: [Double]) async throws {
         let context = ModelContext(container)
         let (_, stored) = try await savedFinished(in: context)
         stored.healthActivity = "swimming"
-        for times in [[20.0, 30, 40], [30, 20], [20, 30, 25, 40]] {
-            stored.pauseTimes = times.map(Self.at)
-            try context.save()
-            let read = try #require(try await relaunch().finishedLoggedWorkouts().first)
-            #expect(read.pauses.isEmpty, "\(times)")
-            #expect(read.healthActivity == nil)
-        }
+        stored.pauseTimes = times.map(Self.at)
+        try context.save()
+        var read = try #require(try await relaunch().finishedLoggedWorkouts().first)
+        #expect(read.pauses.isEmpty)
+        #expect(read.healthActivity == nil)
+        // A save of what was read, as a rename makes, leaves both as a newer version wrote them.
+        read.workoutName = "Upper body"
+        try await relaunch().save(read)
+        let fresh = ModelContext(container)
+        let kept = try #require(try fresh.fetch(FetchDescriptor<StoredWorkout>()).first)
+        #expect(kept.routineName == "Upper body")
+        #expect(kept.pauseTimes == times.map(Self.at))
+        #expect(kept.healthActivity == "swimming")
     }
 
     @Test("A save from a copy read before its Health id was kept leaves the id")

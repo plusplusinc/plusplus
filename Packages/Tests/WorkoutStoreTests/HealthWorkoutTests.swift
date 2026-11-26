@@ -81,15 +81,18 @@ struct HealthWorkoutTests {
         }
     }
 
-    @Test("A workout ending at or before its start, as with a clock set back, goes nowhere")
-    func endNotAfterStart() {
+    @Test(
+        "A workout ending at or before its start, as with a clock set back, goes nowhere",
+        arguments: [90.0, 100],
+    )
+    func endNotAfterStart(end: Double) {
         let finished = LoggedWorkout(
             workoutID: UUID(),
             workoutName: "Upper",
             startedAt: Self.at(100),
-            endedAt: Self.at(90),
+            endedAt: Self.at(end),
         )
-        #expect(throws: HealthWorkout.Withheld.timesNotKept) {
+        #expect(throws: HealthWorkout.Withheld.noLength) {
             try HealthWorkout(finished, in: .builtIn)
         }
     }

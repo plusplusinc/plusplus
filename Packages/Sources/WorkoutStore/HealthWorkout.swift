@@ -64,26 +64,27 @@ public struct HealthWorkout: Equatable, Sendable {
         self.pauses = pauses
     }
 
-    /// Why a finished workout goes nowhere.
+    /// Why a finished workout goes nowhere (`LoggedWorkout.healthWithheld`).
     public enum Withheld: Error, Equatable, Sendable {
         /// It hasn't ended.
         case notFinished
-        /// Health's length would differ from the app's: its end isn't after its start, or its
-        /// kept pauses don't account for its time paused, as for one paused before the store
-        /// kept a pause's times (V14). Health takes a pause only at its times, so it would go
-        /// either with its pauses counted in its length or with a pause made up.
+        /// Its end isn't after its start, as with a device clock set back.
+        case noLength
+        /// Its kept pauses don't account for its time paused, as for one paused before the
+        /// store kept a pause's times (V14). Health takes a pause only at its times, so it
+        /// would go either with its pauses counted in its length or with a pause made up.
         case timesNotKept
     }
 
-    /// The workout for `finished`, from what the store keeps of it alone. Its type is the one
-    /// worked out at Finish, else, for a workout finished before that was kept, from what it
-    /// logged as `list` has it now (`HealthActivity(logged:in:)`). Withheld unless its pauses
-    /// are in order, inside its start and end, and add up to its time paused, so its length in
-    /// Health equals its time in the app.
+    /// The workout for `finished`, from what the store keeps of it alone, when Health can have
+    /// it (`LoggedWorkout.healthWithheld`). Its type is the one worked out at Finish, else, for
+    /// a workout finished before that was kept, from what it logged as `list` has it now
+    /// (`HealthActivity(logged:in:)`).
     public init(_ finished: LoggedWorkout, in list: ExerciseList) throws(Withheld) {
+        if let withheld = finished.healthWithheld {
+            throw withheld
+        }
         guard let end = finished.endedAt else { throw .notFinished }
-        guard end > finished.startedAt, Self.pauses(finished.pauses, account: finished, end: end)
-        else { throw .timesNotKept }
         self.init(
             id: finished.id,
             activity: finished.healthActivity ?? HealthActivity(logged: finished.sets, in: list),
@@ -91,21 +92,5 @@ public struct HealthWorkout: Equatable, Sendable {
             end: end,
             pauses: finished.pauses,
         )
-    }
-
-    /// Whether `pauses` are in order, each inside `finished`'s start and `end`, and add up to
-    /// its time paused, within a millisecond for the stored dates' rounding.
-    private static func pauses(
-        _ pauses: [DateInterval],
-        account finished: LoggedWorkout,
-        end: Date,
-    ) -> Bool {
-        var earliest = finished.startedAt
-        for pause in pauses {
-            guard pause.start >= earliest, pause.end <= end else { return false }
-            earliest = pause.end
-        }
-        let total = pauses.reduce(0) { $0 + $1.duration }
-        return abs(total - finished.pausedSeconds) < 0.001
     }
 }
