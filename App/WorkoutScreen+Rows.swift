@@ -123,19 +123,13 @@ extension WorkoutScreen {
     /// (`reportingRailPitch(isOn:of:to:)`): at accessibility sizes the bars take a line of their
     /// own.
     func restingContent(_ item: WorkoutExercise, in shown: LiveWorkout?) -> some View {
-        let progress = shown?.bars(of: item.id).map { (done: $0.done + 1, total: $0.total) }
+        let progress = shown?.bars(of: item.id)?.afterSet
         let isDone = progress.map { $0.done >= $0.total } ?? false
         return LabelWithRest(
             label: RowLabel(
                 title: item.exercise.name,
                 detail: item.detailParts(locale: locale),
-                bars: isDone ? nil : progress.map {
-                    SetProgress(
-                        done: $0.done,
-                        total: $0.total,
-                        spoken: spokenProgress(done: $0.done, total: $0.total, locale: locale),
-                    )
-                },
+                bars: isDone ? nil : progress.map(setProgress),
                 isDone: isDone,
             ),
             rest: .closed,

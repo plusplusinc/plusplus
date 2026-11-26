@@ -6,14 +6,15 @@ description: Lead the next card on the board, a feature slice or a standalone ta
 The main session runs this as the lead described in `CLAUDE.md` ("Building features"). The
 maintainer clears the context between slices, so everything needed to continue lives on the
 project board. The steps under Start and Finish are a procedure; everything between is how to
-judge, with the reason for each, since the cases it meets are never quite the ones written down.
+judge, with the reason for each.
 
 ## Start
 
 1. Find the card: the In Progress card, otherwise the topmost Definitely card (`scripts/board.sh
    list` prints the queue in order, then `scripts/board.sh show <id>`). A card with a Feature is
    a slice of that feature, one without is a standalone task, and a Maybe card is never
-   picked. Its State section names the worktree, branch, PR, phase, next step, and the leading
+   picked, nor one with a `Nightly:` line unless the maintainer or this session's brief names
+   it (5). Its State section names the worktree, branch, PR, phase, next step, and the leading
    session's id. An In Progress card led by another session that is still active
    (`get_session` with that id, and its worktree's processes) is left to it, and you take the
    next Definitely card; one naming this session's own id is yours.
@@ -25,10 +26,9 @@ judge, with the reason for each, since the cases it meets are never quite the on
 4. Read the feature's settled design, `scripts/board.sh readme <feature>` (never the whole
    README, which is hundreds of lines), and the `.slices/` files State names. Quote a settled
    rule in the README's words; a paraphrase drifts.
-5. A card that is yours alone (`CLAUDE.md`: tooling, CI, tests, process, a bug whose right
-   behavior is settled) you align against the code yourself and run with a builder in its own
-   worktree, never as the topic of the maintainer's turn: with them engaged, lead the next
-   product card beside it.
+5. This session leads one card. A card with a `Nightly:` line (`/brief`) is the night's. One
+   that can't wait for it (it blocks this card, or `main` is failing) gets a session of its
+   own: propose one (`start_session`) briefed to run `/onward` on it.
 6. A product card not yet started is aligned with the maintainer first, as `/brief`'s "Align"
    says. Restate it as what they will see and do, reading what the app does today from
    `main`'s code. Check it against the README, what merged since it was written, its neighbors
@@ -175,8 +175,7 @@ merges `origin/main` in.
 ## Pushes and CI
 
 After every push, watch "PR check" to the end yourself (`/pr`): `gh pr checks <n> --watch
---interval 60` in the background, stopping an earlier watch first (`TaskStop`). A subagent's "still queued"
-is not a result. A failed run goes to a builder before anything reaches the maintainer, unless
+--interval 60` in the background, stopping an earlier watch first (`TaskStop`). A failed run goes to a builder before anything reaches the maintainer, unless
 the check says the month's Xcode Cloud hours are likely spent, which is theirs. The go-ahead
 you ask for names the commit CI is green at.
 
