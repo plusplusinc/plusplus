@@ -116,8 +116,8 @@ private struct PrimaryKeyBar<
     /// coming in has it from its first frame: measured on the key, it came in 16 pt from the
     /// sides, then narrowed to its place on the screen's next animation.
     @State private var bottomInset: CGFloat = 0
-    /// Where the key is: followed in `body`, the first place the bar sees its inputs, so nothing
-    /// drawn waits on a reaction. A reaction lost a change: SwiftUI skips a second change within
+    /// Where the key is: followed in `body`, the first place the bar sees its inputs, so no input
+    /// waits on a reaction. A reaction lost a change: SwiftUI skips a second change within
     /// one frame (2026-11-15), and a key put back before its reaction ran rose as the key going.
     @State private var box: TrayBox<Face>
     /// The swap whose key going is drawn all the way down, which the tray turns on as it follows

@@ -31,7 +31,7 @@ struct KeyTravel: ViewModifier, Animatable {
     }
 
     func body(content: Content) -> some View {
-        let parts = KeyReach.Parts(swap: 0, away: away, drop: 0)
+        let parts = KeyReach.Parts(away: away)
         let reach = reach
         let reduceMotion = reduceMotion
         let isPresented = isPresented
@@ -59,9 +59,12 @@ struct KeyTravel: ViewModifier, Animatable {
 struct SwapDrawn: Equatable {
     /// Which swap it is, so each swap's drop drawn down is news to the bar (`KeySwapDown`).
     var number: Int
-    /// 1 while the key is out in the swap, 0 otherwise.
-    var depth: CGFloat
     var pace: Pace
+
+    /// 1 while the key is out in the swap, going down, 0 otherwise.
+    var depth: CGFloat {
+        pace == .drop ? 1 : 0
+    }
 
     /// What runs it: down at `keyDrop` while leaving, back up at `keyRise` once showing, whatever
     /// animation the update that turned it carries: a turn landing in the update of a change with
@@ -100,11 +103,18 @@ struct KeySwap: ViewModifier, Animatable {
     }
 
     func body(content: Content) -> some View {
-        let parts = KeyReach.Parts(swap: depth, away: 0, drop: 0)
+        let depth = depth
+        let parts = KeyReach.Parts(swap: depth)
         let reach = reach
         let reduceMotion = reduceMotion
         return content
-            .transformPreference(KeyTrayDrawn.self) { $0.parts.swap = parts.swap }
+            // The key's own changes keep the update's animation; the pace is the swap's alone.
+            .transaction { transaction in
+                if let update = transaction[UpdateAnimation.self] {
+                    transaction.animation = update
+                }
+            }
+            .transformPreference(KeyTrayDrawn.self) { $0.parts.swap = depth }
             .preference(key: KeySwapDown.self, value: depth >= 1 ? number : nil)
             .visualEffect { content, proxy in
                 content.offset(
@@ -119,15 +129,20 @@ extension View {
     /// The key in a swap as `swap` has it, run at the swap's own pace whatever the update's
     /// animation (`SwapDrawn.Pace`).
     func keySwap(_ swap: SwapDrawn, reach: KeyReach) -> some View {
-        // On the update that moves it alone, as `withAnimation` around the swap's start and turn
-        // once ran the key's other changes with them.
+        // On the update that moves it; `KeySwap` hands the update's own back to the key inside.
         modifier(KeySwap(depth: swap.depth, number: swap.number, reach: reach))
             .transaction(value: swap.depth) { transaction in
                 if let animation = swap.pace.animation {
+                    transaction[UpdateAnimation.self] = .some(transaction.animation)
                     transaction.animation = animation
                 }
             }
     }
+}
+
+/// The animation of the update a swap's pace replaced, for what the key draws inside it.
+private struct UpdateAnimation: TransactionKey {
+    static let defaultValue: Animation?? = nil
 }
 
 /// The bar's key ridden down out of sight by the screen (`drop`), at the pace of a key going down
@@ -152,7 +167,7 @@ struct KeyRide: ViewModifier, Animatable {
             .transformPreference(KeyTrayDrawn.self) { $0.parts.drop = drop }
             .visualEffect { content, proxy in
                 content.offset(y: reach.depth(
-                    KeyReach.Parts(swap: 0, away: 0, drop: drop),
+                    KeyReach.Parts(drop: drop),
                     height: proxy.size.height,
                 ))
             }
@@ -170,7 +185,7 @@ extension View {
 /// The bar's key as `KeyTravel` draws it: its bounds at rest and how far down each move has it.
 struct TrayDrawn: Equatable {
     var bounds: Anchor<CGRect>?
-    var parts = KeyReach.Parts(swap: 0, away: 0, drop: 0)
+    var parts = KeyReach.Parts()
 }
 
 /// Which swap's key going is all the way down as drawn, its animated part at its target, so the

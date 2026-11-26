@@ -36,8 +36,13 @@ extension PrimaryKeyBarTests {
         /// Which frame of the swap `land` runs on, counted from the first change.
         @ObservationIgnored var landsOn = 0
         @ObservationIgnored var frames = 0
-        @ObservationIgnored var landed = false
+        /// The frame the key going was first drawn all the way down on.
+        @ObservationIgnored var bottom: Int?
         @ObservationIgnored var land: (TurnInputs) -> Void = { _ in }
+
+        var landed: Bool {
+            landsOn > 0 && frames >= landsOn
+        }
     }
 
     fileprivate struct TurnHost: View {
@@ -55,10 +60,12 @@ extension PrimaryKeyBarTests {
                         .accessibilityValue(isOut ? "out" : "")
                 }
                 // Once per frame the key moves, in the update that drew it.
-                .onPreferenceChange(KeyTrayDrawn.self) { _ in
+                .onPreferenceChange(KeyTrayDrawn.self) { drawn in
                     inputs.frames += 1
-                    if !inputs.landed, inputs.frames == inputs.landsOn {
-                        inputs.landed = true
+                    if inputs.bottom == nil, drawn.parts.swap >= 1 {
+                        inputs.bottom = inputs.frames
+                    }
+                    if inputs.frames == inputs.landsOn {
                         inputs.land(inputs)
                     }
                 }
@@ -104,20 +111,19 @@ extension PrimaryKeyBarTests {
             }
             inputs.face = Face(id: 2, words: "Skip rest")
             var samples: [Seen?] = []
-            var broughtBack = false
+            let isDone = { (seen: Seen) in
+                seen.words == live && !seen.isOut && abs(seen.top - rest) < 0.5
+            }
             let limit = ContinuousClock.now + .seconds(15 * PrimaryKeyButtonStyle.swapHalf)
             while ContinuousClock.now < limit {
                 window.layoutIfNeeded()
                 try await Task.sleep(for: .milliseconds(4))
                 let now = seen()
                 samples.append(now)
-                if landing == .takeAway, inputs.landed, !broughtBack, now == nil {
-                    broughtBack = true
+                if landing == .takeAway, inputs.landed, !inputs.isPresented, now == nil {
                     withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = true }
                 }
-                if inputs.landed, let now, now.words == live, !now.isOut,
-                   abs(now.top - rest) < 0.5
-                {
+                if inputs.landed, let now, isDone(now) {
                     break
                 }
             }
@@ -126,10 +132,11 @@ extension PrimaryKeyBarTests {
                 inputs.landed,
                 "nothing landed on frame \(frame): the swap had \(inputs.frames)",
             )
+            // The last frame is past the turn, so the frames cover it.
+            #expect(frame != Self.swapFrames.last || (inputs.bottom ?? frame) < frame)
             let ending: Seen? = samples.last.flatMap { $0 }
             let last = try #require(ending, "no key at the end, \(trail)")
-            #expect(last.words == live && !last.isOut, "the key ended wrong, \(trail)")
-            #expect(abs(last.top - rest) < 0.5, "the key never came to rest, \(trail)")
+            #expect(isDone(last), "the key ended wrong or short of rest, \(trail)")
             // Up only by a rise's step: a key standing at rest at once moved its whole drop.
             let tops = samples.compactMap { $0?.top }
             let jump = zip(tops, tops.dropFirst()).map { $0 - $1 }.max() ?? 0
@@ -137,31 +144,18 @@ extension PrimaryKeyBarTests {
         }
     }
 
-    /// Through the drop, its turn, and the rise's first frames, at the default text size.
-    private nonisolated static let swapFrames = Array(1 ... 20)
+    /// Through the drop, its turn, and the rise's first frames, at the default text size: the
+    /// drop is 12 frames at 60 Hz, and the last case checks the turn came before it. Frames
+    /// further into the rise draw nothing the turn decides, and a slow simulator may not draw
+    /// them before the key is at rest.
+    private nonisolated static let swapFrames = Array(1 ... 16)
 
     @Test(
-        "A key changed again on any frame of a swap rises as the new key and comes to rest",
-        arguments: swapFrames,
+        "Something landing on any frame of a swap leaves the live key risen to rest",
+        arguments: Landing.allCases, swapFrames,
     )
-    func changeOnAnyFrame(frame: Int) async throws {
-        try await swap(landing: .change, onFrame: frame)
-    }
-
-    @Test(
-        "A screen redrawn with no animation on any frame of a swap leaves it rising to rest",
-        arguments: swapFrames,
-    )
-    func redrawOnAnyFrame(frame: Int) async throws {
-        try await swap(landing: .redraw, onFrame: frame)
-    }
-
-    @Test(
-        "A key taken away on any frame of a swap comes back as the live key, at rest",
-        arguments: swapFrames,
-    )
-    func takeAwayOnAnyFrame(frame: Int) async throws {
-        try await swap(landing: .takeAway, onFrame: frame)
+    fileprivate func landingOnAnyFrame(landing: Landing, frame: Int) async throws {
+        try await swap(landing: landing, onFrame: frame)
     }
 }
 

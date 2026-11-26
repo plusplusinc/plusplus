@@ -68,8 +68,8 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
         stage = inputs.inSight ? .showing(inputs.face) : .away(inputs.face)
     }
 
-    /// The face drawn: showing, the live face while it is the same key, so its words change in
-    /// place; another key's, before the swap has started, the key as it was.
+    /// The face drawn: showing, the live face, so its words change in place; leaving or away, the
+    /// key as it went.
     var face: Face {
         switch stage {
         case let .showing(face), let .leaving(face), let .away(face): face
@@ -119,7 +119,7 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
         return Drawn(
             face: face,
             isOut: isOut,
-            swap: SwapDrawn(number: swaps, depth: stage.isLeaving ? 1 : 0, pace: pace),
+            swap: SwapDrawn(number: swaps, pace: pace),
             away: inputs.isPresented ? 0 : 1,
             ride: inputs.isDropped ? 1 : 0,
         )
@@ -139,11 +139,11 @@ nonisolated struct KeyReach: Equatable {
     /// How far each move has the key down, 0 to 1, each run by the animation that changes it.
     struct Parts: Equatable {
         /// A swap: the key going down, then the next one rising from where it ended.
-        var swap: CGFloat
+        var swap: CGFloat = 0
         /// Taken away by the screen.
-        var away: CGFloat
+        var away: CGFloat = 0
         /// Ridden down by the screen (`drop`).
-        var drop: CGFloat
+        var drop: CGFloat = 0
     }
 
     /// How far a swap takes the key down past its own height: to the screen's bottom edge, less

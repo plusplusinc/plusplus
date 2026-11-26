@@ -101,11 +101,7 @@ struct KeyTrayTests {
         #expect(tray.drawn(for: shown(back)).swap.pace == .rise)
         tray.follow(shown(finish))
         tray.follow(away(finish))
-        #expect(tray.drawn(for: away(finish)).swap == SwapDrawn(
-            number: tray.swaps,
-            depth: 0,
-            pace: .update,
-        ))
+        #expect(tray.drawn(for: away(finish)).swap == SwapDrawn(number: tray.swaps, pace: .update))
     }
 
     @Test("Away, the key is in no swap, keeps the face it left with, and ignores the swap's turn")
@@ -155,7 +151,7 @@ struct KeyTrayTests {
         var tray = Tray(shown(log))
         tray.follow(shown(back))
         let parts = { (drawn: Tray.Drawn) in
-            KeyReach.Parts(swap: drawn.swap.depth, away: drawn.away, drop: 0)
+            KeyReach.Parts(swap: drawn.swap.depth, away: drawn.away)
         }
         let swapping = parts(tray.drawn(for: shown(back)))
         tray.follow(away(back))
