@@ -1,4 +1,5 @@
 import DesignSystem
+import Health
 import OSLog
 import Session
 import SwiftUI
@@ -60,6 +61,9 @@ struct WorkoutLauncher: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active {
                     session.finishThroughDrawer()
+                } else {
+                    // Back from the system's settings, Settings shows what was changed there.
+                    session.health.refresh()
                 }
             }
         } else {
@@ -72,6 +76,7 @@ struct WorkoutLauncher: View {
                         exercises: exercises(),
                         store: store,
                         namer: namer,
+                        health: HealthSaving(client: healthClient),
                     )
                     // A timed set that ran out while the app was away is logged, before the
                     // screen opens on the workout.
@@ -90,6 +95,14 @@ struct WorkoutLauncher: View {
                     await session.refreshLog()
                 }
         }
+    }
+
+    private var healthClient: HealthClient {
+        #if DEBUG
+        LaunchOptions.healthClient ?? .live
+        #else
+        .live
+        #endif
     }
 
     /// Read after `launch()`, which may reset the store first.

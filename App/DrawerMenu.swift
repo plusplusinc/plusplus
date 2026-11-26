@@ -82,7 +82,7 @@ struct DrawerMenu: View {
             .padding(.bottom, Spacing.sm)
         }
         .sheet(isPresented: $isSettingsOpen) {
-            SettingsSheet()
+            SettingsSheet(health: session.health)
         }
         // The drawer is built as it starts to show, so this runs each time it does, before its
         // first frame.

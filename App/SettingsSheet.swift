@@ -1,4 +1,5 @@
 import DesignSystem
+import Session
 import SwiftUI
 
 /// How the app looks, a sheet at full height only, opened from the drawer's Settings button over
@@ -8,6 +9,7 @@ import SwiftUI
 /// Save:
 /// the sheet and the app behind it recolor under the finger.
 struct SettingsSheet: View {
+    let health: HealthSaving
     @Environment(Look.self) private var look
     @Environment(\.dismiss) private var dismiss
     /// The phone's own light or dark, once read.
@@ -19,6 +21,11 @@ struct SettingsSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     GroupLabel("Appearance")
                     AppearanceChoice(look: look, phone: phone)
+                    if health.access != .unavailable {
+                        GroupLabel("Apple Health")
+                            .padding(.top, Spacing.lg)
+                        HealthChoice(health: health)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Spacing.md)
@@ -116,6 +123,60 @@ struct AppearanceChoice: View {
     private static let crossfade = Animation.easeInOut(duration: 0.2)
 }
 
+/// Apple Health as one card with one row, "Save workouts", reading On or Off from the system's
+/// permission. It is not a switch: Apple asks apps to leave Health sharing to the system's
+/// privacy settings. Never asked, a tap brings up Apple's sheet; once answered, the row only
+/// shows the answer.
+struct HealthChoice: View {
+    let health: HealthSaving
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Spacing.sm + Radius.key, style: .continuous)
+        Button {
+            Task { await health.ask() }
+        } label: {
+            row
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(health.access != .notAsked)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Save workouts")
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityHint(health
+            .access == .notAsked ? "Asks to save workouts to Apple Health" : "")
+        .padding(.horizontal, Spacing.md)
+        .background(shape.fill(.pp(.surface)))
+        .clipShape(shape)
+    }
+
+    private var isOn: Bool {
+        health.access == .on
+    }
+
+    @ViewBuilder private var row: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.xs))
+            : AnyLayout(HStackLayout(spacing: Spacing.sm))
+        layout {
+            Text("Save workouts")
+                .font(.ppRowTitle)
+                .foregroundStyle(.pp(.textPrimary))
+                .fixedSize(horizontal: false, vertical: true)
+            if !dynamicTypeSize.isAccessibilitySize {
+                Spacer(minLength: 0)
+            }
+            // One text whose words change, so On and Off swap in place.
+            Text(isOn ? "On" : "Off")
+                .font(.ppRowTitle)
+                .foregroundStyle(.pp(.textSecondary))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, Spacing.sm + Spacing.xs)
+    }
+}
+
 /// A switch on the Appearance card: its name at a row title's size, the system's switch
 /// trailing; at accessibility sizes, the switch under the name. What it does is its hint.
 private struct SwitchRow: View {
@@ -178,7 +239,7 @@ private struct GroupLabel: View {
 }
 
 #Preview {
-    SettingsSheet()
+    SettingsSheet(health: HealthSaving(client: .unavailable))
         .environment(Look(defaults: UserDefaults(suiteName: "preview") ?? .standard))
 }
 

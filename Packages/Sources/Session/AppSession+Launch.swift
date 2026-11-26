@@ -1,3 +1,4 @@
+import Health
 import WorkoutStore
 
 extension AppSession {
@@ -9,6 +10,7 @@ extension AppSession {
         exercises: ExerciseList = .builtIn,
         store: Store?,
         namer: WorkoutNamer,
+        health: HealthSaving = HealthSaving(client: .unavailable),
     ) {
         self.init(
             workout: launch.workout ?? Workout(),
@@ -16,6 +18,7 @@ extension AppSession {
             exercises: exercises,
             store: store,
             namer: namer,
+            health: health,
         )
         screen = switch launch {
         case .workouts: .workouts
