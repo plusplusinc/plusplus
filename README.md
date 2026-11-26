@@ -23,7 +23,7 @@ DEVELOPMENT_TEAM = XXXXXXXXXX
 ## Everyday commands
 
 ```sh
-scripts/test.sh          # package tests on macOS, no simulator, seconds
+scripts/test.sh          # package tests on macOS, no simulator
 scripts/build.sh         # app for the simulator, compact diagnostics
 scripts/test.sh sim      # everything on the simulator, including snapshots
 scripts/run.sh           # build, install, launch, screenshot
