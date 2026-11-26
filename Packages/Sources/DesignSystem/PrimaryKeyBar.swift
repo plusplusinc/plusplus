@@ -116,13 +116,13 @@ private struct PrimaryKeyBar<
     /// coming in has it from its first frame: measured on the key, it came in 16 pt from the
     /// sides, then narrowed to its place on the screen's next animation.
     @State private var bottomInset: CGFloat = 0
-    /// Where the key is: followed in `body`, the first place the bar sees its inputs, so nothing
-    /// drawn waits on a reaction. A reaction lost a change: SwiftUI skips a second change within
+    /// Where the key is: followed in `body`, the first place the bar sees its inputs, so no input
+    /// waits on a reaction. A reaction lost a change: SwiftUI skips a second change within
     /// one frame (2026-11-15), and a key put back before its reaction ran rose as the key going.
     @State private var box: TrayBox<Face>
-    /// Counts the swap's beats, each changing the tray in its own animation, so the bar draws
-    /// them under it.
-    @State private var beats = 0
+    /// The swap whose key going is drawn all the way down, which the tray turns on as it follows
+    /// (`KeySwapDown`).
+    @State private var down: Int?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -223,7 +223,8 @@ private struct PrimaryKeyBar<
                 .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
                     isPresented ? $0 : nil
                 }
-                .modifier(KeyTravel(parts: drawn.travel, reach: reach, isPresented: isPresented))
+                .modifier(KeyTravel(away: drawn.away, reach: reach, isPresented: isPresented))
+                .keySwap(drawn.swap, reach: reach)
                 // At its own pace, outside the screen's animation.
                 .keyRide(drawn.ride, reach: reach)
                 .hiddenBehindDrawer()
@@ -258,9 +259,8 @@ private struct PrimaryKeyBar<
 
     func body(content: Content) -> some View {
         let inputs = inputs
-        box.tray.follow(inputs)
+        box.tray.follow(inputs, down: down)
         let drawn = box.tray.drawn(for: inputs)
-        _ = beats
         return content
             // No band behind the key: the list's rows run on under it.
             .scrollEdgeEffectHidden(true, for: .bottom)
@@ -274,17 +274,9 @@ private struct PrimaryKeyBar<
                     }
                 }
             }
-            // Started in the update's own reactions: from a task it started a frame or two late.
-            // SwiftUI skips a second change within a frame the reaction already ran in, which
-            // can't lose a swap here: the reaction that sees `needsSwap` come on starts it, which
-            // turns it off until the swap is over, a whole swap later, and it comes on again only
-            // from a key showing.
-            .onChange(of: box.tray.needsSwap) { startSwap() }
-            .onPreferenceChange(KeySwapDown.self) { isDown in
-                if isDown {
-                    turn()
-                }
-            }
+            // The swap turns as the bar next follows, whatever update that is: in this one, if
+            // nothing else comes first.
+            .onPreferenceChange(KeySwapDown.self) { down = $0 }
             .background {
                 Color.clear.onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
                     bottomInset = $0
@@ -311,30 +303,6 @@ private struct PrimaryKeyBar<
             // where they are as it rises. Everything above measures inside this, where the
             // keyboard's inset is taken away.
             .ignoresSafeArea(.keyboard, edges: .bottom)
-    }
-
-    /// Another key due while one shows: the one showing goes down with its words, easing in, so
-    /// it is still in sight until it clears the edge.
-    private func startSwap() {
-        guard box.tray.needsSwap else { return }
-        withAnimation(.keyDrop) {
-            box.tray.startLeaving()
-            beats += 1
-        }
-    }
-
-    /// The live key rising from where the one going ended, below the edge, in one change: its
-    /// face, and its part of the swap run back to 0 from 1. Placed below the edge in one update
-    /// and risen in the next, after a `Task.yield()`, the two at times landed in one update with
-    /// no animation, and the key stood at rest a frame after the last one went (2026-11-25).
-    /// Turned once the drop as drawn is all the way down (`KeySwapDown`): timed, the drop lost
-    /// its last two frames, 28 pt; and `withAnimation`'s completion can run before the first
-    /// frame, or frames after the motion stops.
-    private func turn() {
-        withAnimation(.keyRise) {
-            box.tray.turn(box.tray.swaps)
-            beats += 1
-        }
     }
 }
 

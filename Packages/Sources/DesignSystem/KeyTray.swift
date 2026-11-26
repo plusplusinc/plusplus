@@ -9,6 +9,12 @@ import CoreGraphics
 /// of sight by the screen, the key goes with the words it had and is in no swap; back in sight,
 /// it is the live key at once. The rise is not a stage: it is the animation from `leaving` to
 /// `showing`, the live face drawn from where the key going ended, below the edge.
+///
+/// A swap starts and turns from levels, never from a change: wherever the bar follows its inputs,
+/// a key showing as another kind starts leaving, and a key leaving whose drop is drawn all the way
+/// down (`down`, the number of the swap drawn there) turns. Turned on the drop's end as a change,
+/// with Pause landing in the frame the drop ended, the rest's keys once stayed below the edge
+/// (2026-11-25): a next swap starting with the key still drawn down changed nothing to see.
 struct KeyTray<Face: Equatable & Identifiable>: Equatable {
     /// What the screen gives the bar.
     struct Inputs: Equatable {
@@ -40,12 +46,14 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
     }
 
     /// What the bar draws: the face, whether the key is out in a swap, and where each part of
-    /// its depth is headed, 0 or 1, for the animation of the update that drew it to run to: the
-    /// moves `KeyTravel` runs, and the screen's ride (`KeyRide`), which runs at its own pace.
+    /// its depth is headed, 0 or 1: the swap (`KeySwap`), which runs at a swap's own pace, the
+    /// screen taking the key away (`KeyTravel`), run by the update's animation, and the screen's
+    /// ride (`KeyRide`), which runs at its own pace.
     struct Drawn: Equatable {
         var face: Face
         var isOut: Bool
-        var travel: KeyReach.Parts
+        var swap: SwapDrawn
+        var away: CGFloat
         var ride: CGFloat
     }
 
@@ -60,20 +68,23 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
         stage = inputs.inSight ? .showing(inputs.face) : .away(inputs.face)
     }
 
-    /// The face drawn: showing, the live face while it is the same key, so its words change in
-    /// place; another key's, before the swap has started, the key as it was.
+    /// The face drawn: showing, the live face, so its words change in place; leaving or away, the
+    /// key as it went.
     var face: Face {
         switch stage {
         case let .showing(face), let .leaving(face), let .away(face): face
         }
     }
 
-    /// Follows the screen's inputs, as often as the bar is drawn: following the same inputs
-    /// again changes nothing. Out of sight, the key goes as it is drawn, leaving any swap; back
-    /// in sight, it shows as the live face. Showing, the same kind takes the new words, and
-    /// another kind waits for the swap to start (`needsSwap`). In a swap, nothing changes: the
-    /// key that comes in is the face live when it rises.
-    mutating func follow(_ inputs: Inputs) {
+    /// Follows the screen's inputs and how far down the swap is drawn, as often as the bar is
+    /// drawn: following the same again changes nothing. Out of sight, the key goes as it is
+    /// drawn, leaving any swap; back in sight, it shows as the live face. Showing, the same kind
+    /// takes the new words, and another kind starts the swap: the key showing goes down with its
+    /// words. Leaving, once this swap's drop is drawn all the way down (`down`), it turns: the
+    /// live face shows, rising from there, in the one change. Until then nothing changes: the key
+    /// that comes in is the face live when it rises. A swap taken away, or since followed by
+    /// another, has no turn.
+    mutating func follow(_ inputs: Inputs, down: Int? = nil) {
         let drawn = face
         live = inputs.face
         guard inputs.inSight else {
@@ -88,44 +99,30 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
             stage = .showing(live)
         case let .showing(face) where face.id == live.id:
             stage = .showing(live)
-        case .showing, .leaving:
+        case let .showing(face):
+            stage = .leaving(face)
+            swaps += 1
+        case .leaving where down == swaps:
+            stage = .showing(live)
+        case .leaving:
             break
         }
     }
 
     /// What the bar draws for `inputs`, once followed.
     func drawn(for inputs: Inputs) -> Drawn {
-        Drawn(
+        let pace: SwapDrawn.Pace = switch stage {
+        case .leaving: .drop
+        case .showing: .rise
+        case .away: .update
+        }
+        return Drawn(
             face: face,
             isOut: isOut,
-            travel: KeyReach.Parts(
-                swap: stage.isLeaving ? 1 : 0,
-                away: inputs.isPresented ? 0 : 1,
-                drop: 0,
-            ),
+            swap: SwapDrawn(number: swaps, pace: pace),
+            away: inputs.isPresented ? 0 : 1,
             ride: inputs.isDropped ? 1 : 0,
         )
-    }
-
-    /// Showing as one kind while another is live: the swap is to start.
-    var needsSwap: Bool {
-        guard case let .showing(face) = stage else { return false }
-        return face.id != live.id
-    }
-
-    /// The swap's start: the key showing goes down with its words.
-    mutating func startLeaving() {
-        guard needsSwap, case let .showing(face) = stage else { return }
-        stage = .leaving(face)
-        swaps += 1
-    }
-
-    /// The swap's turn, once the key going is all the way down: the live face shows, rising from
-    /// there, in the one change. Only for swap number `swap` while it is still leaving: one that
-    /// was taken away, or since followed by another, has no turn.
-    mutating func turn(_ swap: Int) {
-        guard stage.isLeaving, swap == swaps else { return }
-        stage = .showing(live)
     }
 
     /// Whether the key is going down out of sight in a swap; it takes no tap.
@@ -142,11 +139,11 @@ nonisolated struct KeyReach: Equatable {
     /// How far each move has the key down, 0 to 1, each run by the animation that changes it.
     struct Parts: Equatable {
         /// A swap: the key going down, then the next one rising from where it ended.
-        var swap: CGFloat
+        var swap: CGFloat = 0
         /// Taken away by the screen.
-        var away: CGFloat
+        var away: CGFloat = 0
         /// Ridden down by the screen (`drop`).
-        var drop: CGFloat
+        var drop: CGFloat = 0
     }
 
     /// How far a swap takes the key down past its own height: to the screen's bottom edge, less

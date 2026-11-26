@@ -153,6 +153,9 @@ extension PrimaryKeyBarTests {
         // frame's step of the bottom, where the next one is first drawn.
         let lowest = try #require(run.samples.compactMap(\.key).map(\.minY).max())
         #expect(abs(lowest - first.minY) < 1, "the next key started short of the bottom: \(first)")
+        // The bottom is past the key's own height below its place: turned at 70% of the drop, the
+        // two met there and the checks above passed.
+        #expect(lowest - restKey.minY > restKey.height, "the swap turned short of the bottom")
         let going = run.samples.filter { $0.words == "Log set" }.compactMap(\.key)
         let last = try #require(going.last)
         #expect(lowest - last.minY < 15, "the swap turned before the drop ended: \(last)")

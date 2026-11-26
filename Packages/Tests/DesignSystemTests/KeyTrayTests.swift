@@ -32,23 +32,14 @@ struct KeyTrayTests {
         var tray = Tray(shown(log))
         tray.follow(shown(logRight))
         #expect(tray.face == logRight)
-        #expect(!tray.needsSwap)
         #expect(tray.stage == .showing(logRight))
-    }
-
-    @Test("Another key's face, before the swap starts, draws the key as it was")
-    func beforeFollowing() {
-        var tray = Tray(shown(logRight))
-        tray.follow(shown(finish))
-        #expect(tray.needsSwap)
-        #expect(tray.face == logRight)
+        #expect(tray.swaps == 0)
     }
 
     @Test("A change of kind starts the key leaving, drawing its own words whatever is live")
     func changeOfKind() {
         var tray = Tray(shown(logRight))
         tray.follow(shown(finish))
-        tray.startLeaving()
         #expect(tray.stage == .leaving(logRight))
         #expect(tray.isOut)
         tray.follow(shown(back))
@@ -59,41 +50,69 @@ struct KeyTrayTests {
     func whileOut() {
         var tray = Tray(shown(log))
         tray.follow(shown(back))
-        tray.startLeaving()
         tray.follow(shown(finish))
         #expect(tray.stage == .leaving(log))
-        tray.turn(tray.swaps)
+        tray.follow(shown(finish), down: tray.swaps)
         #expect(tray.stage == .showing(finish))
     }
 
-    @Test("A swap's turn shows the live face, once, and only for its own swap")
+    @Test("A swap turns once its own drop is drawn down, and only then")
     func turnIsItsSwaps() {
         var tray = Tray(shown(log))
         tray.follow(shown(finish))
-        tray.startLeaving()
         let first = tray.swaps
         tray.follow(away(finish))
         tray.follow(shown(log))
         tray.follow(shown(back))
-        tray.startLeaving()
-        // The first swap's end, come after it was taken away and another started.
-        tray.turn(first)
+        // The first swap's drop drawn down, come after it was taken away and another started.
+        tray.follow(shown(back), down: first)
         #expect(tray.stage == .leaving(log))
-        tray.turn(tray.swaps)
+        tray.follow(shown(back), down: tray.swaps)
         #expect(tray.stage == .showing(back))
-        tray.turn(tray.swaps)
+        tray.follow(shown(back), down: tray.swaps)
         #expect(tray.stage == .showing(back))
+    }
+
+    /// Pause landing in the frame Log set's drop ended: the turn and the next swap's start came
+    /// in one update, with the key already drawn down, and nothing changed for the turn to wait
+    /// on (2026-11-25). The next swap turns on its own drop drawn down, which is news as its
+    /// number, never on the last one's still standing.
+    @Test("A swap started as the last one turns waits for its own drop, not the last one's")
+    func swapAtTheTurn() {
+        var tray = Tray(shown(log))
+        tray.follow(shown(back))
+        let first = tray.swaps
+        tray.follow(shown(back), down: first)
+        tray.follow(shown(finish), down: first)
+        #expect(tray.stage == .leaving(back))
+        let drawn = tray.drawn(for: shown(finish)).swap
+        #expect(drawn.number != first && drawn.depth == 1)
+        tray.follow(shown(finish), down: drawn.number)
+        #expect(tray.stage == .showing(finish))
+    }
+
+    @Test("A swap goes down at the drop's pace and up at the rise's; away, at the screen's")
+    func swapPace() {
+        var tray = Tray(shown(log))
+        #expect(tray.drawn(for: shown(log)).swap.pace == .rise)
+        tray.follow(shown(back))
+        #expect(tray.drawn(for: shown(back)).swap.pace == .drop)
+        tray.follow(shown(back), down: tray.swaps)
+        #expect(tray.drawn(for: shown(back)).swap.pace == .rise)
+        tray.follow(shown(finish))
+        tray.follow(away(finish))
+        #expect(tray.drawn(for: away(finish)).swap == SwapDrawn(number: tray.swaps, pace: .update))
     }
 
     @Test("Away, the key is in no swap, keeps the face it left with, and ignores the swap's turn")
     func awayIgnoresTurn() {
         var tray = Tray(shown(log))
         tray.follow(shown(back))
-        tray.startLeaving()
-        tray.follow(Inputs(face: back, isPresented: true, isDropped: true))
+        let dropped = Inputs(face: back, isPresented: true, isDropped: true)
+        tray.follow(dropped)
         #expect(tray.stage == .away(log))
         #expect(!tray.isOut)
-        tray.turn(tray.swaps)
+        tray.follow(dropped, down: tray.swaps)
         #expect(tray.stage == .away(log))
         tray.follow(away(finish))
         #expect(tray.face == log)
@@ -109,10 +128,9 @@ struct KeyTrayTests {
         var tray = Tray(shown(back))
         tray.follow(away(log))
         #expect(tray.face == back)
-        #expect(tray.drawn(for: away(log)).travel.away == 1)
+        #expect(tray.drawn(for: away(log)).away == 1)
         tray.follow(shown(log))
         #expect(tray.stage == .showing(log))
-        #expect(!tray.needsSwap)
         #expect(!tray.drawn(for: shown(log)).isOut)
     }
 
@@ -132,10 +150,12 @@ struct KeyTrayTests {
         let reach = KeyReach(swapBelow: 12, bottomInset: 34, gap: 16)
         var tray = Tray(shown(log))
         tray.follow(shown(back))
-        tray.startLeaving()
-        let swapping = tray.drawn(for: shown(back)).travel
+        let parts = { (drawn: Tray.Drawn) in
+            KeyReach.Parts(swap: drawn.swap.depth, away: drawn.away)
+        }
+        let swapping = parts(tray.drawn(for: shown(back)))
         tray.follow(away(back))
-        let gone = tray.drawn(for: away(back)).travel
+        let gone = parts(tray.drawn(for: away(back)))
         #expect(gone.swap == 0 && gone.away == 1)
         #expect(reach.depth(gone, height: 56) > reach.depth(swapping, height: 56))
     }
@@ -145,12 +165,10 @@ struct KeyTrayTests {
         var tray = Tray(shown(log))
         #expect(!tray.isOut)
         tray.follow(shown(back))
-        tray.startLeaving()
         #expect(tray.isOut)
-        tray.turn(tray.swaps)
+        tray.follow(shown(back), down: tray.swaps)
         #expect(!tray.isOut)
         tray.follow(shown(log))
-        tray.startLeaving()
         tray.follow(away(back))
         #expect(!tray.isOut)
     }
