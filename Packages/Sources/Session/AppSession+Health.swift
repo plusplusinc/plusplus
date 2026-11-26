@@ -51,9 +51,10 @@ extension AppSession {
 
     /// Each owed workout, the earliest finished first, saved from what the store keeps of it,
     /// its id kept once Health hands one back. Whether the system lets the app is read once, at
-    /// the start, and nothing is read from the store unless it does. A removal or save that
-    /// fails, as when saving is turned off mid-way, stops the run, the access read again for
-    /// Settings: what wasn't saved, or came back with no id, stays owed, and the next catch-up
+    /// the start, and nothing is read from the store unless it does. After a removal or save
+    /// that fails, the access is read again, for Settings too: a failed removal, or saving no
+    /// longer on, as when it is turned off mid-way, stops the run; otherwise the run goes on to
+    /// the next. What wasn't saved, or came back with no id, stays owed, and the next catch-up
     /// saves it again, in place of any Health kept.
     private func runCatchUp() async {
         // Cleared before the wait, so an ask from here on queues a run that reads after it: a
@@ -70,25 +71,37 @@ extension AppSession {
             return
         }
         guard !owed.isEmpty else { return }
+        // One removal for the run, then saves that only add: a workout is owed only while the
+        // store has no Health id for it, so everything a save of it may have left (a run killed
+        // after Health's save, before its id was kept) carries a tag removed here, and a
+        // workout saved with its id kept is never read as owed again. Runs go one at a time, so
+        // nothing saves between the removal and this run's saves.
         do {
-            // One removal for the run, then saves that only add: a workout is owed only while
-            // the store has no Health id for it, so everything a save of it may have left (a
-            // run killed after Health's save, before its id was kept) carries a tag removed
-            // here, and a workout saved with its id kept is never read as owed again. Runs go one
-            // at a time, so nothing saves between the removal and this run's saves.
             try await health.remove(owed.map(\.id))
-            for finished in owed {
-                guard let workout = try? HealthWorkout(finished, in: exercises),
-                      let healthID = try await health.save(workout) else { continue }
-                do {
-                    try await store.markInHealth(finished.id, as: healthID)
-                } catch {
-                    Logger.session.error("A workout's Apple Health id didn't save: \(error)")
-                }
-            }
         } catch {
-            Logger.session.error("Apple Health didn't take a workout: \(error)")
+            Logger.session.error("Apple Health didn't remove the app's workouts: \(error)")
             await health.refreshed()
+            return
+        }
+        for finished in owed {
+            guard let workout = try? HealthWorkout(finished, in: exercises) else { continue }
+            let healthID: UUID?
+            do {
+                healthID = try await health.save(workout)
+            } catch {
+                // One workout Health refuses for its own sake mustn't hold back the rest, which
+                // come back in the same order every run.
+                Logger.session.error("Apple Health didn't take a workout: \(error)")
+                await health.refreshed()
+                guard health.access == .on else { return }
+                continue
+            }
+            guard let healthID else { continue }
+            do {
+                try await store.markInHealth(finished.id, as: healthID)
+            } catch {
+                Logger.session.error("A workout's Apple Health id didn't save: \(error)")
+            }
         }
     }
 

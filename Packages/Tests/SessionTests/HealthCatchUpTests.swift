@@ -52,22 +52,28 @@ struct HealthCatchUpTests {
         #expect(health.savedIDs == [finished.id])
     }
 
-    @Test("A save that fails stops the catch-up; the next saves it and what came after")
-    func failedSaveRetried() async throws {
-        let first = try await fixture.seedFinished(100, 200)
-        let failing = try await fixture.seedFinished(300, 400)
+    @Test("A workout Health keeps refusing, access on, holds back none after it, and stays owed")
+    func refusedSaveSkipped() async throws {
+        let refused = try await fixture.seedFinished(100, 200)
+        let second = try await fixture.seedFinished(300, 400)
         let third = try await fixture.seedFinished(500, 600)
         let health = FakeHealth(.on)
-        health.failsOnce.withLock { $0 = [failing.id] }
+        health.fails.withLock { $0 = [refused.id] }
         let session = fixture.launched(health)
         await session.caughtUpHealth()
-        #expect(health.savedIDs == [first.id])
+        #expect(health.savedIDs == [second.id, third.id])
+        #expect(try await fixture.store().owedToHealth().map(\.id) == [refused.id])
         await session.caughtUpHealth()
-        #expect(health.savedIDs == [first.id, failing.id, third.id])
-        #expect(health.removals.withLock { $0 } == [
-            [first.id, failing.id, third.id],
-            [failing.id, third.id],
+        health.fails.withLock { $0 = [] }
+        await session.caughtUpHealth()
+        #expect(health.attempts.withLock { $0 } == [
+            refused.id, second.id, third.id, refused.id, refused.id,
         ])
+        #expect(health.savedIDs == [second.id, third.id, refused.id])
+        #expect(health.removals.withLock { $0 } == [
+            [refused.id, second.id, third.id], [refused.id], [refused.id],
+        ])
+        #expect(try await fixture.store().owedToHealth().isEmpty)
     }
 
     @Test("A save Health hands back no id for stays owed, removed and saved again in its place")

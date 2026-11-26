@@ -108,4 +108,19 @@ struct HealthSavingTests {
         #expect(health.asks.withLock { $0 } == 1)
         #expect(saving.access == .on)
     }
+
+    @Test("A slow read that began before the person allowed saving doesn't show it off after")
+    func overtakenReadDropped() async {
+        let health = FakeHealth(.off)
+        let saving = HealthSaving(client: health.client)
+        health.holdsNextRead.withLock { $0 = true }
+        let slow = Task { await saving.refreshed() }
+        await health.readHeld()
+        await saving.ask()
+        #expect(saving.access == .on)
+        health.releaseRead()
+        await slow.value
+        #expect(saving.access == .on)
+        #expect(health.accessReads.withLock { $0 } == 2)
+    }
 }

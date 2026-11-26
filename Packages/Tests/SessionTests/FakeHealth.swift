@@ -18,8 +18,15 @@ final class FakeHealth: Sendable {
     let removals = Mutex<[[LoggedWorkout.ID]]>([])
     /// Each workout saved, with the finished logged workouts the store held as it was.
     let saves = Mutex<[(workout: HealthWorkout, stored: [LoggedWorkout.ID])]>([])
-    /// Logged workouts whose next save throws.
-    let failsOnce = Mutex<Set<LoggedWorkout.ID>>([])
+    /// Each logged workout a save was tried for, saved or not.
+    let attempts = Mutex<[LoggedWorkout.ID]>([])
+    /// Logged workouts whose saves throw, with access on, for as long as they are here.
+    let fails = Mutex<Set<LoggedWorkout.ID>>([])
+    /// Whether the next access read, having read the access, waits for `releaseRead()`.
+    let holdsNextRead = Mutex(false)
+    private let readGate = DispatchSemaphore(value: 0)
+    private let heldReads: AsyncStream<Void>
+    private let heldRead: AsyncStream<Void>.Continuation
     /// Whether saves hand back no id, as Health does with the phone locked.
     let returnsNoID = Mutex(false)
     /// Whether the next save waits for `release()`.
@@ -33,6 +40,18 @@ final class FakeHealth: Sendable {
         self.access = Mutex(access)
         self.store = store
         (heldSaves, heldSave) = AsyncStream.makeStream()
+        (heldReads, heldRead) = AsyncStream.makeStream()
+    }
+
+    /// Returns once an access read is held.
+    func readHeld() async {
+        var held = heldReads.makeAsyncIterator()
+        _ = await held.next()
+    }
+
+    /// Lets the held read return what it read.
+    func releaseRead() {
+        readGate.signal()
     }
 
     var savedIDs: [LoggedWorkout.ID] {
@@ -67,7 +86,18 @@ final class FakeHealth: Sendable {
         HealthClient(
             access: {
                 self.accessReads.withLock { $0 += 1 }
-                return self.access.withLock { $0 }
+                let access = self.access.withLock { $0 }
+                let holds = self.holdsNextRead.withLock { holds in
+                    defer { holds = false }
+                    return holds
+                }
+                if holds {
+                    // `access` is synchronous, as HealthKit's is, so the held read blocks its
+                    // thread, which is off the main actor (`HealthSaving.refreshed()`).
+                    self.heldRead.yield()
+                    self.readGate.wait()
+                }
+                return access
             },
             ask: {
                 self.asks.withLock { $0 += 1 }
@@ -79,13 +109,14 @@ final class FakeHealth: Sendable {
             },
             save: { workout in
                 try self.allowed()
+                self.attempts.withLock { $0.append(workout.id) }
                 if self.takesHold() {
                     await withCheckedContinuation { done in
                         self.held.withLock { $0 = done }
                         self.heldSave.yield()
                     }
                 }
-                if self.failsOnce.withLock({ $0.remove(workout.id) != nil }) {
+                if self.fails.withLock({ $0.contains(workout.id) }) {
                     throw SaveFailed()
                 }
                 let stored = try await self.store?.finishedLoggedWorkouts() ?? []

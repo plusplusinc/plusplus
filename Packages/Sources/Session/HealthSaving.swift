@@ -13,6 +13,8 @@ public final class HealthSaving {
     /// As of the last read; nil until the first.
     public private(set) var access: HealthAccess?
     @ObservationIgnored private let client: HealthClient
+    /// Counts the reads begun, so a read that comes back after a later one began is dropped.
+    @ObservationIgnored private var readsBegun = 0
 
     public init(client: HealthClient) {
         self.client = client
@@ -20,13 +22,19 @@ public final class HealthSaving {
 
     /// Reads the access, as Settings opens or after a trip to the system's settings.
     public func refresh() {
+        readsBegun += 1
         access = client.access()
     }
 
     /// Reads the access off the main actor, as a catch-up does, so HealthKit's answer never
-    /// holds up a frame.
+    /// holds up a frame. An answer overtaken by a later read, as after the person allowed
+    /// saving, is dropped: it would show saving off with saving on.
     func refreshed() async {
-        access = await Self.read(client)
+        readsBegun += 1
+        let read = readsBegun
+        let answer = await Self.read(client)
+        guard read == readsBegun else { return }
+        access = answer
     }
 
     @concurrent
