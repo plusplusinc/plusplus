@@ -124,10 +124,10 @@ Each of these cost a round; the code at the named spot works around it.
 - Words that stay the same across states stay in one `Text` whose string changes; a view-builder
   branch per state crossfades even identical words. A view that replaces another gets its own
   `.id`, or a view put back mid-transition revives the one going.
-- A view that goes away and comes back within one update is drawn back before any `onChange`
-  reaction runs, and with the `@State` it had: a reaction that then changes what it draws lands
-  outside the animation that brought it back, and it pops. Draw the update from state that is
-  already right, as `KeyTray`'s `away` is while the screen has the key out of sight.
+- A reaction's change lands outside the update it reacts to: a view gone and back in one update
+  is drawn with its old `@State` first, and pops; a reaction's `withAnimation` can run under
+  another change's animation, none included (the key's turn beside Pause). Draw from state
+  already right in `body` (`KeyTray`), and set a motion's pace where it is drawn (`keySwap`).
 - In a view that crossfades by identity, read state into locals before the content closure;
   read through `self`, the outgoing copy redraws with the new state.
 - Pass an optional view as a value (`x.map { … }`), never through an `if let` in a
