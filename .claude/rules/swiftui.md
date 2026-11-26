@@ -17,8 +17,7 @@ Leaf views take plain values and closures so they preview and snapshot without a
   Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
   just made, and a generated name typing into the title, for the moment it arrives, then gives way to the thing's own color; nothing
   rests in it. Whatever the rail draws keeps at least 3:1 on
-  `background` and on `well`, where a held superset shows (`RailContrastTests`; Void's,
-  `VoidTests`).
+  `background` and on `well`, where a held superset shows.
 - Numbers on a row's detail line and in a sheet's values are SF Mono, set with
   `AttributedString.monoNumbers(_:font:)`; the words around them stay in the system font.
 - Every font token scales with Dynamic Type: built on a `Font.TextStyle`, or sized with
