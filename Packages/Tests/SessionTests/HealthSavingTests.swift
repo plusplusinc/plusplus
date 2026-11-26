@@ -85,7 +85,12 @@ struct HealthSavingTests {
         let finished = LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: Self.at(0))
             .finishing(at: Self.at(60))
         await saving.save(Result { () throws(HealthWorkout.Withheld) in
-            try HealthWorkout(finished: finished, resumedSeconds: 0, pausedSince: nil)
+            try HealthWorkout(
+                finished: finished,
+                in: .builtIn,
+                resumedSeconds: 0,
+                pausedSince: nil,
+            )
         })
         #expect(health.saveCount.withLock { $0 } == 0)
     }

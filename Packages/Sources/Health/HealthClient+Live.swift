@@ -79,6 +79,9 @@ extension HealthActivity {
     var type: HKWorkoutActivityType {
         switch self {
         case .traditionalStrength: .traditionalStrengthTraining
+        case .functionalStrength: .functionalStrengthTraining
+        case .highIntensityIntervals: .highIntensityIntervalTraining
+        case .flexibility: .flexibility
         }
     }
 }

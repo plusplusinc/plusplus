@@ -15,10 +15,22 @@ struct HealthKitTests {
         pauses: [],
     )
 
-    @Test("A workout goes as traditional strength training, done indoors")
-    func indoorStrength() {
+    @Test("Each of the app's types goes as Health's own, done indoors", arguments: [
+        (HealthActivity.traditionalStrength, HKWorkoutActivityType.traditionalStrengthTraining),
+        (.functionalStrength, .functionalStrengthTraining),
+        (.highIntensityIntervals, .highIntensityIntervalTraining),
+        (.flexibility, .flexibility),
+    ])
+    func indoorType(activity: HealthActivity, type: HKWorkoutActivityType) {
+        let workout = HealthWorkout(
+            id: workout.id,
+            activity: activity,
+            start: workout.start,
+            end: workout.end,
+            pauses: [],
+        )
         let configuration = HealthClient.configuration(for: workout)
-        #expect(configuration.activityType == .traditionalStrengthTraining)
+        #expect(configuration.activityType == type)
         #expect(configuration.locationType == .indoor)
         #expect(HealthClient.metadata(for: workout)[HKMetadataKeyIndoorWorkout] as? Bool == true)
     }

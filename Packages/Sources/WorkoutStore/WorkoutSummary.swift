@@ -76,16 +76,14 @@ extension Workout {
 
     /// The workout's shape, nil with no exercises. A group's share counts each exercise's sets
     /// in full toward every group it mainly works (`Exercise.mainGroups`). The kind is the one
-    /// most exercises are, a tie going Strength, Conditioning, Stretching.
+    /// most rows' exercises are (`[Exercise].kind`).
     public var summary: WorkoutSummary? {
         guard !exercises.isEmpty else { return nil }
         var sets: [MuscleGroup: Int] = [:]
-        var kinds: [ExerciseKind: Int] = [:]
         for row in exercises {
             for group in row.exercise.mainGroups {
                 sets[group, default: 0] += max(row.plan.sets, 1)
             }
-            kinds[row.exercise.kind, default: 0] += 1
         }
         let total = Double(sets.values.reduce(0, +))
         let muscles = MuscleGroup.allCases
@@ -96,15 +94,28 @@ extension Workout {
                 group: $0.element,
                 share: Double(sets[$0.element] ?? 0) / total,
             ) }
-        let kindOrder: [ExerciseKind] = [.strength, .conditioning, .stretch]
-        let kind = kindOrder.enumerated()
-            .max { (kinds[$0.element] ?? 0, -$0.offset) < (kinds[$1.element] ?? 0, -$1.offset) }?
-            .element ?? .strength
+        let rowExercises = exercises.map(\.exercise)
         return WorkoutSummary(
             seconds: estimatedSeconds,
             muscles: muscles,
-            kind: kind,
-            equipment: exercises.map(\.exercise).equipment,
+            kind: rowExercises.kind,
+            equipment: rowExercises.equipment,
         )
+    }
+}
+
+extension [Exercise] {
+    /// The kind most of these are, each counted once per place in the list, so a workout's row
+    /// and the type Apple Health gets for it read the same kind. A tie goes Strength,
+    /// Conditioning, Stretching; none is Strength.
+    public var kind: ExerciseKind {
+        var kinds: [ExerciseKind: Int] = [:]
+        for exercise in self {
+            kinds[exercise.kind, default: 0] += 1
+        }
+        let order: [ExerciseKind] = [.strength, .conditioning, .stretch]
+        return order.enumerated()
+            .max { (kinds[$0.element] ?? 0, -$0.offset) < (kinds[$1.element] ?? 0, -$1.offset) }?
+            .element ?? .strength
     }
 }

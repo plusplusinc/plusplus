@@ -27,6 +27,7 @@ extension AppSession {
         let workout = Result { () throws(HealthWorkout.Withheld) in
             try HealthWorkout(
                 finished: finished,
+                in: exercises,
                 resumedSeconds: before.pausedSeconds,
                 pausedSince: before.pausedAt,
             )
