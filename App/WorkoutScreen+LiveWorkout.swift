@@ -75,14 +75,11 @@ extension WorkoutScreen {
         try await beat(until: .now + .seconds(Self.keyReturnDelay))
         withTransaction(\.disablesAnimations, true) {
             phase.landStart()
-            // The + stays low from here as the key's room is kept (`keyKeepsRoom`).
             endStartRide()
         }
         letRoomGo()
         // On a later turn of the run loop, once Start has gone: in the same update, away and
-        // back cancel out, and the key jumped back up from its drop. Still before the bar's
-        // reactions run, so the bar draws it back from what it already holds
-        // (`KeyStage.dropped`).
+        // back cancel out, and the key jumped back up from its drop.
         try await laterTurn()
         keyReturns { phase.run(on: startingCount()) }
     }
@@ -142,16 +139,11 @@ extension WorkoutScreen {
             // places (`listResizes(_:)`).
             resizes += 1
         }
-        // The + goes down as Start leaves, on the swap a rest's end moves it on: left for the
-        // landing, it hung over no key for a third of a second, then dropped on one frame.
-        withAnimation(SetMotion.restSwap) { plusLeftWithStart = true }
     }
 
-    /// Start's ride down is over, in the caller's transaction: the key back in its place, and
-    /// the + no longer held low by it.
+    /// Start's ride down is over, in the caller's transaction: the key back in its place.
     func endStartRide() {
         startDrop = 0
-        plusLeftWithStart = false
     }
 
     /// Where the list lands the current exercise while it is landing on it or resting on it:

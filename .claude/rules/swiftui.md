@@ -59,8 +59,8 @@ with the feature.
   `RowLabel.swift` (`RowFocus`, `CaptionLine`, `ProgressLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
   Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
 - The key at the bottom: `WorkoutKey`, `WorkoutScreen+Key.swift`,
-  `PrimaryKeyButtonStyle.swift`, `PrimaryKeyBar.swift`. A finish: `WorkoutScreen+Ending.swift`, `FinishBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
-  `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
+  `PrimaryKeyButtonStyle.swift`, `PrimaryKeyBar.swift`. A finish: `WorkoutScreen+Ending.swift`, `FinishBurst`. The bar swaps the key on its own as its kind changes: its stage is
+  `KeyTray`, which `KeyTravel` draws, the + riding on it.
 - Logging a set and moving on to the next exercise: `WorkoutScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
   Where a workout is and what a log leads to are `LiveWorkout`'s, and where the screen is in
@@ -91,7 +91,7 @@ Each of these cost a round; the code at the named spot works around it.
 - An offset or stroke that has to move with animating rows is an `Animatable` modifier or
   `Shape` worked out from the rows' layout, on the same transaction. A plain `.offset` runs
   ahead of the rows, and a stroke drawn from an animating row's measured size jumps to its end
-  (`GrowthLift`, `KeyDrop`, `RailDrawing`).
+  (`GrowthLift`, `RailDrawing`).
 - A state set inside `withAnimation` already holds its end value; what is drawn mid-animation
   only an `Animatable` sees. To read it back, record it from a modifier that draws with it: an
   `Animatable` modifier that only passes its content through has its body skipped
@@ -125,7 +125,7 @@ Each of these cost a round; the code at the named spot works around it.
 - A view that goes away and comes back within one update is drawn back before any `onChange`
   reaction runs, and with the `@State` it had: a reaction that then changes what it draws lands
   outside the animation that brought it back, and it pops. Draw the update from state that is
-  already right, as `KeyStage.dropped` is while the screen has ridden the key out of sight.
+  already right, as `KeyTray`'s `away` is while the screen has the key out of sight.
 - In a view that crossfades by identity, read state into locals before the content closure;
   read through `self`, the outgoing copy redraws with the new state.
 - Pass an optional view as a value (`x.map { … }`), never through an `if let` in a

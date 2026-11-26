@@ -17,7 +17,7 @@ extension PrimaryKeyBarTests {
     @Observable
     fileprivate final class DipInputs {
         var face = Face(id: 1, words: "Log set")
-        var floatsLow = false
+        var isPresented = true
     }
 
     fileprivate struct DipHost: View {
@@ -26,9 +26,9 @@ extension PrimaryKeyBarTests {
         var body: some View {
             Color.clear
                 .primaryKeyBar(
-                    isPresented: true,
+                    isPresented: inputs.isPresented,
                     face: inputs.face,
-                    floatsLow: inputs.floatsLow,
+                    keepsRoom: true,
                 ) { face, isOut in
                     // A face's words on lines of their own make a taller key, as a rest's keys
                     // are at the largest text sizes.
@@ -44,6 +44,7 @@ extension PrimaryKeyBarTests {
     /// while none is drawn.
     fileprivate struct Sample {
         let key: CGRect?
+        let words: String?
         let isOut: Bool
         let floating: CGRect
 
@@ -64,14 +65,16 @@ extension PrimaryKeyBarTests {
         }
     }
 
-    /// Hosts the bar on Log set, changes it by `change`, and samples it until `isDone` says
-    /// it has settled, failing if it hasn't within a few swaps' length.
+    /// Hosts the bar on Log set, or as `setup` leaves it, changes it by `change`, and samples it
+    /// until `isDone` says it has settled, failing if it hasn't within a few swaps' length.
     private func run(
+        from setup: (DipInputs) -> Void = { _ in },
         _ change: (DipInputs) -> Void,
         until isDone: (_ now: Sample, _ rest: Sample) -> Bool,
     ) async throws -> Run {
         try await AccessibilityTree.whileOn {
             let inputs = DipInputs()
+            setup(inputs)
             let host = UIHostingController(rootView: DipHost(inputs: inputs))
             let window = UIWindow.sceneless(hosting: host, at: .large)
             defer { window.isHidden = true }
@@ -84,6 +87,7 @@ extension PrimaryKeyBarTests {
                 }
                 return try Sample(
                     key: key?.accessibilityFrame,
+                    words: key?.accessibilityLabel,
                     isOut: key?.accessibilityValue == "out",
                     floating: #require(floating, "the floating button went from the tree")
                         .accessibilityFrame,
@@ -129,6 +133,9 @@ extension PrimaryKeyBarTests {
         }
     }
 
+    /// The next key rises from below the screen's edge: placed there and risen in two updates,
+    /// the two at times landed in one with no animation, and the key stood at rest a frame after
+    /// the last one went (2026-11-25).
     @Test("Through a swap, the floating button goes down and back up with the keys, as one piece")
     func floatingDipsWithSwap() async throws {
         let run = try await run({ $0.face = Face(id: 2, words: "Skip rest") }, until: Self.risen)
@@ -137,6 +144,18 @@ extension PrimaryKeyBarTests {
         try expectOnePiece(run)
         let end = try #require(run.floatingDrop.last)
         #expect(abs(end) < 0.5, "it didn't come back where it began: \(end)")
+        let restKey = try #require(run.rest.key)
+        let rising = run.samples.filter { $0.words == "Skip rest" }.compactMap(\.key)
+        let first = try #require(rising.first, "the next key never came in")
+        #expect(first.minY - restKey.minY > deepest / 2, "the next key came in risen: \(first)")
+        // The turn comes as the drop as drawn ends, not on a timer or a completion that can come
+        // before the first frame or frames late: the key going is last drawn within its last
+        // frame's step of the bottom, where the next one is first drawn.
+        let lowest = try #require(run.samples.compactMap(\.key).map(\.minY).max())
+        #expect(abs(lowest - first.minY) < 1, "the next key started short of the bottom: \(first)")
+        let going = run.samples.filter { $0.words == "Log set" }.compactMap(\.key)
+        let last = try #require(going.last)
+        #expect(lowest - last.minY < 15, "the swap turned before the drop ended: \(last)")
     }
 
     /// At the largest text sizes a rest's keys are taller than Log set. The button took the
@@ -152,20 +171,102 @@ extension PrimaryKeyBarTests {
         #expect(end.height > start.height + 20, "the second key wasn't taller: \(end)")
     }
 
-    /// As a key leaves with none to follow, the screen sets the button low on the same update:
-    /// it goes down once and stays, rather than dipping with the swap and coming back up first.
-    @Test("Going low as the key swaps, the floating button only goes down")
+    /// As a key leaves with none to follow, changing kind as it goes, as Skip rest into "Start
+    /// in": the button rides down once and stays low, rather than dipping with a swap and
+    /// coming back up first.
+    @Test("As the key is taken away, the floating button only goes down, and stays low")
     func floatingGoesLowOnce() async throws {
-        // Until the next key is in, by when the button's own move has long ended.
-        let run = try await run({ inputs in
+        // For as long as a swap would take, by when the key's move has long ended.
+        let end = ContinuousClock.now + .seconds(3 * PrimaryKeyButtonStyle.swapHalf)
+        let run = try await run { inputs in
             withAnimation(.easeInOut(duration: 0.3)) {
                 inputs.face = Face(id: 2, words: "Skip rest")
-                inputs.floatsLow = true
+                inputs.isPresented = false
             }
-        }, until: Self.keyIn)
+        } until: { _, _ in
+            ContinuousClock.now > end
+        }
         let path = run.floatingDrop
         #expect(zip(path, path.dropFirst()).allSatisfy { $1 >= $0 }, "it went back up: \(path)")
         #expect((path.last ?? 0) > 40, "it never went low: \(path)")
+    }
+
+    /// A key coming in, as "Start in" ends, Continue comes up, or Log set after Skip rest: the
+    /// button rose on its own layout change, 78 pt, while the key came 96 pt by its transition,
+    /// and the two parted on the way (2026-11-25).
+    @Test(
+        "An arriving key and the floating button come up as one piece",
+        arguments: ["Log set", "Log\nset\nnow"],
+    )
+    func arrivalIsOnePiece(words: String) async throws {
+        let away: (DipInputs) -> Void = { inputs in
+            inputs.isPresented = false
+            inputs.face = Face(id: 1, words: words)
+        }
+        // Away, the button is at its low place, where the key's bottom rests; risen, at its gap
+        // above the key.
+        let run = try await run(from: away) { inputs in
+            withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = true }
+        } until: { now, rest in
+            guard let key = now.key, let gap = now.gap else { return false }
+            return abs(key.maxY - rest.floating.maxY) < 0.5
+                && abs(gap - PrimaryKeyButtonStyle.floatingGap) < 0.5
+        }
+        let low = run.rest.floating.maxY
+        let risen = try #require(run.samples.last)
+        let gap = try #require(risen.gap, "the key never came in")
+        #expect(abs(gap - PrimaryKeyButtonStyle.floatingGap) < 0.5, "it never rose: \(risen)")
+        #expect(run.samples.contains { $0.key.map { $0.minY - gap > low } ?? false })
+        for sample in run.samples {
+            guard let key = sample.key else { continue }
+            let expected = min(key.minY - gap, low)
+            #expect(abs(sample.floating.maxY - expected) < 1, "the two parted: \(sample)")
+        }
+    }
+
+    /// With Reduce Motion a swap fades the keys in place, and a key taken away fades out as the
+    /// button fades from its place above the key into its low one.
+    @Test("With Reduce Motion, a swap and a key taken away move nothing")
+    func reduceMotionMovesNothing() async throws {
+        try Self.setReduceMotion(true)
+        defer { try? Self.setReduceMotion(false) }
+        #expect(UIAccessibility.isReduceMotionEnabled, "Reduce Motion didn't turn on")
+        let swap = try await run({ $0.face = Face(id: 2, words: "Skip rest") }, until: Self.risen)
+        let restKey = try #require(swap.rest.key)
+        #expect(swap.samples.contains { $0.isOut }, "the keys never swapped")
+        for sample in swap.samples {
+            #expect(sample.key.map { $0 == restKey } ?? true, "the key moved: \(sample)")
+            #expect(sample.floating == swap.rest.floating, "the button moved: \(sample)")
+        }
+        // Done once the button is at its low place, the bottom of the key at rest.
+        let away = try await run { inputs in
+            withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = false }
+        } until: { now, rest in
+            abs(now.floating.maxY - (rest.key?.maxY ?? 0)) < 0.5
+        }
+        let high = away.rest.floating.maxY
+        let low = try #require(away.rest.key).maxY
+        for sample in away.samples {
+            let bottom = sample.floating.maxY
+            #expect(abs(bottom - high) < 0.5 || abs(bottom - low) < 0.5, "it moved: \(sample)")
+        }
+        #expect(abs((away.samples.last?.floating.maxY ?? 0) - low) < 0.5, "it never went low")
+    }
+
+    /// The device's Reduce Motion, which SwiftUI's environment follows; no view can set it.
+    private static func setReduceMotion(_ enabled: Bool) throws {
+        typealias SetEnabled = @convention(c) (Bool) -> Void
+        let symbol = try #require(
+            dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW)
+                .flatMap { dlsym($0, "_AXSSetReduceMotionEnabled") },
+            "libAccessibility has no switch for Reduce Motion",
+        )
+        unsafeBitCast(symbol, to: SetEnabled.self)(enabled)
+        NotificationCenter.default.post(
+            name: UIAccessibility.reduceMotionStatusDidChangeNotification,
+            object: nil,
+        )
+        RunLoop.main.run(mode: .default, before: .now + 0.05)
     }
 
     /// No swap, so nothing to wait on: sampled for as long as a swap would take.
