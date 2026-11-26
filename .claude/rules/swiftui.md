@@ -60,7 +60,7 @@ with the feature.
   Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
 - The key at the bottom: `WorkoutKey`, `WorkoutScreen+Key.swift`,
   `PrimaryKeyButtonStyle.swift`, `PrimaryKeyBar.swift`. A finish: `WorkoutScreen+Ending.swift`, `FinishBurst`. The bar swaps the key on its own as its kind changes: its stage is
-  `KeyTray`, which `KeyTravel` draws, the + riding on it.
+  `KeyTray`, which `KeySwap` and `KeyTravel` draw, the + riding on it.
 - Logging a set and moving on to the next exercise: `WorkoutScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
   Where a workout is and what a log leads to are `LiveWorkout`'s, and where the screen is in
@@ -126,6 +126,9 @@ Each of these cost a round; the code at the named spot works around it.
   reaction runs, and with the `@State` it had: a reaction that then changes what it draws lands
   outside the animation that brought it back, and it pops. Draw the update from state that is
   already right, as `KeyTray`'s `away` is while the screen has the key out of sight.
+- A change made in a reaction can share its update with another, and run under that one's
+  animation, none included: the key's turn stood it at rest at once beside Pause. A motion with
+  its own pace sets it where it is drawn (`transaction(value:)`, `keySwap`).
 - In a view that crossfades by identity, read state into locals before the content closure;
   read through `self`, the outgoing copy redraws with the new state.
 - Pass an optional view as a value (`x.map { … }`), never through an `if let` in a

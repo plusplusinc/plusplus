@@ -8,50 +8,37 @@ extension Animation {
     public static let keyRise = Animation.smooth(duration: PrimaryKeyButtonStyle.swapHalf)
 }
 
-/// The bar's key drawn down from its place by its one depth (`KeyReach.depth`), each part run by
-/// the animation of the update that changed its target: a swap's halves, and the screen taking
-/// the key away or bringing it back. The screen riding it down is `KeyRide`'s, at its own pace,
-/// which adds its part to what goes to the floating button. Its height is the one drawn that
-/// frame, so a key that starts out of sight is out of sight from its first frame. A swap takes it
-/// down to the screen's bottom edge and no further, so the key coming in starts up as the one
-/// going clears the edge: with 8 pt more, the two halves had frames with no key between them.
+/// The bar's key drawn down from its place as the screen takes it away or brings it back (`away`,
+/// in `KeyReach.depth`), run by the animation of the update that changed it. A swap's part is
+/// `KeySwap`'s and the screen riding it down `KeyRide`'s, each at its own pace, each adding its
+/// part to what goes to the floating button. Its height is the one drawn that frame, so a key that
+/// starts out of sight is out of sight from its first frame.
 ///
-/// Unfaded through a swap, and coming in: faded going, it was all but gone three frames before
-/// it cleared the edge. Taken away, it fades as it goes. With Reduce Motion a swap and a key
-/// taken away or brought back stay put and fade each way. The parts as drawn, and the key's
-/// bounds, go up to the floating button (`KeyTrayDrawn`), which rides on them.
+/// Taken away, it fades as it goes; it comes in unfaded. With Reduce Motion a key taken away or
+/// brought back stays put and fades each way. The part as drawn, and the key's bounds, go up to
+/// the floating button (`KeyTrayDrawn`), which rides on them.
 struct KeyTravel: ViewModifier, Animatable {
-    /// How far each move has the key down, 0 to 1, which an animation runs through.
-    var parts: KeyReach.Parts
+    /// How far the screen has the key taken away, 0 to 1, which an animation runs through.
+    var away: CGFloat
     let reach: KeyReach
     let isPresented: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    nonisolated var animatableData: AnimatablePair<CGFloat, AnimatablePair<CGFloat, CGFloat>> {
-        get {
-            AnimatablePair(parts.swap, AnimatablePair(parts.away, parts.drop))
-        }
-        set {
-            parts = KeyReach.Parts(
-                swap: newValue.first,
-                away: newValue.second.first,
-                drop: newValue.second.second,
-            )
-        }
+    nonisolated var animatableData: CGFloat {
+        get { away }
+        set { away = newValue }
     }
 
     func body(content: Content) -> some View {
-        let parts = parts
+        let parts = KeyReach.Parts(swap: 0, away: away, drop: 0)
         let reach = reach
         let reduceMotion = reduceMotion
         let isPresented = isPresented
-        let opacity: CGFloat = isPresented ? (reduceMotion ? 1 - parts.swap : 1) : 0
-        content
+        return content
             .anchorPreference(key: KeyTrayDrawn.self, value: .bounds) {
                 TrayDrawn(bounds: $0, parts: parts)
             }
-            .preference(key: KeySwapDown.self, value: parts.swap >= 1)
             .visualEffect { content, proxy in
                 content.offset(
                     y: reach.depth(parts, height: proxy.size.height, reduceMotion: reduceMotion),
@@ -63,7 +50,82 @@ struct KeyTravel: ViewModifier, Animatable {
                     transaction.animation = nil
                 }
             } body: {
-                $0.opacity(opacity)
+                $0.opacity(isPresented ? 1 : 0)
+            }
+    }
+}
+
+/// A swap's part of the bar's key's depth, and how it runs there (`KeyTray.Drawn.swap`).
+struct SwapDrawn: Equatable {
+    /// Which swap it is, so each swap's drop drawn down is news to the bar (`KeySwapDown`).
+    var number: Int
+    /// 1 while the key is out in the swap, 0 otherwise.
+    var depth: CGFloat
+    var pace: Pace
+
+    /// What runs it: down at `keyDrop` while leaving, back up at `keyRise` once showing, whatever
+    /// animation the update that turned it carries: a turn landing in the update of a change with
+    /// no animation, as Pause, stood the next key at rest at once (2026-11-25). Away, the
+    /// update's own, as it runs the key going.
+    enum Pace: Equatable {
+        case drop
+        case rise
+        case update
+
+        var animation: Animation? {
+            switch self {
+            case .drop: .keyDrop
+            case .rise: .keyRise
+            case .update: nil
+            }
+        }
+    }
+}
+
+/// The bar's key in a swap: down to the screen's bottom edge and no further, so the key coming in
+/// starts up as the one going clears the edge: with 8 pt more, the two halves had frames with no
+/// key between them. Unfaded through it: faded going, it was all but gone three frames before it
+/// cleared the edge. With Reduce Motion it stays put and fades each way. Its drop drawn all the
+/// way down goes up to the bar as the swap's number (`KeySwapDown`), which turns it.
+struct KeySwap: ViewModifier, Animatable {
+    var depth: CGFloat
+    let number: Int
+    let reach: KeyReach
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    nonisolated var animatableData: CGFloat {
+        get { depth }
+        set { depth = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        let parts = KeyReach.Parts(swap: depth, away: 0, drop: 0)
+        let reach = reach
+        let reduceMotion = reduceMotion
+        return content
+            .transformPreference(KeyTrayDrawn.self) { $0.parts.swap = parts.swap }
+            .preference(key: KeySwapDown.self, value: depth >= 1 ? number : nil)
+            .visualEffect { content, proxy in
+                content.offset(
+                    y: reach.depth(parts, height: proxy.size.height, reduceMotion: reduceMotion),
+                )
+            }
+            .opacity(reduceMotion ? 1 - depth : 1)
+    }
+}
+
+extension View {
+    /// The key in a swap as `swap` has it, run at the swap's own pace whatever the update's
+    /// animation (`SwapDrawn.Pace`).
+    func keySwap(_ swap: SwapDrawn, reach: KeyReach) -> some View {
+        // On the update that moves it alone, as `withAnimation` around the swap's start and turn
+        // once ran the key's other changes with them.
+        modifier(KeySwap(depth: swap.depth, number: swap.number, reach: reach))
+            .transaction(value: swap.depth) { transaction in
+                if let animation = swap.pace.animation {
+                    transaction.animation = animation
+                }
             }
     }
 }
@@ -111,14 +173,17 @@ struct TrayDrawn: Equatable {
     var parts = KeyReach.Parts(swap: 0, away: 0, drop: 0)
 }
 
-/// Whether the key going in a swap is all the way down as drawn, its animated part at its target,
-/// so the bar turns the swap on the frame the drop ends: read from the animation itself, as
-/// `listResizes(_:)` does, never from a timer or `withAnimation`'s completion.
+/// Which swap's key going is all the way down as drawn, its animated part at its target, so the
+/// bar turns the swap on the frame the drop ends: read from the animation itself, as
+/// `listResizes(_:)` does. Timed, the drop lost its last two frames, 28 pt; and `withAnimation`'s
+/// completion can run before the first frame, or frames after the motion stops. A number rather
+/// than a yes, so a swap that starts with the key already drawn down, as one in the update its
+/// last swap turned in, is news all the same: as a yes, nothing would change.
 struct KeySwapDown: PreferenceKey {
-    static let defaultValue = false
+    static let defaultValue: Int? = nil
 
-    static func reduce(value: inout Bool, nextValue: () -> Bool) {
-        value = value || nextValue()
+    static func reduce(value: inout Int?, nextValue: () -> Int?) {
+        value = value ?? nextValue()
     }
 }
 
