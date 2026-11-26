@@ -195,7 +195,7 @@ public struct ChipSheet<Item: Hashable>: View {
 ///
 /// The sheet is the screen's own color (`background`), as the exercise sheet and Add exercise
 /// are: an unchosen chip's `surfaceRaised` stands 1.29:1 from it, and 1.14:1 from `surface`. In
-/// Black belt `sheetGround()` lifts it to a gray over the black screen.
+/// Void `sheetGround()` lifts it to a gray over the black screen.
 struct FilterSheetFrame<Content: View>: View {
     let title: String
     let onDone: () -> Void

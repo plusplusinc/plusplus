@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Black belt's value for every `ColorToken` (`Appearance.blackBelt`), on the screen and on a
+/// Void's value for every `ColorToken` (dark with `isVoid` on), on the screen and on a
 /// sheet, worked out from a ground and PlusPlus dark's text, active, done, and arriving colors.
 /// PlusPlus's own are the asset catalog's colorsets.
 nonisolated struct Palette: Sendable {
@@ -12,12 +12,12 @@ nonisolated struct Palette: Sendable {
 
     /// True black, for an OLED screen, drawn as iOS draws its own dark: neutral grays, nothing
     /// warm, and pure white text.
-    static let blackBelt = Self(ground: 0x000000)
+    static let void = Self(ground: 0x000000)
 
-    /// A sheet over Black belt stands on iOS's own sheet gray, a clear step up from the black
+    /// A sheet over Void stands on iOS's own sheet gray, a clear step up from the black
     /// screen, with every neutral on it stepped from that: in the screen's black a sheet had no
     /// edge, and a card on it none either.
-    static let blackBeltSheet = Self(ground: 0x1C1C1E)
+    static let voidSheet = Self(ground: 0x1C1C1E)
 
     /// Every neutral is mixed in OKLab from the ground toward the white text, so it carries the
     /// ground's tint, as far from the ground as PlusPlus dark's own gray for that job stands from

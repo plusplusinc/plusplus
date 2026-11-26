@@ -4,7 +4,7 @@ import SwiftUI
 /// How the app looks, a sheet at full height only, opened from the drawer's Settings button over
 /// the drawer, with an inline title and the system's Close leading and the drag indicator, as the
 /// exercise sheet has. One group under its label in the headings' style: Appearance
-/// (`AppearanceChoice`): Light and Dark, Automatic, and Black belt. A choice takes at once, with no
+/// (`AppearanceChoice`): Light and Dark, Automatic, and Void. A choice takes at once, with no
 /// Save:
 /// the sheet and the app behind it recolor under the finger.
 struct SettingsSheet: View {
@@ -49,14 +49,18 @@ struct SettingsSheet: View {
 }
 
 /// Appearance as iOS's Display & Brightness lays out its own: one card, the two looks' pictures
-/// side by side (`AppearancePicture`), then the system's switches, Automatic ("Follows your
-/// phone") and Black belt ("True black when dark"), split by the separator. With Automatic on,
-/// the chosen picture is the look in effect now, and tapping one holds it and turns Automatic
-/// off; turned off, the look in effect stays. Black belt draws the dark picture in its colors.
+/// side by side (`AppearancePicture`), then the system's switches, Automatic and Void, split by
+/// the separator. With Automatic on, the chosen picture is the look in effect now, and tapping
+/// one holds it and turns Automatic off; turned off, the look in effect stays. Void draws the
+/// dark picture in its colors. Void's row shows only where it can do something
+/// (`Look.offersVoid`): with Light held it goes, the card's height closing on `.snappy` as the
+/// row fades in place, nothing else moving; with Reduce Motion, a crossfade.
 struct AppearanceChoice: View {
     let look: Look
     /// The phone's own light or dark, once read.
     let phone: ColorScheme?
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let shown = look.shown(phone: phone)
@@ -67,7 +71,7 @@ struct AppearanceChoice: View {
                     AppearancePicture(
                         appearance,
                         isChosen: shown == appearance,
-                        isBlackBelt: look.isBlackBelt,
+                        isVoid: look.isVoid,
                     ) {
                         look.choose(appearance)
                     }
@@ -79,46 +83,70 @@ struct AppearanceChoice: View {
             Divider().overlay(Color.pp(.separator))
             SwitchRow(
                 "Automatic",
-                line: "Follows your phone",
+                hint: "Follows your phone's light or dark",
                 isOn: Binding { look.isAutomatic } set: { look.setAutomatic($0, phone: phone) },
             )
-            Divider().overlay(Color.pp(.separator))
-            SwitchRow(
-                "Black belt",
-                line: "True black when dark",
-                isOn: Binding { look.isBlackBelt } set: { look.isBlackBelt = $0 },
-            )
+            if look.offersVoid {
+                VStack(spacing: 0) {
+                    Divider().overlay(Color.pp(.separator))
+                    SwitchRow(
+                        "Void",
+                        hint: "True black whenever the app is dark",
+                        isOn: Binding { look.isVoid } set: { look.isVoid = $0 },
+                    )
+                }
+                .transition(.opacity)
+            }
         }
         .padding(.horizontal, Spacing.md)
         .background(shape.fill(.pp(.surface)))
+        .clipShape(shape)
+        .animation(reduceMotion ? Self.crossfade : .snappy, value: look.offersVoid)
     }
+
+    /// Void's row coming and going with Reduce Motion: a fade, as the search field's is.
+    private static let crossfade = Animation.easeInOut(duration: 0.2)
 }
 
-/// A switch on the Appearance card: its name at a row title's size and a line under it in the
-/// secondary text color, the system's switch trailing.
+/// A switch on the Appearance card: its name at a row title's size, the system's switch
+/// trailing; at accessibility sizes, the switch under the name. What it does is its hint.
 private struct SwitchRow: View {
     let title: LocalizedStringKey
-    let line: LocalizedStringKey
+    let hint: LocalizedStringKey
     @Binding var isOn: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    init(_ title: LocalizedStringKey, line: LocalizedStringKey, isOn: Binding<Bool>) {
+    init(_ title: LocalizedStringKey, hint: LocalizedStringKey, isOn: Binding<Bool>) {
         self.title = title
-        self.line = line
+        self.hint = hint
         _isOn = isOn
     }
 
     var body: some View {
-        Toggle(isOn: $isOn) {
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(title)
-                    .font(.ppRowTitle)
-                    .foregroundStyle(.pp(.textPrimary))
-                Text(line)
-                    .font(.ppRowDetail)
-                    .foregroundStyle(.pp(.textSecondary))
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // The switch under the name, which takes the card's whole width: beside it, at
+                // AX5 on a 375-point phone, "Automatic" broke mid-word.
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    name
+                        .accessibilityHidden(true)
+                    Toggle(isOn: $isOn) { name }
+                        .labelsHidden()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Toggle(isOn: $isOn) { name }
             }
         }
+        .accessibilityHint(hint)
         .padding(.vertical, Spacing.sm + Spacing.xs)
+    }
+
+    private var name: some View {
+        Text(title)
+            .font(.ppRowTitle)
+            .foregroundStyle(.pp(.textPrimary))
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -144,4 +172,16 @@ private struct GroupLabel: View {
 #Preview {
     SettingsSheet()
         .environment(Look(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+}
+
+#Preview("375 points") {
+    ScrollView {
+        AppearanceChoice(
+            look: Look(defaults: UserDefaults(suiteName: "preview") ?? .standard),
+            phone: .dark,
+        )
+        .padding(.horizontal, Spacing.md)
+    }
+    .frame(width: 375)
+    .background(Color.pp(.background))
 }

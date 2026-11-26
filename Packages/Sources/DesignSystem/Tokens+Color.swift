@@ -5,7 +5,7 @@ import SwiftUI
 /// Named for the job a color does, not the color it is, so a palette change touches only the
 /// asset catalog and `Palette`. Light and dark pairs live in `Tokens.xcassets` under the raw
 /// value; a case without a colorset renders clear, which the palette snapshot makes obvious.
-/// Black belt's are `Palette`'s.
+/// Void's are `Palette`'s.
 public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// Green: what's active, and a value that went up; also the ++ mark, and the controls that
     /// make something: the fill of the + that adds an exercise (`FloatingButtonStyle`), the one
@@ -61,7 +61,7 @@ public nonisolated enum ColorToken: String, CaseIterable, Sendable {
 
 extension Color {
     /// `Color.pp(.textPrimary)`. Call sites never reference a literal color. It resolves where
-    /// it is drawn, from the environment (`isBlackBelt`, the color scheme), so a choice changed
+    /// it is drawn, from the environment (`isVoid`, the color scheme), so a choice changed
     /// at the root redraws every view under it with no change of identity.
     public static func pp(_ token: ColorToken) -> Color {
         Color(TokenColor(token: token))
@@ -75,10 +75,10 @@ nonisolated struct TokenColor: ShapeStyle, Hashable {
     let token: ColorToken
 
     func resolve(in environment: EnvironmentValues) -> Color.Resolved {
-        guard environment.drawsBlackBelt else {
+        guard environment.drawsVoid else {
             return Color(token.rawValue, bundle: .module).resolve(in: environment)
         }
-        return (environment.isOnSheet ? Palette.blackBeltSheet : .blackBelt)[token]
+        return (environment.isOnSheet ? Palette.voidSheet : .void)[token]
     }
 }
 

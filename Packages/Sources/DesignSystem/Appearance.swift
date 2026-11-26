@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// One of the app's two looks, light or dark, as Settings' two pictures choose it (`Look`).
-/// PlusPlus's own colors are the asset catalog's colorsets; with Black belt on, dark draws
-/// `Palette.blackBelt` instead.
+/// PlusPlus's own colors are the asset catalog's colorsets; with Void on, dark draws
+/// `Palette.void` instead.
 public nonisolated enum Appearance: String, CaseIterable, Sendable {
     case light
     case dark
@@ -31,25 +31,25 @@ public nonisolated enum Appearance: String, CaseIterable, Sendable {
 }
 
 nonisolated extension EnvironmentValues {
-    /// Whether Black belt is on: `Color.pp` draws Black belt's colors rather than PlusPlus's
-    /// wherever the color scheme is dark (`drawsBlackBelt`), and PlusPlus's light ones where it
+    /// Whether Void is on: `Color.pp` draws Void's colors rather than PlusPlus's
+    /// wherever the color scheme is dark (`drawsVoid`), and PlusPlus's light ones where it
     /// is light.
-    @Entry public var isBlackBelt = false
+    @Entry public var isVoid = false
 
-    /// Black belt on, and drawn dark.
-    var drawsBlackBelt: Bool {
-        isBlackBelt && colorScheme == .dark
+    /// Void on, and drawn dark.
+    var drawsVoid: Bool {
+        isVoid && colorScheme == .dark
     }
 }
 
 nonisolated extension EnvironmentValues {
-    /// Whether what draws is on a sheet (`sheetGround()`), where Black belt draws a step up
+    /// Whether what draws is on a sheet (`sheetGround()`), where Void draws a step up
     /// from the screen.
     @Entry var isOnSheet = false
 }
 
 extension View {
-    /// A sheet's content drawn on a sheet (`isOnSheet`), so Black belt lifts the sheet a step
+    /// A sheet's content drawn on a sheet (`isOnSheet`), so Void lifts the sheet a step
     /// off the black screen, with a hairline edge; `filled`, under the screen's own color
     /// (`background`), else under what the content draws itself, as Add exercise's navigation
     /// stack does.
@@ -60,17 +60,17 @@ extension View {
 
 private struct SheetGround: ViewModifier {
     let filled: Bool
-    @Environment(\.isBlackBelt) private var blackBeltOn
+    @Environment(\.isVoid) private var voidOn
     @Environment(\.colorScheme) private var colorScheme
 
-    private var isBlackBelt: Bool {
-        blackBeltOn && colorScheme == .dark
+    private var isVoid: Bool {
+        voidOn && colorScheme == .dark
     }
 
     func body(content: Content) -> some View {
         let lifted = content
             .overlay {
-                if isBlackBelt {
+                if isVoid {
                     // In the step a cell on the sheet takes, as iOS edges its own sheets over
                     // black. Centered on the sheet's outline, which clips its outer half: a
                     // point shows.
@@ -85,9 +85,9 @@ private struct SheetGround: ViewModifier {
         if filled {
             // A color, not a view: as a view, the system drew the dimmed screen around the sheet
             // a step apart from the color's. The system draws it outside the sheet's content
-            // and its environment, so Black belt's sheet ground is named here.
+            // and its environment, so Void's sheet ground is named here.
             lifted.presentationBackground(
-                isBlackBelt ? Color(Palette.blackBeltSheet[.background]) : Color.pp(.background),
+                isVoid ? Color(Palette.voidSheet[.background]) : Color.pp(.background),
             )
         } else {
             lifted

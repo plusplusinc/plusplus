@@ -3,9 +3,10 @@ import SwiftUI
 /// The person's choice of how the app looks, kept on the device in `UserDefaults` and read as
 /// the app launches, so the first frame already shows it: the look chosen (`appearance`, light
 /// or dark), whether it follows the phone instead (`isAutomatic`), and whether dark is true
-/// black (`isBlackBelt`). Each is stored as it changes. A stored look that names none reads as
-/// `Appearance.initial`; the four appearances stored before the switches (light, dark, auto,
-/// black-belt) read as the same choice in the three.
+/// black (`isVoid`). Each is stored as it changes. A stored look that names none reads as
+/// `Appearance.initial`. Values stored by earlier builds read as the same choice: the four
+/// appearances (light, dark, auto, black-belt) before the switches, and the true-black switch
+/// under its earlier key (`legacyVoidKeys`).
 @Observable
 public final class Look {
     public var appearance: Appearance {
@@ -16,38 +17,47 @@ public final class Look {
         didSet { defaults.set(isAutomatic, forKey: Self.automaticKey) }
     }
 
-    public var isBlackBelt: Bool {
-        didSet { defaults.set(isBlackBelt, forKey: Self.blackBeltKey) }
+    /// Kept while its switch is hidden (Light held), so the switch comes back as it was.
+    public var isVoid: Bool {
+        didSet { defaults.set(isVoid, forKey: Self.voidKey) }
     }
 
     @ObservationIgnored private let defaults: UserDefaults
 
     public static let appearanceKey = "appearance"
     public static let automaticKey = "appearance-automatic"
-    public static let blackBeltKey = "black-belt"
-    public static let keys = [appearanceKey, automaticKey, blackBeltKey]
+    public static let voidKey = "void"
+    /// Where earlier builds kept the true-black switch.
+    static let legacyVoidKeys = ["black-belt"]
+    public static let keys = [appearanceKey, automaticKey, voidKey] + legacyVoidKeys
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let stored = defaults.string(forKey: Self.appearanceKey)
         var automatic = defaults.bool(forKey: Self.automaticKey)
-        var blackBelt = defaults.bool(forKey: Self.blackBeltKey)
+        let legacy = Self.legacyVoidKeys.first { defaults.object(forKey: $0) != nil }
+        var void = defaults.object(forKey: Self.voidKey) == nil
+            ? legacy.map { defaults.bool(forKey: $0) } ?? false
+            : defaults.bool(forKey: Self.voidKey)
         switch stored {
         case "auto":
             automatic = true
             appearance = .dark
         case "black-belt":
-            blackBelt = true
+            void = true
             appearance = .dark
         default:
             appearance = stored.flatMap(Appearance.init(rawValue:)) ?? .initial
         }
         isAutomatic = automatic
-        isBlackBelt = blackBelt
-        if stored != appearance.rawValue, stored != nil {
+        isVoid = void
+        if (stored != nil && stored != appearance.rawValue) || legacy != nil {
             defaults.set(appearance.rawValue, forKey: Self.appearanceKey)
             defaults.set(automatic, forKey: Self.automaticKey)
-            defaults.set(blackBelt, forKey: Self.blackBeltKey)
+            defaults.set(void, forKey: Self.voidKey)
+            for key in Self.legacyVoidKeys {
+                defaults.removeObject(forKey: key)
+            }
         }
     }
 
@@ -55,6 +65,12 @@ public final class Look {
     /// the phone.
     public var colorScheme: ColorScheme? {
         isAutomatic ? nil : appearance.colorScheme
+    }
+
+    /// Whether the true-black switch can do anything: the app can be dark, Dark held or
+    /// Automatic on.
+    public var offersVoid: Bool {
+        isAutomatic || appearance == .dark
     }
 
     /// The look in effect, given the phone's own (nil before it is read).

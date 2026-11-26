@@ -45,10 +45,10 @@ struct PlusPlusApp: App {
         WindowGroup {
             WorkoutLauncher(store: store, namer: namer, resetsStore: resetsStore)
                 // The window itself is held, so the bars, sheets, alerts, and keyboard follow;
-                // nil with Automatic on lets it follow the phone. Black belt draws only where
-                // the scheme is dark (`Color.pp`).
+                // nil with Automatic on lets it follow the phone. Void draws only where the
+                // scheme is dark (`Color.pp`).
                 .preferredColorScheme(look.colorScheme)
-                .environment(\.isBlackBelt, look.isBlackBelt)
+                .environment(\.isVoid, look.isVoid)
                 .environment(look)
         }
     }
