@@ -13,10 +13,6 @@ struct HealthSavingTests {
         fixture = try HealthFixture()
     }
 
-    private static func at(_ seconds: Double) -> Date {
-        HealthFixture.at(seconds)
-    }
-
     @Test("With saving on, a finish hands Health the workout after its write, and keeps its id")
     func finishSaves() async throws {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
@@ -25,15 +21,10 @@ struct HealthSavingTests {
             exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)],
         )
         let health = FakeHealth(.on, store: fixture.store())
-        let session = AppSession(
-            workout: workout,
-            store: fixture.store(),
-            namer: .muscleGroupsOnly,
-            health: HealthSaving(client: health.client),
-        )
-        session.start(on: workout.id, at: Self.at(10))
+        let session = fixture.launched(health, workout: workout)
+        session.start(on: workout.id, at: HealthFixture.at(10))
         let logged = try #require(session.loggedWorkout)
-        session.finish(at: Self.at(70))
+        session.finish(at: HealthFixture.at(70))
         // Nothing reads Health in the Finish tap's turn, nor as the session was made.
         #expect(health.accessReads.withLock { $0 } == 0)
         await session.healthJobsLanded()
@@ -41,8 +32,8 @@ struct HealthSavingTests {
         let saved = try #require(saves.first?.workout)
         #expect(saves.count == 1)
         #expect(saved.id == logged.id)
-        #expect(saved.start == Self.at(10))
-        #expect(saved.end == Self.at(70))
+        #expect(saved.start == HealthFixture.at(10))
+        #expect(saved.end == HealthFixture.at(70))
         #expect(saves.first?.stored == [logged.id])
         let read = try #require(try await fixture.store().finishedLoggedWorkouts().first)
         #expect(read.healthWorkoutID != nil)
@@ -65,27 +56,25 @@ struct HealthSavingTests {
         }
         let workout = Workout(name: "Stretch", exercises: rows)
         let health = FakeHealth(.on, store: store)
-        let session = try await AppSession(
+        let session = try await fixture.launched(
+            health,
             workout: workout,
             exercises: store.exercises(),
-            store: store,
-            namer: .muscleGroupsOnly,
-            health: HealthSaving(client: health.client),
         )
-        session.start(on: workout.id, at: Self.at(10))
+        session.start(on: workout.id, at: HealthFixture.at(10))
         for (row, seconds) in zip(rows, [20.0, 30]) {
-            session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(seconds))
+            session.log(PlannedSet(row: row.id, round: 1), of: row, at: HealthFixture.at(seconds))
         }
-        session.togglePause(at: Self.at(40))
-        session.togglePause(at: Self.at(50))
-        session.togglePause(at: Self.at(60))
-        session.finish(at: Self.at(90))
+        session.togglePause(at: HealthFixture.at(40))
+        session.togglePause(at: HealthFixture.at(50))
+        session.togglePause(at: HealthFixture.at(60))
+        session.finish(at: HealthFixture.at(90))
         await session.healthJobsLanded()
         let saved = try #require(health.saves.withLock { $0.first?.workout })
         #expect(saved.activity == .functionalStrength)
         #expect(saved.pauses == [
-            DateInterval(start: Self.at(40), end: Self.at(50)),
-            DateInterval(start: Self.at(60), end: Self.at(90)),
+            DateInterval(start: HealthFixture.at(40), end: HealthFixture.at(50)),
+            DateInterval(start: HealthFixture.at(60), end: HealthFixture.at(90)),
         ])
         let stored = try #require(try await store.finishedLoggedWorkouts().first)
         #expect(stored.healthActivity == .functionalStrength)
@@ -97,14 +86,9 @@ struct HealthSavingTests {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         let workout = Workout(exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)])
         let health = FakeHealth(.on)
-        let session = AppSession(
-            workout: workout,
-            store: nil,
-            namer: .muscleGroupsOnly,
-            health: HealthSaving(client: health.client),
-        )
-        session.start(on: workout.id, at: Self.at(10))
-        session.finish(at: Self.at(70))
+        let session = fixture.launched(health, workout: workout, hasStore: false)
+        session.start(on: workout.id, at: HealthFixture.at(10))
+        session.finish(at: HealthFixture.at(70))
         await session.healthJobsLanded()
         #expect(health.savedIDs.isEmpty)
     }
@@ -117,7 +101,7 @@ struct HealthSavingTests {
         saving.refresh()
         #expect(saving.access == .notAsked)
         health.access.withLock { $0 = .off }
-        saving.refresh()
+        await saving.refreshed()
         #expect(saving.access == .off)
         health.access.withLock { $0 = .notAsked }
         await saving.ask()

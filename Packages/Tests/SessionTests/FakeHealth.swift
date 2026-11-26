@@ -5,13 +5,17 @@ import Synchronization
 @testable import Session
 @testable import WorkoutStore
 
-/// A Health whose access is set by the test, and which records each save it takes.
+/// A Health whose access is set by the test, and which records each removal and save it takes.
+/// As HealthKit does, it refuses a removal or save while the access isn't on.
 final class FakeHealth: Sendable {
     struct SaveFailed: Error { }
+    struct NotAllowed: Error { }
 
     let access: Mutex<HealthAccess>
     let accessReads = Mutex(0)
     let asks = Mutex(0)
+    /// The logged workouts of each removal.
+    let removals = Mutex<[[LoggedWorkout.ID]]>([])
     /// Each workout saved, with the finished logged workouts the store held as it was.
     let saves = Mutex<[(workout: HealthWorkout, stored: [LoggedWorkout.ID])]>([])
     /// Logged workouts whose next save throws.
@@ -55,6 +59,10 @@ final class FakeHealth: Sendable {
         }
     }
 
+    private nonisolated func allowed() throws {
+        guard access.withLock({ $0 }) == .on else { throw NotAllowed() }
+    }
+
     var client: HealthClient {
         HealthClient(
             access: {
@@ -65,7 +73,12 @@ final class FakeHealth: Sendable {
                 self.asks.withLock { $0 += 1 }
                 self.access.withLock { $0 = .on }
             },
+            remove: { ids in
+                try self.allowed()
+                self.removals.withLock { $0.append(ids) }
+            },
             save: { workout in
+                try self.allowed()
                 if self.takesHold() {
                     await withCheckedContinuation { done in
                         self.held.withLock { $0 = done }
@@ -99,11 +112,18 @@ struct HealthFixture {
         Store(modelContainer: container)
     }
 
-    /// A session as launched over the store.
-    func launched(_ health: FakeHealth) -> AppSession {
+    /// A session as launched over the store, showing `workout`; with `hasStore` false, as when
+    /// the store didn't open.
+    func launched(
+        _ health: FakeHealth,
+        workout: Workout = Workout(),
+        exercises: ExerciseList = .builtIn,
+        hasStore: Bool = true,
+    ) -> AppSession {
         AppSession(
-            workout: Workout(),
-            store: store(),
+            workout: workout,
+            exercises: exercises,
+            store: hasStore ? store() : nil,
             namer: .muscleGroupsOnly,
             health: HealthSaving(client: health.client),
         )

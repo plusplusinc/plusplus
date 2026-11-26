@@ -81,9 +81,9 @@ public final class AppSession {
     @ObservationIgnored
     let loggedWorkoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
     /// Apple Health's catch-ups, one at a time, from the first asked (`catchUpHealth()`), and
-    /// the workouts deleted from Log since the running one read what is owed, which it skips.
+    /// whether one is queued and not yet started, which covers any asked meanwhile.
     @ObservationIgnored lazy var healthJobs = startHealthJobs()
-    @ObservationIgnored var deletedFromLog: Set<LoggedWorkout.ID> = []
+    @ObservationIgnored var isCatchUpWaiting = false
 
     public init(
         workout: Workout,

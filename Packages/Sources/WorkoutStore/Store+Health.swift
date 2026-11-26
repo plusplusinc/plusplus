@@ -6,12 +6,14 @@ import SwiftData
 extension Store {
     /// Every finished logged workout Health has no id for and can have as it is
     /// (`LoggedWorkout.healthWithheld`), the earliest finish first, a tie by id. Each withheld
-    /// one stays stored without an id, so every catch-up looks at it again.
+    /// one stays stored without an id, so every catch-up looks at it again. The sets come in the
+    /// same fetch: a workout with no stored type takes its type from them.
     public func owedToHealth() throws -> [LoggedWorkout] {
-        let unsent = FetchDescriptor<StoredWorkout>(
+        var unsent = FetchDescriptor<StoredWorkout>(
             predicate: #Predicate { $0.endedAt != nil && $0.healthWorkoutID == nil },
             sortBy: [SortDescriptor(\.endedAt), SortDescriptor(\.id)],
         )
+        unsent.relationshipKeyPathsForPrefetching = [\.sets]
         let read = try modelContext.fetch(unsent).map(\.loggedWorkout)
         let owed = read.filter { $0.healthWithheld == nil }
         if owed.count < read.count {

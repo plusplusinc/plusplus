@@ -23,7 +23,8 @@ extension LaunchOptions {
     }
 }
 
-/// A Health that answers as seeded and saves nothing, handing back a new id for each save.
+/// A Health that answers as seeded and removes and saves nothing, handing back a new id for each
+/// save.
 private final class FakeHealth: Sendable {
     private let access: Mutex<HealthAccess>
 
@@ -41,6 +42,7 @@ private final class FakeHealth: Sendable {
                     }
                 }
             },
+            remove: { _ in },
             save: { _ in UUID() },
         )
     }

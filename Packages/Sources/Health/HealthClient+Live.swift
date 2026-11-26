@@ -19,6 +19,11 @@ extension HealthClient {
         ask: {
             try await store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: [])
         },
+        remove: { ids in
+            // Removing takes only the write permission, and reads nothing: shown on the
+            // simulator, it removes exactly the tagged workouts, and succeeds when none matches.
+            try await store.deleteObjects(of: .workoutType(), predicate: tagged(ids))
+        },
         save: { workout in
             try await save(workout, to: store)
         },
@@ -27,15 +32,10 @@ extension HealthClient {
     /// A static, so it is made on first use.
     private static let store = HKHealthStore()
 
-    /// Removes whatever the app saved under the workout's tag first, so a save repeated, after a
-    /// relaunch between Health's save and the store keeping its id, leaves one. Removing takes
-    /// only the write permission, and reads nothing: shown on the simulator, it removes exactly
-    /// the tagged workout, and succeeds when none matches.
     private static func save(
         _ workout: HealthWorkout,
         to store: HKHealthStore,
     ) async throws -> UUID? {
-        try await store.deleteObjects(of: .workoutType(), predicate: tagged(workout.id))
         let builder = HKWorkoutBuilder(
             healthStore: store,
             configuration: configuration(for: workout),
@@ -65,11 +65,11 @@ extension HealthClient {
         return try await builder.finishWorkout()?.uuid
     }
 
-    /// Every workout the app saved for the logged workout `id` (`metadata(for:)`).
-    private static func tagged(_ id: LoggedWorkout.ID) -> NSPredicate {
+    /// Every workout the app saved for any of the logged workouts `ids` (`metadata(for:)`).
+    private static func tagged(_ ids: [LoggedWorkout.ID]) -> NSPredicate {
         HKQuery.predicateForObjects(
             withMetadataKey: HKMetadataKeyExternalUUID,
-            allowedValues: [id.uuidString],
+            allowedValues: ids.map(\.uuidString),
         )
     }
 
