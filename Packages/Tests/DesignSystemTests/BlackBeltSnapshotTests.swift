@@ -49,7 +49,7 @@ struct BlackBeltSnapshotTests {
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.pp(.background))
-        .environment(\.isBlackBelt, true)
+        .environment(\.isVoid, true)
         assertThemedSnapshots(of: view, width: Self.width, atLargestSize: false)
     }
 
@@ -83,7 +83,7 @@ struct BlackBeltSnapshotTests {
         .padding(Spacing.md)
         .background(Color.pp(.background))
         .environment(\.isOnSheet, true)
-        .environment(\.isBlackBelt, true)
+        .environment(\.isVoid, true)
         assertThemedSnapshots(of: view, width: Self.width, atLargestSize: false)
     }
 }

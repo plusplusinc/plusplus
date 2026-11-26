@@ -18,10 +18,11 @@ nonisolated struct BlackBeltTests {
             onSheet ? "Black belt, on a sheet" : "Black belt"
         }
 
-        /// As `Color.pp` resolves it, whatever the scheme around it: Black belt has one look.
+        /// As `Color.pp` resolves it with the switch on, in `scheme`: dark by default, where the
+        /// switch draws true black.
         func color(_ token: ColorToken, in scheme: ColorScheme = .dark) -> Color.Resolved {
             var environment = EnvironmentValues()
-            environment.isBlackBelt = true
+            environment.isVoid = true
             environment.isOnSheet = onSheet
             environment.colorScheme = scheme
             return TokenColor(token: token).resolve(in: environment)
@@ -108,10 +109,18 @@ nonisolated struct BlackBeltTests {
         }
     }
 
-    @Test("Black belt draws the same under a light scheme as a dark one", arguments: grounds)
-    func oneLookWhateverTheScheme(ground: Ground) {
+    /// The switch makes dark true black and leaves light alone: with it on, a light scheme draws
+    /// PlusPlus's own light colors.
+    @Test("With the switch on, light draws PlusPlus's light colors", arguments: grounds)
+    func lightUnchanged(ground: Ground) {
+        var plain = EnvironmentValues()
+        plain.colorScheme = .light
+        plain.isOnSheet = ground.onSheet
         for token in ColorToken.allCases {
-            #expect(ground.color(token, in: .light) == ground.color(token, in: .dark))
+            #expect(
+                ground.color(token, in: .light) == TokenColor(token: token).resolve(in: plain),
+                "\(ground.testDescription): \(token)",
+            )
         }
     }
 

@@ -14,7 +14,7 @@ import UIKit
 struct BlackBeltRedrawTests {
     @Observable
     final class Chosen {
-        var isBlackBelt = false
+        var isVoid = false
     }
 
     private struct Root: View {
@@ -22,7 +22,7 @@ struct BlackBeltRedrawTests {
 
         var body: some View {
             Middle()
-                .environment(\.isBlackBelt, chosen.isBlackBelt)
+                .environment(\.isVoid, chosen.isVoid)
                 .environment(\.colorScheme, .dark)
         }
     }
@@ -49,17 +49,17 @@ struct BlackBeltRedrawTests {
         defer { window.isHidden = true }
         window.settle()
         let before = try Self.center(of: host)
-        chosen.isBlackBelt = true
+        chosen.isVoid = true
         window.settle()
         let after = try Self.center(of: host)
-        #expect(Self.near(before, Self.background(isBlackBelt: false)), "Before: \(before)")
+        #expect(Self.near(before, Self.background(isVoid: false)), "Before: \(before)")
         #expect(Self.near(after, [0, 0, 0]), "After the change: \(after)")
     }
 
     /// The dark `background`, as 8-bit sRGB.
-    private static func background(isBlackBelt: Bool) -> [Int] {
+    private static func background(isVoid: Bool) -> [Int] {
         var environment = EnvironmentValues()
-        environment.isBlackBelt = isBlackBelt
+        environment.isVoid = isVoid
         environment.colorScheme = .dark
         let color = Color.pp(.background).resolve(in: environment)
         return [color.red, color.green, color.blue].map { Int(($0 * 255).rounded()) }
