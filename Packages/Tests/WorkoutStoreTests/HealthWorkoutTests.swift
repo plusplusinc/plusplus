@@ -21,6 +21,7 @@ struct HealthWorkoutTests {
     ) throws(HealthWorkout.Withheld) -> HealthWorkout {
         try HealthWorkout(
             finished: before.finishing(at: at(end)),
+            in: .builtIn,
             resumedSeconds: before.pausedSeconds,
             pausedSince: before.pausedAt,
         )
@@ -61,7 +62,12 @@ struct HealthWorkoutTests {
     @Test("A workout in progress gives Health nothing, for that reason")
     func inProgress() {
         #expect(throws: HealthWorkout.Withheld.notFinished) {
-            try HealthWorkout(finished: Self.started(), resumedSeconds: 0, pausedSince: nil)
+            try HealthWorkout(
+                finished: Self.started(),
+                in: .builtIn,
+                resumedSeconds: 0,
+                pausedSince: nil,
+            )
         }
     }
 }
