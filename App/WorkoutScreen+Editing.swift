@@ -147,6 +147,7 @@ extension WorkoutScreen {
         .id(opening.id)
         // A fixed set: one worked out from `pickerDetent` was read from the opening before.
         .presentationDetents([.medium, .large], selection: $pickerDetent)
+        .sheetGround(filled: false)
     }
 
     /// Add exercise, up while the session holds an opening; swiped down, it closes there.

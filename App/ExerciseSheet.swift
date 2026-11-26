@@ -121,7 +121,7 @@ struct ExerciseSheet<Customize: View>: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { sheetHeight = $0 }
         .presentationDetents(detents, selection: $detent)
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.pp(.background))
+        .sheetGround()
     }
 
     /// At the medium height an open ruler sat near the screen's bottom edge, under the thumb's

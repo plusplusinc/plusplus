@@ -32,7 +32,7 @@ struct RailContrastTests {
                 )
                 // The ratio is of opaque colors; a see-through one would read nearer its ground.
                 #expect(drawn.opacity == 1 && under.opacity == 1, "\(mark) or \(ground) not opaque")
-                let ratio = Self.contrast(drawn, under)
+                let ratio = wcagContrast(drawn, under)
                 #expect(
                     ratio >= 3,
                     """
@@ -42,17 +42,5 @@ struct RailContrastTests {
                 )
             }
         }
-    }
-
-    /// WCAG 2's contrast ratio.
-    private static func contrast(_ first: Color.Resolved, _ second: Color.Resolved) -> Double {
-        let (one, two) = (luminance(first), luminance(second))
-        return (max(one, two) + 0.05) / (min(one, two) + 0.05)
-    }
-
-    /// WCAG 2's relative luminance. `Color.Resolved`'s components are already linear sRGB.
-    private static func luminance(_ color: Color.Resolved) -> Double {
-        0.2126 * Double(color.linearRed) + 0.7152 * Double(color.linearGreen)
-            + 0.0722 * Double(color.linearBlue)
     }
 }
