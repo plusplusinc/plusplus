@@ -263,23 +263,28 @@ struct AppSessionScreenTests {
         #expect(session.current == saved)
     }
 
-    @Test("A pop the stack sends after Start leaves the workout at the root")
+    @Test("A pop while a pushed workout is in progress is refused, and pops again once it ends")
     func popAfterStart() async throws {
         let session = await pushedSession()
         let workout = try addingExercise(to: session.current, in: session)
         session.start(on: workout.id)
         session.popWorkout()
-        #expect(session.screen == .workout)
+        #expect(session.screen == .pushedWorkout)
+        session.discard()
+        session.popWorkout()
+        #expect(session.screen == .workouts)
     }
 
-    @Test("Start on a pushed workout shows it in progress at the root, as it is now")
+    @Test("Start on a pushed workout keeps the screen it was pressed on, for its Start to play")
     func startPushed() async throws {
         let session = await pushedSession()
-        let edited = try addingExercise(to: saved, in: session)
+        _ = try addingExercise(to: saved, in: session)
         session.start(on: session.current.id)
-        #expect(session.screen == .workout)
-        #expect(session.opened == edited)
+        #expect(session.screen == .pushedWorkout)
+        #expect(session.opened == saved)
         #expect(session.loggedWorkout?.workoutID == saved.id)
+        // Its "Start in" begins as its own Start lands on the first set.
+        #expect(session.loggedWorkout?.count == nil)
     }
 
     @Test("Start at the root keeps the screen the workout opened with")
