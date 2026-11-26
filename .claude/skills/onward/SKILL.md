@@ -58,8 +58,7 @@ Their time is the scarce thing, and it is for the product.
   can't, options that differ in motion drawn moving. What a system control can do
   is read from its Apple doc then, never from memory. One small canvas per open question,
   since a link to a page of a larger canvas doesn't open on that page, numbered and
-  lettered so they answer in a line, linked from the board README. Check for the Artifact tool
-  with ToolSearch before anyone draws; without it, publish as agent memory describes. A file
+  lettered so they answer in a line, linked from the board README. A file
   on the Mac never reaches their phone.
 - **Guess their call first.** Before an ask or a round reaches them, put your guess and why in
   agent memory's prediction log; after they reply, their call and, on a miss, what you
@@ -67,10 +66,10 @@ Their time is the scarce thing, and it is for the product.
 - **Every message reads on its own, on a phone.** Plain words about the app, not the work:
   name a part of the screen by what they see and where, a card by its title, an option by what
   it shows, never an item id, a canvas label, or a platform term. One question to a message,
-  the next after their reply; each carries its link and says what a yes does, again when it is
-  repeated hours later. With a build: what changed, that
-  it is unverified, and what to do and what they should see. No time estimates; during a long
-  phase, a line now and then on what is happening and why it still serves the card. Text
+  the next after their reply; each carries its link and says what a yes does. An unanswered
+  one is not re-sent with each update: settle what follows from what is decided and say so,
+  or ask again when the work stops on it. With a build: what changed, that
+  it is unverified, and what to do and what they should see. No time estimates. Text
   before a tool call reaches them as a message, so write none that tells them nothing.
 - **What they decided stays decided.** A choice they made stays in every brief and every later
   round; a clearly better alternative goes beside it, with the reason, never in its place. An
@@ -131,11 +130,12 @@ Their time is the scarce thing, and it is for the product.
   a line in the handoff note; no tests, lint, or recording unless how it moves is the
   question. Aim: their build within 3 minutes. A builder gets a round only when it needs a
   new view, new state, or more than a few files. A round's build reaches them first, called
-  unchecked. Work done while they are away is a round for them to try, not the end of the
-  loop.
+  unchecked; full-pass work starts behind it, and their reply interrupts it: apply it,
+  install, resume. Work done while they are away is a round for them to try, not the end of
+  the loop.
 - **After the go-ahead.** The loop ends on their word that it's right; then the builder's full
-  pass runs once, while the next card starts. A verifier follows only when the card changes
-  stored data or gives the live workout new state or a new situation; otherwise check the
+  pass finishes what is left, while the next card starts. A verifier follows only when the
+  card changes stored data or gives the live workout new state or a new situation; otherwise check the
   full pass's screenshots against each criterion yourself. The aim is merged within 40
   minutes of the go-ahead, CI included; say in the merge line when it took longer and why.
 - **Fresh and focused.** Each builder round or job gets a new agent named for it, starting from the
