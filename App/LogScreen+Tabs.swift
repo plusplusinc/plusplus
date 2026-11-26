@@ -19,7 +19,11 @@ extension LogScreen {
             if showsHealthOffer {
                 healthOffer
                     .padding(.bottom, Spacing.lg)
-                    .transition(.cutAway)
+                    .transition(
+                        reduceMotion
+                            ? AnyTransition.opacity.animation(.cardCrossfade)
+                            : AnyTransition(.cutAway),
+                    )
             }
             loggedWorkoutCount(period)
                 .padding(.bottom, Spacing.md)
@@ -57,16 +61,20 @@ extension LogScreen {
             }
         }
         // The card's room closes as it fades, cut off where the calendar and rows have risen
-        // to (`CutAway`). With Reduce Motion, on a crossfade's ease (`cardCrossfade`) but still
-        // cut: the content under it rises either way, and faded alone the card let the count
-        // and the calendar's letters through its buttons. The cut follows that rise, so it
-        // adds no motion of its own.
-        .animation(reduceMotion ? .cardCrossfade : .snappy, value: showsHealthOffer)
+        // to (`CutAway`). With Reduce Motion nothing rises: the card fades with its room kept,
+        // then the room closes in one step (`afterCardCrossfade`); coming in, the room opens
+        // at once and the card fades in over it.
+        .animation(healthOfferAnimation(showing: showsHealthOffer), value: showsHealthOffer)
     }
 
-    /// The one-time ask to save to Apple Health, first in History above the count, from the
-    /// first finish after it came to the app until Apple's sheet is answered or "Not now" turns
-    /// it down (`HealthSaving.showsOffer`). "Save to Apple Health" is the session's one ask
+    private func healthOfferAnimation(showing: Bool) -> Animation? {
+        guard reduceMotion else { return .snappy }
+        return showing ? nil : .afterCardCrossfade
+    }
+
+    /// The ask to save to Apple Health, first in History above the count, once a workout has
+    /// been finished, whenever Health reads as never asked, until "Not now" turns it down for
+    /// good (`HealthSaving.showsOffer`). "Save to Apple Health" is the session's one ask
     /// (`AppSession.askToSaveToHealth()`): Apple's sheet, then every workout in Log sent once
     /// it allows; the card goes as the answer is read. It is in Log's first frame after a
     /// finish, the access read since launch, so it doesn't come in over the workout arriving;

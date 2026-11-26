@@ -15,6 +15,7 @@ public final class HealthSaving {
     @ObservationIgnored private let client: HealthClient
     /// Counts the reads begun, so a read that comes back after a later one began is dropped.
     @ObservationIgnored private var readsBegun = 0
+    @ObservationIgnored private var isAsking = false
     /// The logged workouts deleted from Log whose Health workout is owed a removal, the oldest
     /// first, kept in `defaults` as their uuids so a relaunch still makes them. None is ever
     /// dropped unmade: a dropped one would leave its workout in Health for good.
@@ -33,8 +34,9 @@ public final class HealthSaving {
 
     enum Offer: String {
         /// A workout was finished since the card came to the app, and the card wasn't turned
-        /// down. It shows only while Health is never asked (`showsOffer`), so with Health
-        /// answered before that finish it never does.
+        /// down, whatever Health's access was then. It shows whenever Health reads as never
+        /// asked (`showsOffer`): not while it is answered, but again if the answer is undone,
+        /// as by resetting the phone's privacy settings.
         case offered
         /// "Not now": the card never shows again, and Apple's sheet is left unspent.
         case declined
@@ -56,16 +58,16 @@ public final class HealthSaving {
     }
 
     /// Whether Log shows the card that asks to save to Apple Health: a finish has made the
-    /// offer, "Not now" hasn't turned it down, and the system reads Health as never asked. Once
+    /// offer, "Not now" hasn't turned it down, and the system reads Health as never asked. While
     /// Apple's sheet is answered, from the card or Settings, or with Health unavailable, it is
-    /// gone with nothing more stored.
+    /// gone, with nothing more stored: it is the access read that hides it.
     public var showsOffer: Bool {
         offer == .offered && access == .notAsked
     }
 
-    /// Makes the card's offer at a finish, the first since the app kept one. Whether it shows
-    /// is the access's to say (`showsOffer`): with Health asked before, or not here, it never
-    /// does.
+    /// Makes the card's offer at a finish, the first since the app kept one, whatever the access
+    /// then. Whether it shows is the access's to say (`showsOffer`): not while Health is
+    /// answered or not on the device.
     func offerAtFinish() {
         guard offer == nil else { return }
         keepOffer(.offered)
@@ -111,14 +113,20 @@ public final class HealthSaving {
     }
 
     /// Brings up Apple's sheet, then reads what was answered. The session's ask is the only one
-    /// (`AppSession.askToSaveToHealth()`), so an answer is always followed by a catch-up.
-    func ask() async {
+    /// (`AppSession.askToSaveToHealth()`), so an answer is always followed by a catch-up. One at
+    /// a time: an ask while one is out, as from a double tap, does nothing and returns false.
+    @discardableResult
+    func ask() async -> Bool {
+        guard !isAsking else { return false }
+        isAsking = true
+        defer { isAsking = false }
         do {
             try await client.ask()
         } catch {
             Logger.session.error("Apple Health's ask didn't come up: \(error)")
         }
         refresh()
+        return true
     }
 
     /// Removes every workout the app saved for the logged workouts `ids` (`HealthClient.remove`).

@@ -74,6 +74,21 @@ struct HealthOfferTests {
         #expect(!session.health.showsOffer)
     }
 
+    @Test("A second ask while Apple's sheet is up, as from a double tap, asks nothing more")
+    func oneAskAtATime() async {
+        let health = FakeHealth(.notAsked, store: fixture.store())
+        health.holdsNextAsk.withLock { $0 = true }
+        let session = fixture.launched(health)
+        let first = Task { await session.askToSaveToHealth() }
+        await health.askHeld()
+        await session.askToSaveToHealth()
+        health.releaseAsk()
+        await first.value
+        #expect(health.asks.withLock { $0 } == 1)
+        await session.askToSaveToHealth()
+        #expect(health.asks.withLock { $0 } == 2)
+    }
+
     @Test(
         "With Health asked before, or not on the device, a finish never shows the card",
         arguments: [HealthAccess.on, .off, .unavailable],

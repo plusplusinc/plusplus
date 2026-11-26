@@ -28,5 +28,26 @@ extension Transition where Self == CutAway {
 extension Animation {
     /// A card, or a row on one, coming or going with Reduce Motion, in place of its `.snappy`
     /// move: a crossfade, as Void's row in Settings and Log's Apple Health card do.
-    public static let cardCrossfade = Animation.easeInOut(duration: 0.2)
+    public static let cardCrossfade = Animation.easeInOut(duration: cardCrossfadeDuration)
+
+    /// A card's room closing with Reduce Motion, for a card that leaves for good: what it moves
+    /// holds still while the card fades on `cardCrossfade` (give the card's transition that
+    /// animation), then is where it goes in one step, so nothing slides and nothing shows
+    /// through the card. Its own end, not a timer, so the step lands with the fade's.
+    public static let afterCardCrossfade = Animation(HoldThenStep(duration: cardCrossfadeDuration))
+
+    private static let cardCrossfadeDuration = 0.2
+}
+
+/// No change for `duration`, then the whole change at once.
+private struct HoldThenStep: CustomAnimation {
+    let duration: TimeInterval
+
+    func animate<V: VectorArithmetic>(
+        value _: V,
+        time: TimeInterval,
+        context _: inout AnimationContext<V>,
+    ) -> V? {
+        time < duration ? .zero : nil
+    }
 }

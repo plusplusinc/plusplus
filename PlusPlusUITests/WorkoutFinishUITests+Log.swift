@@ -55,7 +55,6 @@ extension WorkoutFinishUITests {
             let logged = app.buttons.matching(identifier: "log.workout").firstMatch
             XCTAssertTrue(logged.appears(), "Log lists no finished workout")
             XCTAssertTrue(logged.label.hasPrefix(name), "Log's row reads \(logged.label)")
-            XCTAssertFalse(app.buttons["Not now"].exists, "The Apple Health card came back")
             logged.tap()
             // A row is one element, read as its sentence, which starts with its name.
             let plank = app.descendants(matching: .any)

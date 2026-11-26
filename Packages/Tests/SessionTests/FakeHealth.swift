@@ -17,6 +17,11 @@ final class FakeHealth: Sendable {
     let asks = Mutex(0)
     /// What Apple's sheet is answered with at an ask: Allow, unless set.
     let answer = Mutex(HealthAccess.on)
+    /// Whether the next ask waits, Apple's sheet up, for `releaseAsk()`.
+    let holdsNextAsk = Mutex(false)
+    private let heldAskDone = Mutex<CheckedContinuation<Void, Never>?>(nil)
+    private let heldAsks: AsyncStream<Void>
+    private let heldAsk: AsyncStream<Void>.Continuation
     /// The logged workouts of each removal.
     let removals = Mutex<[[LoggedWorkout.ID]]>([])
     /// The logged workouts Health holds a workout tagged for, as saves and removals leave them.
@@ -48,6 +53,21 @@ final class FakeHealth: Sendable {
         self.store = store
         (heldSaves, heldSave) = AsyncStream.makeStream()
         (heldReads, heldRead) = AsyncStream.makeStream()
+        (heldAsks, heldAsk) = AsyncStream.makeStream()
+    }
+
+    /// Returns once an ask is held.
+    func askHeld() async {
+        var held = heldAsks.makeAsyncIterator()
+        _ = await held.next()
+    }
+
+    /// Answers the held ask with `answer`.
+    func releaseAsk() {
+        heldAskDone.withLock {
+            $0?.resume()
+            $0 = nil
+        }
     }
 
     /// Returns once an access read is held.
@@ -108,6 +128,15 @@ final class FakeHealth: Sendable {
             },
             ask: {
                 self.asks.withLock { $0 += 1 }
+                if self.holdsNextAsk.withLock({ holds in
+                    defer { holds = false }
+                    return holds
+                }) {
+                    await withCheckedContinuation { done in
+                        self.heldAskDone.withLock { $0 = done }
+                        self.heldAsk.yield()
+                    }
+                }
                 let answer = self.answer.withLock { $0 }
                 self.access.withLock { $0 = answer }
             },
