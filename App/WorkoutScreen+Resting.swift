@@ -74,9 +74,11 @@ extension WorkoutScreen {
     }
 
     /// The rest as drawn, with the workout it runs on: the one running, or the one End came in
-    /// until the list leaves it (`WorkoutPhase.drawnRest`).
+    /// until the list leaves it (`WorkoutPhase.drawnRest`). None while its set is not yet drawn,
+    /// as at its log: the rest found then was the one before, and Skip rest filled from it.
     var drawnResting: (rest: WorkoutRest, loggedWorkout: LoggedWorkout)? {
-        guard phase.drawnRest != nil, let shown, let rest = shown.rest(override: restOverride)
+        guard let drawn = phase.drawnRest, let shown,
+              let rest = shown.rest(after: drawn.set, override: restOverride)
         else { return nil }
         return (rest, shown.loggedWorkout)
     }

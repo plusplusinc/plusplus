@@ -132,7 +132,8 @@ extension WorkoutScreen {
     /// its own color, seen only as the keys swap out for Continue; held where it stood where End
     /// came mid-rest, or at a skip's tap, as the keys leave (`WorkoutRest.shownLeft(atClock:)`);
     /// else full, as the keys leave once the rest is over. A skip with under `skipHold` left
-    /// reaches 0:00 in its hold, so the fill reads what the count shows, not what is left.
+    /// runs past its end in its hold while its count holds the time at the tap, so the fill
+    /// reads what the count shows, not what is left.
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,
            let left = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)

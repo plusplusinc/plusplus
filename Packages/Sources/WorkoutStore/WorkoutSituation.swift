@@ -19,9 +19,8 @@ import Foundation
 ///   nobody watched still reads as `doing` until a screen logs it (`caughtUp`). A log leads to
 ///   `resting`, `comingUp`, `doing` (the same exercise's next set, none due), or `allLogged`.
 /// - `resting(rest)`: from a log with a rest after it until the screen moves on
-///   (`WorkoutRest.leaveClock`). +15 s lengthens it; Skip rest ends it `LiveWorkout.skipHold` after
-/// the tap. Its end leads to the
-///   next set's situation. Never after the last set.
+///   (`WorkoutRest.leaveClock`). +15 s lengthens it; Skip rest ends it `LiveWorkout.skipHold`
+///   after the tap. Its end leads to the next set's situation. Never after the last set.
 /// - `allLogged`: every planned set is logged; what is left is Finish. An exercise added leads
 ///   back to the set it adds.
 /// - `nothingToDo`: in progress on a workout whose rows were all removed.

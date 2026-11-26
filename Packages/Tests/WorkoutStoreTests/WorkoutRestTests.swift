@@ -191,6 +191,23 @@ struct WorkoutRestTests {
     }
 
     @Test(
+        "Drawn without the set just logged, the rest after that set is none, not the skip before",
+    )
+    func restAfterSetJustLogged() throws {
+        var live = try Self.live(Self.plain(), logged: 1)
+        live.loggedWorkout = live.skippingRest(at: Self.at(30))
+        let row = try #require(live.currentExercise)
+        let next = try #require(live.currentSet)
+        live.loggedWorkout = live.loggedWorkout.logging(next, of: row, at: Self.at(40))
+        let drawn = live.hiding([next])
+        // The rest found without the set is the skipped one, still showing its time.
+        let earlier = try #require(drawn.rest())
+        #expect(earlier.shownLeft(atClock: drawn.loggedWorkout.clock(at: Self.at(40))) > 0)
+        #expect(drawn.rest(after: next) == nil)
+        #expect(try #require(live.rest(after: next)).skippedAt == nil)
+    }
+
+    @Test(
         "+15 s and Skip rest change nothing with no rest running: between a set's sides, or ended",
     )
     func plusWithNoRest() throws {

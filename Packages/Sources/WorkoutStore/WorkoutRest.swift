@@ -117,6 +117,13 @@ extension LiveWorkout {
         )
     }
 
+    /// The rest after `set`, while it is the one after the last set logged: nil after any other.
+    /// A screen drawing the workout without a set just logged finds the rest before that set,
+    /// which, skipped, still shows the time it had.
+    public func rest(after set: PlannedSet, override: Int? = nil) -> WorkoutRest? {
+        rest(override: override).flatMap { $0.after == set ? $0 : nil }
+    }
+
     /// How long before `set` begins its count's "Start in" does, with its hold; 0 for none.
     private func countLead(before set: PlannedSet) -> Double {
         let startIn = workout.startIn(before: set)
