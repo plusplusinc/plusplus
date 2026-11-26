@@ -31,14 +31,13 @@ extension HealthClient {
         _ workout: HealthWorkout,
         to store: HKHealthStore,
     ) async throws -> UUID {
-        let configuration = HKWorkoutConfiguration()
-        configuration.activityType = workout.activity.type
         let builder = HKWorkoutBuilder(
             healthStore: store,
-            configuration: configuration,
+            configuration: configuration(for: workout),
             device: .local(),
         )
         try await builder.beginCollection(at: workout.start)
+        try await builder.addMetadata(metadata(for: workout))
         // Health leaves the time between a pause and its resume out of the workout's length.
         let events = workout.pauses.flatMap { pause in
             [
@@ -60,6 +59,23 @@ extension HealthClient {
         try await builder.endCollection(at: workout.end)
         guard let saved = try await builder.finishWorkout() else { throw HealthNotSaved() }
         return saved.uuid
+    }
+
+    /// The workout's type, done indoors: every workout the app saves is one.
+    static func configuration(for workout: HealthWorkout) -> HKWorkoutConfiguration {
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = workout.activity.type
+        configuration.locationType = .indoor
+        return configuration
+    }
+
+    /// Indoors, for Health's "Indoor Workout" row, and the logged workout's own id, by which the
+    /// app can find the Health workout it saved for one.
+    static func metadata(for workout: HealthWorkout) -> [String: Any] {
+        [
+            HKMetadataKeyIndoorWorkout: true,
+            HKMetadataKeyExternalUUID: workout.id.uuidString,
+        ]
     }
 }
 

@@ -116,7 +116,8 @@ custom_rules:
     severity: error
   health_kit_imports:
     name: "HealthKit imports"
-    excluded: "Packages/Sources/Health/.*"
+    # And the one test of what the live client hands HealthKit.
+    excluded: "Packages/(Sources/Health/|Tests/SessionTests/HealthKitTests\\.swift).*"
     regex: '^import HealthKit\b'
     message: "Only the Health target talks to HealthKit; everything above it uses HealthClient"
     severity: error

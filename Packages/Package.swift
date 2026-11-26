@@ -33,11 +33,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "WorkoutStore", swiftSettings: strict),
-        // Observable state over the store, with no UI framework: the workout open and its
-        // logged sets. Main-actor, as the screens that read it are.
         // Apple Health, the one target that imports HealthKit, so everything above it is tested
         // with no Health store.
         .target(name: "Health", dependencies: ["WorkoutStore"], swiftSettings: strict),
+        // Observable state over the store, with no UI framework: the workout open and its
+        // logged sets. Main-actor, as the screens that read it are.
         .target(
             name: "Session",
             dependencies: ["Health", "WorkoutStore"],
