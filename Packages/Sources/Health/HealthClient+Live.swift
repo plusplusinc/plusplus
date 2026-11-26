@@ -4,33 +4,30 @@ import WorkoutStore
 
 extension HealthClient {
     /// Apple Health on this device, through one store ("You need only a single HealthKit store
-    /// per app"). Asks only to write workouts; reads nothing.
-    public static let live: HealthClient = {
-        let store = HKHealthStore()
-        let workouts: Set<HKSampleType> = [HKObjectType.workoutType()]
-        return HealthClient(
-            access: {
-                guard HKHealthStore.isHealthDataAvailable() else { return .unavailable }
-                return switch store.authorizationStatus(for: .workoutType()) {
-                case .sharingAuthorized: .on
-                case .sharingDenied: .off
-                case .notDetermined: .notAsked
-                @unknown default: .off
-                }
-            },
-            ask: {
-                try await store.requestAuthorization(toShare: workouts, read: [])
-            },
-            save: { workout in
-                try await save(workout, to: store)
-            },
-        )
-    }()
+    /// per app"), made at the first call rather than at launch. Asks only to write workouts;
+    /// reads nothing.
+    public static let live = HealthClient(
+        access: {
+            guard HKHealthStore.isHealthDataAvailable() else { return .unavailable }
+            return switch store.authorizationStatus(for: .workoutType()) {
+            case .sharingAuthorized: .on
+            case .sharingDenied: .off
+            case .notDetermined: .notAsked
+            @unknown default: .off
+            }
+        },
+        ask: {
+            try await store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: [])
+        },
+        save: { workout in
+            try await save(workout, to: store)
+        },
+    )
 
-    private static func save(
-        _ workout: HealthWorkout,
-        to store: HKHealthStore,
-    ) async throws -> UUID {
+    /// A static, so it is made on first use.
+    private static let store = HKHealthStore()
+
+    private static func save(_ workout: HealthWorkout, to store: HKHealthStore) async throws {
         let builder = HKWorkoutBuilder(
             healthStore: store,
             configuration: configuration(for: workout),
@@ -57,8 +54,7 @@ extension HealthClient {
             try await builder.addWorkoutEvents(events)
         }
         try await builder.endCollection(at: workout.end)
-        guard let saved = try await builder.finishWorkout() else { throw HealthNotSaved() }
-        return saved.uuid
+        _ = try await builder.finishWorkout()
     }
 
     /// The workout's type, done indoors: every workout the app saves is one.
@@ -78,9 +74,6 @@ extension HealthClient {
         ]
     }
 }
-
-/// Health finished the workout but handed none back.
-struct HealthNotSaved: Error { }
 
 extension HealthActivity {
     var type: HKWorkoutActivityType {

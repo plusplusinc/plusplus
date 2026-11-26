@@ -10,7 +10,7 @@ extension AppSession {
         exercises: ExerciseList = .builtIn,
         store: Store?,
         namer: WorkoutNamer,
-        health: HealthSaving = HealthSaving(client: .unavailable),
+        health: HealthSaving,
     ) {
         self.init(
             workout: launch.workout ?? Workout(),

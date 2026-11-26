@@ -18,13 +18,13 @@ public struct HealthClient: Sendable {
     public var access: @Sendable () -> HealthAccess
     /// Brings up Apple's sheet, asking only to write workouts; returns at once if answered before.
     public var ask: @Sendable () async throws -> Void
-    /// Saves one workout, returning the id Health gave it.
-    public var save: @Sendable (HealthWorkout) async throws -> UUID
+    /// Saves one workout.
+    public var save: @Sendable (HealthWorkout) async throws -> Void
 
     public init(
         access: @escaping @Sendable () -> HealthAccess,
         ask: @escaping @Sendable () async throws -> Void,
-        save: @escaping @Sendable (HealthWorkout) async throws -> UUID,
+        save: @escaping @Sendable (HealthWorkout) async throws -> Void,
     ) {
         self.access = access
         self.ask = ask
@@ -35,9 +35,6 @@ public struct HealthClient: Sendable {
     public static let unavailable = Self(
         access: { .unavailable },
         ask: { },
-        save: { _ in throw HealthUnavailable() },
+        save: { _ in },
     )
 }
-
-/// A save through `HealthClient.unavailable`, which nothing above it makes.
-struct HealthUnavailable: Error { }

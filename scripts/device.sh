@@ -38,8 +38,11 @@ MAIN=$(dirname "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-d
 # Automatic signing needs someone to sign as when a build adds a capability the cached profile
 # lacks. No Apple account is signed in to Xcode on the maintainer's Mac, so xcodebuild signs
 # with the App Store Connect key `asc` already uses (~/.asc/config.json), when there is one.
+# Read just before a build, so `--list` and a usage error start no Python.
 SIGNING_KEY=()
-if [ -f "$HOME/.asc/config.json" ]; then
+read_signing_key() {
+    SIGNING_KEY=()
+    [ -f "$HOME/.asc/config.json" ] || return 0
     while IFS= read -r arg; do SIGNING_KEY+=("$arg"); done < <(python3 -c '
 import json, os, sys
 c = json.load(open(os.path.expanduser("~/.asc/config.json")))
@@ -48,7 +51,7 @@ if k and i and p and os.path.exists(os.path.expanduser(p)):
     print("-authenticationKeyPath", os.path.expanduser(p), "-authenticationKeyID", k,
           "-authenticationKeyIssuerID", i, sep="\n")
 ')
-fi
+}
 
 STAGING="$ROOT/.build/phone-link"
 SITE="$MAIN/.build/phone-link"
@@ -184,6 +187,7 @@ install_link() {
 
     local archive="$STAGING/$SCHEME.xcarchive" exported="$STAGING/export"
     DESTINATION="generic/platform=iOS"
+    read_signing_key
     run_xcodebuild device-archive archive -configuration Debug -archivePath "$archive" \
         -allowProvisioningUpdates ${SIGNING_KEY[@]+"${SIGNING_KEY[@]}"}
 
@@ -336,6 +340,7 @@ fi
 IFS=$'\t' read -r UDID NAME <<< "$IPHONES"
 
 DESTINATION="generic/platform=iOS"
+read_signing_key
 run_xcodebuild device build -configuration Debug \
     -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
     ${SIGNING_KEY[@]+"${SIGNING_KEY[@]}"}

@@ -22,7 +22,6 @@ public struct SettingRow: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Spacing.sm + Radius.key, style: .continuous)
         Group {
             if let action {
                 Button(action: action) {
@@ -39,9 +38,7 @@ public struct SettingRow: View {
         .accessibilityLabel(title)
         .accessibilityValue(value)
         .accessibilityHint(action == nil ? "" : hint)
-        .padding(.horizontal, Spacing.md)
-        .background(shape.fill(.pp(.surface)))
-        .clipShape(shape)
+        .settingsCard()
     }
 
     @ViewBuilder private var row: some View {

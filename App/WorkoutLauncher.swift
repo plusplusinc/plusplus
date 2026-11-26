@@ -61,9 +61,6 @@ struct WorkoutLauncher: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active {
                     session.finishThroughDrawer()
-                } else {
-                    // Back from the system's settings, Settings shows what was changed there.
-                    session.health.refresh()
                 }
             }
         } else {

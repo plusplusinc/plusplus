@@ -12,6 +12,7 @@ struct SettingsSheet: View {
     let health: HealthSaving
     @Environment(Look.self) private var look
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     /// The phone's own light or dark, once read.
     @State private var phone: ColorScheme?
 
@@ -21,7 +22,7 @@ struct SettingsSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     GroupLabel("Appearance")
                     AppearanceChoice(look: look, phone: phone)
-                    if health.access != .unavailable {
+                    if let access = health.access, access != .unavailable {
                         GroupLabel("Apple Health")
                             .padding(.top, Spacing.lg)
                         HealthChoice(health: health)
@@ -39,6 +40,14 @@ struct SettingsSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(role: .close) { dismiss() }
                 }
+            }
+        }
+        // Read here, not at launch, so HealthKit stays off the way to the first frame; again
+        // back from the system's settings, so the row shows what was changed there.
+        .onAppear { health.refresh() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                health.refresh()
             }
         }
         // A sheet is a presentation of its own: the window's held scheme reached it as it
@@ -72,7 +81,6 @@ struct AppearanceChoice: View {
 
     var body: some View {
         let shown = look.shown(phone: phone)
-        let shape = RoundedRectangle(cornerRadius: Spacing.sm + Radius.key, style: .continuous)
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ForEach(Appearance.allCases, id: \.self) { appearance in
@@ -106,9 +114,7 @@ struct AppearanceChoice: View {
                 .transition(.opacity)
             }
         }
-        .padding(.horizontal, Spacing.md)
-        .background(shape.fill(.pp(.surface)))
-        .clipShape(shape)
+        .settingsCard()
         .animation(reduceMotion ? Self.crossfade : .snappy, value: look.offersVoid)
     }
 

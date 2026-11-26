@@ -12,6 +12,7 @@ struct HealthSavingTests {
     /// A Health whose access is set by the test, and whose saves arrive on `saved`.
     private final class FakeHealth: Sendable {
         let access: Mutex<HealthAccess>
+        let accessReads = Mutex(0)
         let asks = Mutex(0)
         let saveCount = Mutex(0)
         /// Each workout saved, with the finished logged workouts the store held as it was.
@@ -27,7 +28,10 @@ struct HealthSavingTests {
 
         var client: HealthClient {
             HealthClient(
-                access: { self.access.withLock { $0 } },
+                access: {
+                    self.accessReads.withLock { $0 += 1 }
+                    return self.access.withLock { $0 }
+                },
                 ask: {
                     self.asks.withLock { $0 += 1 }
                     self.access.withLock { $0 = .on }
@@ -36,7 +40,6 @@ struct HealthSavingTests {
                     self.saveCount.withLock { $0 += 1 }
                     let stored = try await self.store?.finishedLoggedWorkouts() ?? []
                     self.saves.yield((workout, stored.map(\.id)))
-                    return UUID()
                 },
             )
         }
@@ -46,7 +49,7 @@ struct HealthSavingTests {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    @Test("With saving on, a finish hands Health the workout once its write has landed")
+    @Test("With saving on, a finish hands Health the workout after its write, reading access then")
     func finishSaves() async throws {
         let container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
@@ -64,6 +67,8 @@ struct HealthSavingTests {
         session.start(on: workout.id, at: Self.at(10))
         let logged = try #require(session.loggedWorkout)
         session.finish(at: Self.at(70))
+        // Nothing reads Health in the Finish tap's turn, nor as the session was made.
+        #expect(health.accessReads.withLock { $0 } == 0)
         var saves = health.saved.makeAsyncIterator()
         let (saved, storedAtSave) = try #require(await saves.next())
         #expect(saved.id == logged.id)
@@ -74,19 +79,23 @@ struct HealthSavingTests {
     }
 
     @Test("With saving off, a save asks Health for nothing")
-    func offSavesNothing() async throws {
+    func offSavesNothing() async {
         let health = FakeHealth(.off)
         let saving = HealthSaving(client: health.client)
         let finished = LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: Self.at(0))
             .finishing(at: Self.at(60))
-        try await saving.save(#require(HealthWorkout(finished: finished, pausedSince: nil)))
+        await saving.save(Result { () throws(HealthWorkout.Withheld) in
+            try HealthWorkout(finished: finished, resumedSeconds: 0, pausedSince: nil)
+        })
         #expect(health.saveCount.withLock { $0 } == 0)
     }
 
-    @Test("The access follows the system's answer at each refresh, and the ask reads it after")
+    @Test("Access is read at the first refresh, not as saving is made, and follows each after")
     func accessFollowsClient() async {
         let health = FakeHealth(.notAsked)
         let saving = HealthSaving(client: health.client)
+        #expect(saving.access == nil)
+        saving.refresh()
         #expect(saving.access == .notAsked)
         health.access.withLock { $0 = .off }
         saving.refresh()

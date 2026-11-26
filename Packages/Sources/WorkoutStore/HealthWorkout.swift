@@ -32,17 +32,27 @@ public struct HealthWorkout: Equatable, Sendable {
         self.pauses = pauses
     }
 
-    /// The workout for `finished`, which was paused from `pausedSince` until its finish, if it
-    /// was; nil if it isn't finished, or if it was paused and resumed before. The store keeps a
-    /// resumed pause's length but not when it happened, and Health takes a pause only at its
-    /// times, so a workout with one would go either with its pauses counted in its length or with
-    /// a pause made up. Neither is sent.
-    public init?(finished: LoggedWorkout, pausedSince: Date?) {
-        guard let end = finished.endedAt else { return nil }
+    /// Why a finished workout goes nowhere.
+    public enum Withheld: Error, Equatable, Sendable {
+        /// It hasn't ended.
+        case notFinished
+        /// It was paused and resumed before its finish. The store keeps a resumed pause's
+        /// length but not when it happened, and Health takes a pause only at its times, so it
+        /// would go either with its pauses counted in its length or with a pause made up.
+        case resumedBefore
+    }
+
+    /// The workout for `finished`, whose pauses resumed before the finish came to
+    /// `resumedSeconds` (the paused seconds it had just before), and which was paused from
+    /// `pausedSince` until its finish, if it was.
+    public init(
+        finished: LoggedWorkout,
+        resumedSeconds: Double,
+        pausedSince: Date?,
+    ) throws(Withheld) {
+        guard let end = finished.endedAt else { throw .notFinished }
+        guard resumedSeconds == 0 else { throw .resumedBefore }
         let lastPause = pausedSince.map { DateInterval(start: min($0, end), end: end) }
-        // A pause in progress at the finish is folded into the paused seconds as it ends.
-        let resumedBefore = finished.pausedSeconds - (lastPause?.duration ?? 0)
-        guard resumedBefore < 0.001 else { return nil }
         self.init(
             id: finished.id,
             // Every workout is strength training for now; the type per workout comes next.
