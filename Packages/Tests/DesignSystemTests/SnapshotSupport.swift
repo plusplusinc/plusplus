@@ -8,7 +8,8 @@ import Testing
 
 /// Snapshots a view as users see it, dark, at the default text size and at the largest
 /// accessibility size: the app opens dark on a new install. Light renders only with
-/// `includingLight`, which the token palette and the themes' snapshots pass. The
+/// `includingLight`, which the token palette and the themes' snapshots pass. A snapshot of
+/// colors on a layout another snapshot holds at that size passes `atLargestSize: false`. The
 /// test plan pins the language so the system font's line height, which follows the device's
 /// preferred languages, is the same everywhere.
 ///
@@ -27,6 +28,7 @@ func assertThemedSnapshots(
     of view: some View,
     width: CGFloat,
     includingLight: Bool = false,
+    atLargestSize: Bool = true,
     fileID: StaticString = #fileID,
     file: StaticString = #filePath,
     testName: String = #function,
@@ -34,17 +36,16 @@ func assertThemedSnapshots(
     column: UInt = #column,
 ) {
     let light = ("light", UITraitCollection { $0.userInterfaceStyle = .light })
+    let largest = (
+        "xxxl",
+        UITraitCollection {
+            $0.userInterfaceStyle = .dark
+            $0.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+        },
+    )
     let appearances: [(name: String, traits: UITraitCollection)] = (includingLight ? [light] : []) +
-        [
-            ("dark", UITraitCollection { $0.userInterfaceStyle = .dark }),
-            (
-                "xxxl",
-                UITraitCollection {
-                    $0.userInterfaceStyle = .dark
-                    $0.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
-                },
-            ),
-        ]
+        [("dark", UITraitCollection { $0.userInterfaceStyle = .dark })] +
+        (atLargestSize ? [largest] : [])
     let directory = snapshotDirectory(
         forSuite: URL(filePath: "\(file)").deletingPathExtension().lastPathComponent,
     )

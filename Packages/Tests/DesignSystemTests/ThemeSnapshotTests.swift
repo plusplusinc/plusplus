@@ -29,14 +29,26 @@ struct ThemeSnapshotTests {
         assertThemedSnapshots(of: view, width: Self.width)
     }
 
+    /// Colors only: the mid-set layout at the largest text size is the rail's and the current
+    /// exercise's own snapshots', so these skip it.
     @Test("A workout mid-set in Chalk: active, done, and to-do told apart by lightness alone")
     func chalkMidSet() {
-        assertThemedSnapshots(of: midSet(in: .chalk), width: Self.width, includingLight: true)
+        assertThemedSnapshots(
+            of: midSet(in: .chalk),
+            width: Self.width,
+            includingLight: true,
+            atLargestSize: false,
+        )
     }
 
     @Test("A workout mid-set in Pool: the neutrals worked out on a turquoise ground")
     func poolMidSet() {
-        assertThemedSnapshots(of: midSet(in: .pool), width: Self.width, includingLight: true)
+        assertThemedSnapshots(
+            of: midSet(in: .pool),
+            width: Self.width,
+            includingLight: true,
+            atLargestSize: false,
+        )
     }
 
     private struct Row: Identifiable {
