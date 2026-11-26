@@ -75,6 +75,30 @@ public struct OfferCard: View {
     }
 }
 
+/// A view going as its room closes over it, for content under it that rises into the room on
+/// the same animation: it is cut off from the bottom up, at the edge that content has risen
+/// to, as it fades, so the rising content never shows through it. Faded alone, the calendar
+/// under Log's card rose through the card's words.
+public struct ClosingRoom: Transition {
+    public init() { }
+
+    public func body(content: Content, phase: TransitionPhase) -> some View {
+        content
+            .mask(alignment: .top) {
+                Rectangle()
+                    .scaleEffect(x: 1, y: phase.isIdentity ? 1 : 0, anchor: .top)
+            }
+            .opacity(phase.isIdentity ? 1 : 0)
+    }
+}
+
+extension Transition where Self == ClosingRoom {
+    /// `.transition(.closingRoom)`.
+    public static var closingRoom: ClosingRoom {
+        ClosingRoom()
+    }
+}
+
 #Preview {
     VStack {
         OfferCard(

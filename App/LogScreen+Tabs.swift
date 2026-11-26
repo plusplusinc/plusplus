@@ -19,7 +19,7 @@ extension LogScreen {
             if showsHealthOffer {
                 healthOffer
                     .padding(.bottom, Spacing.lg)
-                    .transition(.opacity)
+                    .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.closingRoom))
             }
             loggedWorkoutCount(period)
                 .padding(.bottom, Spacing.md)
@@ -56,7 +56,8 @@ extension LogScreen {
                     .transition(.asymmetric(insertion: .opacity, removal: .identity))
             }
         }
-        // The card's room closes as it fades in place, the calendar and rows moving up; with
+        // The card's room closes as it fades, cut off where the calendar and rows have risen
+        // to (`ClosingRoom`); with
         // Reduce Motion, a crossfade, as Void's row does in Settings (`AppearanceChoice`).
         .animation(
             reduceMotion ? .easeInOut(duration: 0.2) : .snappy,
