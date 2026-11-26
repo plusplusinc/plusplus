@@ -27,7 +27,9 @@ struct PlusPlusApp: App {
         // A fresh start forgets the appearance chosen too, before it is read. A launch argument
         // (`-appearance light`) still answers, from its own domain.
         if resetsStore {
-            UserDefaults.standard.removeObject(forKey: Look.appearanceKey)
+            for key in Look.keys {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
         }
         if LaunchOptions.turnsOffUIKitAnimations {
             UIView.setAnimationsEnabled(false)
@@ -43,9 +45,10 @@ struct PlusPlusApp: App {
         WindowGroup {
             WorkoutLauncher(store: store, namer: namer, resetsStore: resetsStore)
                 // The window itself is held, so the bars, sheets, alerts, and keyboard follow;
-                // nil on Auto lets it follow the phone.
-                .preferredColorScheme(look.appearance.colorScheme)
-                .environment(\.isBlackBelt, look.appearance == .blackBelt)
+                // nil with Automatic on lets it follow the phone. Black belt draws only where
+                // the scheme is dark (`Color.pp`).
+                .preferredColorScheme(look.colorScheme)
+                .environment(\.isBlackBelt, look.isBlackBelt)
                 .environment(look)
         }
     }

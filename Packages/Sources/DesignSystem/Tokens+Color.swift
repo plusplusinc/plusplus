@@ -75,7 +75,7 @@ nonisolated struct TokenColor: ShapeStyle, Hashable {
     let token: ColorToken
 
     func resolve(in environment: EnvironmentValues) -> Color.Resolved {
-        guard environment.isBlackBelt else {
+        guard environment.drawsBlackBelt else {
             return Color(token.rawValue, bundle: .module).resolve(in: environment)
         }
         return (environment.isOnSheet ? Palette.blackBeltSheet : .blackBelt)[token]

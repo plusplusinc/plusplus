@@ -1,41 +1,48 @@
 import SwiftUI
 
-/// How the app looks: held light, held dark, following the phone, or Black belt, true black
-/// whatever the phone's appearance. Light, Dark, and Auto draw PlusPlus's own colors, the asset
-/// catalog's colorsets; Black belt draws `Palette.blackBelt`.
+/// One of the app's two looks, light or dark, as Settings' two pictures choose it (`Look`).
+/// PlusPlus's own colors are the asset catalog's colorsets; with Black belt on, dark draws
+/// `Palette.blackBelt` instead.
 public nonisolated enum Appearance: String, CaseIterable, Sendable {
     case light
     case dark
-    case auto
-    case blackBelt = "black-belt"
 
     /// A new install, and a stored value that names none: dark, as the app was before the
     /// choice existed, until the light palette has had its review.
     public static let initial = Self.dark
 
+    public init(_ scheme: ColorScheme) {
+        self = scheme == .light ? .light : .dark
+    }
+
     public var name: String {
         switch self {
         case .light: String(localized: "Light")
         case .dark: String(localized: "Dark")
-        case .auto: String(localized: "Auto")
-        case .blackBelt: String(localized: "Black belt")
         }
     }
 
-    /// What the window is held to: the appearance's, Black belt's dark, or nothing on Auto, so
-    /// it follows the phone.
-    public var colorScheme: ColorScheme? {
+    public var colorScheme: ColorScheme {
         switch self {
         case .light: .light
-        case .dark, .blackBelt: .dark
-        case .auto: nil
+        case .dark: .dark
         }
     }
 }
 
 nonisolated extension EnvironmentValues {
-    /// Whether `Color.pp` draws Black belt's colors rather than PlusPlus's.
+    /// Whether Black belt is on: `Color.pp` draws Black belt's colors rather than PlusPlus's
+    /// wherever the color scheme is dark (`drawsBlackBelt`), and PlusPlus's light ones where it
+    /// is light.
     @Entry public var isBlackBelt = false
+
+    /// Black belt on, and drawn dark.
+    var drawsBlackBelt: Bool {
+        isBlackBelt && colorScheme == .dark
+    }
+}
+
+nonisolated extension EnvironmentValues {
     /// Whether what draws is on a sheet (`sheetGround()`), where Black belt draws a step up
     /// from the screen.
     @Entry var isOnSheet = false
@@ -53,7 +60,12 @@ extension View {
 
 private struct SheetGround: ViewModifier {
     let filled: Bool
-    @Environment(\.isBlackBelt) private var isBlackBelt
+    @Environment(\.isBlackBelt) private var blackBeltOn
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isBlackBelt: Bool {
+        blackBeltOn && colorScheme == .dark
+    }
 
     func body(content: Content) -> some View {
         let lifted = content
