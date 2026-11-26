@@ -15,7 +15,7 @@ planning work in it), and in `docs/`. If this file and a rules file disagree, th
 with its sets, reps or time, weight, and rest, some joined into supersets, saved on the phone as
 it is edited, and logged set by set on that same screen; a Workouts screen listing and
 filtering the saved ones; and Log, the finished ones. Settings, from the drawer, picks the
-appearance and a theme. Nothing syncs yet, and there is no watch app yet.
+appearance: Light, Dark, Auto, or Black belt. Nothing syncs yet, and there is no watch app yet.
 
 This file does not say how a feature looks or behaves. That is in the doc comments of the types
 that draw it, which `.claude/rules/swiftui.md` maps, and, as designed, in the board README

@@ -8,7 +8,7 @@ import Testing
 
 /// Snapshots a view as users see it, dark, at the default text size and at the largest
 /// accessibility size: the app opens dark on a new install. Light renders only with
-/// `includingLight`, which the token palette and the themes' snapshots pass. A snapshot of
+/// `includingLight`, which the token palette passes. A snapshot of
 /// colors on a layout another snapshot holds at that size passes `atLargestSize: false`. The
 /// test plan pins the language so the system font's line height, which follows the device's
 /// preferred languages, is the same everywhere.

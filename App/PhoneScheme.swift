@@ -4,9 +4,9 @@ import UIKit
 extension View {
     /// Keeps `scheme` on the phone's own light or dark, whatever the window is held to: the
     /// screen's, which the held appearance never reaches. The environment's `colorScheme`, and the
-    /// window scene's traits, are the held one, dark under a dark-only theme even on a light
+    /// window scene's traits, are the held one, dark under Dark or Black belt even on a light
     /// phone. The screen tells nothing of a change, so it is read as the view comes on screen, as
-    /// the scene's own traits change (Auto under a theme with both looks), and each time the app
+    /// the scene's own traits change (on Auto), and each time the app
     /// becomes active, which a change from Control Center or the Settings app makes it do.
     func phoneScheme(_ scheme: Binding<ColorScheme>) -> some View {
         background { PhoneSchemeProbe(scheme: scheme) }
