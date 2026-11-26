@@ -13,14 +13,15 @@ import Testing
 struct ThemeSnapshotTests {
     private static let width: CGFloat = 390
 
-    /// Cards on the Theme screen: PlusPlus in use, with its outline and check; Black, dark
-    /// only; Lavender, the longest name. Under them, Settings' card, which opens the themes.
-    @Test("Theme cards: in use, dark only, a long name, and Settings' card that opens them")
+    /// Cards on the Theme screen: PlusPlus in use, with its outline and check; Black belt, dark
+    /// only and the longest name; Pool, on the most colored ground. Under them, Settings' card,
+    /// which opens the themes.
+    @Test("Theme cards: in use, dark only, a colored ground, and Settings' card that opens them")
     func cards() {
         let view = VStack(spacing: Spacing.sm) {
             ThemeCard(theme: .plusPlus, scheme: .dark, mark: .checked(true))
-            ThemeCard(theme: .black, scheme: .dark, mark: .checked(false))
-            ThemeCard(theme: .lavender, scheme: .dark, mark: .checked(false))
+            ThemeCard(theme: .blackBelt, scheme: .dark, mark: .checked(false))
+            ThemeCard(theme: .pool, scheme: .dark, mark: .checked(false))
             ThemeCard(theme: .iron, scheme: .dark, mark: .opens)
         }
         .padding(Spacing.md)

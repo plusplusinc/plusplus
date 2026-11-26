@@ -92,7 +92,8 @@ private struct GroupLabel: View {
     }
 }
 
-/// Every theme as its card, PlusPlus first, then by name, the one in use outlined and checked.
+/// Every theme as its card, PlusPlus first, then in their curated order (`Theme.all`), the one
+/// in use outlined and checked.
 /// It opens on the theme in use, its card scrolled to the middle (or as near as the list's ends
 /// allow) before the first frame, so nothing scrolls as it arrives: the list scrolls to that
 /// card's id with a center anchor as it appears, which holds at any width and text size, not an

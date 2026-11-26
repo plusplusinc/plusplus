@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// PlusPlus's own themes beside its default. Each look is five colors (`Palette`): ground, text,
+/// PlusPlus's own themes beside its default, each named for somewhere or something a workout
+/// happens, and drawn to look like it. Each look is five colors (`Palette`): ground, text,
 /// active, done, arriving, as designed; `Palette` moves one in lightness only where a job's
 /// ratio needs it, and `ThemeContrastTests` holds every look to them. A theme gives its three
 /// colors their jobs freely, so active is not always a green nor done a purple, but active is
@@ -10,14 +11,15 @@ nonisolated extension Theme {
     /// The order on the Theme screen after PlusPlus: curated, the quiet grounds first and the
     /// playful ones last.
     static let ours: [Self] = [
-        .black, .iron, .chalk, .navy, .ocean, .forest, .lavender, .rose, .ink, .plum, .candy,
+        .blackBelt, .iron, .chalk, .varsity, .ocean, .pool, .trail, .court, .track, .sunrise,
+        .cooldown, .barre, .logbook, .plum, .spin,
     ]
 
-    /// PlusPlus dark's own colors on true black, for an OLED screen: active green, done purple,
-    /// arriving blue.
-    public static let black = Theme(
-        id: "black",
-        name: "Black",
+    /// True black, the top rank, for an OLED screen, in PlusPlus dark's own colors: active
+    /// green, done purple, arriving blue.
+    public static let blackBelt = Theme(
+        id: "black-belt",
+        name: "Black belt",
         looks: .darkOnly(Palette(
             ground: 0x000000,
             text: 0xF5F3EE,
@@ -27,7 +29,8 @@ nonisolated extension Theme {
         )),
     )
 
-    /// Steel and rust: active steel blue, done rust, arriving a paler, clearer blue.
+    /// The weight room's steel and rust: active steel blue, done rust, arriving a paler,
+    /// clearer blue.
     public static let iron = Theme(
         id: "iron",
         name: "Iron",
@@ -49,9 +52,9 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Chalk on a slate board, in grays alone, told apart by three clear steps of lightness:
-    /// active the strongest, done the middle, to-do the quietest, each at least 0.15 from the
-    /// next (`Palette.grayStep`).
+    /// A workout written on a chalkboard, in grays alone, told apart by three clear steps of
+    /// lightness: active the strongest, done the middle, to-do the quietest, each at least 0.15
+    /// from the next (`Palette.grayStep`).
     public static let chalk = Theme(
         id: "chalk",
         name: "Chalk",
@@ -73,16 +76,17 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Navy and brass, sober: active blue, done brass (an amber in light), arriving sky.
-    public static let navy = Theme(
-        id: "navy",
-        name: "Navy",
+    /// Navy and gold, the team-jacket colors: active blue, done gold (an amber in light),
+    /// arriving sky.
+    public static let varsity = Theme(
+        id: "varsity",
+        name: "Varsity",
         looks: .both(
             light: Palette(
                 ground: 0xF4F6FB,
                 text: 0x121B33,
                 active: 0x1F3F99,
-                done: 0xB36B00,
+                done: 0xC26A00,
                 arriving: 0x0F7F9C,
             ),
             dark: Palette(
@@ -95,7 +99,7 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Sea blue and coral: active sea blue, done coral, arriving seafoam.
+    /// Open water, for swimming and surfing: active sea blue, done coral, arriving seafoam.
     public static let ocean = Theme(
         id: "ocean",
         name: "Ocean",
@@ -117,11 +121,34 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Forest green and bark brown, apart in lightness: active leaf green, done bark, arriving
-    /// a stream blue.
-    public static let forest = Theme(
-        id: "forest",
-        name: "Forest",
+    /// A swimming pool, brighter and greener than Ocean's sea: active the water's turquoise,
+    /// done the dark blue of a lane line, arriving the red of a lane rope.
+    public static let pool = Theme(
+        id: "pool",
+        name: "Pool",
+        looks: .both(
+            light: Palette(
+                ground: 0xC4EEF3,
+                text: 0x0B2A3A,
+                active: 0x007C89,
+                done: 0x1B3F9E,
+                arriving: 0xC8402F,
+            ),
+            dark: Palette(
+                ground: 0x053E4A,
+                text: 0xE6FAFB,
+                active: 0x3FE0E8,
+                done: 0x7C9BFF,
+                arriving: 0xFF8A7A,
+            ),
+        ),
+    )
+
+    /// A trail run, forest green and bark brown, apart in lightness: active leaf green, done
+    /// bark, arriving a stream blue.
+    public static let trail = Theme(
+        id: "trail",
+        name: "Trail",
         looks: .both(
             light: Palette(
                 ground: 0xF3F5EC,
@@ -140,10 +167,80 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Lavender and sky: active lavender, done sky blue, arriving sage.
-    public static let lavender = Theme(
-        id: "lavender",
-        name: "Lavender",
+    /// A basketball court, maple hardwood with painted blue lines: active the lines' blue,
+    /// done the ball's orange, arriving green.
+    public static let court = Theme(
+        id: "court",
+        name: "Court",
+        looks: .both(
+            light: Palette(
+                ground: 0xF3E3C8,
+                text: 0x2E2117,
+                active: 0x1D5FBF,
+                done: 0xB5561A,
+                arriving: 0x2F7D4B,
+            ),
+            dark: Palette(
+                ground: 0x2A1D11,
+                text: 0xF3E6D2,
+                active: 0x6FA8FF,
+                done: 0xCF6E26,
+                arriving: 0x8FD4A0,
+            ),
+        ),
+    )
+
+    /// A running track, brick-red rubber around a green infield: active the infield's green,
+    /// done the track's brick, arriving a lane line's blue.
+    public static let track = Theme(
+        id: "track",
+        name: "Track",
+        looks: .both(
+            light: Palette(
+                ground: 0xF6DDD2,
+                text: 0x3A1A14,
+                active: 0x23803A,
+                done: 0xB4442C,
+                arriving: 0x2A6FB0,
+            ),
+            dark: Palette(
+                ground: 0x351813,
+                text: 0xF6E7E0,
+                active: 0x7BD88A,
+                done: 0xD9694E,
+                arriving: 0x9CC8F0,
+            ),
+        ),
+    )
+
+    /// A run at dawn, peach sky over the last of the night's indigo, best in light: active the
+    /// indigo, done the sun's orange, arriving pink.
+    public static let sunrise = Theme(
+        id: "sunrise",
+        name: "Sunrise",
+        looks: .both(
+            light: Palette(
+                ground: 0xFFEDDF,
+                text: 0x3A2A24,
+                active: 0x4458C9,
+                done: 0xD2662E,
+                arriving: 0xC8478F,
+            ),
+            dark: Palette(
+                ground: 0x1B1730,
+                text: 0xF6EADF,
+                active: 0x9AA8FF,
+                done: 0xFFB37A,
+                arriving: 0xFF9AC8,
+            ),
+        ),
+    )
+
+    /// Lavender and sky, the calm after the work: active lavender, done a denim blue, arriving
+    /// sage.
+    public static let cooldown = Theme(
+        id: "cooldown",
+        name: "Cooldown",
         looks: .both(
             light: Palette(
                 ground: 0xF5F2FB,
@@ -156,16 +253,16 @@ nonisolated extension Theme {
                 ground: 0x1C1A2A,
                 text: 0xE6E2F4,
                 active: 0xB8A4F0,
-                done: 0x8FC4F0,
+                done: 0x5C8FB8,
                 arriving: 0xA9D4B0,
             ),
         ),
     )
 
-    /// Warm blush: active rose pink, done sage, arriving violet.
-    public static let rose = Theme(
-        id: "rose",
-        name: "Rose",
+    /// Ballet pink with sage, for a barre class: active rose pink, done sage, arriving violet.
+    public static let barre = Theme(
+        id: "barre",
+        name: "Barre",
         looks: .both(
             light: Palette(
                 ground: 0xFCF1F2,
@@ -184,11 +281,11 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Fountain-pen ink blue for active and sepia for done, on cream in light and a blue-black
-    /// in dark; arriving teal.
-    public static let ink = Theme(
-        id: "ink",
-        name: "Ink",
+    /// Ink on cream paper, a training log: fountain-pen blue for active and sepia for done, on
+    /// cream in light and a blue-black in dark; arriving teal.
+    public static let logbook = Theme(
+        id: "logbook",
+        name: "Logbook",
         looks: .both(
             light: Palette(
                 ground: 0xF5EEDD,
@@ -207,7 +304,7 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Plum and leaf green: active plum, redder than Lavender's, done leaf green, arriving pink.
+    /// Plum and leaf green: active plum, redder than Cooldown's, done leaf green, arriving pink.
     public static let plum = Theme(
         id: "plum",
         name: "Plum",
@@ -229,11 +326,11 @@ nonisolated extension Theme {
         ),
     )
 
-    /// Bright and playful on indigo: active cyan (a clear blue in light), done bubblegum pink,
-    /// arriving lemon (an orange in light).
-    public static let candy = Theme(
-        id: "candy",
-        name: "Candy",
+    /// A dark spin studio under cyan and pink lights: active cyan (a clear blue in light), done
+    /// pink, arriving lemon (an orange in light).
+    public static let spin = Theme(
+        id: "spin",
+        name: "Spin",
         looks: .both(
             light: Palette(
                 ground: 0xF7F5FF,

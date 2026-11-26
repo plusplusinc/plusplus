@@ -17,9 +17,9 @@ nonisolated struct Palette: Sendable {
     /// its ground in WCAG 2 contrast (dark, then light): the card 1.13 and 1.11, the chip 1.29
     /// and 1.21, the lines 1.89 to 2.24 and 1.54 to 1.82, a set to do 3.14 and 1.78, the rail
     /// 3.95 and 3.54, the quieter text 5.93 and 5.48. Contrast, not a share of the way to the
-    /// text, as near black a share is too small to see: Black's card was `010101`. A dark well
-    /// sinks below the ground, as PlusPlus dark's does, where the ground has room below it;
-    /// Black's rises a step instead, as a light look's does. The three meaningful
+    /// text, as near black a share is too small to see: Black belt's card was `010101`. A dark
+    /// well sinks below the ground, as PlusPlus dark's does, where the ground has room below it;
+    /// Black belt's rises a step instead, as a light look's does. The three meaningful
     /// colors and the text are moved in lightness only, as far as the contrast each job needs.
     /// A ground darker than mid gray makes a dark look.
     init(ground: UInt32, text: UInt32, active: UInt32, done: UInt32, arriving: UInt32) {

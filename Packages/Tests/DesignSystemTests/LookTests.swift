@@ -23,10 +23,10 @@ struct LookTests {
         try withDefaults { defaults in
             let first = Look(defaults: defaults)
             first.appearance = .light
-            first.theme = .ink
+            first.theme = .logbook
             let relaunched = Look(defaults: defaults)
             #expect(relaunched.appearance == .light)
-            #expect(relaunched.theme == .ink)
+            #expect(relaunched.theme == .logbook)
         }
     }
 
@@ -62,14 +62,14 @@ struct LookTests {
     @Test("A dark-only theme is held dark whatever the appearance, and draws the same in light")
     func darkOnlyStaysDark() {
         for appearance in Appearance.allCases {
-            #expect(Theme.black.colorScheme(for: appearance) == .dark)
+            #expect(Theme.blackBelt.colorScheme(for: appearance) == .dark)
         }
         var light = EnvironmentValues()
         light.colorScheme = .light
         var dark = EnvironmentValues()
         dark.colorScheme = .dark
         for token in ColorToken.allCases {
-            #expect(Theme.black.resolve(token, in: light) == Theme.black.resolve(
+            #expect(Theme.blackBelt.resolve(token, in: light) == Theme.blackBelt.resolve(
                 token,
                 in: dark,
             ))

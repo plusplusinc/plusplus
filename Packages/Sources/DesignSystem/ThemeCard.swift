@@ -260,8 +260,8 @@ extension ButtonStyle where Self == CardButtonStyle {
 #Preview("Long names") {
     ScrollView {
         VStack(spacing: Spacing.sm) {
-            ThemeCard(theme: .lavender, scheme: .light, mark: .checked(false))
-            ThemeCard(theme: .black, scheme: .dark, mark: .checked(true))
+            ThemeCard(theme: .cooldown, scheme: .light, mark: .checked(false))
+            ThemeCard(theme: .blackBelt, scheme: .dark, mark: .checked(true))
         }
         .padding(Spacing.md)
     }
