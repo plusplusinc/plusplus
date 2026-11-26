@@ -73,15 +73,12 @@ extension Color {
 /// call site (a view, a fill, `.opacity`, a `Canvas`, `resolve(in:)`).
 nonisolated struct TokenColor: ShapeStyle, Hashable {
     let token: ColorToken
-    /// Resolved as on a sheet (`isOnSheet`) wherever it is drawn: a sheet's own ground, which the
-    /// system draws outside the sheet's content and its environment.
-    var onSheet = false
 
     func resolve(in environment: EnvironmentValues) -> Color.Resolved {
         guard environment.isBlackBelt else {
             return Color(token.rawValue, bundle: .module).resolve(in: environment)
         }
-        return (onSheet || environment.isOnSheet ? Palette.blackBeltSheet : .blackBelt)[token]
+        return (environment.isOnSheet ? Palette.blackBeltSheet : .blackBelt)[token]
     }
 }
 

@@ -8,13 +8,13 @@ extension View {
     /// phone. The screen tells nothing of a change, so it is read as the view comes on screen, as
     /// the scene's own traits change (on Auto), and each time the app
     /// becomes active, which a change from Control Center or the Settings app makes it do.
-    func phoneScheme(_ scheme: Binding<ColorScheme>) -> some View {
+    func phoneScheme(_ scheme: Binding<ColorScheme?>) -> some View {
         background { PhoneSchemeProbe(scheme: scheme) }
     }
 }
 
 private struct PhoneSchemeProbe: UIViewRepresentable {
-    @Binding var scheme: ColorScheme
+    @Binding var scheme: ColorScheme?
 
     func makeUIView(context _: Context) -> ProbeView {
         let view = ProbeView()

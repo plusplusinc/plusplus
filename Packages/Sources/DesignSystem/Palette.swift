@@ -33,21 +33,16 @@ nonisolated struct Palette: Sendable {
         func stepped(_ ratio: Double, below: Bool = false) -> RGB {
             Self.gray(from: background, toward: white, ratio, below: below)
         }
-        func nudged(_ hex: UInt32, _ ratio: Double, on grounds: [RGB]) -> RGB {
-            nudge(RGB(hex), to: ratio, on: grounds, awayFrom: background)
+        func nudged(_ color: RGB, _ ratio: Double, on grounds: [RGB]) -> RGB {
+            nudge(color, to: ratio, on: grounds, awayFrom: background)
         }
         let surface = stepped(1.13)
         let raised = stepped(1.29)
         let sunk = stepped(1.09, below: true)
         let well = contrast(sunk, background) < 1.08 ? stepped(1.11) : sunk
         let marks = [background, well]
-        let rail = nudge(stepped(3.95), to: 3, on: marks, awayFrom: background)
-        let textSecondary = nudge(
-            stepped(5.93),
-            to: 4.5,
-            on: [background, surface, raised],
-            awayFrom: background,
-        )
+        let rail = nudged(stepped(3.95), 3, on: marks)
+        let textSecondary = nudged(stepped(5.93), 4.5, on: [background, surface, raised])
         let black = RGB(0x000000)
         colors = [
             .background: background.resolved(),
@@ -64,9 +59,9 @@ nonisolated struct Palette: Sendable {
             .textSecondary: textSecondary.resolved(),
             .rail: rail.resolved(),
             .textTertiary: rail.resolved(),
-            .accent: nudged(0x46D17C, 4.5, on: marks).resolved(),
-            .done: nudged(0xB08CF0, 3, on: marks).resolved(),
-            .railJoin: nudged(0x5CA8F5, 3, on: marks).resolved(),
+            .accent: nudged(RGB(0x46D17C), 4.5, on: marks).resolved(),
+            .done: nudged(RGB(0xB08CF0), 3, on: marks).resolved(),
+            .railJoin: nudged(RGB(0x5CA8F5), 3, on: marks).resolved(),
             .dim: black.resolved(opacity: 0.5),
             .shadow: black.resolved(opacity: 0.4),
         ]

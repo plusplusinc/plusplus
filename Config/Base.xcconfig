@@ -54,7 +54,8 @@ DEVELOPMENT_TEAM = WK2XVYGZU9
 
 // MARK: - Info.plist
 //
-// Generated from these settings; there is no Info.plist file to drift out of sync.
+// Generated from these settings, plus Config/LaunchScreen.plist for the one key with no
+// INFOPLIST_KEY_ setting (below).
 
 GENERATE_INFOPLIST_FILE = YES
 // App Store Connect refuses a build with no app icon, so this is required for TestFlight. The

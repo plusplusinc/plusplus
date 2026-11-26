@@ -20,13 +20,6 @@ nonisolated struct RGB: Hashable, Sendable {
         self.blue = blue
     }
 
-    /// A resolved color's sRGB components, its opacity dropped.
-    init(_ resolved: Color.Resolved) {
-        red = Double(resolved.red)
-        green = Double(resolved.green)
-        blue = Double(resolved.blue)
-    }
-
     func resolved(opacity: Double = 1) -> Color.Resolved {
         Color.Resolved(
             colorSpace: .sRGB,

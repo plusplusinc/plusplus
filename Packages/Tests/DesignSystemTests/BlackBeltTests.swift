@@ -63,7 +63,7 @@ nonisolated struct BlackBeltTests {
     @Test("Text and active keep 4.5:1, and the rail's marks 3:1", arguments: grounds)
     func ratiosHold(ground: Ground) {
         for pair in Self.pairs {
-            let ratio = Self.contrast(ground.color(pair.drawn), ground.color(pair.ground))
+            let ratio = wcagContrast(ground.color(pair.drawn), ground.color(pair.ground))
             #expect(
                 ratio >= pair.ratio,
                 """
@@ -80,7 +80,7 @@ nonisolated struct BlackBeltTests {
     func sheetStandsOffBlack() {
         let (screen, sheet) = (Self.grounds[0], Self.grounds[1])
         #expect(screen.color(.background) == RGB(0x000000).resolved())
-        let step = Self.contrast(sheet.color(.background), screen.color(.background))
+        let step = wcagContrast(sheet.color(.background), screen.color(.background))
         #expect(step >= 1.13, "A sheet is \(Self.shown(step)):1 off the screen")
     }
 
@@ -117,19 +117,5 @@ nonisolated struct BlackBeltTests {
 
     private static func shown(_ value: Double) -> String {
         String(format: "%.3f", value)
-    }
-
-    /// WCAG 2's contrast ratio, worked out here from the resolved colors' own linear components
-    /// rather than through `DesignSystem.contrast`, so the check does not share the palette's
-    /// math.
-    private static func contrast(_ first: Color.Resolved, _ second: Color.Resolved) -> Double {
-        let (one, two) = (luminance(first), luminance(second))
-        return (max(one, two) + 0.05) / (min(one, two) + 0.05)
-    }
-
-    /// WCAG 2's relative luminance. `Color.Resolved`'s components are already linear sRGB.
-    private static func luminance(_ color: Color.Resolved) -> Double {
-        0.2126 * Double(color.linearRed) + 0.7152 * Double(color.linearGreen)
-            + 0.0722 * Double(color.linearBlue)
     }
 }

@@ -72,8 +72,11 @@ private struct SheetGround: ViewModifier {
             .environment(\.isOnSheet, true)
         if filled {
             // A color, not a view: as a view, the system drew the dimmed screen around the sheet
-            // a step apart from the color's.
-            lifted.presentationBackground(Color(TokenColor(token: .background, onSheet: true)))
+            // a step apart from the color's. The system draws it outside the sheet's content
+            // and its environment, so Black belt's sheet ground is named here.
+            lifted.presentationBackground(
+                isBlackBelt ? Color(Palette.blackBeltSheet[.background]) : Color.pp(.background),
+            )
         } else {
             lifted
         }

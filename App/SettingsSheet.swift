@@ -40,7 +40,7 @@ struct SettingsSheet: View {
         // held to the phone's own: given nil, Dark then Auto on a light phone stayed dark.
         // Before the phone is read, nil, as the sheet opens following it.
         .preferredColorScheme(look.appearance.colorScheme ?? phone)
-        .phoneScheme(Binding { phone ?? .dark } set: { phone = $0 })
+        .phoneScheme($phone)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .sheetGround()

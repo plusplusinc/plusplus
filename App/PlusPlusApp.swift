@@ -15,14 +15,6 @@ struct PlusPlusApp: App {
     @State private var look: Look
 
     init() {
-        #if DEBUG
-        // A fresh start forgets the appearance chosen too, before it is read. A launch argument
-        // (`-appearance light`) still answers, from its own domain.
-        if LaunchOptions.resetsStore {
-            UserDefaults.standard.removeObject(forKey: Look.appearanceKey)
-        }
-        #endif
-        _look = State(initialValue: Look())
         do {
             store = try Store.open(.local)
         } catch {
@@ -32,6 +24,11 @@ struct PlusPlusApp: App {
         #if DEBUG
         namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .standard
         resetsStore = LaunchOptions.resetsStore
+        // A fresh start forgets the appearance chosen too, before it is read. A launch argument
+        // (`-appearance light`) still answers, from its own domain.
+        if resetsStore {
+            UserDefaults.standard.removeObject(forKey: Look.appearanceKey)
+        }
         if LaunchOptions.turnsOffUIKitAnimations {
             UIView.setAnimationsEnabled(false)
         }
@@ -39,6 +36,7 @@ struct PlusPlusApp: App {
         namer = .standard
         resetsStore = false
         #endif
+        _look = State(initialValue: Look())
     }
 
     var body: some Scene {
