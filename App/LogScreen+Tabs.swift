@@ -14,7 +14,13 @@ extension LogScreen {
 
     func historyTab(_ log: WorkoutLog) -> some View {
         let period = log.period(now: now, calendar: calendar)
+        let showsHealthOffer = session.health.showsOffer
         return VStack(alignment: .leading, spacing: 0) {
+            if showsHealthOffer {
+                healthOffer
+                    .padding(.bottom, Spacing.lg)
+                    .transition(.opacity)
+            }
             loggedWorkoutCount(period)
                 .padding(.bottom, Spacing.md)
             DayGrid(
@@ -50,6 +56,29 @@ extension LogScreen {
                     .transition(.asymmetric(insertion: .opacity, removal: .identity))
             }
         }
+        // The card's room closes as it fades in place, the calendar and rows moving up; with
+        // Reduce Motion, a crossfade, as Void's row does in Settings (`AppearanceChoice`).
+        .animation(
+            reduceMotion ? .easeInOut(duration: 0.2) : .snappy,
+            value: showsHealthOffer,
+        )
+    }
+
+    /// The one-time ask to save to Apple Health, first in History above the count, from the
+    /// first finish after it came to the app until Apple's sheet is answered or "Not now" turns
+    /// it down (`HealthSaving.showsOffer`). "Save to Apple Health" is the session's one ask
+    /// (`AppSession.askToSaveToHealth()`): Apple's sheet, then every workout in Log sent once
+    /// it allows; the card goes as the answer is read. In Log's first frame after a finish, so
+    /// it never arrives with motion over the workout coming in.
+    private var healthOffer: some View {
+        OfferCard(
+            "Save your workouts to Apple Health",
+            line: "Each workout you finish, with its type and how long it took.",
+            offer: "Save to Apple Health",
+            dismiss: "Not now",
+            take: { Task { await session.askToSaveToHealth() } },
+            decline: { session.health.declineOffer() },
+        )
     }
 
     /// "9 workouts", its number in purple.

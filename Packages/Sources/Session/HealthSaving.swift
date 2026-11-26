@@ -25,14 +25,57 @@ public final class HealthSaving {
     @ObservationIgnored private var owedSinceRead: Set<LoggedWorkout.ID> = []
     @ObservationIgnored private let defaults: UserDefaults
 
+    /// Where the card on Log that asks to save to Apple Health stands on this device: nil until
+    /// the first finish that finds Health not asked, or not read yet. Kept on the device, not in
+    /// the store, as Health's answer is the device's: a "Not now" synced to another device would
+    /// hide the card where Apple's sheet was never shown.
+    private(set) var offer: Offer?
+
+    enum Offer: String {
+        /// A finish made the offer; the card shows while Health is still not asked.
+        case offered
+        /// "Not now": the card never shows again, and Apple's sheet is left unspent.
+        case declined
+    }
+
     /// The key the removals owed are kept under, for a reset.
     public static let removalsKey = "healthRemovalsOwed"
+    /// The key the card's offer is kept under, for a reset.
+    public static let offerKey = "healthOffer"
+    /// Every key this keeps on the device, for a reset.
+    public static let keys = [removalsKey, offerKey]
 
     public init(client: HealthClient, defaults: UserDefaults = .standard) {
         self.client = client
         self.defaults = defaults
         removalsOwed = (defaults.stringArray(forKey: Self.removalsKey) ?? [])
             .compactMap(UUID.init(uuidString:))
+        offer = defaults.string(forKey: Self.offerKey).flatMap(Offer.init(rawValue:))
+    }
+
+    /// Whether Log shows the card that asks to save to Apple Health: a finish has made the
+    /// offer, "Not now" hasn't turned it down, and the system reads Health as never asked. Once
+    /// Apple's sheet is answered, from the card or Settings, or with Health unavailable, it is
+    /// gone with nothing more stored.
+    public var showsOffer: Bool {
+        offer == .offered && access == .notAsked
+    }
+
+    /// Makes the card's offer at a finish, the first since the app kept one, unless the access
+    /// last read says Health was asked or isn't here. Whether it shows waits on the access.
+    func offerAtFinish() {
+        guard offer == nil, access == nil || access == .notAsked else { return }
+        keepOffer(.offered)
+    }
+
+    /// "Not now" on the card: it goes for good; Settings' row still asks.
+    public func declineOffer() {
+        keepOffer(.declined)
+    }
+
+    private func keepOffer(_ offer: Offer) {
+        self.offer = offer
+        defaults.set(offer.rawValue, forKey: Self.offerKey)
     }
 
     /// Reads the access, as Settings opens or after a trip to the system's settings.

@@ -19,6 +19,7 @@ extension AppSession {
         change(.save(finished))
         justFinished = finished.id
         deleteIfCleared()
+        health.offerAtFinish()
         catchUpHealth()
     }
 
