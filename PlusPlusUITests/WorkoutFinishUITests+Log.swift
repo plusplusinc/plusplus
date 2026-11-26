@@ -30,6 +30,17 @@ extension WorkoutFinishUITests {
             XCTAssertFalse(app.buttons["log.goToWorkouts"].exists, "Go to Workouts stayed")
             XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")
         }
+        // When the card shows, and that "Not now" is for good, are `HealthOfferTests`'; its look
+        // is `OfferCardSnapshotTests`'. This is Log drawing it from the session, and its button's
+        // wire to the session.
+        XCTContext.runActivity(named: "Log asks once to save to Apple Health; Not now takes it out")
+            { _ in
+                let notNow = app.buttons["Not now"]
+                XCTAssertTrue(notNow.appears(), "Log showed no Apple Health card after the finish")
+                XCTAssertTrue(notNow.settles(), "The Apple Health card kept moving")
+                notNow.tap()
+                XCTAssertTrue(notNow.disappears(), "Not now left the Apple Health card on Log")
+            }
     }
 
     func relaunchKeepsIt(named name: String, title: XCUIElement, in app: XCUIApplication) {
@@ -44,6 +55,7 @@ extension WorkoutFinishUITests {
             let logged = app.buttons.matching(identifier: "log.workout").firstMatch
             XCTAssertTrue(logged.appears(), "Log lists no finished workout")
             XCTAssertTrue(logged.label.hasPrefix(name), "Log's row reads \(logged.label)")
+            XCTAssertFalse(app.buttons["Not now"].exists, "The Apple Health card came back")
             logged.tap()
             // A row is one element, read as its sentence, which starts with its name.
             let plank = app.descendants(matching: .any)

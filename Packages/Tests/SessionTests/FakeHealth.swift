@@ -15,6 +15,8 @@ final class FakeHealth: Sendable {
     let access: Mutex<HealthAccess>
     let accessReads = Mutex(0)
     let asks = Mutex(0)
+    /// What Apple's sheet is answered with at an ask: Allow, unless set.
+    let answer = Mutex(HealthAccess.on)
     /// The logged workouts of each removal.
     let removals = Mutex<[[LoggedWorkout.ID]]>([])
     /// The logged workouts Health holds a workout tagged for, as saves and removals leave them.
@@ -106,7 +108,8 @@ final class FakeHealth: Sendable {
             },
             ask: {
                 self.asks.withLock { $0 += 1 }
-                self.access.withLock { $0 = .on }
+                let answer = self.answer.withLock { $0 }
+                self.access.withLock { $0 = answer }
             },
             remove: { ids in
                 try self.allowed()
