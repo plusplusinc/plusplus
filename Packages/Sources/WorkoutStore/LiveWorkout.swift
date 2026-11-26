@@ -41,7 +41,7 @@ public struct LiveWorkout: Equatable, Sendable {
 
     /// The set bars a row shows: on the current exercise always, from its first set; on any other
     /// only once started and until finished, where its node shows it done. Nil for none.
-    public func bars(of id: WorkoutExercise.ID) -> (done: Int, total: Int)? {
+    public func bars(of id: WorkoutExercise.ID) -> RowProgress? {
         let progress = workout.progress(of: id, logged: loggedWorkout.sets)
         guard id == currentSet?.row
             || workout.isStarted(id, logged: loggedWorkout.sets) && progress.done < progress.total

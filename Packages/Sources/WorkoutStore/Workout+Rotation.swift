@@ -21,6 +21,25 @@ public struct PlannedSet: Hashable, Sendable {
     }
 }
 
+/// How far a row is through its sets, as its set bars show it (`Workout.progress(of:logged:)`).
+public struct RowProgress: Equatable, Sendable {
+    public var done: Int
+    public var total: Int
+    /// For a row done one side at a time, the sides logged of its first set not yet done.
+    public var sidesDone: Int?
+
+    public init(done: Int = 0, total: Int = 0, sidesDone: Int? = nil) {
+        self.done = done
+        self.total = total
+        self.sidesDone = sidesDone
+    }
+
+    /// As it stands once the set in progress is done, on every side.
+    public var afterSet: Self {
+        Self(done: done + 1, total: total, sidesDone: sidesDone.map { _ in 0 })
+    }
+}
+
 extension Workout {
     /// Every set of the workout in the order they are done: a plain row's sets one after
     /// another, and a superset's a round at a time, one set of each member in order (A1 B1 A2
@@ -74,17 +93,24 @@ extension Workout {
     }
 
     /// How many of the row's sets are done, a set counting once every side of it is, out of
-    /// its planned sets: what its set bars show.
+    /// its planned sets: what its set bars show. For a row done one side at a time, `sidesDone`
+    /// is how many sides are logged of its first set not yet done, 0 or 1, which splits that
+    /// set's bar; nil for any other row.
     public func progress(
         of row: WorkoutExercise.ID,
         logged: [LoggedSet],
-    ) -> (done: Int, total: Int) {
-        guard let item = exercises.first(where: { $0.id == row }) else { return (0, 0) }
+    ) -> RowProgress {
+        guard let item = exercises.first(where: { $0.id == row }) else { return RowProgress() }
         let done = Set(logged.map(\.planned))
-        let finished = stride(from: 1, through: item.plan.sets, by: 1).count { round in
-            item.sides.allSatisfy { done.contains(PlannedSet(row: row, round: round, side: $0)) }
+        let sidesIn = stride(from: 1, through: item.plan.sets, by: 1).map { round in
+            item.sides.count { done.contains(PlannedSet(row: row, round: round, side: $0)) }
         }
-        return (finished, item.plan.sets)
+        let sides = item.sides.count
+        return RowProgress(
+            done: sidesIn.count { $0 == sides },
+            total: item.plan.sets,
+            sidesDone: sides > 1 ? sidesIn.first { $0 < sides } ?? 0 : nil,
+        )
     }
 
     /// Whether any set, or side of one, of the row is logged.

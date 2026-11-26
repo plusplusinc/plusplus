@@ -59,7 +59,7 @@ struct CurrentExerciseSnapshotTests {
         assertThemedSnapshots(of: rail([current, next]), width: Self.width)
     }
 
-    @Test("One side at a time: the side beside the set, the bars gray until both sides are in")
+    @Test("One side at a time: the side beside the set, each set a pair, the left done")
     func oneSide() {
         let current = Row(
             title: "Dumbbell row",
@@ -74,7 +74,7 @@ struct CurrentExerciseSnapshotTests {
                 ],
                 spokenFigures: "10 reps, 30 pounds",
             ),
-            bars: SetProgress(done: 0, total: 3, spoken: "0 of 3 sets done"),
+            bars: SetProgress(done: 0, total: 3, sidesDone: 1, spoken: "0 of 3 sets done"),
         )
         assertThemedSnapshots(of: rail([current, next]), width: Self.width)
     }

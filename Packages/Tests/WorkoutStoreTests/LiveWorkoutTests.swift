@@ -82,7 +82,7 @@ struct LiveWorkoutTests {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 3 }
         let live = live(Workout(exercises: [push]))
         let bars = try #require(live.bars(of: push.id))
-        #expect(bars == (0, 3))
+        #expect(bars == RowProgress(done: 0, total: 3))
     }
 
     @Test("A row not started shows no bars")
@@ -103,7 +103,7 @@ struct LiveWorkoutTests {
         )
         #expect(live.currentExercise?.id == rowA)
         let bars = try #require(live.bars(of: rowB))
-        #expect(bars == (1, 3))
+        #expect(bars == RowProgress(done: 1, total: 3))
     }
 
     @Test("A finished row shows no bars")
@@ -197,7 +197,7 @@ struct LiveWorkoutTests {
         #expect(hidden.currentSet == second)
         #expect(hidden.logText == "Log set")
         let bars = try #require(hidden.bars(of: push.id))
-        #expect(bars == (1, 3))
+        #expect(bars == RowProgress(done: 1, total: 3))
         #expect(after.hiding([first]) == after, "A set logged before the newest stays shown")
         #expect(after.hiding([]) == after)
     }
