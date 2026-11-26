@@ -1,8 +1,9 @@
 import OSLog
 import WorkoutStore
 
-/// The two queues the session writes through, each landing its writes in the store in order: the
-/// open workout's saves, newest only, and a logged workout's writes, every one.
+/// The queues the session writes to the store through, each landing its writes in order: the
+/// open workout's saves, newest only, and a logged workout's writes, every one. Apple Health's
+/// queue, which follows the second's shape, is in `AppSession+Health.swift`.
 extension AppSession {
     /// A workout to save, and whether to keep it once it is empty, as while it is in progress.
     struct WorkoutSave {

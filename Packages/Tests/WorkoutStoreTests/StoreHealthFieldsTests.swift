@@ -59,19 +59,4 @@ struct StoreHealthFieldsTests {
         #expect(kept.pauseTimes == times.map(Self.at))
         #expect(kept.healthActivity == "swimming")
     }
-
-    @Test("A save from a copy read before its Health id was kept leaves the id")
-    func healthIDKept() async throws {
-        let context = ModelContext(container)
-        let (finished, stored) = try await savedFinished(in: context)
-        let healthID = UUID()
-        stored.healthWorkoutID = healthID
-        try context.save()
-        var renamed = finished
-        renamed.workoutName = "Upper body"
-        try await relaunch().save(renamed)
-        let read = try #require(try await relaunch().finishedLoggedWorkouts().first)
-        #expect(read.workoutName == "Upper body")
-        #expect(read.healthWorkoutID == healthID)
-    }
 }

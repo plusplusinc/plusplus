@@ -7,8 +7,9 @@ extension AppSession {
     /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
     /// set counting logged at the time done (`LiveWorkout.finishing(at:)`), and names it as the
     /// one Log has yet to bring into History (`justFinished`), with its Apple Health type as
-    /// what it logged makes it now. With Apple Health on, saves it there too once its write
-    /// has landed (`saveToHealth(_:)`).
+    /// what it logged makes it now. With Apple Health on, the catch-up after its write has
+    /// landed saves it there from what the store keeps (`catchUpHealth()`); whether the system
+    /// lets the app is read then, not in the Finish tap's turn.
     public func finish(at now: Date = .now) {
         guard let loggedWorkout else { return }
         var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
@@ -18,20 +19,7 @@ extension AppSession {
         change(.save(finished))
         justFinished = finished.id
         deleteIfCleared()
-        saveToHealth(finished)
-    }
-
-    /// Hands a workout just finished to Apple Health, as the store keeps it, once its write has
-    /// landed; whether the system lets the app is read then, not in the Finish tap's turn
-    /// (`HealthSaving.save(_:)`).
-    private func saveToHealth(_ finished: LoggedWorkout) {
-        let workout = Result { () throws(HealthWorkout.Withheld) in
-            try HealthWorkout(finished, in: exercises)
-        }
-        Task {
-            await loggedWorkoutWritesLanded()
-            await health.save(workout)
-        }
+        catchUpHealth()
     }
 
     /// Ends the workout keeping nothing of it, as if Start never ran: Log has nothing to bring in.

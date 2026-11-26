@@ -28,8 +28,8 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     /// Its type in Apple Health, worked out at Finish from what was done then; nil while in
     /// progress, and for a workout finished before the store kept it (V14).
     public var healthActivity: HealthActivity?
-    /// The workout Apple Health saved for it, as the store holds it. Nothing writes it yet,
-    /// and a save of this value never changes it.
+    /// The workout Apple Health saved for it, as the store holds it; nil while owed. Only
+    /// `Store.markInHealth(_:as:)` writes it: a save of this value never changes it.
     public internal(set) var healthWorkoutID: UUID?
 
     public init(
