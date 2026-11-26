@@ -82,7 +82,7 @@ struct LiveWorkoutTests {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 3 }
         let live = live(Workout(exercises: [push]))
         let bars = try #require(live.bars(of: push.id))
-        #expect(bars == (0, 3))
+        #expect(bars == RowProgress(done: 0, total: 3))
     }
 
     @Test("A row not started shows no bars")
@@ -103,7 +103,7 @@ struct LiveWorkoutTests {
         )
         #expect(live.currentExercise?.id == rowA)
         let bars = try #require(live.bars(of: rowB))
-        #expect(bars == (1, 3))
+        #expect(bars == RowProgress(done: 1, total: 3))
     }
 
     @Test("A finished row shows no bars")
@@ -131,21 +131,6 @@ struct LiveWorkoutTests {
         let left = PlannedSet(row: row.id, round: 1, side: .left)
         #expect(pushed.currentSet == left)
         #expect(pushed.step(logging: left) == .nextSet, "Left leads to right")
-    }
-
-    @Test(
-        "A per-side row's bars count the sides done of its set in progress, and no other row's do",
-    )
-    func sidesDone() throws {
-        let row = try WorkoutExercise.builtIn("Dumbbell row") { $0.sets = 2 }
-        let push = try WorkoutExercise.builtIn("Push-up")
-        var live = live(Workout(exercises: [row, push]))
-        #expect(live.sidesDone(of: row.id) == 0)
-        #expect(live.sidesDone(of: push.id) == nil)
-        live = try logging([PlannedSet(row: row.id, round: 1, side: .left)], on: live)
-        #expect(live.sidesDone(of: row.id) == 1)
-        live = try logging([PlannedSet(row: row.id, round: 1, side: .right)], on: live)
-        #expect(live.sidesDone(of: row.id) == 0, "The next set, neither side done")
     }
 
     @Test("A log on an exercise's last set leads down to the next exercise")
@@ -212,7 +197,7 @@ struct LiveWorkoutTests {
         #expect(hidden.currentSet == second)
         #expect(hidden.logText == "Log set")
         let bars = try #require(hidden.bars(of: push.id))
-        #expect(bars == (1, 3))
+        #expect(bars == RowProgress(done: 1, total: 3))
         #expect(after.hiding([first]) == after, "A set logged before the newest stays shown")
         #expect(after.hiding([]) == after)
     }
