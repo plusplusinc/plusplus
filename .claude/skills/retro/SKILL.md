@@ -228,12 +228,12 @@ midnight, starts `/retro nightly` between its tally and its digest (`docs/agent-
 4. **Hand it to a subagent**, unless there is neither a merge nor a session, in which case
    print one line, "Nightly retro: nothing since <last run>.", and go to step 5. Start one
    `general-purpose` agent in the foreground with `model: fable`, and pass it: the PR numbers, the last-run time,
-   the extract's absolute path, the night's `agent-tally.txt`'s ("The agents' tally"), and these instructions. Create a worktree from `origin/main`
-   with `git worktree add --no-track -b retro/<today's date> <main checkout>/.claude/worktrees/retro-<today's date> origin/main`
-   (add `-2` to both when the branch exists), work only there, with absolute paths. Follow
-   `.claude/skills/retro/SKILL.md` as it is in that worktree, including "Never, in any run".
-   Open the PR with `/pr` when there is something to fix; otherwise remove the worktree and
-   the branch it made. Reply with the PR URL or "no PR", one line per finding, then the digest.
+   the extract's absolute path, the night's `agent-tally.txt`'s ("The agents' tally"), and these instructions. Work in the session's own worktree,
+   the only one its agents can edit: `git fetch origin main`,
+   `git switch --no-track -c retro/<today's date> origin/main` (add `-2` when the branch exists), with absolute paths. Follow
+   `.claude/skills/retro/SKILL.md` as it is on that branch, including "Never, in any run".
+   Open the PR with `/pr` when there is something to fix and stay on its branch; otherwise
+   `git switch --detach origin/main` and delete the branch it made. Reply with the PR URL or "no PR", one line per finding, then the digest.
 5. **Report and save.** When the extract ran and the subagent finished (or there was
    nothing), save the start time from step 1: `scripts/conversations.py --last-run <it>`. If either failed,
    leave the file, so the next night covers this one too. Print: "Nightly retro <date>: <PR URL, or no PR>", the
