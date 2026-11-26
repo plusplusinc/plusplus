@@ -22,6 +22,13 @@ extension Store {
         return owed
     }
 
+    /// Which of the logged workouts `ids` the store still holds: a delete of one of these never
+    /// landed.
+    public func heldLoggedWorkouts(among ids: [LoggedWorkout.ID]) throws -> Set<LoggedWorkout.ID> {
+        let held = FetchDescriptor<StoredWorkout>(predicate: #Predicate { ids.contains($0.id) })
+        return try Set(modelContext.fetch(held).map(\.id))
+    }
+
     /// Keeps `healthID` as the Health workout saved for the logged workout `id`; nothing if it
     /// is gone. The one write of the id: a save of a logged workout never changes it.
     public func markInHealth(_ id: LoggedWorkout.ID, as healthID: UUID) throws {
