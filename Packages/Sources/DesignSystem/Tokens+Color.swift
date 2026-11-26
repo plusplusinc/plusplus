@@ -3,13 +3,14 @@ import SwiftUI
 /// Semantic color tokens.
 ///
 /// Named for the job a color does, not the color it is, so a palette change touches only the
-/// asset catalog. Light and dark pairs live in `Tokens.xcassets` under the raw value; a case
-/// without a colorset renders clear, which the palette snapshot makes obvious.
-public enum ColorToken: String, CaseIterable, Sendable {
+/// asset catalog and `Palette`. Light and dark pairs live in `Tokens.xcassets` under the raw
+/// value; a case without a colorset renders clear, which the palette snapshot makes obvious.
+/// Void's are `Palette`'s.
+public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// Green: what's active, and a value that went up; also the ++ mark, and the controls that
     /// make something: the fill of the + that adds an exercise (`FloatingButtonStyle`), the one
     /// control filled green, and those drawn in it (`makesSomething()`). At least 4.5:1 on
-    /// `background` in both palettes.
+    /// `background` in every look.
     case accent = "ppAccent"
     case background = "ppBackground"
     /// Laid over the screen the drawer slides aside, deepening as the drawer opens.
@@ -31,8 +32,8 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// settles to `rail`; a group's loop as a drop makes the group, then settling to
     /// `rail`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
-    /// A set still to do: its bar, filled, a gray darker than `rail`, so `done` stands apart from
-    /// it in lightness too.
+    /// A set still to do: its bar, filled, a gray nearer the background than `rail`, so `done`
+    /// stands apart from it in lightness too.
     case toDo = "ppToDo"
     /// The fill under the place the drawer marks as showing: a step from the background in
     /// both appearances, further than `surface`.
@@ -59,9 +60,25 @@ public enum ColorToken: String, CaseIterable, Sendable {
 }
 
 extension Color {
-    /// `Color.pp(.textPrimary)`. Call sites never reference a literal color.
+    /// `Color.pp(.textPrimary)`. Call sites never reference a literal color. It resolves where
+    /// it is drawn, from the environment (`isVoid`, the color scheme), so a choice changed
+    /// at the root redraws every view under it with no change of identity.
     public static func pp(_ token: ColorToken) -> Color {
-        Color(token.rawValue, bundle: .module)
+        Color(TokenColor(token: token))
+    }
+}
+
+/// A token's color in the look of wherever it is drawn: SwiftUI's own way to make a custom
+/// color, a `ShapeStyle` resolving to `Color.Resolved`, so `Color.pp` stays a `Color` at every
+/// call site (a view, a fill, `.opacity`, a `Canvas`, `resolve(in:)`).
+nonisolated struct TokenColor: ShapeStyle, Hashable {
+    let token: ColorToken
+
+    func resolve(in environment: EnvironmentValues) -> Color.Resolved {
+        guard environment.drawsVoid else {
+            return Color(token.rawValue, bundle: .module).resolve(in: environment)
+        }
+        return (environment.isOnSheet ? Palette.voidSheet : .void)[token]
     }
 }
 

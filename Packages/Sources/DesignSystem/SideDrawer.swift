@@ -4,8 +4,10 @@ import SwiftUI
 /// view. A swipe in from the left edge opens it, following the finger; a tap on the sliver, a
 /// swipe left, or VoiceOver's escape closes it. With Reduce Motion the screen moves at once and
 /// the drawer fades in beside it, or out before it moves back.
-/// The screen darkens as the drawer opens. A haptic plays the moment the drawer starts to open,
-/// and another, firmer, the moment it starts to shut; a swipe plays one only as it is let go,
+/// The screen dims as the drawer opens (`dim`); in Void the dim is a gray that lifts the black
+/// screen above the black drawer (`Palette.voidUnderDrawer`). A haptic plays the moment the
+/// drawer starts to open, and another, firmer, the moment it starts to shut; a swipe plays one only
+/// as it is let go,
 /// and a swipe that springs back to where it began plays none.
 ///
 /// Whoever keeps `isOpen` may refuse an open: the drawer then goes back closed, never resting

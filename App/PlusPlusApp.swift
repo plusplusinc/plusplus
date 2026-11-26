@@ -11,6 +11,8 @@ struct PlusPlusApp: App {
     private let namer: WorkoutNamer
     /// Whether to start from an empty store, as the UI tests do.
     private let resetsStore: Bool
+    /// The appearance chosen, read here so the first frame shows it.
+    @State private var look: Look
 
     init() {
         do {
@@ -22,6 +24,13 @@ struct PlusPlusApp: App {
         #if DEBUG
         namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .standard
         resetsStore = LaunchOptions.resetsStore
+        // A fresh start forgets the appearance chosen too, before it is read. A launch argument
+        // (`-appearance light`) still answers, from its own domain.
+        if resetsStore {
+            for key in Look.keys {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
         if LaunchOptions.turnsOffUIKitAnimations {
             UIView.setAnimationsEnabled(false)
         }
@@ -29,11 +38,18 @@ struct PlusPlusApp: App {
         namer = .standard
         resetsStore = false
         #endif
+        _look = State(initialValue: Look())
     }
 
     var body: some Scene {
         WindowGroup {
             WorkoutLauncher(store: store, namer: namer, resetsStore: resetsStore)
+                // The window itself is held, so the bars, sheets, alerts, and keyboard follow;
+                // nil with Automatic on lets it follow the phone. Void draws only where the
+                // scheme is dark (`Color.pp`).
+                .preferredColorScheme(look.colorScheme)
+                .environment(\.isVoid, look.isVoid)
+                .environment(look)
         }
     }
 }

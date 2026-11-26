@@ -54,7 +54,8 @@ DEVELOPMENT_TEAM = WK2XVYGZU9
 
 // MARK: - Info.plist
 //
-// Generated from these settings; there is no Info.plist file to drift out of sync.
+// Generated from these settings, plus Config/LaunchScreen.plist for the one key with no
+// INFOPLIST_KEY_ setting (below).
 
 GENERATE_INFOPLIST_FILE = YES
 // App Store Connect refuses a build with no app icon, so this is required for TestFlight. The
@@ -62,11 +63,13 @@ GENERATE_INFOPLIST_FILE = YES
 // rendered by the asset compiler for every platform and appearance.
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 INFOPLIST_KEY_CFBundleDisplayName = PlusPlus
-INFOPLIST_KEY_UILaunchScreen_Generation = YES
+// The launch screen is black whatever the phone's appearance, as the app opens on Dark by
+// default and a launch screen cannot read the stored choice. Its color is the app's
+// LaunchBackground colorset, named in the one key the generated Info.plist has no setting for.
+INFOPLIST_FILE = $(INFOPLIST_FILE_$(TARGET_NAME))
+INFOPLIST_FILE_PlusPlus = Config/LaunchScreen.plist
 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
 INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait
-// Dark by default, launch screen included; the light palette stays for when this is a choice.
-INFOPLIST_KEY_UIUserInterfaceStyle = Dark
 // Declared here so App Store Connect stops asking on every upload. Revisit if the app ever
 // ships its own cryptography beyond standard HTTPS.
 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
