@@ -35,7 +35,7 @@ public final class HealthSaving {
     enum Offer: String {
         /// A workout was finished since the card came to the app, and the card wasn't turned
         /// down, whatever Health's access was then. It shows whenever Health reads as never
-        /// asked (`showsOffer`): not while it is answered, but again if the answer is undone,
+        /// asked (`isOffered`): not while it is answered, but again if the answer is undone,
         /// as by resetting the phone's privacy settings.
         case offered
         /// "Not now": the card never shows again, and Apple's sheet is left unspent.
@@ -57,16 +57,17 @@ public final class HealthSaving {
         offer = defaults.string(forKey: Self.offerKey).flatMap(Offer.init(rawValue:))
     }
 
-    /// Whether Log shows the card that asks to save to Apple Health: a finish has made the
+    /// Whether the card that asks to save to Apple Health is offered: a finish has made the
     /// offer, "Not now" hasn't turned it down, and the system reads Health as never asked. While
     /// Apple's sheet is answered, from the card or Settings, or with Health unavailable, it is
-    /// gone, with nothing more stored: it is the access read that hides it.
-    public var showsOffer: Bool {
+    /// not, with nothing more stored: it is the access read that takes it back. Log shows it
+    /// only while it holds a finished workout (`AppSession.showsHealthOffer`).
+    var isOffered: Bool {
         offer == .offered && access == .notAsked
     }
 
     /// Makes the card's offer at a finish, the first since the app kept one, whatever the access
-    /// then. Whether it shows is the access's to say (`showsOffer`): not while Health is
+    /// then. Whether it shows is the access's to say (`isOffered`): not while Health is
     /// answered or not on the device.
     func offerAtFinish() {
         guard offer == nil else { return }

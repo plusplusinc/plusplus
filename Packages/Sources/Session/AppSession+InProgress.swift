@@ -17,6 +17,10 @@ extension AppSession {
         finished.workoutName = shownName
         finished.healthActivity = HealthActivity(logged: finished.sets, in: exercises)
         change(.save(finished))
+        // In the log from the finish, not from the read after its write lands, so Log's first
+        // frame after it already holds it, and the Health card is there with it
+        // (`showsHealthOffer`); History leaves it out until it comes in (`justFinished`).
+        log = log.map { WorkoutLog(loggedWorkouts: $0.loggedWorkouts + [finished]) }
         justFinished = finished.id
         deleteIfCleared()
         health.offerAtFinish()

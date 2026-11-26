@@ -14,7 +14,7 @@ extension LogScreen {
 
     func historyTab(_ log: WorkoutLog) -> some View {
         let period = log.period(now: now, calendar: calendar)
-        let showsHealthOffer = session.health.showsOffer
+        let showsHealthOffer = session.showsHealthOffer
         return VStack(alignment: .leading, spacing: 0) {
             if showsHealthOffer {
                 healthOffer
@@ -73,8 +73,9 @@ extension LogScreen {
     }
 
     /// The ask to save to Apple Health, first in History above the count, once a workout has
-    /// been finished, whenever Health reads as never asked, until "Not now" turns it down for
-    /// good (`HealthSaving.showsOffer`). "Save to Apple Health" is the session's one ask
+    /// been finished, whenever Health reads as never asked and Log holds a finished workout,
+    /// until "Not now" turns it down for good (`AppSession.showsHealthOffer`). "Save to Apple
+    /// Health" is the session's one ask
     /// (`AppSession.askToSaveToHealth()`): Apple's sheet, then every workout in Log sent once
     /// it allows; the card goes as the answer is read. It is in Log's first frame after a
     /// finish, the access read since launch, so it doesn't come in over the workout arriving;

@@ -39,6 +39,14 @@ extension AppSession {
         await refreshLog()
     }
 
+    /// Whether Log shows the card that asks to save to Apple Health: offered
+    /// (`HealthSaving.isOffered`), and only while Log holds a finished workout, as the card asks
+    /// to save the workouts there. With the last one deleted it goes, and comes back with the
+    /// next finish unless turned down; the offer itself is kept.
+    public var showsHealthOffer: Bool {
+        health.isOffered && log?.loggedWorkouts.isEmpty == false
+    }
+
     /// Log has taken the workout just finished, to bring it into History itself.
     public func takeJustFinished() {
         justFinished = nil

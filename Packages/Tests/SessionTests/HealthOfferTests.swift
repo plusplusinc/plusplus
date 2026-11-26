@@ -25,7 +25,7 @@ struct HealthOfferTests {
             name: "Upper",
             exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)],
         )
-        let session = fixture.launched(health, workout: workout)
+        let session = await launched(health, workout: workout)
         session.start(on: workout.id, at: HealthFixture.at(start))
         let logged = try #require(session.loggedWorkout)
         session.finish(at: HealthFixture.at(start + 60))
@@ -33,16 +33,40 @@ struct HealthOfferTests {
         return (session, logged.id)
     }
 
+    /// A session launched over the fixture, its log read, as the app's launch reads it.
+    private func launched(_ health: FakeHealth, workout: Workout = Workout()) async -> AppSession {
+        let session = fixture.launched(health, workout: workout)
+        await session.refreshLog()
+        return session
+    }
+
     @Test("A finish with Health never asked shows the card, and a relaunch still shows it")
     func finishOffers() async throws {
         let health = FakeHealth(.notAsked, store: fixture.store())
-        #expect(!fixture.launched(health).health.showsOffer)
+        #expect(await !launched(health).showsHealthOffer)
         let (session, _) = try await finished(health)
-        #expect(session.health.showsOffer)
+        #expect(session.showsHealthOffer)
         #expect(health.asks.withLock { $0 } == 0)
-        let relaunched = HealthSaving(client: health.client, defaults: fixture.defaults)
-        relaunched.refresh()
-        #expect(relaunched.showsOffer)
+        let relaunched = await launched(health)
+        relaunched.health.refresh()
+        #expect(relaunched.showsHealthOffer)
+    }
+
+    @Test("With Log's only workout deleted the card goes, and the next finish brings it back")
+    func onlyWhileLogHoldsOne() async throws {
+        let health = FakeHealth(.notAsked, store: fixture.store())
+        let (session, first) = try await finished(health)
+        await session.deleteLoggedWorkout(first)
+        #expect(!session.showsHealthOffer)
+        let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
+        let workout = Workout(exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)])
+        let relaunched = await launched(health, workout: workout)
+        relaunched.health.refresh()
+        #expect(!relaunched.showsHealthOffer)
+        // From the finish itself, before any read of the log: Log's first frame after it.
+        relaunched.start(on: workout.id, at: HealthFixture.at(200))
+        relaunched.finish(at: HealthFixture.at(260))
+        #expect(relaunched.showsHealthOffer)
     }
 
     @Test("Not now hides the card for good: after a later finish and a relaunch, never asking")
@@ -50,9 +74,9 @@ struct HealthOfferTests {
         let health = FakeHealth(.notAsked, store: fixture.store())
         let (session, _) = try await finished(health)
         session.health.declineOffer()
-        #expect(!session.health.showsOffer)
+        #expect(!session.showsHealthOffer)
         let (later, _) = try await finished(health, at: 100)
-        #expect(!later.health.showsOffer)
+        #expect(!later.showsHealthOffer)
         #expect(later.health.access == .notAsked)
         #expect(health.asks.withLock { $0 } == 0)
     }
@@ -71,7 +95,7 @@ struct HealthOfferTests {
         #expect(health.asks.withLock { $0 } == 1)
         let saved = health.saves.withLock { $0.map(\.workout.id) }
         #expect(saved == (answer == .on ? [finished] : []))
-        #expect(!session.health.showsOffer)
+        #expect(!session.showsHealthOffer)
     }
 
     @Test("A second ask while Apple's sheet is up, as from a double tap, asks nothing more")
@@ -96,6 +120,6 @@ struct HealthOfferTests {
     func answeredNeverOffers(access: HealthAccess) async throws {
         let health = FakeHealth(access, store: fixture.store())
         let (session, _) = try await finished(health)
-        #expect(!session.health.showsOffer)
+        #expect(!session.showsHealthOffer)
     }
 }
