@@ -133,15 +133,22 @@ struct HealthChoice: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Spacing.sm + Radius.key, style: .continuous)
-        Button {
-            Task { await health.ask() }
-        } label: {
-            row
-                .contentShape(Rectangle())
+        // Answered, the row is no button: disabled, a button dimmed the answer it shows.
+        Group {
+            if health.access == .notAsked {
+                Button {
+                    Task { await health.ask() }
+                } label: {
+                    row
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } else {
+                row
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(health.access != .notAsked)
-        .accessibilityElement(children: .ignore)
+        // Combined, so the button's action and trait stay while asking.
+        .accessibilityElement(children: .combine)
         .accessibilityLabel("Save workouts")
         .accessibilityValue(isOn ? "On" : "Off")
         .accessibilityHint(health

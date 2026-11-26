@@ -114,6 +114,12 @@ custom_rules:
     regex: '^import (SwiftUI|UIKit|DesignSystem)\b'
     message: "Session holds state over the store, with no UI framework"
     severity: error
+  health_kit_imports:
+    name: "HealthKit imports"
+    excluded: "Packages/Sources/Health/.*"
+    regex: '^import HealthKit\b'
+    message: "Only the Health target talks to HealthKit; everything above it uses HealthClient"
+    severity: error
   design_system_imports:
     name: "DesignSystem imports"
     included: "Packages/Sources/DesignSystem/.*"
