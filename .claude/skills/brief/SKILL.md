@@ -127,5 +127,5 @@ leaving it there and vetoes by reordering or parking it; do not move it to In Pr
 yourself. A card that changes nothing they see in the app (tooling, CI, tests, process), or a
 bug with a clear fix (its right behavior already settled, so it asks no product question), needs
 no approval: file it standalone with its `Nightly:` line, say in a line that it exists and where
-it sits, and `/onward` or the night runs it; they hear of it in a line once it merges. A bug
+it sits, and the night runs it, or a session of its own when it can't wait; they hear of it in a line once it merges. A bug
 whose fix needs a choice of look, wording, or behavior waits for their approval.
