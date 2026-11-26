@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// PlusPlus's own themes beside its default, each named for somewhere or something a workout
-/// happens, and drawn to look like it. Each look is five colors (`Palette`): ground, text,
-/// active, done, arriving, as designed; `Palette` moves one in lightness only where a job's
-/// ratio needs it, and `ThemeContrastTests` holds every look to them. A theme gives its three
+/// happens, and drawn to look like it, mostly through its ground, which is most of the screen:
+/// Pool's is the water, Dawn patrol's the sky. Each look is five colors (`Palette`): ground,
+/// text, active, done, arriving, as designed; `Palette` moves one in lightness only where a
+/// job's ratio needs it, and `ThemeContrastTests` holds every look to them. A theme gives its three
 /// colors their jobs freely, so active is not always a green nor done a purple, but active is
 /// never a red (`Theme.isRed(_:)`), done stands apart from active in lightness as well as hue
 /// and from to-do, and no light look uses a darkened yellow or gold, which reads as mud.
@@ -11,8 +12,8 @@ nonisolated extension Theme {
     /// The order on the Theme screen after PlusPlus: curated, the quiet grounds first and the
     /// playful ones last.
     static let ours: [Self] = [
-        .blackBelt, .iron, .chalk, .varsity, .ocean, .pool, .trail, .court, .track, .sunrise,
-        .cooldown, .barre, .logbook, .plum, .spin,
+        .blackBelt, .iron, .chalk, .varsity, .ocean, .pool, .trail, .dawnPatrol, .cooldown, .barre,
+        .spin,
     ]
 
     /// True black, the top rank, for an OLED screen, in PlusPlus dark's own colors: active
@@ -121,25 +122,26 @@ nonisolated extension Theme {
         ),
     )
 
-    /// A swimming pool, brighter and greener than Ocean's sea: active the water's turquoise,
-    /// done the dark blue of a lane line, arriving the red of a lane rope.
+    /// A swimming pool, its ground the water's turquoise, brighter and greener than Ocean's sea:
+    /// in light, active the navy of a lane line, done the red of a lane rope; in dark, deeper
+    /// water under pale aqua, coral, and a sunny yellow arriving.
     public static let pool = Theme(
         id: "pool",
         name: "Pool",
         looks: .both(
             light: Palette(
-                ground: 0xC4EEF3,
-                text: 0x0B2A3A,
-                active: 0x007C89,
-                done: 0x1B3F9E,
-                arriving: 0xC8402F,
+                ground: 0x56D6E2,
+                text: 0x06283A,
+                active: 0x0B3C8C,
+                done: 0xB8342A,
+                arriving: 0x00596A,
             ),
             dark: Palette(
-                ground: 0x053E4A,
-                text: 0xE6FAFB,
-                active: 0x3FE0E8,
-                done: 0x7C9BFF,
-                arriving: 0xFF8A7A,
+                ground: 0x07596A,
+                text: 0xEAFBFD,
+                active: 0xB5F5F8,
+                done: 0xFFB3A6,
+                arriving: 0xFFE9A8,
             ),
         ),
     )
@@ -167,94 +169,50 @@ nonisolated extension Theme {
         ),
     )
 
-    /// A basketball court, maple hardwood with painted blue lines: active the lines' blue,
-    /// done the ball's orange, arriving green.
-    public static let court = Theme(
-        id: "court",
-        name: "Court",
+    /// A run or a surf at first light, its ground the sky. In light the sun is up: a peach sky,
+    /// active the slate blue overhead, done the horizon's deep orange, arriving a dusty plum. In
+    /// dark it is not yet: the slate blue sky before the sun, active the sun's orange, done a
+    /// dusty pink, arriving gold.
+    public static let dawnPatrol = Theme(
+        id: "dawn-patrol",
+        name: "Dawn patrol",
         looks: .both(
             light: Palette(
-                ground: 0xF3E3C8,
-                text: 0x2E2117,
-                active: 0x1D5FBF,
-                done: 0xB5561A,
-                arriving: 0x2F7D4B,
+                ground: 0xF9CDAE,
+                text: 0x2A2A3F,
+                active: 0x2F4E7A,
+                done: 0xC4531A,
+                arriving: 0xA8477A,
             ),
             dark: Palette(
-                ground: 0x2A1D11,
-                text: 0xF3E6D2,
-                active: 0x6FA8FF,
-                done: 0xCF6E26,
-                arriving: 0x8FD4A0,
+                ground: 0x22324A,
+                text: 0xFBEEE4,
+                active: 0xFF9A3D,
+                done: 0xD4829A,
+                arriving: 0xFFD166,
             ),
         ),
     )
 
-    /// A running track, brick-red rubber around a green infield: active the infield's green,
-    /// done the track's brick, arriving a lane line's blue.
-    public static let track = Theme(
-        id: "track",
-        name: "Track",
-        looks: .both(
-            light: Palette(
-                ground: 0xF6DDD2,
-                text: 0x3A1A14,
-                active: 0x23803A,
-                done: 0xB4442C,
-                arriving: 0x2A6FB0,
-            ),
-            dark: Palette(
-                ground: 0x351813,
-                text: 0xF6E7E0,
-                active: 0x7BD88A,
-                done: 0xD9694E,
-                arriving: 0x9CC8F0,
-            ),
-        ),
-    )
-
-    /// A run at dawn, peach sky over the last of the night's indigo, best in light: active the
-    /// indigo, done the sun's orange, arriving pink.
-    public static let sunrise = Theme(
-        id: "sunrise",
-        name: "Sunrise",
-        looks: .both(
-            light: Palette(
-                ground: 0xFFEDDF,
-                text: 0x3A2A24,
-                active: 0x4458C9,
-                done: 0xD2662E,
-                arriving: 0xC8478F,
-            ),
-            dark: Palette(
-                ground: 0x1B1730,
-                text: 0xF6EADF,
-                active: 0x9AA8FF,
-                done: 0xFFB37A,
-                arriving: 0xFF9AC8,
-            ),
-        ),
-    )
-
-    /// Lavender and sky, the calm after the work: active lavender, done a denim blue, arriving
-    /// sage.
+    /// An ice bath, the calm after the work: pale ice in light and cold slate in dark, active
+    /// an icy blue, done a glacial teal, arriving violet.
     public static let cooldown = Theme(
         id: "cooldown",
         name: "Cooldown",
         looks: .both(
             light: Palette(
-                ground: 0xF5F2FB,
-                text: 0x28243C,
-                active: 0x7B5FD0,
-                done: 0x2D76B8,
-                arriving: 0x2F8A5F,
+                ground: 0xD6EEF8,
+                text: 0x10283A,
+                active: 0x14689C,
+                done: 0x1F8577,
+                arriving: 0x6A55C8,
             ),
             dark: Palette(
-                ground: 0x1C1A2A,
-                text: 0xE6E2F4,
-                active: 0xB8A4F0,
-                done: 0x5C8FB8,
-                arriving: 0xA9D4B0,
+                ground: 0x1E272D,
+                text: 0xE6F5FB,
+                active: 0x9BE3FF,
+                done: 0x8FE3C8,
+                arriving: 0xC5B8FF,
             ),
         ),
     )
@@ -277,51 +235,6 @@ nonisolated extension Theme {
                 active: 0xF58FCB,
                 done: 0xA8D8B0,
                 arriving: 0xC7B0F5,
-            ),
-        ),
-    )
-
-    /// Ink on cream paper, a training log: fountain-pen blue for active and sepia for done, on
-    /// cream in light and a blue-black in dark; arriving teal.
-    public static let logbook = Theme(
-        id: "logbook",
-        name: "Logbook",
-        looks: .both(
-            light: Palette(
-                ground: 0xF5EEDD,
-                text: 0x23201B,
-                active: 0x234FA8,
-                done: 0x9C5A32,
-                arriving: 0x0F7A70,
-            ),
-            dark: Palette(
-                ground: 0x121722,
-                text: 0xE9E6DC,
-                active: 0x8FB0F5,
-                done: 0xD99A72,
-                arriving: 0x6FCFC4,
-            ),
-        ),
-    )
-
-    /// Plum and leaf green: active plum, redder than Cooldown's, done leaf green, arriving pink.
-    public static let plum = Theme(
-        id: "plum",
-        name: "Plum",
-        looks: .both(
-            light: Palette(
-                ground: 0xFAF4FB,
-                text: 0x2A1A31,
-                active: 0x8E2C93,
-                done: 0x2E8050,
-                arriving: 0xC2407F,
-            ),
-            dark: Palette(
-                ground: 0x1F1226,
-                text: 0xF2E7F5,
-                active: 0xD486D8,
-                done: 0x9AD4A0,
-                arriving: 0xF29AC0,
             ),
         ),
     )

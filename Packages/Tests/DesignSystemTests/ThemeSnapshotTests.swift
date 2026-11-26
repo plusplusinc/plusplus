@@ -34,9 +34,9 @@ struct ThemeSnapshotTests {
         assertThemedSnapshots(of: midSet(in: .chalk), width: Self.width, includingLight: true)
     }
 
-    @Test("A workout mid-set in Plum: active in its purple, done in leaf green")
-    func plumMidSet() {
-        assertThemedSnapshots(of: midSet(in: .plum), width: Self.width, includingLight: true)
+    @Test("A workout mid-set in Pool: the neutrals worked out on a turquoise ground")
+    func poolMidSet() {
+        assertThemedSnapshots(of: midSet(in: .pool), width: Self.width, includingLight: true)
     }
 
     private struct Row: Identifiable {
