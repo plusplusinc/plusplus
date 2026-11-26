@@ -25,15 +25,15 @@ extension WorkoutScreen {
         // Skipped, its room closes with the move on showing the time it had at the tap: closed
         // as a rest that ran out is, on an empty rest, it read 0:00 as it went.
         if let move = phase.move, move.isFromRest, let live,
+           let skippedAt = live.loggedWorkout.sets.last?.restSkippedAt,
            let skipped = live.rest(override: restOverride), skipped.after == move.set,
-           let skippedAt = skipped.skippedAt,
            let row = restRow(after: move.set, isBack: move.isBack, in: live.loggedWorkout)
         {
-            // Held as a pause holds it, where the skip came in one.
+            // Held as a pause holds it, where the skip came in one: the time left at the tap.
             let block = RestBlock(
                 stage: .none,
                 length: 0,
-                pausedLeft: skipped.shownLeft(atClock: skippedAt),
+                pausedLeft: skipped.remaining(atClock: skippedAt),
                 isPaused: live.loggedWorkout.isPaused,
             )
             return DrawnRestBlock(row: row, above: move.isBack, block: block)

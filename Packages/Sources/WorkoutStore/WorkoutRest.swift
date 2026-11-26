@@ -79,6 +79,12 @@ public struct WorkoutRest: Equatable, Sendable {
     public func isOver(atClock clock: Double) -> Bool {
         clock >= leaveClock
     }
+
+    /// Whether Skip rest and +15 s still change it at `clock`: not skipped, and not yet 0:00, so
+    /// a tap landing as it ends brings nothing back.
+    public func takesTaps(atClock clock: Double) -> Bool {
+        skippedAt == nil && remaining(atClock: clock) > 0
+    }
 }
 
 extension LiveWorkout {
@@ -118,15 +124,15 @@ extension LiveWorkout {
     }
 
     /// The workout with the rest running after the last set made longer by `seconds`, as a +15 s
-    /// tap does, at `now`. Unchanged with no rest running, once it reads 0:00, or once skipped,
-    /// so a tap landing as it ends brings nothing back.
+    /// tap does, at `now`. Unchanged with no rest running, or once it takes no taps
+    /// (`WorkoutRest.takesTaps(atClock:)`), or once the next set's count has begun.
     public func extendingRest(
         by seconds: Int,
         override: Int? = nil,
         at now: Date,
     ) -> LoggedWorkout {
         guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(override: override),
-              rest.skippedAt == nil, rest.remaining(atClock: loggedWorkout.clock(at: now)) > 0
+              rest.takesTaps(atClock: loggedWorkout.clock(at: now))
         else { return loggedWorkout }
         var extended = loggedWorkout
         extended.sets[extended.sets.count - 1].restAdjustment += seconds
@@ -138,18 +144,21 @@ extension LiveWorkout {
     /// left as it was. Its count holds the time at the tap for `skipHold` before the screen moves
     /// on (`WorkoutRest.leaveClock`), as one run out holds 0:00, for less time. Where the next
     /// set has a count due, a "Start in" or a timed set's own, it is begun here, from that move,
-    /// so a relaunch finds the count where the screen had it. Unchanged with no rest running,
-    /// once it reads 0:00, or skipped already.
+    /// so a relaunch finds the count where the screen had it. Unchanged with no rest running, or
+    /// once it takes no taps (`WorkoutRest.takesTaps(atClock:)`).
     public func skippingRest(override: Int? = nil, at now: Date) -> LoggedWorkout {
         let clock = loggedWorkout.clock(at: now)
-        guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(override: override),
-              rest.skippedAt == nil, rest.remaining(atClock: clock) > 0
+        // A count begun once the rest moved on is its set's, though an edit that lengthens the
+        // rest runs it again: a skip then would begin the set over. +15 s refuses it alike.
+        guard loggedWorkout.isInProgress, setCount == nil, var rest = rest(override: override),
+              rest.takesTaps(atClock: clock)
         else { return loggedWorkout }
         var skipped = loggedWorkout
         skipped.sets[skipped.sets.count - 1].restSkippedAt = clock
+        rest.skippedAt = clock
         if isCountDue {
             let lead = countLead(before: rest.next)
-            skipped.count = SetCount(set: rest.next, startClock: clock + Self.skipHold + lead)
+            skipped.count = SetCount(set: rest.next, startClock: rest.leaveClock + lead)
         }
         return skipped
     }

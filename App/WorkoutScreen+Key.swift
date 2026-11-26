@@ -104,12 +104,12 @@ extension WorkoutScreen {
     /// (`WorkoutRest.shownLeft(atClock:)`), then ending as one that ran out does, as the rest's
     /// watch says (`watchRest()`). Its keys go at the tap, on the swap a rest's end moves the key
     /// on (`SetMotion.restSwap`), the + going down with them: taken out with no animation, the +
-    /// dropped on one frame. Only when `WorkoutKey.skipRest` says so, and nothing once 0:00
-    /// holds, as the store skips nothing then.
+    /// dropped on one frame. Only when `WorkoutKey.skipRest` says so, and nothing where the rest
+    /// takes no taps (`WorkoutRest.takesTaps(atClock:)`), as the store skips nothing then.
     private func skipRest() {
         let now = Date.now
         guard let resting, let loggedWorkout = session.loggedWorkout,
-              resting.remaining(atClock: loggedWorkout.clock(at: now)) > 0
+              resting.takesTaps(atClock: loggedWorkout.clock(at: now))
         else { return }
         // Before `endRest()`'s animated swap: a new figure put in during the swap stood where it
         // ends from its first frame.
@@ -131,7 +131,8 @@ extension WorkoutScreen {
     /// The fill of Skip rest: running while the rest runs, held where it stood while paused, in
     /// its own color, seen only as the keys swap out for Continue; held where it stood where End
     /// came mid-rest, or at a skip's tap, as the keys leave (`WorkoutRest.shownLeft(atClock:)`);
-    /// else full, as the keys leave once the rest is over.
+    /// else full, as the keys leave once the rest is over. A skip with under `skipHold` left
+    /// reaches 0:00 in its hold, so the fill reads what the count shows, not what is left.
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,
            let left = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
@@ -142,7 +143,7 @@ extension WorkoutScreen {
         }
         guard let rest = phase.drawnRest, rest.beat < .returning,
               let (resting, loggedWorkout) = drawnResting,
-              resting.remaining(atClock: loggedWorkout.clock(at: .now)) > 0
+              resting.shownLeft(atClock: loggedWorkout.clock(at: .now)) > 0
         else { return .over }
         let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
         return KeyFill(length: Double(resting.length), ends: ends, pausedLeft: pausedLeft)
