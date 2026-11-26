@@ -11,8 +11,7 @@ public struct WorkoutExercise: Identifiable, Equatable, Sendable {
     /// plain row. `Workout` keeps supersets whole and at least two rows long.
     public var supersetID: UUID?
     /// The superset's own rest after each round, the same on every member, while Auto derived
-    /// from the members; Auto, never set, on a plain row. `Workout` writes it, with the round
-    /// count, through `formSuperset(_:at:rounds:rest:)` alone.
+    /// from the members; Auto, never set, on a plain row.
     public var roundRest: Rest
 
     public init(

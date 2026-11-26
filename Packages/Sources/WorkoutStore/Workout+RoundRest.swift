@@ -2,8 +2,8 @@ import Foundation
 
 // A superset's own rest, after each round, the last included, which is the way to the next
 // exercise. Going from one member to the next takes no time. Every member holds the same value, as
-// they hold one round count, written only by `formSuperset(_:at:rounds:rest:)`: Auto, derived
-// from the members' own rests, until a step or the Auto switch sets it by hand.
+// they hold one round count: Auto, derived from the members' own rests, until a step or the Auto
+// switch sets it by hand.
 
 extension Rest {
     /// This one, or, while it is Auto, the first of `others` set by hand, so a value set on any
@@ -85,7 +85,12 @@ extension Workout {
         guard let index = exercises.firstIndex(where: { $0.id == id }),
               let superset = exercises[index].supersetID, let run = supersetRun(at: index)
         else { return }
-        exercises.formSuperset(superset, at: run, rounds: exercises[index].plan.sets, rest: rest)
+        exercises.formSuperset(
+            superset,
+            at: run,
+            rounds: exercises[run.lowerBound].plan.sets,
+            rest: rest,
+        )
     }
 
     /// The rest after a round when none is set: the longest of the members' own rests, less a

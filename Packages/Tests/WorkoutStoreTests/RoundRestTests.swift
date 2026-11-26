@@ -57,6 +57,20 @@ struct RoundRestTests {
         #expect(workout.restAfterRound(of: first) == 105)
     }
 
+    @Test("A row written back with new rounds keeps its superset's rest, whatever rest it carries")
+    func updateKeepsRoundRest() throws {
+        var workout = try Self.joined("Barbell bench press", "Dumbbell row")
+        let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
+        workout.stepRestAfterRound(of: first, by: 1)
+        var bench = workout.exercises[0]
+        bench.roundRest = .neverSet
+        bench.plan.sets += 1
+        workout.update(bench)
+        #expect(workout.exercises.map(\.plan.sets) == [bench.plan.sets, bench.plan.sets])
+        #expect(workout.restAfterRound(of: first) == 105)
+        #expect(!workout.isRoundAuto(of: second))
+    }
+
     @Test("Auto on derives the rest again; off brings back the one set by hand, on every member")
     func autoRemembers() throws {
         var workout = try Self.joined("Barbell bench press", "Dumbbell row")
