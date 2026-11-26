@@ -258,7 +258,7 @@ public actor Store {
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
     }
 
-    private func storedLoggedWorkout(id: UUID) throws -> StoredWorkout? {
+    func storedLoggedWorkout(id: UUID) throws -> StoredWorkout? {
         var descriptor = FetchDescriptor<StoredWorkout>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
