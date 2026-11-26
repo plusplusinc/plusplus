@@ -69,7 +69,7 @@ the frames or by logging its frame during the move.
 
 - Content size is a device setting, so it survives relaunches and reboots of the simulator: a
   session that ended at the largest text size makes the next `run.sh` screenshot that size.
-  Appearance is one too, which the app follows only on Auto.
+  Appearance is one too, which the app follows only with Automatic on.
   Use `shots`, or `reset` when finished. A UI test that fails with nothing wrong in the app is
   often the simulator: `docs/agent-tooling.md` lists the symptoms seen so far and their fixes.
 - `sim.sh` has no tap layer. Taps and the accessibility tree come from
