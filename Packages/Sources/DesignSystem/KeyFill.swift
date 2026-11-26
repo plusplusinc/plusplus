@@ -64,18 +64,19 @@ public struct KeyFill: Equatable, Sendable {
     static let runOn = Animation.easeOut(duration: PrimaryKeyButtonStyle.swapHalf)
 }
 
-/// A key face's fill from its leading edge, redrawn each frame while it runs: done as a fill that
-/// text sits on (`doneText`), as the key's label does where the fill has reached it, held while
-/// paused, as the key swaps to Continue. As a mask, the part of the label over it.
+/// A key face's fill from its leading edge, redrawn each frame while it runs, in `color`: the
+/// done purple, held in it while paused, as the key swaps to Continue. As a mask, the part of
+/// the label over it.
 struct FillingFace: View {
     let filling: KeyFill
+    var color: ColorToken?
 
     var body: some View {
         // At most 60 a second: on ProMotion, 120 moved a long rest's fill under a point a frame.
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: filling.holds)) { context in
             GeometryReader { geometry in
                 Rectangle()
-                    .fill(.pp(.doneText))
+                    .fill(.pp(color ?? .done))
                     .frame(width: geometry.size.width * filling.share(at: context.date))
                     .animation(KeyFill.runOn, value: filling.isOver)
             }

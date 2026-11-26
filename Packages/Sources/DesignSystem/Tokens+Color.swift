@@ -2,16 +2,15 @@ import SwiftUI
 
 /// Semantic color tokens.
 ///
-/// Named for the job a color does, not the color it is, so each theme gives every job its own
-/// color. PlusPlus's light and dark pairs live in `Tokens.xcassets` under the raw value; a case
-/// without a colorset renders clear, which the palette snapshot makes obvious. Every other
-/// theme's come from its five colors (`Palette`). The colors named below are PlusPlus's; another
-/// theme gives each job a color of its own, never a red to active.
+/// Named for the job a color does, not the color it is, so a palette change touches only the
+/// asset catalog and `Palette`. Light and dark pairs live in `Tokens.xcassets` under the raw
+/// value; a case without a colorset renders clear, which the palette snapshot makes obvious.
+/// Black belt's are `Palette`'s.
 public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// Green: what's active, and a value that went up; also the ++ mark, and the controls that
     /// make something: the fill of the + that adds an exercise (`FloatingButtonStyle`), the one
     /// control filled green, and those drawn in it (`makesSomething()`). At least 4.5:1 on
-    /// `background` in every theme and look, and never a red (`Theme.isRed(_:)`).
+    /// `background` in every look.
     case accent = "ppAccent"
     case background = "ppBackground"
     /// Laid over the screen the drawer slides aside, deepening as the drawer opens.
@@ -19,12 +18,6 @@ public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// Purple: done. A finished exercise's node, and the bars of the sets done. Apart from
     /// `accent` in lightness as well as hue, so the two read apart without color.
     case done = "ppDone"
-    /// Done as text, and a fill that text sits on: Log's counts and figures, a done day's square
-    /// under its number, and a count key's fill under its label in `onPrimaryKey`
-    /// (`FillingFace`). `done`'s purple, moved in lightness only as far as 4.5:1 on `background`
-    /// and `surface` needs, which is `onPrimaryKey` in every theme but PlusPlus; PlusPlus's is
-    /// `done` itself.
-    case doneText = "ppDoneText"
     /// The outline of a key-shaped button, and the title's resting cursor.
     case borderStrong = "ppBorderStrong"
     /// The label on a primary key, and the + on its green circle.
@@ -68,15 +61,14 @@ public nonisolated enum ColorToken: String, CaseIterable, Sendable {
 
 extension Color {
     /// `Color.pp(.textPrimary)`. Call sites never reference a literal color. It resolves where
-    /// it is drawn, from the environment's theme (`\.theme`) and color scheme, so a subtree set
-    /// to another theme draws in it, and a theme changed at the root redraws every view under
-    /// it with no change of identity.
+    /// it is drawn, from the environment (`isBlackBelt`, the color scheme), so a choice changed
+    /// at the root redraws every view under it with no change of identity.
     public static func pp(_ token: ColorToken) -> Color {
         Color(TokenColor(token: token))
     }
 }
 
-/// A token's color in the theme of wherever it is drawn: SwiftUI's own way to make a custom
+/// A token's color in the look of wherever it is drawn: SwiftUI's own way to make a custom
 /// color, a `ShapeStyle` resolving to `Color.Resolved`, so `Color.pp` stays a `Color` at every
 /// call site (a view, a fill, `.opacity`, a `Canvas`, `resolve(in:)`).
 nonisolated struct TokenColor: ShapeStyle, Hashable {
@@ -86,11 +78,10 @@ nonisolated struct TokenColor: ShapeStyle, Hashable {
     var onSheet = false
 
     func resolve(in environment: EnvironmentValues) -> Color.Resolved {
-        var environment = environment
-        if onSheet {
-            environment.isOnSheet = true
+        guard environment.isBlackBelt else {
+            return Color(token.rawValue, bundle: .module).resolve(in: environment)
         }
-        return environment.theme.resolve(token, in: environment)
+        return (onSheet || environment.isOnSheet ? Palette.blackBeltSheet : .blackBelt)[token]
     }
 }
 

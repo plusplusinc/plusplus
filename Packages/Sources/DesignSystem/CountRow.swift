@@ -51,7 +51,7 @@ public struct CountRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(AttributedString.monoNumbers(count, font: .ppRowDetailNumber))
                 .font(.ppRowDetail)
-                .foregroundStyle(.pp(.doneText))
+                .foregroundStyle(.pp(.done))
                 .fixedSize()
         }
     }

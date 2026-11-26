@@ -3,9 +3,9 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// The person's appearance and theme are kept on the device and read as the app launches. A
-/// second `Look` on the same defaults is a relaunch. The stored ids are the two people's data:
-/// one that names no theme opens as PlusPlus rather than failing.
+/// The person's appearance is kept on the device and read as the app launches. A second `Look`
+/// on the same defaults is a relaunch. The stored value is the two people's data: one that names
+/// no appearance opens as Dark rather than failing.
 @Suite("Look")
 struct LookTests {
     private let suite = "LookTests-\(UUID().uuidString)"
@@ -16,62 +16,30 @@ struct LookTests {
         try body(defaults)
     }
 
-    @Test(
-        "A second Look on the same defaults opens with the appearance and theme the first set",
-    )
-    func choicesSurviveRelaunch() throws {
+    @Test("A second Look on the same defaults opens with each appearance the first set")
+    func choiceSurvivesRelaunch() throws {
         try withDefaults { defaults in
-            let first = Look(defaults: defaults)
-            first.appearance = .light
-            first.theme = .barre
-            let relaunched = Look(defaults: defaults)
-            #expect(relaunched.appearance == .light)
-            #expect(relaunched.theme == .barre)
+            for appearance in Appearance.allCases {
+                Look(defaults: defaults).appearance = appearance
+                #expect(Look(defaults: defaults).appearance == appearance)
+            }
         }
     }
 
-    @Test("A stored id that names no theme opens as PlusPlus, and a new install on Dark")
-    func unknownValuesFallBack() throws {
+    @Test("A new install, and a stored value that names no appearance, open on Dark")
+    func unknownValueFallsBack() throws {
         try withDefaults { defaults in
             #expect(Look(defaults: defaults).appearance == .dark)
-            #expect(Look(defaults: defaults).theme == .plusPlus)
-            defaults.set("no-such-theme", forKey: Look.themeKey)
             defaults.set("dusk", forKey: Look.appearanceKey)
-            let look = Look(defaults: defaults)
-            #expect(look.theme == .plusPlus)
-            #expect(look.appearance == .dark)
+            #expect(Look(defaults: defaults).appearance == .dark)
         }
     }
 
-    @Test("Every shipped theme's stored id reads back as that theme, and no two share one")
-    func everyIdReadsBack() {
-        for theme in Theme.all {
-            #expect(Theme.stored(id: theme.id) == theme, "\(theme.name)'s id is \(theme.id)")
-        }
-        #expect(Set(Theme.all.map(\.id)).count == Theme.all.count)
-    }
-
-    @Test("A theme with both looks is held to the appearance, and to nothing on Auto")
-    func bothLooksFollowAppearance() {
-        #expect(Theme.iron.colorScheme(for: .light) == .light)
-        #expect(Theme.iron.colorScheme(for: .dark) == .dark)
-        #expect(Theme.iron.colorScheme(for: .auto) == nil)
-    }
-
-    @Test("A dark-only theme is held dark whatever the appearance, and draws the same in light")
-    func darkOnlyStaysDark() {
-        for appearance in Appearance.allCases {
-            #expect(Theme.blackBelt.colorScheme(for: appearance) == .dark)
-        }
-        var light = EnvironmentValues()
-        light.colorScheme = .light
-        var dark = EnvironmentValues()
-        dark.colorScheme = .dark
-        for token in ColorToken.allCases {
-            #expect(Theme.blackBelt.resolve(token, in: light) == Theme.blackBelt.resolve(
-                token,
-                in: dark,
-            ))
-        }
+    @Test("Light and Dark hold the window, Auto follows the phone, and Black belt holds it dark")
+    func heldSchemes() {
+        #expect(Appearance.light.colorScheme == .light)
+        #expect(Appearance.dark.colorScheme == .dark)
+        #expect(Appearance.auto.colorScheme == nil)
+        #expect(Appearance.blackBelt.colorScheme == .dark)
     }
 }

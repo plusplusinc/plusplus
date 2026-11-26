@@ -6,23 +6,23 @@ import Testing
 import UIKit
 @testable import DesignSystem
 
-/// A theme picked recolors what is already on screen: `Color.pp` resolves from the theme around
-/// it each time it draws, so a view two levels under the one that holds the theme redraws in
-/// the new one, with nothing of its own changed. A snapshot draws one moment and cannot show a
-/// change, so this hosts the view and reads what it drew before and after.
-@Suite("Theme redraw")
-struct ThemeRedrawTests {
+/// Black belt chosen recolors what is already on screen: `Color.pp` resolves from the
+/// environment each time it draws, so a view two levels under the one that holds the choice
+/// redraws in the new colors, with nothing of its own changed. A snapshot draws one moment and
+/// cannot show a change, so this hosts the view and reads what it drew before and after.
+@Suite("Black belt redraw")
+struct BlackBeltRedrawTests {
     @Observable
-    final class Picked {
-        var theme = Theme.plusPlus
+    final class Chosen {
+        var isBlackBelt = false
     }
 
     private struct Root: View {
-        let picked: Picked
+        let chosen: Chosen
 
         var body: some View {
             Middle()
-                .environment(\.theme, picked.theme)
+                .environment(\.isBlackBelt, chosen.isBlackBelt)
                 .environment(\.colorScheme, .dark)
         }
     }
@@ -36,32 +36,32 @@ struct ThemeRedrawTests {
     private struct Leaf: View {
         var body: some View {
             Rectangle()
-                .fill(.pp(.accent))
+                .fill(.pp(.background))
                 .ignoresSafeArea()
         }
     }
 
-    @Test("A view two levels under a changed theme redraws in the new theme's active color")
+    @Test("A view two levels under the choice redraws from PlusPlus dark's ground to black")
     func leafRedraws() throws {
-        let picked = Picked()
-        let host = UIHostingController(rootView: Root(picked: picked))
+        let chosen = Chosen()
+        let host = UIHostingController(rootView: Root(chosen: chosen))
         let window = UIWindow.sceneless(hosting: host, at: .large)
         defer { window.isHidden = true }
         window.settle()
         let before = try Self.center(of: host)
-        picked.theme = .ocean
+        chosen.isBlackBelt = true
         window.settle()
         let after = try Self.center(of: host)
-        #expect(Self.near(before, Self.dark(.plusPlus)), "Before: \(before)")
-        #expect(Self.near(after, Self.dark(.ocean)), "After the change: \(after)")
+        #expect(Self.near(before, Self.background(isBlackBelt: false)), "Before: \(before)")
+        #expect(Self.near(after, [0, 0, 0]), "After the change: \(after)")
     }
 
-    /// The theme's dark `accent`, as 8-bit sRGB.
-    private static func dark(_ theme: Theme) -> [Int] {
+    /// The dark `background`, as 8-bit sRGB.
+    private static func background(isBlackBelt: Bool) -> [Int] {
         var environment = EnvironmentValues()
-        environment.theme = theme
+        environment.isBlackBelt = isBlackBelt
         environment.colorScheme = .dark
-        let color = theme.resolve(.accent, in: environment)
+        let color = Color.pp(.background).resolve(in: environment)
         return [color.red, color.green, color.blue].map { Int(($0 * 255).rounded()) }
     }
 
