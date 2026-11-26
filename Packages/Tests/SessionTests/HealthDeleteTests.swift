@@ -182,6 +182,43 @@ struct HealthDeleteTests {
         #expect(health.inHealth.withLock { $0 } == [logged.id])
     }
 
+    @Test("A workout deleted again while a relaunch's catch-up settles it still leaves Health")
+    func deletedAgainDuringSettle() async throws {
+        let deleted = try await fixture.seedFinished(100, 200)
+        let health = FakeHealth(.on)
+        try await inHealth(deleted, health)
+        // The last launch was closed after the delete was sent, before it landed.
+        HealthSaving(client: health.client, defaults: fixture.defaults).oweRemoval(of: deleted.id)
+        let session = await showingLog(health)
+        health.holdsNextRead.withLock { $0 = true }
+        session.catchUpHealth()
+        await health.readHeld()
+        // Deleted again, its write landing only after this catch-up has read the store:
+        // `deleteLoggedWorkout` with its steps spread around the catch-up's settle.
+        session.health.oweRemoval(of: deleted.id)
+        health.releaseRead()
+        await session.healthJobsLanded()
+        session.loggedWorkoutWrites.yield(.delete(deleted.id))
+        await session.caughtUpHealth()
+        #expect(try await fixture.store().finishedLoggedWorkouts().isEmpty)
+        #expect(health.inHealth.withLock { $0.isEmpty })
+        #expect(session.health.removalsOwed.isEmpty)
+    }
+
+    @Test("With saving off, a removal whose delete never landed is dropped, and it saves once on")
+    func offSettles() async throws {
+        let kept = try await fixture.seedFinished(100, 200)
+        let health = FakeHealth(.off)
+        HealthSaving(client: health.client, defaults: fixture.defaults).oweRemoval(of: kept.id)
+        let session = fixture.launched(health)
+        await session.caughtUpHealth()
+        #expect(session.health.removalsOwed.isEmpty)
+        #expect(fixture.defaults.object(forKey: HealthSaving.removalsKey) == nil)
+        health.access.withLock { $0 = .on }
+        await session.caughtUpHealth()
+        #expect(health.inHealth.withLock { $0 } == [kept.id])
+    }
+
     @Test("Removals owed outlive the session in the device's defaults, every one kept")
     func owedKeptOnDevice() {
         let client = FakeHealth(.off).client

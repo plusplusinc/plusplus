@@ -62,19 +62,22 @@ extension AppSession {
     /// is gone from the store by then, so the saves can't owe it, and a save that fails never
     /// holds a removal back. A workout deleted before its turn in the saves is skipped; one
     /// deleted during its own save is removed by the catch-up its delete asked for. While saving
-    /// is off they stay owed.
+    /// is off they stay owed, but one whose delete never landed is still dropped.
     private func runCatchUp() async {
         // Cleared before the wait, so an ask from here on queues a run that reads after it: a
         // finish's write sent after this wait began wouldn't be in this run's read.
         isCatchUpWaiting = false
         // Each delete of these was sent before the wait below, so once it ends the store says
-        // whether it landed.
-        let removals = health.removalsOwed
+        // whether it landed. One sent after is noted, and the catch-up it asks for settles it.
+        let removals = health.removalsToSettle()
         await loggedWorkoutWritesLanded()
         await health.refreshed()
-        guard health.access == .on, let store else { return }
-        if await settleRemovals(removals, in: store) {
-            await makeRemovals(removals)
+        guard let store else { return }
+        // Settled with saving off too: the store alone says which deletes landed.
+        let landed = await settledRemovals(removals, in: store)
+        guard health.access == .on else { return }
+        if let landed {
+            await makeRemovals(landed)
             // A refused removal read the access again: off, nothing would save.
             guard health.access == .on else { return }
         }
@@ -82,15 +85,21 @@ extension AppSession {
     }
 
     /// Drops the removals whose delete never landed, as when the store refused it or the app
-    /// closed before it, so their workout is saved as owed; false when the store didn't answer.
-    private func settleRemovals(_ removals: [LoggedWorkout.ID], in store: Store) async -> Bool {
-        guard !removals.isEmpty else { return true }
+    /// closed before it, so their workout is saved as owed, and returns those whose delete
+    /// landed; nil when the store didn't answer.
+    private func settledRemovals(
+        _ removals: [LoggedWorkout.ID],
+        in store: Store,
+    ) async -> [LoggedWorkout.ID]? {
+        guard !removals.isEmpty else { return [] }
         do {
-            try await health.forgetRemovals(of: store.heldLoggedWorkouts(among: removals))
-            return true
+            return try await health.settle(
+                removals,
+                held: store.heldLoggedWorkouts(among: removals),
+            )
         } catch {
             Logger.session.error("Which deleted workouts are gone didn't load: \(error)")
-            return false
+            return nil
         }
     }
 

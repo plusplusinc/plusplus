@@ -19,6 +19,10 @@ public final class HealthSaving {
     /// first, kept in `defaults` as their uuids so a relaunch still makes them. None is ever
     /// dropped unmade: a dropped one would leave its workout in Health for good.
     @ObservationIgnored private(set) var removalsOwed: [LoggedWorkout.ID]
+    /// The removals owed since the last `removalsToSettle()`, listed already or not: their
+    /// delete may land after that read's settle looks, so it never drops them. In memory only,
+    /// as nothing is mid-settle across a relaunch.
+    @ObservationIgnored private var owedSinceRead: Set<LoggedWorkout.ID> = []
     @ObservationIgnored private let defaults: UserDefaults
 
     /// The key the removals owed are kept under, for a reset.
@@ -78,11 +82,29 @@ public final class HealthSaving {
     /// sent; none while Health was never asked or isn't on the device, as nothing of it can be
     /// there. With the access not yet read, one is kept.
     func oweRemoval(of id: LoggedWorkout.ID) {
-        guard access != .notAsked, access != .unavailable, !owesRemoval(of: id) else { return }
+        guard access != .notAsked, access != .unavailable else { return }
+        owedSinceRead.insert(id)
+        guard !owesRemoval(of: id) else { return }
         keepRemovals(removalsOwed + [id])
     }
 
-    /// Drops the removals owed for `ids` without making them: their delete never landed.
+    /// The removals owed now, for a catch-up to settle once every delete sent so far has
+    /// landed (`settle(_:held:)`).
+    func removalsToSettle() -> [LoggedWorkout.ID] {
+        owedSinceRead = []
+        return removalsOwed
+    }
+
+    /// Of `removals`, from `removalsToSettle()`, drops those whose workout the store still
+    /// `held`, as their delete never landed, unless owed again since the read: that delete is
+    /// still to land, and the catch-up it asked for settles it. Returns those whose delete
+    /// landed, to make.
+    func settle(_ removals: [LoggedWorkout.ID], held: Set<LoggedWorkout.ID>) -> [LoggedWorkout.ID] {
+        forgetRemovals(of: held.subtracting(owedSinceRead))
+        return removals.filter { !held.contains($0) }
+    }
+
+    /// Drops the removals owed for `ids` without making them.
     func forgetRemovals(of ids: Set<LoggedWorkout.ID>) {
         keepRemovals(removalsOwed.filter { !ids.contains($0) })
     }
