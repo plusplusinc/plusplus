@@ -35,10 +35,10 @@ struct AppSessionCountTests {
     }
 
     @Test(
-        "Start on a workout pushed on the Workouts list opens the root screen on Start in",
+        "Start on a workout pushed on the Workouts list begins Start in as its screen lands",
         arguments: [SetTarget.time(seconds: 30), .reps(5)],
     )
-    func startPushedOpensOnStartIn(target: SetTarget) async throws {
+    func startPushedLandsOnStartIn(target: SetTarget) async throws {
         var workout = try Self.planks()
         workout.exercises[0].plan.target = target
         let store = relaunch()
@@ -46,29 +46,14 @@ struct AppSessionCountTests {
         let session = AppSession(workout: Workout(), store: store, namer: .muscleGroupsOnly)
         session.showWorkouts()
         await session.open(workout.id, weightUnit: .pounds)
+        session.start(on: workout.id, at: Self.at(10))
         #expect(session.screen == .pushedWorkout)
-        session.start(on: workout.id, at: Self.at(10), lead: 0.5)
-        // What the fresh root screen reads as it is made (`WorkoutPhase(resuming:)`).
-        let loggedWorkout = try #require(session.loggedWorkout)
-        let live = LiveWorkout(workout: session.opened, loggedWorkout: loggedWorkout)
-        #expect(WorkoutPhase(resuming: live, at: Self.at(10)) == .timing(.startIn))
-        // "Start in" counts from the lead, as if a screen's Start had landed then: its full
-        // count left there, and the workout's time starting as it ends.
-        let landedThen = LiveWorkout(
-            workout: workout,
-            loggedWorkout: LoggedWorkout(
-                workoutID: workout.id,
-                workoutName: loggedWorkout.workoutName,
-                startedAt: Self.at(10),
-            ),
-        ).landingStart(at: Self.at(10.5))
-        #expect(loggedWorkout.startedAt == landedThen.startedAt)
-        #expect(loggedWorkout.count == landedThen.count)
-        #expect(loggedWorkout.clock(at: Self.at(10.5 + Self.lead)) == 0)
-        // The pushed screen's own landing, as its Start ends or as it goes, changes nothing.
+        #expect(session.loggedWorkout?.count == nil)
+        // Its screen's Start landing on the first set, as at the root.
         session.landOnFirstSet(at: Self.at(10.5))
-        session.landOnFirstSet(override: 0, at: Self.at(12))
-        #expect(session.loggedWorkout == loggedWorkout)
+        let loggedWorkout = try #require(session.loggedWorkout)
+        #expect(loggedWorkout.count != nil)
+        #expect(loggedWorkout.clock(at: Self.at(10.5 + Self.lead)) == 0)
     }
 
     @Test("Start, +15 s, and the log are each stored as the session shows them")

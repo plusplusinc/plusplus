@@ -3,7 +3,7 @@ import WorkoutStore
 extension AppSession {
     /// Where the app is, under the drawer.
     public enum Screen: Equatable {
-        /// The open workout, at the root: as launched, and once it starts.
+        /// The open workout, at the root, as launched.
         case workout
         /// The Workouts screen, its list showing.
         case workouts
@@ -182,8 +182,9 @@ extension AppSession {
     /// button and back swipe do. A push goes through `open` or `startNew`. Add exercise goes
     /// with the workout, and so does New's ask to open it: a sheet set as a back swipe ends,
     /// with nothing left to show it, would otherwise come up over the next workout shown.
+    /// Refused while a workout is in progress, which nothing leaves until it ends.
     public func popWorkout() {
-        if screen == .pushedWorkout {
+        if screen == .pushedWorkout, loggedWorkout == nil {
             screen = .workouts
             opensAddExerciseOnShow = false
             addExercise = nil

@@ -51,6 +51,9 @@ struct WorkoutsScreen: View {
     @State private var filter = WorkoutFilter()
     /// The filter's sheet showing, if any.
     @State private var choosing: WorkoutsSheet?
+    /// End asked on the pushed workout in progress: its dialog shows from here, outside the
+    /// stack, with that screen's finish and discard.
+    @State private var pushedEnd: EndChoices?
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -132,7 +135,7 @@ struct WorkoutsScreen: View {
                     session: session,
                     namer: namer,
                     finishBeats: $finishBeats,
-                    isPushed: true,
+                    pushedEnd: $pushedEnd,
                 )
                 .id(session.opened.id)
             }
@@ -198,6 +201,7 @@ struct WorkoutsScreen: View {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) { delete(workout.id) }
         }
+        .endWorkoutDialog(choosing: $pushedEnd, session: session)
         .task {
             await session.refreshRecent(weightUnit: weightUnit)
             takeOrder()

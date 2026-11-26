@@ -262,24 +262,43 @@ struct AppSessionScreenTests {
         #expect(session.showing == .workouts)
         #expect(session.current == saved)
     }
+}
 
-    @Test("A pop the stack sends after Start leaves the workout at the root")
+/// Start, on a workout pushed on the Workouts screen and on one at the root.
+extension AppSessionScreenTests {
+    @Test("Back from a pushed workout before its Start lands starts nothing")
+    func backBeforeStartLands() async throws {
+        let session = await pushedSession()
+        let workout = try addingExercise(to: session.current, in: session)
+        #expect(session.canStart(on: workout.id))
+        session.popWorkout()
+        #expect(!session.canStart(on: workout.id))
+        session.start(on: workout.id)
+        #expect(session.loggedWorkout == nil)
+    }
+
+    @Test("A pop while a pushed workout is in progress is refused, and pops again once it ends")
     func popAfterStart() async throws {
         let session = await pushedSession()
         let workout = try addingExercise(to: session.current, in: session)
         session.start(on: workout.id)
         session.popWorkout()
-        #expect(session.screen == .workout)
+        #expect(session.screen == .pushedWorkout)
+        session.discard()
+        session.popWorkout()
+        #expect(session.screen == .workouts)
     }
 
-    @Test("Start on a pushed workout shows it in progress at the root, as it is now")
+    @Test("Start on a pushed workout keeps the screen it was pressed on, for its Start to play")
     func startPushed() async throws {
         let session = await pushedSession()
-        let edited = try addingExercise(to: saved, in: session)
+        _ = try addingExercise(to: saved, in: session)
         session.start(on: session.current.id)
-        #expect(session.screen == .workout)
-        #expect(session.opened == edited)
+        #expect(session.screen == .pushedWorkout)
+        #expect(session.opened == saved)
         #expect(session.loggedWorkout?.workoutID == saved.id)
+        // Its "Start in" begins as its own Start lands on the first set.
+        #expect(session.loggedWorkout?.count == nil)
     }
 
     @Test("Start at the root keeps the screen the workout opened with")

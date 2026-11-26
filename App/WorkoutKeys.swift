@@ -16,7 +16,33 @@ struct EndButton: View {
     }
 }
 
+/// What End's dialog chooses between, a workout screen's own finish and discard: handed by a
+/// workout pushed on the Workouts screen to that screen, which presents the dialog outside its
+/// navigation stack (`endWorkoutDialog`).
+struct EndChoices {
+    let finish: () -> Void
+    let discard: () -> Void
+}
+
 extension View {
+    /// End's dialog for a pushed workout, showing while `choices` holds its screen's.
+    func endWorkoutDialog(
+        choosing choices: Binding<EndChoices?>,
+        session: AppSession,
+    ) -> some View {
+        let asked = choices.wrappedValue
+        return endWorkoutDialog(
+            isPresented: Binding { choices.wrappedValue != nil } set: { isPresented in
+                if !isPresented {
+                    choices.wrappedValue = nil
+                }
+            },
+            session: session,
+            finish: { asked?.finish() },
+            discard: { asked?.discard() },
+        )
+    }
+
     /// Asks whether to finish the workout and keep it, or discard it, with `finish` and
     /// `discard` the screen's; the scratch app's dialog. Attached to the whole screen,
     /// navigation stack included, so iOS shows it centered: attached to Finish or to the stack's
