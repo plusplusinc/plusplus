@@ -2,8 +2,8 @@ import Foundation
 import OSLog
 import SwiftData
 
-typealias StoredWorkout = RoutineSchemaV13.StoredWorkout
-typealias StoredSet = RoutineSchemaV13.StoredSet
+typealias StoredWorkout = RoutineSchemaV14.StoredWorkout
+typealias StoredSet = RoutineSchemaV14.StoredSet
 
 extension StoredWorkout {
     /// Writes every field, setting only those that differ, so an unchanged workout stays clean.
@@ -20,6 +20,21 @@ extension StoredWorkout {
         update(\.countSide, to: loggedWorkout.count?.set.side?.rawValue)
         update(\.countStartClock, to: loggedWorkout.count?.startClock)
         update(\.countAdded, to: loggedWorkout.count?.added ?? 0)
+        let pauseTimes = loggedWorkout.pauses.flatMap { [$0.start, $0.end] }
+        update(\.pauseTimes, to: pauseTimes.isEmpty ? nil : pauseTimes)
+        update(\.healthActivity, to: loggedWorkout.healthActivity?.rawValue)
+        // Not `healthWorkoutID`: only the store's mark sets it, so a save from a copy read
+        // before it never clears it.
+    }
+
+    /// Each kept pause, when the stored times pair up in order; none otherwise.
+    private var pauses: [DateInterval] {
+        guard let pauseTimes, pauseTimes.count.isMultiple(of: 2),
+              zip(pauseTimes, pauseTimes.dropFirst()).allSatisfy({ $0 <= $1 })
+        else { return [] }
+        return stride(from: 0, to: pauseTimes.count, by: 2).map {
+            DateInterval(start: pauseTimes[$0], end: pauseTimes[$0 + 1])
+        }
     }
 
     /// The count under way, when its row, round, and start clock are all stored.
@@ -35,17 +50,21 @@ extension StoredWorkout {
 
     /// The logged workout, its sets in the order logged; a set it can't read is left out.
     var loggedWorkout: LoggedWorkout {
-        LoggedWorkout(
+        var loggedWorkout = LoggedWorkout(
             id: id,
             workoutID: routineID ?? UUID(),
             workoutName: routineName,
             startedAt: startedAt,
             pausedAt: pausedAt,
             pausedSeconds: pausedSeconds,
+            pauses: pauses,
             endedAt: endedAt,
             sets: (sets ?? []).sorted { $0.position < $1.position }.compactMap(\.loggedSet),
             count: count,
+            healthActivity: healthActivity.flatMap(HealthActivity.init(rawValue:)),
         )
+        loggedWorkout.healthWorkoutID = healthWorkoutID
+        return loggedWorkout
     }
 }
 

@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-/// What a finished workout gives Apple Health: its start and end, and only pauses whose times
-/// are known.
+/// What a finished workout gives Apple Health: its start, end, and pauses, only when its length
+/// there equals its time in the app, and its type as kept at Finish.
 @Suite("Health workout")
 struct HealthWorkoutTests {
     private static func at(_ seconds: Double) -> Date {
@@ -14,60 +14,101 @@ struct HealthWorkoutTests {
         LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: at(100))
     }
 
-    /// The workout for `before` finished at `end`, as Finish makes it.
-    private static func finish(
-        _ before: LoggedWorkout,
-        at end: Double,
-    ) throws(HealthWorkout.Withheld) -> HealthWorkout {
-        try HealthWorkout(
-            finished: before.finishing(at: at(end)),
-            in: .builtIn,
-            resumedSeconds: before.pausedSeconds,
-            pausedSince: before.pausedAt,
-        )
+    /// Health's length for `workout`: start to end, its pauses left out.
+    private static func length(_ workout: HealthWorkout) -> Duration {
+        .seconds(workout.end.timeIntervalSince(workout.start)
+            - workout.pauses.reduce(0) { $0 + $1.duration })
     }
 
-    @Test("A workout never paused goes with its start and end, and no pauses")
-    func neverPaused() throws {
-        let before = Self.started()
-        let workout = try Self.finish(before, at: 400)
-        #expect(workout.id == before.id)
+    @Test(
+        "A workout finished in the app goes with each pause, its length the app's time",
+        arguments: [
+            // Never paused.
+            [],
+            // Finished while paused.
+            [(300.0, nil)],
+            // Paused and resumed once.
+            [(200, 250)],
+            // Paused and resumed twice, then finished while paused.
+            [(150, 160), (200, 250), (300, nil)],
+        ] as [[(Double, Double?)]],
+    )
+    func pausesKept(pauses: [(Double, Double?)]) throws {
+        var logged = Self.started()
+        for (start, end) in pauses {
+            logged = logged.pausing(at: Self.at(start))
+            if let end {
+                logged = logged.resuming(at: Self.at(end))
+            }
+        }
+        let finished = logged.finishing(at: Self.at(400))
+        let workout = try HealthWorkout(finished, in: .builtIn)
+        #expect(workout.id == finished.id)
         #expect(workout.start == Self.at(100))
         #expect(workout.end == Self.at(400))
-        #expect(workout.pauses.isEmpty)
+        #expect(workout.pauses == pauses.map { start, end in
+            DateInterval(start: Self.at(start), end: Self.at(end ?? 400))
+        })
+        #expect(Self.length(workout) == finished.elapsed(at: Self.at(400)))
     }
 
-    @Test("A workout finished while paused goes with that pause, its length leaving it out")
-    func finishedWhilePaused() throws {
-        let paused = Self.started().pausing(at: Self.at(300))
-        let workout = try Self.finish(paused, at: 400)
-        #expect(workout.pauses == [DateInterval(start: Self.at(300), end: Self.at(400))])
-        let active = workout.end.timeIntervalSince(workout.start)
-            - workout.pauses.reduce(0) { $0 + $1.duration }
-        let finished = paused.finishing(at: Self.at(400))
-        #expect(Duration.seconds(active) == finished.elapsed(at: Self.at(400)))
-    }
-
-    @Test("A workout paused and resumed before goes nowhere, paused again at its finish or not")
-    func resumedBefore() {
-        let resumed = Self.started().pausing(at: Self.at(200)).resuming(at: Self.at(250))
-        #expect(throws: HealthWorkout.Withheld.resumedBefore) {
-            try Self.finish(resumed, at: 400)
+    @Test(
+        "A workout whose pauses don't account for its time paused goes nowhere",
+        arguments: [
+            // Paused before the store kept times: its length alone.
+            (30.0, []),
+            // Times that don't add up to the time paused.
+            (30, [(200, 210)]),
+            // A pause before the start.
+            (10, [(90, 100)]),
+            // A pause past the end.
+            (20, [(390, 410)]),
+            // Out of order.
+            (20, [(300, 310), (200, 210)]),
+        ] as [(Double, [(Double, Double)])],
+    )
+    func timesNotKept(pausedSeconds: Double, pauses: [(Double, Double)]) {
+        let finished = LoggedWorkout(
+            workoutID: UUID(),
+            workoutName: "Upper",
+            startedAt: Self.at(100),
+            pausedSeconds: pausedSeconds,
+            pauses: pauses.map { DateInterval(start: Self.at($0), end: Self.at($1)) },
+            endedAt: Self.at(400),
+        )
+        #expect(throws: HealthWorkout.Withheld.timesNotKept) {
+            try HealthWorkout(finished, in: .builtIn)
         }
-        #expect(throws: HealthWorkout.Withheld.resumedBefore) {
-            try Self.finish(resumed.pausing(at: Self.at(300)), at: 400)
+    }
+
+    @Test("A workout ending at or before its start, as with a clock set back, goes nowhere")
+    func endNotAfterStart() {
+        let finished = LoggedWorkout(
+            workoutID: UUID(),
+            workoutName: "Upper",
+            startedAt: Self.at(100),
+            endedAt: Self.at(90),
+        )
+        #expect(throws: HealthWorkout.Withheld.timesNotKept) {
+            try HealthWorkout(finished, in: .builtIn)
         }
     }
 
     @Test("A workout in progress gives Health nothing, for that reason")
     func inProgress() {
         #expect(throws: HealthWorkout.Withheld.notFinished) {
-            try HealthWorkout(
-                finished: Self.started(),
-                in: .builtIn,
-                resumedSeconds: 0,
-                pausedSince: nil,
-            )
+            try HealthWorkout(Self.started(), in: .builtIn)
         }
+    }
+
+    @Test("The type kept at Finish wins over the exercises as they are now")
+    func storedTypeWins() throws {
+        let row = try WorkoutExercise.builtIn("Hamstring stretch")
+        var finished = Self.started()
+            .logging(PlannedSet(row: row.id, round: 1, side: nil), of: row, at: Self.at(200))
+            .finishing(at: Self.at(400))
+        #expect(try HealthWorkout(finished, in: .builtIn).activity == .flexibility)
+        finished.healthActivity = .traditionalStrength
+        #expect(try HealthWorkout(finished, in: .builtIn).activity == .traditionalStrength)
     }
 }

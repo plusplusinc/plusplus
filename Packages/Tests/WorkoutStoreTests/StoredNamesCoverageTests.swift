@@ -2,7 +2,7 @@ import SwiftData
 import Testing
 @testable import WorkoutStore
 
-/// `StoredNamesTests` pins versions 1 to 13 by hand and stays untouched by renames, so it can't
+/// `StoredNamesTests` pins versions 1 to 14 by hand and stays untouched by renames, so it can't
 /// read the plan's list itself. This holds the two together: a version added to the plan fails
 /// here until it is pinned there too.
 @Suite("Stored names coverage")
@@ -11,7 +11,7 @@ struct StoredNamesCoverageTests {
     func planMatchesPin() {
         let opened = StoreMigrationPlan.schemas.map { $0.versionIdentifier }
         #expect(
-            opened == (1 ... 13).map { Schema.Version($0, 0, 0) },
+            opened == (1 ... 14).map { Schema.Version($0, 0, 0) },
             "Pin the new version's names in StoredNamesTests, then add it here",
         )
     }

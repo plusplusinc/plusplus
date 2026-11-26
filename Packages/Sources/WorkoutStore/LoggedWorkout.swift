@@ -15,12 +15,22 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     public var pausedAt: Date?
     /// The length of every pause already resumed.
     public var pausedSeconds: Double
+    /// Every pause already resumed, from when it began to when it ended, in order; a pause in
+    /// progress at Finish is one. Empty for those resumed before the store kept their times
+    /// (V14), whose length `pausedSeconds` still holds.
+    public var pauses: [DateInterval]
     /// When it finished; nil while in progress.
     public var endedAt: Date?
     /// Every set done in it, in the order logged.
     public var sets: [LoggedSet]
     /// The timed set whose turn has come, until it is logged; nil for none.
     public var count: SetCount?
+    /// Its type in Apple Health, worked out at Finish from what was done then; nil while in
+    /// progress, and for a workout finished before the store kept it (V14).
+    public var healthActivity: HealthActivity?
+    /// The workout Apple Health saved for it; nil until one is. Only the store's own mark
+    /// sets it, so a save of this value never clears it.
+    public internal(set) var healthWorkoutID: UUID?
 
     public init(
         id: UUID = UUID(),
@@ -29,9 +39,11 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
         startedAt: Date,
         pausedAt: Date? = nil,
         pausedSeconds: Double = 0,
+        pauses: [DateInterval] = [],
         endedAt: Date? = nil,
         sets: [LoggedSet] = [],
         count: SetCount? = nil,
+        healthActivity: HealthActivity? = nil,
     ) {
         self.count = count
         self.id = id
@@ -40,8 +52,10 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
         self.startedAt = startedAt
         self.pausedAt = pausedAt
         self.pausedSeconds = pausedSeconds
+        self.pauses = pauses
         self.endedAt = endedAt
         self.sets = sets
+        self.healthActivity = healthActivity
     }
 
     public var isPaused: Bool {
@@ -78,11 +92,14 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
 
     /// The workout with its time starting at `now`, when it hasn't yet: the first set logged
     /// before the clock reaches zero. The key takes no log through "Start in", so only a log a
-    /// moment ahead of the clock gets here. Unchanged once the time runs.
+    /// moment ahead of the clock gets here. Unchanged once the time runs. A pause resumed
+    /// before is dropped with the time before it: none of it is the workout's.
     public func startingClock(at now: Date) -> Self {
         guard isInProgress, clock(at: now) < 0 else { return self }
         var started = self
-        started.startedAt = (pausedAt ?? now).addingTimeInterval(-pausedSeconds)
+        started.startedAt = pausedAt ?? now
+        started.pausedSeconds = 0
+        started.pauses = []
         return started
     }
 
@@ -126,11 +143,14 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
         return paused
     }
 
-    /// Running again, the pause added to the time paused; unchanged if not paused.
+    /// Running again, the pause added to the time paused and kept with its times; unchanged if
+    /// not paused.
     public func resuming(at now: Date) -> Self {
         guard isInProgress, let pausedAt else { return self }
         var resumed = self
-        resumed.pausedSeconds += max(0, now.timeIntervalSince(pausedAt))
+        let pause = DateInterval(start: pausedAt, end: max(now, pausedAt))
+        resumed.pausedSeconds += pause.duration
+        resumed.pauses.append(pause)
         resumed.pausedAt = nil
         return resumed
     }

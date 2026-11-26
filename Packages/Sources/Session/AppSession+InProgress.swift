@@ -6,31 +6,27 @@ import WorkoutStore
 extension AppSession {
     /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
     /// set counting logged at the time done (`LiveWorkout.finishing(at:)`), and names it as the
-    /// one Log has yet to bring into History (`justFinished`). With Apple Health on, saves it
-    /// there too once its write has landed (`saveToHealth(_:before:)`).
+    /// one Log has yet to bring into History (`justFinished`), with its Apple Health type as
+    /// what it logged makes it now. With Apple Health on, saves it there too once its write
+    /// has landed (`saveToHealth(_:)`).
     public func finish(at now: Date = .now) {
         guard let loggedWorkout else { return }
         var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
             .finishing(at: now)
         finished.workoutName = shownName
+        finished.healthActivity = HealthActivity(logged: finished.sets, in: exercises)
         change(.save(finished))
         justFinished = finished.id
         deleteIfCleared()
-        saveToHealth(finished, before: loggedWorkout)
+        saveToHealth(finished)
     }
 
-    /// Hands a workout just finished to Apple Health once its write has landed; whether the
-    /// system lets the app is read then, not in the Finish tap's turn (`HealthSaving.save(_:)`).
-    /// Not one paused and resumed before, `before` its finish: when its pauses happened isn't
-    /// kept (`HealthWorkout.Withheld.resumedBefore`).
-    private func saveToHealth(_ finished: LoggedWorkout, before: LoggedWorkout) {
+    /// Hands a workout just finished to Apple Health, as the store keeps it, once its write has
+    /// landed; whether the system lets the app is read then, not in the Finish tap's turn
+    /// (`HealthSaving.save(_:)`).
+    private func saveToHealth(_ finished: LoggedWorkout) {
         let workout = Result { () throws(HealthWorkout.Withheld) in
-            try HealthWorkout(
-                finished: finished,
-                in: exercises,
-                resumedSeconds: before.pausedSeconds,
-                pausedSince: before.pausedAt,
-            )
+            try HealthWorkout(finished, in: exercises)
         }
         Task {
             await loggedWorkoutWritesLanded()
