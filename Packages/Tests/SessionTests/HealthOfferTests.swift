@@ -57,26 +57,20 @@ struct HealthOfferTests {
         #expect(health.asks.withLock { $0 } == 0)
     }
 
-    @Test("Allowed from the card, the workout that brought it is saved and the card is gone")
-    func allowSavesTheFinish() async throws {
+    @Test(
+        "Answered from the card, the card is gone, and Allow saves the workout that brought it",
+        arguments: [HealthAccess.on, .off],
+    )
+    func answerFromTheCard(answer: HealthAccess) async throws {
         let health = FakeHealth(.notAsked, store: fixture.store())
+        health.answer.withLock { $0 = answer }
         let (session, finished) = try await finished(health)
         #expect(health.saves.withLock { $0 }.isEmpty)
         await session.askToSaveToHealth()
         await session.healthJobsLanded()
         #expect(health.asks.withLock { $0 } == 1)
-        #expect(health.saves.withLock { $0.map(\.workout.id) } == [finished])
-        #expect(!session.health.showsOffer)
-    }
-
-    @Test("Don't Allow from the card: the card is gone and nothing is saved")
-    func dontAllowSavesNothing() async throws {
-        let health = FakeHealth(.notAsked, store: fixture.store())
-        health.answer.withLock { $0 = .off }
-        let (session, _) = try await finished(health)
-        await session.askToSaveToHealth()
-        await session.healthJobsLanded()
-        #expect(health.saves.withLock { $0 }.isEmpty)
+        let saved = health.saves.withLock { $0.map(\.workout.id) }
+        #expect(saved == (answer == .on ? [finished] : []))
         #expect(!session.health.showsOffer)
     }
 
@@ -88,9 +82,5 @@ struct HealthOfferTests {
         let health = FakeHealth(access, store: fixture.store())
         let (session, _) = try await finished(health)
         #expect(!session.health.showsOffer)
-        // With the access read at the first finish's catch-up, the next keeps no offer at all.
-        let (later, _) = try await finished(health, at: 100)
-        later.health.refresh()
-        #expect(!later.health.showsOffer)
     }
 }

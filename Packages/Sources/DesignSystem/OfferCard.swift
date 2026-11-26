@@ -5,7 +5,8 @@ import SwiftUI
 /// leading: the offer as a neutral filled pill (`PillButtonStyle`), not green, since taking it
 /// makes nothing in the app, and the way out as plain secondary text at the same height. At
 /// accessibility sizes the two stack, the way out under the offer, so neither breaks a word.
-/// It draws nothing of its coming and going; whoever shows it closes its room.
+/// It draws nothing of its coming and going; whoever shows it closes its room, as Log does with
+/// `CutAway`.
 public struct OfferCard: View {
     private let title: String
     private let line: String
@@ -15,7 +16,8 @@ public struct OfferCard: View {
     private let decline: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = 44
+    /// "Not now" as tall as the pill beside it.
+    @ScaledMetric(relativeTo: .body) private var buttonHeight = PillButtonStyle.touchHeight
 
     public init(
         _ title: String,
@@ -72,30 +74,6 @@ public struct OfferCard: View {
             }
             .buttonStyle(.plain)
         }
-    }
-}
-
-/// A view going as its room closes over it, for content under it that rises into the room on
-/// the same animation: it is cut off from the bottom up, at the edge that content has risen
-/// to, as it fades, so the rising content never shows through it. Faded alone, the calendar
-/// under Log's card rose through the card's words.
-public struct ClosingRoom: Transition {
-    public init() { }
-
-    public func body(content: Content, phase: TransitionPhase) -> some View {
-        content
-            .mask(alignment: .top) {
-                Rectangle()
-                    .scaleEffect(x: 1, y: phase.isIdentity ? 1 : 0, anchor: .top)
-            }
-            .opacity(phase.isIdentity ? 1 : 0)
-    }
-}
-
-extension Transition where Self == ClosingRoom {
-    /// `.transition(.closingRoom)`.
-    public static var closingRoom: ClosingRoom {
-        ClosingRoom()
     }
 }
 

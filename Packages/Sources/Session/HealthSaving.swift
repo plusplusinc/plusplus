@@ -26,13 +26,15 @@ public final class HealthSaving {
     @ObservationIgnored private let defaults: UserDefaults
 
     /// Where the card on Log that asks to save to Apple Health stands on this device: nil until
-    /// the first finish that finds Health not asked, or not read yet. Kept on the device, not in
-    /// the store, as Health's answer is the device's: a "Not now" synced to another device would
-    /// hide the card where Apple's sheet was never shown.
+    /// the first finish since the card came to the app, whatever Health's access was then. Kept
+    /// on the device, not in the store, as Health's answer is the device's: a "Not now" synced
+    /// to another device would hide the card where Apple's sheet was never shown.
     private(set) var offer: Offer?
 
     enum Offer: String {
-        /// A finish made the offer; the card shows while Health is still not asked.
+        /// A workout was finished since the card came to the app, and the card wasn't turned
+        /// down. It shows only while Health is never asked (`showsOffer`), so with Health
+        /// answered before that finish it never does.
         case offered
         /// "Not now": the card never shows again, and Apple's sheet is left unspent.
         case declined
@@ -40,8 +42,8 @@ public final class HealthSaving {
 
     /// The key the removals owed are kept under, for a reset.
     public static let removalsKey = "healthRemovalsOwed"
-    /// The key the card's offer is kept under, for a reset.
-    public static let offerKey = "healthOffer"
+    /// The key the card's offer is kept under.
+    static let offerKey = "healthOffer"
     /// Every key this keeps on the device, for a reset.
     public static let keys = [removalsKey, offerKey]
 
@@ -61,10 +63,11 @@ public final class HealthSaving {
         offer == .offered && access == .notAsked
     }
 
-    /// Makes the card's offer at a finish, the first since the app kept one, unless the access
-    /// last read says Health was asked or isn't here. Whether it shows waits on the access.
+    /// Makes the card's offer at a finish, the first since the app kept one. Whether it shows
+    /// is the access's to say (`showsOffer`): with Health asked before, or not here, it never
+    /// does.
     func offerAtFinish() {
-        guard offer == nil, access == nil || access == .notAsked else { return }
+        guard offer == nil else { return }
         keepOffer(.offered)
     }
 
@@ -81,7 +84,7 @@ public final class HealthSaving {
     /// Reads the access, as Settings opens or after a trip to the system's settings.
     public func refresh() {
         readsBegun += 1
-        access = client.access()
+        keepAccess(client.access())
     }
 
     /// Reads the access off the main actor, as a catch-up does, so HealthKit's answer never
@@ -92,6 +95,13 @@ public final class HealthSaving {
         let read = readsBegun
         let answer = await Self.read(client)
         guard read == readsBegun else { return }
+        keepAccess(answer)
+    }
+
+    /// Written only when the answer changes: Log and Settings read the access in their bodies,
+    /// and a write of the same answer at each catch-up would redraw them.
+    private func keepAccess(_ answer: HealthAccess) {
+        guard answer != access else { return }
         access = answer
     }
 

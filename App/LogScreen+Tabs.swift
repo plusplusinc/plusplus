@@ -19,7 +19,7 @@ extension LogScreen {
             if showsHealthOffer {
                 healthOffer
                     .padding(.bottom, Spacing.lg)
-                    .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.closingRoom))
+                    .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.cutAway))
             }
             loggedWorkoutCount(period)
                 .padding(.bottom, Spacing.md)
@@ -57,20 +57,18 @@ extension LogScreen {
             }
         }
         // The card's room closes as it fades, cut off where the calendar and rows have risen
-        // to (`ClosingRoom`); with
-        // Reduce Motion, a crossfade, as Void's row does in Settings (`AppearanceChoice`).
-        .animation(
-            reduceMotion ? .easeInOut(duration: 0.2) : .snappy,
-            value: showsHealthOffer,
-        )
+        // to (`CutAway`); with Reduce Motion, a crossfade (`cardCrossfade`).
+        .animation(reduceMotion ? .cardCrossfade : .snappy, value: showsHealthOffer)
     }
 
     /// The one-time ask to save to Apple Health, first in History above the count, from the
     /// first finish after it came to the app until Apple's sheet is answered or "Not now" turns
     /// it down (`HealthSaving.showsOffer`). "Save to Apple Health" is the session's one ask
     /// (`AppSession.askToSaveToHealth()`): Apple's sheet, then every workout in Log sent once
-    /// it allows; the card goes as the answer is read. In Log's first frame after a finish, so
-    /// it never arrives with motion over the workout coming in.
+    /// it allows; the card goes as the answer is read. It is in Log's first frame after a
+    /// finish, the access read since launch, so it doesn't come in over the workout arriving;
+    /// only a read landing while Log is open, as with Log opened moments after a launch, brings
+    /// it in, on its leave run backward.
     private var healthOffer: some View {
         OfferCard(
             "Save your workouts to Apple Health",

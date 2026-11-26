@@ -116,7 +116,7 @@ struct AppearanceChoice: View {
             }
         }
         .settingsCard()
-        .animation(reduceMotion ? Self.crossfade : .snappy, value: look.offersVoid)
+        .animation(reduceMotion ? .cardCrossfade : .snappy, value: look.offersVoid)
     }
 
     /// A Settings group's divider, as the exercise sheet's are (`ValueRow`): two pixels thick.
@@ -125,9 +125,6 @@ struct AppearanceChoice: View {
             .fill(.pp(.separator))
             .frame(height: 2 / displayScale)
     }
-
-    /// Void's row coming and going with Reduce Motion: a fade, as the search field's is.
-    private static let crossfade = Animation.easeInOut(duration: 0.2)
 }
 
 /// Apple Health's one row, "Save workouts", reading On or Off from the system's permission. It

@@ -5,7 +5,10 @@ import SwiftUI
 /// somewhere, from a screen with nothing to show, as Log's Go to Workouts. Pressing dims it, as
 /// a key does (`keyPress(isPressed:)`); with Reduce Motion too, since a dim is no motion.
 public struct PillButtonStyle: ButtonStyle {
-    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 44
+    /// Its least height at the default text size, a tap target's, scaled with the body style.
+    static let touchHeight: CGFloat = 44
+
+    @ScaledMetric(relativeTo: .body) private var minHeight = Self.touchHeight
     @ScaledMetric(relativeTo: .body) private var labelInset: CGFloat = 10
 
     public init() { }
