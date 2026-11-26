@@ -4,7 +4,7 @@ import SwiftUI
 /// view. A swipe in from the left edge opens it, following the finger; a tap on the sliver, a
 /// swipe left, or VoiceOver's escape closes it. With Reduce Motion the screen moves at once and
 /// the drawer fades in beside it, or out before it moves back.
-/// The screen darkens as the drawer opens; in Void its ground also lifts to the sheets' gray
+/// The screen darkens as the drawer opens; in Void its ground also lifts to a dark gray
 /// (`Palette.voidUnderDrawer`), above the black drawer. A haptic plays the moment the drawer starts
 /// to open,
 /// and another, firmer, the moment it starts to shut; a swipe plays one only as it is let go,
@@ -125,7 +125,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                     }
                     .overlay {
                         // In Void the dimmed screen was as black as the drawer: its ground
-                        // lifts to the sheets' gray instead, lightening only what is darker
+                        // lifts to a dark gray instead, lightening only what is darker
                         // than that gray, so the dimmed content keeps its look. On the dim's
                         // own `progress`, so it moves in the drawer's transaction.
                         if isVoid, colorScheme == .dark {

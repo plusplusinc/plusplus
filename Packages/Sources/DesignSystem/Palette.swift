@@ -19,9 +19,12 @@ nonisolated struct Palette: Sendable {
     /// edge, and a card on it none either.
     static let voidSheet = Self(ground: 0x1C1C1E)
 
-    /// The ground of Void's screen under an open drawer: the sheets' gray, so the screen reads
-    /// lifted above the black drawer, where a dimmed black screen showed no edge against it.
-    static let voidUnderDrawer = voidSheet[.background]
+    /// The ground of Void's screen under an open drawer, so the screen reads lifted above the
+    /// black drawer, where a dimmed black screen showed no edge against it: about half the
+    /// sheets' step off black (1.11:1 to the sheets' 1.23:1), quieter than a sheet. A step lower,
+    /// 0F0F10 (1.10:1), still showed an edge on the simulator, but an OLED screen crushes the
+    /// last steps above black.
+    static let voidUnderDrawer = RGB(0x111113).resolved()
 
     /// Every neutral is mixed in OKLab from the ground toward the white text, so it carries the
     /// ground's tint, as far from the ground as PlusPlus dark's own gray for that job stands from
