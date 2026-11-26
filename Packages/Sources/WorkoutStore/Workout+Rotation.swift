@@ -87,6 +87,15 @@ extension Workout {
         return (finished, item.plan.sets)
     }
 
+    /// For a row done one side at a time, how many sides are logged of its first set not yet
+    /// done, 0 or 1: what splits that set's bar. Nil for any other row.
+    public func sidesDone(of row: WorkoutExercise.ID, logged: [LoggedSet]) -> Int? {
+        guard let item = exercises.first(where: { $0.id == row }), item.exercise.isPerSide
+        else { return nil }
+        let round = progress(of: row, logged: logged).done + 1
+        return logged.count { $0.row == row && $0.round == round && $0.side != nil }
+    }
+
     /// Whether any set, or side of one, of the row is logged.
     public func isStarted(_ row: WorkoutExercise.ID, logged: [LoggedSet]) -> Bool {
         logged.contains { $0.row == row }

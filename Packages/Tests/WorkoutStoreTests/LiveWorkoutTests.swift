@@ -133,6 +133,21 @@ struct LiveWorkoutTests {
         #expect(pushed.step(logging: left) == .nextSet, "Left leads to right")
     }
 
+    @Test(
+        "A per-side row's bars count the sides done of its set in progress, and no other row's do",
+    )
+    func sidesDone() throws {
+        let row = try WorkoutExercise.builtIn("Dumbbell row") { $0.sets = 2 }
+        let push = try WorkoutExercise.builtIn("Push-up")
+        var live = live(Workout(exercises: [row, push]))
+        #expect(live.sidesDone(of: row.id) == 0)
+        #expect(live.sidesDone(of: push.id) == nil)
+        live = try logging([PlannedSet(row: row.id, round: 1, side: .left)], on: live)
+        #expect(live.sidesDone(of: row.id) == 1)
+        live = try logging([PlannedSet(row: row.id, round: 1, side: .right)], on: live)
+        #expect(live.sidesDone(of: row.id) == 0, "The next set, neither side done")
+    }
+
     @Test("A log on an exercise's last set leads down to the next exercise")
     func down() throws {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }

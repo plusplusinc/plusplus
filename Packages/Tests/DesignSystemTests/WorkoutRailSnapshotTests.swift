@@ -48,7 +48,7 @@ struct WorkoutRailSnapshotTests {
         SetProgress(done: done, total: total, spoken: "\(done) of \(total) sets done")
     }
 
-    @Test("Bars at 3, 6, and 8 sets line up, a long name wrapping before them")
+    @Test("Bars at 3, 6 per side, and 8 sets line up, a long name wrapping before them")
     func setBars() {
         let finished = Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"])
         let rows = [
@@ -57,7 +57,7 @@ struct WorkoutRailSnapshotTests {
             Row(
                 title: "Single-arm dumbbell Romanian deadlift to row",
                 detail: ["6 × 8 reps per side", "40 lb"],
-                bars: Self.bars(4, of: 6),
+                bars: SetProgress(done: 4, total: 6, sidesDone: 1, spoken: "4 of 6 sets done"),
             ),
             Row(title: "Plank", detail: ["8 × 30s"], bars: Self.bars(2, of: 8)),
             Row(title: "Push-up", detail: ["3 × 10 reps"]),

@@ -49,6 +49,12 @@ public struct LiveWorkout: Equatable, Sendable {
         return progress
     }
 
+    /// For a row done one side at a time, the sides done of the set its bars show next
+    /// (`Workout.sidesDone(of:logged:)`).
+    public func sidesDone(of id: WorkoutExercise.ID) -> Int? {
+        workout.sidesDone(of: id, logged: loggedWorkout.sets)
+    }
+
     /// What the key that logs the current set says ("Log set", "Log left", "Log last set"). None
     /// once every set is logged.
     public var logText: String? {

@@ -147,6 +147,7 @@ extension WorkoutScreen {
             bars[item.id] = SetProgress(
                 done: done,
                 total: total,
+                sidesDone: shown.sidesDone(of: item.id),
                 spoken: spokenProgress(done: done, total: total, locale: locale),
             )
         }

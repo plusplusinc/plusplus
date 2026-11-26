@@ -133,6 +133,8 @@ extension WorkoutScreen {
                     SetProgress(
                         done: $0.done,
                         total: $0.total,
+                        // The set in progress done, both its sides are.
+                        sidesDone: item.exercise.isPerSide ? 0 : nil,
                         spoken: spokenProgress(done: $0.done, total: $0.total, locale: locale),
                     )
                 },
