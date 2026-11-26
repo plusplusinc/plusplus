@@ -55,9 +55,8 @@ extension WorkoutKeyTests {
         let on = try Seed()
         let startIn = on.key(logged: 0, phase: .timing(.startIn), paused: true)
         #expect(!startIn.waitsToStart, "Start in")
-        var skipped = Self.resting(on.first, leadingTo: .nextSet, to: .settled)
-        skipped.skipRest(left: 20, leave: 100)
-        let held = on.key(logged: 1, phase: skipped, paused: true)
+        let rest = Self.resting(on.first, leadingTo: .nextSet, to: .settled)
+        let held = on.key(logged: 1, phase: rest, paused: true, skipped: true)
         #expect(held.role == .continueWorkout, "A skipped rest's hold")
         #expect(!held.waitsToStart, "A skipped rest's hold")
     }
@@ -67,12 +66,12 @@ extension WorkoutKeyTests {
     @Test("A pause moves the key only in Start in and a skipped rest's hold, paused or not")
     func pauseMovesKey() throws {
         let on = try Seed()
-        var skipped = Self.resting(on.first, leadingTo: .nextSet, to: .settled)
-        skipped.skipRest(left: 20, leave: 100)
         let rest = Self.resting(on.first, leadingTo: .nextSet, to: .settled)
         let moves: [String: (Bool) -> WorkoutKey] = [
             "Start in": { on.key(logged: 0, phase: .timing(.startIn), paused: $0) },
-            "A skipped rest's hold": { on.key(logged: 1, phase: skipped, paused: $0) },
+            "A skipped rest's hold": {
+                on.key(logged: 1, phase: rest, paused: $0, skipped: true)
+            },
         ]
         let stays: [String: (Bool) -> WorkoutKey] = [
             "Log set": { on.key(logged: 0, paused: $0) },

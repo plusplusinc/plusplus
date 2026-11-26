@@ -142,25 +142,51 @@ struct WorkoutRestTests {
         #expect(rest.remaining(atClock: live.loggedWorkout.clock(at: Self.at(410))) == 50)
     }
 
-    @Test("+15 s adds 15 seconds, twice 30; Skip rest cuts the rest at the tap, its whole seconds")
+    @Test(
+        "+15 s adds 15 seconds, twice 30; Skip rest stores its tap, holds its time, then moves on",
+    )
     func plusAndSkip() throws {
         var live = try Self.live(Self.plain(), logged: 1)
         live.loggedWorkout = live.extendingRest(by: 15, at: Self.at(20))
         #expect(live.rest()?.length == 105)
         live.loggedWorkout = live.extendingRest(by: 15, at: Self.at(25))
         #expect(live.rest()?.length == 120)
-        // Logged at 10 s, skipped 70.6 s into its rest, a reps set next with no count to time
-        // the move: its length the 70 whole seconds rested, rounded down, so it reads none left.
+        // Logged at 10 s, skipped 70.6 s into its rest, a reps set of the same exercise next,
+        // with no count stored: the rest keeps its length, and moves on `skipHold` after the tap.
         live.loggedWorkout = live.skippingRest(at: Self.at(80.6))
+        #expect(live.loggedWorkout.count == nil)
         let ended = try #require(live.rest())
-        #expect(ended.length == 70)
-        #expect(ended.remaining(atClock: live.loggedWorkout.clock(at: Self.at(80.6))) == 0)
-        #expect(ended.skipLeaveClock == nil, "The screen's own hold times the move")
+        let tap = live.loggedWorkout.clock(at: Self.at(80.6))
+        #expect(ended.length == 120)
+        #expect(ended.skippedAt == tap)
+        #expect(ended.leaveClock == tap + LiveWorkout.skipHold)
+        #expect(!ended.isOver(atClock: tap + LiveWorkout.skipHold - 0.01))
+        #expect(ended.isOver(atClock: tap + LiveWorkout.skipHold))
+        // Its count shows the 49.4 s it had at the tap, the same at every later moment.
+        for later in [tap, tap + 0.1, tap + 30] {
+            #expect(abs(ended.shownLeft(atClock: later) - 49.4) < 1e-9)
+        }
         // Skipped, a second Skip rest or +15 s changes nothing, through the hold and after.
         let skipped = live.loggedWorkout
         for second in [80.7, 81.2] {
             #expect(live.extendingRest(by: 15, at: Self.at(second)) == skipped)
             #expect(live.skippingRest(at: Self.at(second)) == skipped)
+        }
+    }
+
+    @Test("A skip belongs to its own rest: the next rest, and a workout started again, run out")
+    func skipStaysWithItsRest() throws {
+        var live = try Self.live(Self.plain(), logged: 1)
+        live.loggedWorkout = live.skippingRest(at: Self.at(30))
+        #expect(live.rest()?.skippedAt != nil)
+        let row = try #require(live.currentExercise)
+        let next = try #require(live.currentSet)
+        live.loggedWorkout = live.loggedWorkout.logging(next, of: row, at: Self.at(40))
+        // Discarded and started again on the same screen, with a clock from 0 again.
+        let again = try Self.live(Self.plain(), logged: 1)
+        for rest in try [#require(live.rest()), #require(again.rest())] {
+            #expect(rest.skippedAt == nil)
+            #expect(rest.leaveClock == rest.endClock + LiveWorkout.restHold)
         }
     }
 
@@ -202,11 +228,12 @@ struct WorkoutRestTests {
         // 0:00 at 100: in its hold, the screen opens in the rest; then on the next set.
         #expect(WorkoutPhase(resuming: live, at: Self.at(100)).resting != nil)
         #expect(WorkoutPhase(resuming: live, at: Self.at(100 + LiveWorkout.restHold)) == .running)
-        // Skipped at 40, it opens on the next set by its stored end's hold, not in the rest's
-        // 60 s left.
+        // Skipped at 40, it opens in the rest through the skip's hold, then on the next set, not
+        // in the rest's 60 s left.
         var skipped = live
         skipped.loggedWorkout = live.skippingRest(at: Self.at(40))
-        #expect(WorkoutPhase(resuming: skipped, at: Self.at(40 + LiveWorkout.restHold)) == .running)
+        #expect(WorkoutPhase(resuming: skipped, at: Self.at(40.1)).resting != nil)
+        #expect(WorkoutPhase(resuming: skipped, at: Self.at(40 + LiveWorkout.skipHold)) == .running)
         // Paused past its end on the wall clock, the rest still runs.
         var paused = live
         paused.loggedWorkout = paused.loggedWorkout.pausing(at: Self.at(20))

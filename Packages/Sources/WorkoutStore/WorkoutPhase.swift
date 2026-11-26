@@ -108,9 +108,6 @@ public enum WorkoutPhase: Equatable, Sendable {
         /// Whether the move sets off from a rest, whose row has already closed: the key comes
         /// back with the next set's words, not the set logged's.
         public internal(set) var isFromRest = false
-        /// From a rest Skip rest cut, the seconds it had left at the tap: its room closes
-        /// showing them (`Resting.skippedLeft`).
-        public internal(set) var skippedLeft: Double?
 
         /// A move's beats, in order.
         public enum Beat: Comparable, Sendable {

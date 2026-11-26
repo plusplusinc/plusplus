@@ -20,12 +20,12 @@ extension TimedSetTests {
         #expect(timed.startClock == held, "To the fraction of a second")
         #expect(cut.countStage(at: Self.at(tap)) == .startIn, "Waiting, the rest's time held")
         #expect(cut.countStage(at: Self.at(held)) == .counting)
-        // The rest moves on as the count begins, and no sooner; its stored length, rounded up,
-        // never puts the move later.
+        // The rest moves on as the count begins, and no sooner, its stored length kept.
         let rest = try #require(cut.rest())
         #expect(rest.leaveClock == held)
         #expect(!rest.isOver(atClock: tap))
-        #expect(rest.endClock >= tap)
+        #expect(rest.endClock == 70)
+        #expect(rest.shownLeft(atClock: held) == 70 - tap)
         // The screen's own begin, as the rest moves on, changes nothing.
         #expect(cut.beginningCount(at: Self.at(held + 0.1)) == cut.loggedWorkout)
         // Nor does a second Skip rest or +15 s, in the hold or after it.

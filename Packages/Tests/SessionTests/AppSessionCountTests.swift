@@ -122,7 +122,9 @@ struct AppSessionCountTests {
         let stored = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
         let live = LiveWorkout(workout: workout, loggedWorkout: stored)
         let rest = try #require(live.rest())
-        #expect(rest.length == 10)
+        // +15 s on the 30 s rest; the skip, stored as its tap, keeps the length.
+        #expect(rest.length == 45)
+        #expect(rest.skippedAt == stored.clock(at: Self.at(30)))
         // The next plank, with no "Start in" between sets of one exercise, counts from the
         // skip's hold, where the rest moves on.
         let held = 30 + LiveWorkout.skipHold
