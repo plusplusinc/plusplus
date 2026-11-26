@@ -2,7 +2,8 @@ import SwiftUI
 
 /// A one-time offer on a Settings card's ground (`settingsCard()`): a title at a row title's
 /// size, read by VoiceOver as a heading, one quieter line under it, then its two buttons
-/// leading: the offer as a neutral filled pill (`PillButtonStyle`), not green, since taking it
+/// leading: the offer as a neutral filled pill (`PillButtonStyle`) in `pillOnSurface`, about
+/// 1.5:1 from the card, not green, since taking it
 /// makes nothing in the app, and the way out as plain secondary text at the same height. At
 /// accessibility sizes the two stack, the way out under the offer, so neither breaks a word.
 /// It draws nothing of its coming and going; whoever shows it closes its room, as Log does with
@@ -61,7 +62,7 @@ public struct OfferCard: View {
             : AnyLayout(HStackLayout(spacing: Spacing.sm))
         return layout {
             Button(offer, action: take)
-                .buttonStyle(.pill)
+                .buttonStyle(.pillOnSurface)
             Button(action: decline) {
                 Text(dismiss)
                     .font(.ppButton)
