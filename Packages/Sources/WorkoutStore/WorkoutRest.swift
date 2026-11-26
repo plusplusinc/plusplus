@@ -149,7 +149,7 @@ extension LiveWorkout {
         else { return loggedWorkout }
         var skipped = loggedWorkout
         let lead = countLead(before: rest.next)
-        let counts = lead > 0 || isOnTimedSet
+        let counts = isCountDue
         let taken = clock - rest.startClock
         let rested = Int(counts ? taken.rounded(.up) : taken.rounded(.down))
         skipped.sets[skipped.sets.count - 1].restAdjustment += rested - rest.length
