@@ -55,43 +55,45 @@ struct KeyTrayTests {
         #expect(tray.face == logRight)
     }
 
-    @Test("While leaving or arriving, further changes change nothing; the next key is the live one")
+    @Test("While leaving, further changes change nothing; the key that turns is the live one")
     func whileOut() {
         var tray = Tray(shown(log))
         tray.follow(shown(back))
         tray.startLeaving()
         tray.follow(shown(finish))
         #expect(tray.stage == .leaving(log))
-        tray.advance()
-        tray.follow(shown(back))
-        #expect(tray.stage == .arriving)
-        // Below the edge, the next key is whatever face is live as it rises.
-        #expect(tray.face == back)
+        tray.turn(tray.swaps)
+        #expect(tray.stage == .showing(finish))
     }
 
-    @Test("Once gone, the next key is the live face below the edge; then it shows as the live one")
-    func onceGone() {
+    @Test("A swap's turn shows the live face, once, and only for its own swap")
+    func turnIsItsSwaps() {
         var tray = Tray(shown(log))
         tray.follow(shown(finish))
         tray.startLeaving()
-        tray.advance()
-        #expect(tray.stage == .arriving)
+        let first = tray.swaps
+        tray.follow(away(finish))
+        tray.follow(shown(log))
         tray.follow(shown(back))
-        tray.advance()
+        tray.startLeaving()
+        // The first swap's end, come after it was taken away and another started.
+        tray.turn(first)
+        #expect(tray.stage == .leaving(log))
+        tray.turn(tray.swaps)
         #expect(tray.stage == .showing(back))
-        tray.advance()
+        tray.turn(tray.swaps)
         #expect(tray.stage == .showing(back))
     }
 
-    @Test("Away, the key is in no swap, keeps the face it left with, and ignores the swap's beats")
-    func awayIgnoresBeats() {
+    @Test("Away, the key is in no swap, keeps the face it left with, and ignores the swap's turn")
+    func awayIgnoresTurn() {
         var tray = Tray(shown(log))
         tray.follow(shown(back))
         tray.startLeaving()
         tray.follow(Inputs(face: back, isPresented: true, isDropped: true))
         #expect(tray.stage == .away(log))
         #expect(!tray.isOut)
-        tray.advance()
+        tray.turn(tray.swaps)
         #expect(tray.stage == .away(log))
         tray.follow(away(finish))
         #expect(tray.face == log)
@@ -138,15 +140,17 @@ struct KeyTrayTests {
         #expect(reach.depth(gone, height: 56) > reach.depth(swapping, height: 56))
     }
 
-    @Test("A leaving or arriving key is out, and takes no tap; a showing or away one is not")
+    @Test("A leaving key is out, and takes no tap; a showing, rising, or away one is not")
     func out() {
         var tray = Tray(shown(log))
         #expect(!tray.isOut)
         tray.follow(shown(back))
         tray.startLeaving()
         #expect(tray.isOut)
-        tray.advance()
-        #expect(tray.isOut)
+        tray.turn(tray.swaps)
+        #expect(!tray.isOut)
+        tray.follow(shown(log))
+        tray.startLeaving()
         tray.follow(away(back))
         #expect(!tray.isOut)
     }

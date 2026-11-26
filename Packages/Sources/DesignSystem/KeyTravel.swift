@@ -12,10 +12,9 @@ extension Animation {
 /// the animation of the update that changed its target: a swap's halves, and the screen taking
 /// the key away or bringing it back. The screen riding it down is `KeyRide`'s, at its own pace,
 /// which adds its part to what goes to the floating button. Its height is the one drawn that
-/// frame, so a key that starts
-/// out of sight is out of sight from its first frame. A swap takes it down to the screen's
-/// bottom edge and no further, so the key coming in starts up as the one going clears the edge:
-/// with 8 pt more, the two halves had frames with no key between them.
+/// frame, so a key that starts out of sight is out of sight from its first frame. A swap takes it
+/// down to the screen's bottom edge and no further, so the key coming in starts up as the one
+/// going clears the edge: with 8 pt more, the two halves had frames with no key between them.
 ///
 /// Unfaded through a swap, and coming in: faded going, it was all but gone three frames before
 /// it cleared the edge. Taken away, it fades as it goes. With Reduce Motion a swap and a key
@@ -29,20 +28,13 @@ struct KeyTravel: ViewModifier, Animatable {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    nonisolated var animatableData: AnimatablePair<
-        AnimatablePair<CGFloat, CGFloat>,
-        AnimatablePair<CGFloat, CGFloat>,
-    > {
+    nonisolated var animatableData: AnimatablePair<CGFloat, AnimatablePair<CGFloat, CGFloat>> {
         get {
-            AnimatablePair(
-                AnimatablePair(parts.leave, parts.arrive),
-                AnimatablePair(parts.away, parts.drop),
-            )
+            AnimatablePair(parts.swap, AnimatablePair(parts.away, parts.drop))
         }
         set {
             parts = KeyReach.Parts(
-                leave: newValue.first.first,
-                arrive: newValue.first.second,
+                swap: newValue.first,
                 away: newValue.second.first,
                 drop: newValue.second.second,
             )

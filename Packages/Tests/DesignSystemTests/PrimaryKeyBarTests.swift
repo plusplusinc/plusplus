@@ -84,13 +84,20 @@ struct PrimaryKeyBarTests {
         defer { window.isHidden = true }
         window.settle()
         let first = try #require(insets.seen.first, "the list was never laid out")
+        // Each move until its animation is over.
         for isPresented in [false, true] {
-            withAnimation(.easeInOut(duration: 0.3)) { presence.isPresented = isPresented }
-            let end = ContinuousClock.now + .seconds(0.4)
-            while ContinuousClock.now < end {
+            var isOver = false
+            withAnimation(.easeInOut(duration: 0.3)) {
+                presence.isPresented = isPresented
+            } completion: {
+                isOver = true
+            }
+            let limit = ContinuousClock.now + .seconds(1)
+            while !isOver, ContinuousClock.now < limit {
                 window.layoutIfNeeded()
                 try await Task.sleep(for: .milliseconds(4))
             }
+            #expect(isOver, "the move never ended")
         }
         #expect(insets.seen == [first], "the list's room changed: \(insets.seen)")
     }

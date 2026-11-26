@@ -44,6 +44,7 @@ extension PrimaryKeyBarTests {
     /// while none is drawn.
     fileprivate struct Sample {
         let key: CGRect?
+        let words: String?
         let isOut: Bool
         let floating: CGRect
 
@@ -86,6 +87,7 @@ extension PrimaryKeyBarTests {
                 }
                 return try Sample(
                     key: key?.accessibilityFrame,
+                    words: key?.accessibilityLabel,
                     isOut: key?.accessibilityValue == "out",
                     floating: #require(floating, "the floating button went from the tree")
                         .accessibilityFrame,
@@ -131,6 +133,9 @@ extension PrimaryKeyBarTests {
         }
     }
 
+    /// The next key rises from below the screen's edge: placed there and risen in two updates,
+    /// the two at times landed in one with no animation, and the key stood at rest a frame after
+    /// the last one went (2026-11-25).
     @Test("Through a swap, the floating button goes down and back up with the keys, as one piece")
     func floatingDipsWithSwap() async throws {
         let run = try await run({ $0.face = Face(id: 2, words: "Skip rest") }, until: Self.risen)
@@ -139,6 +144,10 @@ extension PrimaryKeyBarTests {
         try expectOnePiece(run)
         let end = try #require(run.floatingDrop.last)
         #expect(abs(end) < 0.5, "it didn't come back where it began: \(end)")
+        let restKey = try #require(run.rest.key)
+        let rising = run.samples.filter { $0.words == "Skip rest" }.compactMap(\.key)
+        let first = try #require(rising.first, "the next key never came in")
+        #expect(first.minY - restKey.minY > deepest / 2, "the next key came in risen: \(first)")
     }
 
     /// At the largest text sizes a rest's keys are taller than Log set. The button took the
@@ -182,18 +191,19 @@ extension PrimaryKeyBarTests {
         arguments: ["Log set", "Log\nset\nnow"],
     )
     func arrivalIsOnePiece(words: String) async throws {
-        // For as long as the rise and a frame or two after it.
-        let end = ContinuousClock.now + .seconds(0.3 + 2 * PrimaryKeyButtonStyle.swapHalf)
         let away: (DipInputs) -> Void = { inputs in
             inputs.isPresented = false
             inputs.face = Face(id: 1, words: words)
         }
+        // Away, the button is at its low place, where the key's bottom rests; risen, at its gap
+        // above the key.
         let run = try await run(from: away) { inputs in
             withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = true }
-        } until: { _, _ in
-            ContinuousClock.now > end
+        } until: { now, rest in
+            guard let key = now.key, let gap = now.gap else { return false }
+            return abs(key.maxY - rest.floating.maxY) < 0.5
+                && abs(gap - PrimaryKeyButtonStyle.floatingGap) < 0.5
         }
-        // Away, the button is at its low place; risen, at its gap above the key.
         let low = run.rest.floating.maxY
         let risen = try #require(run.samples.last)
         let gap = try #require(risen.gap, "the key never came in")
@@ -220,11 +230,11 @@ extension PrimaryKeyBarTests {
             #expect(sample.key.map { $0 == restKey } ?? true, "the key moved: \(sample)")
             #expect(sample.floating == swap.rest.floating, "the button moved: \(sample)")
         }
-        let end = ContinuousClock.now + .seconds(3 * PrimaryKeyButtonStyle.swapHalf)
+        // Done once the button is at its low place, the bottom of the key at rest.
         let away = try await run { inputs in
             withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = false }
-        } until: { _, _ in
-            ContinuousClock.now > end
+        } until: { now, rest in
+            abs(now.floating.maxY - (rest.key?.maxY ?? 0)) < 0.5
         }
         let high = away.rest.floating.maxY
         let low = try #require(away.rest.key).maxY

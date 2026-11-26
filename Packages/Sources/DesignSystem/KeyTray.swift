@@ -7,8 +7,8 @@ import CoreGraphics
 /// one after the other, never two keys at once and never both words on one. A change within one
 /// id, as "Log left" to "Log right", changes the words in place. Taken away, or ridden down out
 /// of sight by the screen, the key goes with the words it had and is in no swap; back in sight,
-/// it is the live key at once. The rise is not a stage: it is the animation from `arriving` to
-/// `showing`.
+/// it is the live key at once. The rise is not a stage: it is the animation from `leaving` to
+/// `showing`, the live face drawn from where the key going ended, below the edge.
 struct KeyTray<Face: Equatable & Identifiable>: Equatable {
     /// What the screen gives the bar.
     struct Inputs: Equatable {
@@ -27,8 +27,6 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
         case showing(Face)
         /// In a swap, going down with the words it had.
         case leaving(Face)
-        /// In a swap, below the edge, the live face, about to rise.
-        case arriving
         /// Taken away or ridden down by the screen, drawn as the face it left with.
         case away(Face)
 
@@ -54,6 +52,8 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
     private(set) var stage: Stage
     /// The face as last followed, which a key rising, or back in sight, is drawn as.
     private(set) var live: Face
+    /// How many swaps have started, so a swap's turn comes only for the swap it belongs to.
+    private(set) var swaps = 0
 
     init(_ inputs: Inputs) {
         live = inputs.face
@@ -64,9 +64,7 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
     /// place; another key's, before the swap has started, the key as it was.
     var face: Face {
         switch stage {
-        case let .showing(face): face
-        case let .leaving(face), let .away(face): face
-        case .arriving: live
+        case let .showing(face), let .leaving(face), let .away(face): face
         }
     }
 
@@ -90,7 +88,7 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
             stage = .showing(live)
         case let .showing(face) where face.id == live.id:
             stage = .showing(live)
-        case .showing, .leaving, .arriving:
+        case .showing, .leaving:
             break
         }
     }
@@ -101,8 +99,7 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
             face: face,
             isOut: isOut,
             travel: KeyReach.Parts(
-                leave: stage.isLeaving ? 1 : 0,
-                arrive: stage == .arriving ? 1 : 0,
+                swap: stage.isLeaving ? 1 : 0,
                 away: inputs.isPresented ? 0 : 1,
                 drop: 0,
             ),
@@ -120,24 +117,20 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
     mutating func startLeaving() {
         guard needsSwap, case let .showing(face) = stage else { return }
         stage = .leaving(face)
+        swaps += 1
     }
 
-    /// The swap's timed beats: the key gone, the next placed below the edge; then it rises as
-    /// the live face. Out of a swap, nothing.
-    mutating func advance() {
-        switch stage {
-        case .leaving: stage = .arriving
-        case .arriving: stage = .showing(live)
-        case .showing, .away: break
-        }
+    /// The swap's turn, once the key going is all the way down: the live face shows, rising from
+    /// there, in the one change. Only for swap number `swap` while it is still leaving: one that
+    /// was taken away, or since followed by another, has no turn.
+    mutating func turn(_ swap: Int) {
+        guard stage.isLeaving, swap == swaps else { return }
+        stage = .showing(live)
     }
 
-    /// Whether the key is down out of sight in a swap, leaving or about to rise; it takes no tap.
+    /// Whether the key is going down out of sight in a swap; it takes no tap.
     var isOut: Bool {
-        switch stage {
-        case .leaving, .arriving: true
-        case .showing, .away: false
-        }
+        stage.isLeaving
     }
 }
 
@@ -148,34 +141,12 @@ struct KeyTray<Face: Equatable & Identifiable>: Equatable {
 nonisolated struct KeyReach: Equatable {
     /// How far each move has the key down, 0 to 1, each run by the animation that changes it.
     struct Parts: Equatable {
-        /// The key going down in a swap.
-        var leave: CGFloat
-        /// The next key below the edge in a swap, rising as it runs to 0. Its own part, set to 1
-        /// with no animation as the key going goes, so the next one starts out of sight however
-        /// far the drop's animation had got: as one part, a drop that started a frame or two late
-        /// turned back up 30 pt short, and the next key's words showed on the way.
-        var arrive: CGFloat
+        /// A swap: the key going down, then the next one rising from where it ended.
+        var swap: CGFloat
         /// Taken away by the screen.
         var away: CGFloat
         /// Ridden down by the screen (`drop`).
         var drop: CGFloat
-
-        init(leave: CGFloat, arrive: CGFloat, away: CGFloat, drop: CGFloat) {
-            self.leave = leave
-            self.arrive = arrive
-            self.away = away
-            self.drop = drop
-        }
-
-        /// A swap as far down as `swap`.
-        init(swap: CGFloat, away: CGFloat, drop: CGFloat) {
-            self.init(leave: swap, arrive: 0, away: away, drop: drop)
-        }
-
-        /// How far down the swap has the key.
-        var swap: CGFloat {
-            max(leave, arrive)
-        }
     }
 
     /// How far a swap takes the key down past its own height: to the screen's bottom edge, less

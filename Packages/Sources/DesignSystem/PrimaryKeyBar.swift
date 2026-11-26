@@ -280,8 +280,6 @@ private struct PrimaryKeyBar<
             // turns it off until the swap is over, a whole swap later, and it comes on again only
             // from a key showing.
             .onChange(of: box.tray.needsSwap) { startSwap() }
-            // The swap's beats: the key going away cancels them.
-            .task(id: drawn.isOut) { await swap() }
             .background {
                 Color.clear.onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
                     bottomInset = $0
@@ -311,36 +309,26 @@ private struct PrimaryKeyBar<
     }
 
     /// Another key due while one shows: the one showing goes down with its words, easing in, so
-    /// it is still in sight until it clears the edge.
+    /// it is still in sight until it clears the edge, and once its curve has ended there, the
+    /// swap turns.
     private func startSwap() {
         guard box.tray.needsSwap else { return }
-        withAnimation(.keyDrop) {
+        withAnimation(.keyDrop, completionCriteria: .logicallyComplete) {
             box.tray.startLeaving()
             beats += 1
+        } completion: { [box, swap = box.tray.swaps + 1] in
+            turn(box, swap)
         }
     }
 
-    /// Once the key going is out of sight, the next one in its place below the edge, rising on a
-    /// later turn of the run loop (easing out, it crept out of sight over its last frames).
-    /// Timed, not on the animation's completion, which came a few frames after the key had gone.
-    private func swap() async {
-        guard box.tray.isOut else { return }
-        do {
-            try await Task.sleep(for: .seconds(PrimaryKeyButtonStyle.swapHalf), tolerance: .zero)
-        } catch {
-            return
-        }
-        // Out of sight, the key becomes the next one with no motion of its own: below the edge
-        // at once, however far the drop's animation has got (`KeyReach.Parts.arrive`).
-        withTransaction(\.disablesAnimations, true) {
-            box.tray.advance()
-            beats += 1
-        }
-        // From out of sight: in the same update, the next key took up the old one's place.
-        await Task.yield()
-        guard !Task.isCancelled, box.tray.stage == .arriving else { return }
+    /// The live key rising from where the one going ended, below the edge, in one change: its
+    /// face, and its part of the swap run back to 0 from 1. Placed below the edge in one update
+    /// and risen in the next, after a `Task.yield()`, the two at times landed in one update with
+    /// no animation, and the key stood at rest a frame after the last one went (2026-11-25).
+    /// On the drop's end rather than timed: timed, the drop lost its last two frames, 28 pt.
+    private func turn(_ box: TrayBox<Face>, _ swap: Int) {
         withAnimation(.keyRise) {
-            box.tray.advance()
+            box.tray.turn(swap)
             beats += 1
         }
     }
