@@ -78,7 +78,7 @@ public struct ThemeCard: View {
         .background(shape.fill(.pp(.surface)))
         .overlay {
             shape.strokeBorder(.pp(.separator), lineWidth: 1)
-                .opacity(needsHairline && !isChecked ? 1 : 0)
+                .opacity(!isChecked && needsHairline ? 1 : 0)
                 .animation(.tapChange, value: isChecked)
         }
         .overlay {
@@ -103,13 +103,23 @@ public struct ThemeCard: View {
 
     /// A picking card whose fill is too close to the page's background to show where it ends.
     private var needsHairline: Bool {
-        guard mark != .opens else { return false }
+        mark != .opens && Self.needsHairline(theme, scheme, on: page)
+    }
+
+    /// Whether `theme`'s card in `scheme` stands too close to `page`'s background to show an edge.
+    static func needsHairline(
+        _ theme: Theme,
+        _ scheme: ColorScheme,
+        on page: EnvironmentValues,
+    ) -> Bool {
         var own = page
         own.theme = theme
         own.colorScheme = scheme
+        // As the card draws itself: in its screen's look, never a sheet's.
+        own.isOnSheet = false
         let card = theme.resolve(.surface, in: own)
         let around = page.theme.resolve(.background, in: page)
-        return DesignSystem.contrast(RGB(card), RGB(around)) < Self.edgeContrast
+        return DesignSystem.contrast(RGB(card), RGB(around)) < edgeContrast
     }
 
     /// An exercise row's card radius (`ValueRow`'s): the key's, opened by the row's inner gap.

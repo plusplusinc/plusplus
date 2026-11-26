@@ -41,7 +41,7 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
     public static let all: [Self] = [.plusPlus] + ours
 
     /// The color schemes this theme has a look for.
-    public var schemes: [ColorScheme] {
+    var schemes: [ColorScheme] {
         isDarkOnly ? [.dark] : [.light, .dark]
     }
 
@@ -50,18 +50,13 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
     /// 0.05 (not a gray) whose OKLab hue is from 350° round to 40°: from the pinks' edge to where
     /// orange begins. A raspberry (9°), a crimson and a light coral (20°), pure red (29°), and a
     /// rust (39°) fall inside; a burnt orange (46°), and a magenta pink (just under 350°) outside.
-    public static func isRed(_ color: Color.Resolved) -> Bool {
+    static func isRed(_ color: Color.Resolved) -> Bool {
         let lab = OKLab(RGB(color))
-        let chroma = (lab.greenRed * lab.greenRed + lab.blueYellow * lab.blueYellow).squareRoot()
-        var hue = atan2(lab.blueYellow, lab.greenRed) * 180 / .pi
-        if hue < 0 {
-            hue += 360
-        }
-        return chroma >= 0.05 && (hue >= 350 || hue < 40)
+        // OKLab's hue runs from -180°, so 350° is -10°.
+        return lab.chroma >= 0.05 && lab.hue >= -10 && lab.hue < 40
     }
 
-    /// The theme a stored id names, or PlusPlus for one that names none, such as an id an
-    /// earlier build stored for a theme since dropped (`nord`).
+    /// The theme a stored id names, or PlusPlus for one that names none.
     public static func stored(id: String?) -> Self {
         all.first { $0.id == id } ?? .plusPlus
     }

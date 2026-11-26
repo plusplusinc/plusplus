@@ -78,6 +78,19 @@ nonisolated struct OKLab: Hashable, Sendable {
         atan2(blueYellow, greenRed) * 180 / .pi
     }
 
+    /// How colorful it is: 0 for a gray.
+    var chroma: Double {
+        (greenRed * greenRed + blueYellow * blueYellow).squareRoot()
+    }
+
+    /// The straight-line distance between two colors in OKLab.
+    func distance(to other: Self) -> Double {
+        let lightness = lightness - other.lightness
+        let greenRed = greenRed - other.greenRed
+        let blueYellow = blueYellow - other.blueYellow
+        return (lightness * lightness + greenRed * greenRed + blueYellow * blueYellow).squareRoot()
+    }
+
     /// How far apart two colors' hues are, in degrees from 0 to 180.
     func hueDistance(to other: Self) -> Double {
         let distance = abs(hue - other.hue).truncatingRemainder(dividingBy: 360)

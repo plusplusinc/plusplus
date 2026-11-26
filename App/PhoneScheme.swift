@@ -9,29 +9,12 @@ extension View {
     /// the scene's own traits change (Auto under a theme with both looks), and each time the app
     /// becomes active, which a change from Control Center or the Settings app makes it do.
     func phoneScheme(_ scheme: Binding<ColorScheme>) -> some View {
-        modifier(PhoneSchemeReader(scheme: scheme))
-    }
-}
-
-private struct PhoneSchemeReader: ViewModifier {
-    @Binding var scheme: ColorScheme
-    /// Bumped as the app becomes active, for the probe to read the screen again.
-    @State private var activations = 0
-
-    func body(content: Content) -> some View {
-        content
-            .background { PhoneSchemeProbe(scheme: $scheme, activations: activations) }
-            .onReceive(NotificationCenter.default.publisher(
-                for: UIApplication.didBecomeActiveNotification,
-            )) { _ in
-                activations += 1
-            }
+        background { PhoneSchemeProbe(scheme: scheme) }
     }
 }
 
 private struct PhoneSchemeProbe: UIViewRepresentable {
     @Binding var scheme: ColorScheme
-    let activations: Int
 
     func makeUIView(context _: Context) -> ProbeView {
         let view = ProbeView()
@@ -42,13 +25,28 @@ private struct PhoneSchemeProbe: UIViewRepresentable {
 
     func updateUIView(_ view: ProbeView, context _: Context) {
         view.onChange = { scheme = $0 }
-        view.reread()
     }
 
     final class ProbeView: UIView {
         var onChange: (ColorScheme) -> Void = { _ in }
         private var registration: (any UITraitChangeRegistration)?
         private weak var watched: UIWindowScene?
+        private var reported: ColorScheme?
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(reread),
+                name: UIApplication.didBecomeActiveNotification,
+                object: nil,
+            )
+        }
+
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            fatalError("init(coder:) is not used")
+        }
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
@@ -66,17 +64,15 @@ private struct PhoneSchemeProbe: UIViewRepresentable {
             }
         }
 
-        func reread() {
+        @objc private func reread() {
             guard let screen = window?.windowScene?.screen else { return }
             let read: ColorScheme = screen.traitCollection.userInterfaceStyle == .light
                 ? .light : .dark
             guard read != reported else { return }
             reported = read
-            // After the update under way: `updateUIView` calls this, and state set during a
-            // view update is dropped with a warning.
+            // After the update under way: a trait change can arrive during one, and state set
+            // during a view update is dropped with a warning.
             DispatchQueue.main.async { [onChange] in onChange(read) }
         }
-
-        private var reported: ColorScheme?
     }
 }

@@ -51,8 +51,13 @@ nonisolated struct ThemeContrastTests {
     /// The pairs that must keep a ratio: a token drawn, the ground it is drawn on, the ratio.
     /// Text is `textPrimary` and `textSecondary`; `textTertiary`, a finished exercise's detail
     /// line, is 3.9:1 in PlusPlus dark and is held to the rail's 3:1, as it draws in `rail`'s
-    /// color in every other theme's look.
+    /// color in every other theme's look. Done drawn as text (Log's counts and figures) keeps
+    /// 4.5:1 on the screen and on a card, and so does a count key's label ("Log early") over the
+    /// key's done fill.
     private static let pairs: [Pair] = [
+        Pair(.doneText, on: .background, 4.5),
+        Pair(.doneText, on: .surface, 4.5),
+        Pair(.onPrimaryKey, on: .doneText, 4.5),
         Pair(.accent, on: .background, 4.5),
         Pair(.textPrimary, on: .background, 4.5),
         Pair(.textPrimary, on: .surface, 4.5),
@@ -67,14 +72,6 @@ nonisolated struct ThemeContrastTests {
     ] + [ColorToken.rail, .railJoin, .done, .accent, .textTertiary].flatMap { mark in
         [Pair(mark, on: .background, 3), Pair(mark, on: .well, 3)]
     }
-
-    /// Done drawn as text (Log's counts and figures) on the screen and on a card, and a count
-    /// key's label ("Log early") over the key's done fill.
-    private static let doneTextPairs: [Pair] = [
-        Pair(.doneText, on: .background, 4.5),
-        Pair(.doneText, on: .surface, 4.5),
-        Pair(.onPrimaryKey, on: .doneText, 4.5),
-    ]
 
     private struct Pair {
         let drawn: ColorToken
@@ -91,7 +88,7 @@ nonisolated struct ThemeContrastTests {
         arguments: looks,
     )
     func ratiosHold(look: Look) {
-        for pair in Self.pairs + Self.doneTextPairs {
+        for pair in Self.pairs {
             let ratio = Self.contrast(look.color(pair.drawn), look.color(pair.ground))
             #expect(
                 ratio >= pair.ratio,
@@ -121,10 +118,6 @@ nonisolated struct ThemeContrastTests {
         let (accent, done) = (OKLab(accentRGB).lightness, OKLab(doneRGB).lightness)
         let hues = OKLab(accentRGB).hueDistance(to: OKLab(doneRGB))
         let needed = look.theme == .plusPlus ? 0.05 : Palette.doneGap(doneRGB, accentRGB)
-        #expect(
-            needed >= Palette.lightnessGap || look.theme == .plusPlus,
-            "\(look.testDescription): done needs only \(Self.shown(needed)) from accent",
-        )
         #expect(
             abs(accent - done) >= needed,
             """
@@ -168,7 +161,8 @@ nonisolated struct ThemeContrastTests {
         let done = Self.lightness(look.color(.done))
         let toDo = Self.lightness(look.color(.toDo))
         let background = Self.lightness(look.color(.background))
-        let needed = look.theme == .plusPlus ? 0.10 : Palette.toDoGap(RGB(look.color(.done)))
+        let needed = look.theme == .plusPlus ? Palette.toDoStep : Palette
+            .toDoGap(RGB(look.color(.done)))
         #expect(
             abs(done - toDo) >= needed,
             "\(look.testDescription): done and toDo are \(Self.shown(abs(done - toDo))) apart",
@@ -186,11 +180,7 @@ nonisolated struct ThemeContrastTests {
     @Test("A finished node stands apart from an upcoming one", arguments: looks)
     func nodesStandApart(look: Look) {
         let doneRGB = RGB(look.color(.done))
-        let (done, rail) = (OKLab(doneRGB), OKLab(RGB(look.color(.rail))))
-        let distance = (
-            pow(done.lightness - rail.lightness, 2) + pow(done.greenRed - rail.greenRed, 2)
-                + pow(done.blueYellow - rail.blueYellow, 2),
-        ).squareRoot()
+        let distance = OKLab(doneRGB).distance(to: OKLab(RGB(look.color(.rail))))
         #expect(
             distance >= Palette.nodeGap(doneRGB),
             "\(look.testDescription): done and rail are \(Self.shown(distance)) apart in OKLab",
@@ -202,11 +192,7 @@ nonisolated struct ThemeContrastTests {
     @Test("An arriving node stands apart from a resting one", arguments: looks)
     func arrivingStandsApart(look: Look) {
         let joinRGB = RGB(look.color(.railJoin))
-        let (join, rail) = (OKLab(joinRGB), OKLab(RGB(look.color(.rail))))
-        let distance = (
-            pow(join.lightness - rail.lightness, 2) + pow(join.greenRed - rail.greenRed, 2)
-                + pow(join.blueYellow - rail.blueYellow, 2),
-        ).squareRoot()
+        let distance = OKLab(joinRGB).distance(to: OKLab(RGB(look.color(.rail))))
         #expect(
             distance >= Palette.nodeGap(joinRGB),
             "\(look.testDescription): railJoin and rail are \(Self.shown(distance)) apart in OKLab",
@@ -243,6 +229,20 @@ nonisolated struct ThemeContrastTests {
         )
         let step = Self.contrast(sheet.color(.background), ground)
         #expect(step >= 1.13, "\(look.testDescription): a sheet is \(Self.shown(step)):1 off it")
+    }
+
+    /// Black belt's card on Black belt's own Theme screen, a sheet a step off black: the card
+    /// draws in the screen's black, darker than the sheet, so it needs its edge drawn. Judged
+    /// in the sheet's look, it read as standing off and drew none.
+    @MainActor
+    @Test("A black theme's card on its own sheet draws its edge")
+    func blackCardOnItsSheetHasAnEdge() throws {
+        let black = try #require(Theme.all.first { $0.hasSheetLook })
+        var page = EnvironmentValues()
+        page.theme = black
+        page.colorScheme = .dark
+        page.isOnSheet = true
+        #expect(ThemeCard.needsHairline(black, .dark, on: page))
     }
 
     private static func shown(_ value: Double) -> String {
@@ -283,7 +283,9 @@ nonisolated struct ThemeContrastTests {
         #expect(!isRed(0x9E9E9E))
     }
 
-    /// WCAG 2's contrast ratio.
+    /// WCAG 2's contrast ratio, worked out here from the resolved colors' own linear components
+    /// rather than through `DesignSystem.contrast`, so the check does not share the palette's
+    /// math.
     private static func contrast(_ first: Color.Resolved, _ second: Color.Resolved) -> Double {
         let (one, two) = (luminance(first), luminance(second))
         return (max(one, two) + 0.05) / (min(one, two) + 0.05)

@@ -49,8 +49,8 @@ relative to the repo (`App/PlusPlusApp.swift`), and set `previewVariantOverrides
 checks; the result lists every supported variant. Setup is in `docs/agent-tooling.md`. The
 scripts above remain the check for the app as a whole.
 
-What to check in the dark and XXXL images before declaring UI work done (the app shows only in
-dark, so `<name>.light.png` shows the same as `<name>.dark.png`):
+What to check in the dark and XXXL images before declaring UI work done (on Dark, the app's
+default, `<name>.light.png` matches `<name>.dark.png`):
 - Touch targets look at least 44pt, nothing important hidden under system bars.
 - No placeholder text, no labels clipped or truncated at XXXL, no glass stacked on glass.
 

@@ -130,19 +130,11 @@ nonisolated struct Palette: Sendable {
     /// finished exercise's, and `railJoin`, an arriving one's, which settles to the rail, so the
     /// arrival shows. Moved, not them, so they stay the theme's own colors.
     private static func node(_ rail: RGB, apartFrom nodes: [RGB], grounds: [RGB]) -> RGB {
-        func distance(_ gray: RGB, _ node: RGB) -> Double {
-            let (one, two) = (OKLab(gray), OKLab(node))
-            let lightness = one.lightness - two.lightness
-            let greenRed = one.greenRed - two.greenRed
-            let blueYellow = one.blueYellow - two.blueYellow
-            return (lightness * lightness + greenRed * greenRed + blueYellow * blueYellow)
-                .squareRoot()
-        }
         let start = OKLab(rail).lightness
         for step in 0 ... 50 {
             for direction in [0.01, -0.01] {
                 let moved = withLightness(rail, start + Double(step) * direction)
-                if nodes.allSatisfy({ distance(moved, $0) >= nodeGap($0) }),
+                if nodes.allSatisfy({ OKLab(moved).distance(to: OKLab($0)) >= nodeGap($0) }),
                    grounds.allSatisfy({ contrast(moved, $0) >= 3 })
                 {
                     return moved
@@ -183,9 +175,7 @@ nonisolated struct Palette: Sendable {
     static let grayChroma = 0.03
 
     static func isGray(_ color: RGB) -> Bool {
-        let lab = OKLab(color)
-        return (lab.greenRed * lab.greenRed + lab.blueYellow * lab.blueYellow).squareRoot()
-            < grayChroma
+        OKLab(color).chroma < grayChroma
     }
 
     static func doneGap(_ done: RGB, _ accent: RGB) -> Double {
@@ -196,10 +186,12 @@ nonisolated struct Palette: Sendable {
     }
 
     /// How far a set to do stands from a done one in OKLab lightness: `grayStep` where done is a
-    /// gray (Chalk), as lightness is all that tells them apart, else 0.10.
+    /// gray (Chalk), as lightness is all that tells them apart, else `toDoStep`.
     static func toDoGap(_ done: RGB) -> Double {
-        isGray(done) ? grayStep : 0.10
+        isGray(done) ? grayStep : toDoStep
     }
+
+    static let toDoStep = 0.10
 
     /// `done` kept apart from `accent` in lightness as well as hue, by `doneGap`: short of it,
     /// `done` moves to `accent`'s lightness that gap plus 0.005 above or below, whichever is the

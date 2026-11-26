@@ -35,8 +35,7 @@ struct LookTests {
         try withDefaults { defaults in
             #expect(Look(defaults: defaults).appearance == .dark)
             #expect(Look(defaults: defaults).theme == .plusPlus)
-            // An editor theme's id, which an earlier build of the themes stored.
-            defaults.set("nord", forKey: Look.themeKey)
+            defaults.set("no-such-theme", forKey: Look.themeKey)
             defaults.set("dusk", forKey: Look.appearanceKey)
             let look = Look(defaults: defaults)
             #expect(look.theme == .plusPlus)

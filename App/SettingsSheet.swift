@@ -50,7 +50,7 @@ struct SettingsSheet: View {
             }
             .background { Color.pp(.background).ignoresSafeArea() }
             .navigationDestination(isPresented: $isThemesPushed) {
-                ThemeScreen(showing: look.theme)
+                ThemeScreen(showing: look.theme, phone: phone ?? colorScheme)
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -108,7 +108,8 @@ private struct GroupLabel: View {
 struct ThemeScreen: View {
     @Environment(Look.self) private var look
     @Environment(\.dismiss) private var dismiss
-    @State private var phone = ColorScheme.dark
+    /// The phone's own light or dark, as Settings reads it.
+    private let phone: ColorScheme
     private let shownFirst: Theme.ID
     @State private var leaving: Task<Void, Never>?
 
@@ -118,8 +119,9 @@ struct ThemeScreen: View {
     /// fading in; longer reads as a wait.
     static let pickedBeat: Duration = .milliseconds(350)
 
-    init(showing current: Theme) {
+    init(showing current: Theme, phone: ColorScheme) {
         shownFirst = current.id
+        self.phone = phone
     }
 
     var body: some View {
@@ -151,7 +153,6 @@ struct ThemeScreen: View {
             .onAppear { proxy.scrollTo(shownFirst, anchor: .center) }
         }
         .background { Color.pp(.background).ignoresSafeArea() }
-        .phoneScheme($phone)
         .sensoryFeedback(.selection, trigger: look.theme)
         .navigationTitle("Theme")
         .navigationBarTitleDisplayMode(.inline)
@@ -177,4 +178,11 @@ struct ThemeScreen: View {
 #Preview {
     SettingsSheet()
         .environment(Look(defaults: UserDefaults(suiteName: "preview") ?? .standard))
+}
+
+#Preview("Theme") {
+    NavigationStack {
+        ThemeScreen(showing: .plusPlus, phone: .dark)
+    }
+    .environment(Look(defaults: UserDefaults(suiteName: "preview") ?? .standard))
 }
