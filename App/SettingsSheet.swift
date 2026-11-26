@@ -123,64 +123,19 @@ struct AppearanceChoice: View {
     private static let crossfade = Animation.easeInOut(duration: 0.2)
 }
 
-/// Apple Health as one card with one row, "Save workouts", reading On or Off from the system's
-/// permission. It is not a switch: Apple asks apps to leave Health sharing to the system's
-/// privacy settings. Never asked, a tap brings up Apple's sheet; once answered, the row only
-/// shows the answer.
+/// Apple Health's one row, "Save workouts", reading On or Off from the system's permission. It
+/// is not a switch: Apple asks apps to leave Health sharing to the system's privacy settings.
+/// Never asked, a tap brings up Apple's sheet; once answered, the row only shows the answer.
 struct HealthChoice: View {
     let health: HealthSaving
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Spacing.sm + Radius.key, style: .continuous)
-        // Answered, the row is no button: disabled, a button dimmed the answer it shows.
-        Group {
-            if health.access == .notAsked {
-                Button {
-                    Task { await health.ask() }
-                } label: {
-                    row
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            } else {
-                row
-            }
-        }
-        // Combined, so the button's action and trait stay while asking.
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Save workouts")
-        .accessibilityValue(isOn ? "On" : "Off")
-        .accessibilityHint(health
-            .access == .notAsked ? "Asks to save workouts to Apple Health" : "")
-        .padding(.horizontal, Spacing.md)
-        .background(shape.fill(.pp(.surface)))
-        .clipShape(shape)
-    }
-
-    private var isOn: Bool {
-        health.access == .on
-    }
-
-    @ViewBuilder private var row: some View {
-        let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.xs))
-            : AnyLayout(HStackLayout(spacing: Spacing.sm))
-        layout {
-            Text("Save workouts")
-                .font(.ppRowTitle)
-                .foregroundStyle(.pp(.textPrimary))
-                .fixedSize(horizontal: false, vertical: true)
-            if !dynamicTypeSize.isAccessibilitySize {
-                Spacer(minLength: 0)
-            }
-            // One text whose words change, so On and Off swap in place.
-            Text(isOn ? "On" : "Off")
-                .font(.ppRowTitle)
-                .foregroundStyle(.pp(.textSecondary))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, Spacing.sm + Spacing.xs)
+        SettingRow(
+            "Save workouts",
+            value: health.access == .on ? "On" : "Off",
+            hint: "Asks to save workouts to Apple Health",
+            action: health.access == .notAsked ? { Task { await health.ask() } } : nil,
+        )
     }
 }
 
