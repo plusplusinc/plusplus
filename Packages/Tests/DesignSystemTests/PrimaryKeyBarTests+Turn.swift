@@ -9,9 +9,12 @@ import UIKit
 /// Something else landing at each frame of a swap: its key changed again, as Pause does; the
 /// screen redrawn with no animation, as a sheet opening does; and the key taken away and brought
 /// back. Each lands in the reaction to that frame's drawing, in the update that drew it, so the
-/// frame it lands on is exact; read as automation reads the key, over the swap's real time. Pause
-/// landing in the frame Log set's drop ended stood the rest's keys at rest at once, then swapped
-/// them for Continue, and once left them down below the screen's edge (2026-11-25).
+/// frame it lands on is exact. Pause landing in the frame Log set's drop ended stood the rest's
+/// keys at rest at once, then swapped them for Continue, and once left them down below the
+/// screen's edge (2026-11-25).
+///
+/// Every case is its own window and hosting controller, so its updates are its own, and all of
+/// them swap at once: one swap's real time for the lot, where one after another took 25 s.
 extension PrimaryKeyBarTests {
     fileprivate struct Face: Equatable, Identifiable {
         let id: Int
@@ -23,7 +26,7 @@ extension PrimaryKeyBarTests {
         case change
         /// The screen redrawn with no animation and the key's inputs as they were, as a sheet.
         case redraw
-        /// The key taken away, then brought back as the bar comes to rest.
+        /// The key taken away, then brought back once it is gone.
         case takeAway
     }
 
@@ -33,15 +36,35 @@ extension PrimaryKeyBarTests {
         var isPresented = true
         /// Something the screen draws, which the bar doesn't.
         var redraws = 0
-        /// Which frame of the swap `land` runs on, counted from the first change.
-        @ObservationIgnored var landsOn = 0
+        @ObservationIgnored let landing: Landing
+        /// Which frame of the swap the landing comes on, counted from the first change.
+        @ObservationIgnored let landsOn: Int
         @ObservationIgnored var frames = 0
-        /// The frame the key going was first drawn all the way down on.
-        @ObservationIgnored var bottom: Int?
-        @ObservationIgnored var land: (TurnInputs) -> Void = { _ in }
+        /// The key's depth as drawn on each frame of the swap, its swap's and its going's parts.
+        @ObservationIgnored var drawn: [KeyReach.Parts] = []
+        /// When each was drawn.
+        @ObservationIgnored var times: [ContinuousClock.Instant] = []
+
+        init(landing: Landing, landsOn: Int) {
+            self.landing = landing
+            self.landsOn = landsOn
+        }
 
         var landed: Bool {
-            landsOn > 0 && frames >= landsOn
+            frames >= landsOn
+        }
+
+        /// The frame the key going was first drawn all the way down on.
+        var bottom: Int? {
+            drawn.firstIndex { $0.swap >= 1 }.map { $0 + 1 }
+        }
+
+        func land() {
+            switch landing {
+            case .change: face = Face(id: 3, words: "Continue")
+            case .redraw: redraws += 1
+            case .takeAway: isPresented = false
+            }
         }
     }
 
@@ -61,101 +84,126 @@ extension PrimaryKeyBarTests {
                 }
                 // Once per frame the key moves, in the update that drew it.
                 .onPreferenceChange(KeyTrayDrawn.self) { drawn in
+                    guard inputs.face.id != 1 || inputs.frames > 0 else { return }
                     inputs.frames += 1
-                    if inputs.bottom == nil, drawn.parts.swap >= 1 {
-                        inputs.bottom = inputs.frames
-                    }
+                    inputs.drawn.append(drawn.parts)
+                    inputs.times.append(.now)
                     if inputs.frames == inputs.landsOn {
-                        inputs.land(inputs)
+                        inputs.land()
                     }
                 }
         }
     }
 
-    /// The key as automation reads it.
-    private struct Seen: Equatable {
+    private struct Seen {
         let words: String
         let isOut: Bool
         let top: CGFloat
     }
 
-    /// Swaps Log set for Skip rest with `landing` on frame `frame` of it, then samples the key
-    /// until it is at rest as the key that is live, failing if it never is or if it jumps up.
-    private func swap(landing: Landing, onFrame frame: Int) async throws {
-        try await AccessibilityTree.whileOn {
-            let inputs = TurnInputs()
-            let host = UIHostingController(rootView: TurnHost(inputs: inputs))
-            let window = UIWindow.sceneless(hosting: host, at: .large)
-            defer { window.isHidden = true }
-            window.settle()
-            @MainActor func seen() -> Seen? {
-                AccessibilityTree.leaves(under: host.view).first { $0.accessibilityLabel != nil }
-                    .map {
-                        Seen(
-                            words: $0.accessibilityLabel ?? "",
-                            isOut: $0.accessibilityValue == "out",
-                            top: $0.accessibilityFrame.minY,
-                        )
-                    }
-            }
-            let rest = try #require(seen()).top
-            let live = landing == .change ? "Continue" : "Skip rest"
-            inputs.landsOn = frame
-            inputs.frames = 0
-            inputs.land = { inputs in
-                switch landing {
-                case .change: inputs.face = Face(id: 3, words: "Continue")
-                case .redraw: inputs.redraws += 1
-                case .takeAway: inputs.isPresented = false
+    /// One case, hosted.
+    @MainActor
+    private struct Case {
+        let inputs: TurnInputs
+        let host: UIHostingController<TurnHost>
+        let window: UIWindow
+        let live: String
+        var rest: CGFloat = 0
+
+        init(_ landing: Landing, onFrame frame: Int) {
+            inputs = TurnInputs(landing: landing, landsOn: frame)
+            host = UIHostingController(rootView: TurnHost(inputs: inputs))
+            window = UIWindow.sceneless(hosting: host, at: .large)
+            live = landing == .change ? "Continue" : "Skip rest"
+        }
+
+        /// The key as automation reads it.
+        func seen() -> Seen? {
+            AccessibilityTree.leaves(under: host.view).first { $0.accessibilityLabel != nil }
+                .map {
+                    Seen(
+                        words: $0.accessibilityLabel ?? "",
+                        isOut: $0.accessibilityValue == "out",
+                        top: $0.accessibilityFrame.minY,
+                    )
                 }
-            }
-            inputs.face = Face(id: 2, words: "Skip rest")
-            var samples: [Seen?] = []
-            let isDone = { (seen: Seen) in
-                seen.words == live && !seen.isOut && abs(seen.top - rest) < 0.5
-            }
-            let limit = ContinuousClock.now + .seconds(15 * PrimaryKeyButtonStyle.swapHalf)
-            while ContinuousClock.now < limit {
-                window.layoutIfNeeded()
-                try await Task.sleep(for: .milliseconds(4))
-                let now = seen()
-                samples.append(now)
-                if landing == .takeAway, inputs.landed, !inputs.isPresented, now == nil {
-                    withAnimation(.easeInOut(duration: 0.3)) { inputs.isPresented = true }
-                }
-                if inputs.landed, let now, isDone(now) {
-                    break
-                }
-            }
-            let trail = "frame \(frame): \(samples.suffix(4))"
-            #expect(
-                inputs.landed,
-                "nothing landed on frame \(frame): the swap had \(inputs.frames)",
-            )
-            // The last frame is past the turn, so the frames cover it.
-            #expect(frame != Self.swapFrames.last || (inputs.bottom ?? frame) < frame)
-            let ending: Seen? = samples.last.flatMap { $0 }
-            let last = try #require(ending, "no key at the end, \(trail)")
-            #expect(isDone(last), "the key ended wrong or short of rest, \(trail)")
-            // Up only by a rise's step: a key standing at rest at once moved its whole drop.
-            let tops = samples.compactMap { $0?.top }
-            let jump = zip(tops, tops.dropFirst()).map { $0 - $1 }.max() ?? 0
-            #expect(jump < 40, "the key jumped up \(jump) pt, frame \(frame): \(tops)")
+        }
+
+        /// Whether the key going and coming is drawn at rest, at the end of the swap.
+        var isStill: Bool {
+            guard landed, let last = inputs.drawn.last else { return false }
+            return last == KeyReach.Parts(swap: 0, away: 0, drop: 0) && inputs.isPresented
+        }
+
+        var landed: Bool {
+            inputs.landed
         }
     }
 
     /// Through the drop, its turn, and the rise's first frames, at the default text size: the
-    /// drop is 12 frames at 60 Hz, and the last case checks the turn came before it. Frames
-    /// further into the rise draw nothing the turn decides, and a slow simulator may not draw
-    /// them before the key is at rest.
+    /// drop is 12 frames at 60 Hz, and each case checks the turn came within them.
     private nonisolated static let swapFrames = Array(1 ... 16)
+    /// Between one case's swap and the next's.
+    private nonisolated static let stagger = Duration.milliseconds(10)
 
-    @Test(
-        "Something landing on any frame of a swap leaves the live key risen to rest",
-        arguments: Landing.allCases, swapFrames,
-    )
-    fileprivate func landingOnAnyFrame(landing: Landing, frame: Int) async throws {
-        try await swap(landing: landing, onFrame: frame)
+    @Test("Something landing on any frame of a swap leaves the live key risen to rest")
+    func landingOnAnyFrame() async throws {
+        try await AccessibilityTree.whileOn {
+            var cases = Landing.allCases.flatMap { landing in
+                Self.swapFrames.map { Case(landing, onFrame: $0) }
+            }
+            defer { cases.forEach { $0.window.isHidden = true } }
+            for index in cases.indices {
+                cases[index].window.settle()
+                cases[index].rest = try #require(cases[index].seen()).top
+            }
+            // Each a little after the last, so at most two turn in one frame: all of them
+            // turning together made that frame long enough to start the rise near its end.
+            let start = ContinuousClock.now
+            let limit = start + .seconds(15 * PrimaryKeyButtonStyle.swapHalf)
+            while ContinuousClock.now < limit, !cases.allSatisfy(\.isStill) {
+                for (index, item) in cases.enumerated() {
+                    if item.inputs.face.id == 1,
+                       ContinuousClock.now >= start + Self.stagger * index
+                    {
+                        item.inputs.face = Face(id: 2, words: "Skip rest")
+                    }
+                    item.window.layoutIfNeeded()
+                    if item.landed, !item.inputs.isPresented, item.inputs.drawn.last?.away == 1 {
+                        withAnimation(.easeInOut(duration: 0.2)) { item.inputs.isPresented = true }
+                    }
+                }
+                try await Task.sleep(for: .milliseconds(4))
+            }
+            for item in cases {
+                check(item)
+            }
+        }
+    }
+
+    /// The case's key ends live and at rest, its frames reached past the turn, and it never
+    /// stood at rest at once from all the way down.
+    private func check(_ item: Case) {
+        let name = "\(item.inputs.landing) on frame \(item.inputs.landsOn)"
+        let inputs = item.inputs
+        #expect(inputs.landed, "\(name): nothing landed, the swap had \(inputs.frames)")
+        if inputs.landsOn == Self.swapFrames.last {
+            #expect((inputs.bottom ?? .max) < inputs.landsOn, "\(name): the frames miss the turn")
+        }
+        let seen = item.seen()
+        #expect(
+            seen?.words == item.live && seen?.isOut == false
+                && abs((seen?.top ?? 0) - item.rest) < 0.5,
+            "\(name): the key ended as \(String(describing: seen))",
+        )
+        // Down by the key's going and its swap together: a rise moves through its frames, and
+        // a key standing at rest at once comes up from all the way down in one.
+        let depths = inputs.drawn.map { $0.swap + $0.away }
+        let steps = zip(depths, depths.dropFirst()).map { $0 - $1 }
+        let jump = steps.max() ?? 0
+        let at = steps.firstIndex(of: jump) ?? 0
+        let took = inputs.times.count > at + 1 ? inputs.times[at + 1] - inputs.times[at] : .zero
+        #expect(jump < 0.99, "\(name): the key came up \(jump) in one frame of \(took): \(depths)")
     }
 }
 
