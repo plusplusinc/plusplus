@@ -77,8 +77,8 @@ struct SwapDrawn: Equatable {
 
         var animation: Animation? {
             switch self {
-            case .drop: .keyDrop
-            case .rise: .keyRise
+            case .drop: KeyClock.pace(.keyDrop)
+            case .rise: KeyClock.pace(.keyRise)
             case .update: nil
             }
         }
@@ -178,7 +178,7 @@ extension View {
     /// The key ridden down by `drop`, 0 or 1, at a key's own pace going down (`KeyRide`).
     func keyRide(_ drop: CGFloat, reach: KeyReach) -> some View {
         // On the update that changes it alone: the key's other parts don't change then.
-        modifier(KeyRide(drop: drop, reach: reach)).animation(.keyDrop, value: drop)
+        modifier(KeyRide(drop: drop, reach: reach)).animation(KeyClock.pace(.keyDrop), value: drop)
     }
 }
 

@@ -14,7 +14,8 @@ import UIKit
 /// screen's edge (2026-11-25).
 ///
 /// Every case is its own window and hosting controller, so its updates are its own, and all of
-/// them swap at once: one swap's real time for the lot, where one after another took 25 s.
+/// them swap at once, a frame of the clock the test steps at a time (`KeyClock`): one swap's
+/// frames for the lot, where one after another took 25 s.
 extension PrimaryKeyBarTests {
     fileprivate struct Face: Equatable, Identifiable {
         let id: Int
@@ -36,14 +37,14 @@ extension PrimaryKeyBarTests {
         var isPresented = true
         /// Something the screen draws, which the bar doesn't.
         var redraws = 0
+        /// The stepped clock's time at the host's last frame (`FrameTick`).
+        @ObservationIgnored var drawnAt: TimeInterval?
         @ObservationIgnored let landing: Landing
         /// Which frame of the swap the landing comes on, counted from the first change.
         @ObservationIgnored let landsOn: Int
         @ObservationIgnored var frames = 0
         /// The key's depth as drawn on each frame of the swap, its swap's and its going's parts.
         @ObservationIgnored var drawn: [KeyReach.Parts] = []
-        /// When each was drawn.
-        @ObservationIgnored var times: [ContinuousClock.Instant] = []
 
         init(landing: Landing, landsOn: Int) {
             self.landing = landing
@@ -59,11 +60,31 @@ extension PrimaryKeyBarTests {
             drawn.firstIndex { $0.swap >= 1 }.map { $0 + 1 }
         }
 
+        /// Notes a frame drawn, as nothing to see.
+        func noteFrame() -> Color {
+            drawnAt = KeyClock.stepped?.now
+            return .clear
+        }
+
         func land() {
             switch landing {
             case .change: face = Face(id: 3, words: "Continue")
             case .redraw: redraws += 1
             case .takeAway: isPresented = false
+            }
+        }
+    }
+
+    /// A view beside the bar that notes the stepped clock's time each time the host draws a
+    /// frame, so the test steps the clock only once every case has drawn the step before. A
+    /// hosted view draws an animation's frames only on the display's, never on a layout pass.
+    /// It redraws alone, not the screen around the bar, as a ticking timer does.
+    fileprivate struct FrameTick: View {
+        let inputs: TurnInputs
+
+        var body: some View {
+            TimelineView(.animation) { _ in
+                inputs.noteFrame()
             }
         }
     }
@@ -74,6 +95,7 @@ extension PrimaryKeyBarTests {
         var body: some View {
             // Read, so a change redraws the screen around the bar.
             Color.clear.tag(inputs.redraws)
+                .background { FrameTick(inputs: inputs) }
                 .primaryKeyBar(
                     isPresented: inputs.isPresented,
                     face: inputs.face,
@@ -87,7 +109,6 @@ extension PrimaryKeyBarTests {
                     guard inputs.face.id != 1 || inputs.frames > 0 else { return }
                     inputs.frames += 1
                     inputs.drawn.append(drawn.parts)
-                    inputs.times.append(.now)
                     if inputs.frames == inputs.landsOn {
                         inputs.land()
                     }
@@ -143,12 +164,18 @@ extension PrimaryKeyBarTests {
     /// Through the drop, its turn, and the rise's first frames, at the default text size: the
     /// drop is 12 frames at 60 Hz, and each case checks the turn came within them.
     private nonisolated static let swapFrames = Array(1 ... 16)
-    /// Between one case's swap and the next's.
-    private nonisolated static let stagger = Duration.milliseconds(10)
+    /// One frame at 60 Hz.
+    private nonisolated static let frame = 1.0 / 60
 
+    /// On a clock stepped a frame at a time (`KeyClock`), so a frame is a frame however busy
+    /// the host: sampled in real time, a slow host drew the swap in fewer frames than the last
+    /// cases land on, and nothing landed.
     @Test("Something landing on any frame of a swap leaves the live key risen to rest")
-    func landingOnAnyFrame() async throws {
-        try await AccessibilityTree.whileOn {
+    func landingOnAnyFrame() throws {
+        let clock = SteppedClock()
+        KeyClock.stepped = clock
+        defer { KeyClock.stepped = nil }
+        try AccessibilityTree.whileOn {
             var cases = Landing.allCases.flatMap { landing in
                 Self.swapFrames.map { Case(landing, onFrame: $0) }
             }
@@ -157,28 +184,40 @@ extension PrimaryKeyBarTests {
                 cases[index].window.settle()
                 cases[index].rest = try #require(cases[index].seen()).top
             }
-            // Each a little after the last, so at most two turn in one frame: all of them
-            // turning together made that frame long enough to start the rise near its end.
-            let start = ContinuousClock.now
-            let limit = start + .seconds(15 * PrimaryKeyButtonStyle.swapHalf)
-            while ContinuousClock.now < limit, !cases.allSatisfy(\.isStill) {
-                for (index, item) in cases.enumerated() {
-                    if item.inputs.face.id == 1,
-                       ContinuousClock.now >= start + Self.stagger * index
-                    {
-                        item.inputs.face = Face(id: 2, words: "Skip rest")
-                    }
+            for item in cases {
+                item.inputs.face = Face(id: 2, words: "Skip rest")
+            }
+            // Twice the swap and a key's going and coming back is far past the last landing.
+            for _ in 0 ..< Int(8 * PrimaryKeyButtonStyle.swapHalf / Self.frame) {
+                for item in cases {
                     item.window.layoutIfNeeded()
                     if item.landed, !item.inputs.isPresented, item.inputs.drawn.last?.away == 1 {
-                        withAnimation(.easeInOut(duration: 0.2)) { item.inputs.isPresented = true }
+                        withAnimation(KeyClock.pace(.easeInOut(duration: 0.2))) {
+                            item.inputs.isPresented = true
+                        }
                     }
                 }
-                try await Task.sleep(for: .milliseconds(4))
+                if cases.allSatisfy(\.isStill) {
+                    break
+                }
+                clock.advance(by: Self.frame)
+                try drawAll(cases, at: clock.now)
             }
             for item in cases {
                 check(item)
             }
         }
+    }
+
+    /// Turns the run loop until every case's host has drawn a frame at `time`, as the display
+    /// asks for one; a second for them all is far past a frame on any host.
+    private func drawAll(_ cases: [Case], at time: TimeInterval) throws {
+        let limit = ContinuousClock.now + .seconds(1)
+        while cases.contains(where: { $0.inputs.drawnAt != time }), ContinuousClock.now < limit {
+            RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(Self.frame / 4))
+        }
+        let undrawn = cases.filter { $0.inputs.drawnAt != time }.count
+        try #require(undrawn == 0, "\(undrawn) hosts drew no frame in a second")
     }
 
     /// The case's key ends live and at rest, its frames reached past the turn, and it never
@@ -201,9 +240,8 @@ extension PrimaryKeyBarTests {
         let depths = inputs.drawn.map { $0.swap + $0.away }
         let steps = zip(depths, depths.dropFirst()).map { $0 - $1 }
         let jump = steps.max() ?? 0
-        let at = steps.firstIndex(of: jump) ?? 0
-        let took = inputs.times.count > at + 1 ? inputs.times[at + 1] - inputs.times[at] : .zero
-        #expect(jump < 0.99, "\(name): the key came up \(jump) in one frame of \(took): \(depths)")
+        let at = (steps.firstIndex(of: jump) ?? 0) + 2
+        #expect(jump < 0.99, "\(name): the key came up \(jump) on its frame \(at): \(depths)")
     }
 }
 
