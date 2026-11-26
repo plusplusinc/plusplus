@@ -2,7 +2,8 @@ import Foundation
 
 // Supersets: rows next to each other that share a `supersetID`, done one round at a time. A
 // superset is at least two rows long and in one piece, and its rows share one round count, their
-// `plan.sets`, since rounds alternate. Every rule here keeps that true.
+// `plan.sets`, since rounds alternate, and one rest after a round. Every rule here keeps that true,
+// and writes the shared values through `formSuperset(_:at:rounds:rest:)` alone.
 
 /// What a drag from one row's node to another's makes of the workout's supersets: one superset of
 /// the rows it spans.
@@ -67,17 +68,18 @@ extension Workout {
             rows[row].supersetID = nil
         }
         let span = min(anchor, to) ... max(anchor, to)
-        // Its own id, so it never runs on into a superset its ends were cut from.
-        let superset = span.count > 1 ? UUID() : nil
-        let rounds = exercises[from].plan.sets
-        for row in span {
-            rows[row].supersetID = superset
-            if superset != nil {
-                rows[row].plan.sets = rounds
+        if span.count > 1 {
+            // Its own id, so it never runs on into a superset its ends were cut from.
+            rows.formSuperset(
+                UUID(),
+                at: span,
+                rounds: exercises[from].plan.sets,
+                rest: rows.roundRest(exercises[from].roundRest, filledFrom: span),
+            )
+        } else {
+            for row in span {
+                rows[row].supersetID = nil
             }
-        }
-        if superset != nil {
-            rows.shareRoundRest(exercises[from].roundRest, over: span)
         }
         rows.normalizeSupersets()
         var workout = self
@@ -125,10 +127,10 @@ extension Workout {
         guard let index = exercises.firstIndex(where: { $0.id == row.id }) else { return }
         let old = exercises[index]
         exercises[index] = row
-        guard let superset = row.supersetID, row.plan.sets != old.plan.sets else { return }
-        for other in exercises.indices where exercises[other].supersetID == superset {
-            exercises[other].plan.sets = row.plan.sets
-        }
+        guard let superset = row.supersetID, row.plan.sets != old.plan.sets,
+              let run = supersetRun(at: index)
+        else { return }
+        exercises.formSuperset(superset, at: run, rounds: row.plan.sets, rest: row.roundRest)
     }
 
     /// Whether `id` and its neighbor on `side` could be joined: there is one, and they aren't in
@@ -153,12 +155,12 @@ extension Workout {
         let last = max(mine?.upperBound ?? pair.index, theirs?.upperBound ?? pair.other)
         let superset = exercises[pair.index].supersetID ?? exercises[pair.other].supersetID
             ?? UUID()
-        let rounds = exercises[pair.index].plan.sets
-        for row in first ... last {
-            exercises[row].supersetID = superset
-            exercises[row].plan.sets = rounds
-        }
-        exercises.shareRoundRest(exercises[pair.index].roundRest, over: first ... last)
+        exercises.formSuperset(
+            superset,
+            at: first ... last,
+            rounds: exercises[pair.index].plan.sets,
+            rest: exercises.roundRest(exercises[pair.index].roundRest, filledFrom: first ... last),
+        )
     }
 
     /// Takes `id` out of its superset as a plain row: in place at either end of it, and from the
@@ -209,6 +211,28 @@ extension Workout {
 }
 
 extension [WorkoutExercise] {
+    /// The one place a superset's shared values are written: the rows at `indices` become the
+    /// superset `id`, every one with `rounds` and `rest`, so its members never disagree. A rule
+    /// that changes a superset's round count or its rest calls this rather than a loop of its own.
+    mutating func formSuperset(
+        _ id: UUID,
+        at indices: some Collection<Int>,
+        rounds: Int,
+        rest: Rest,
+    ) {
+        for row in indices {
+            self[row].supersetID = id
+            self[row].plan.sets = rounds
+            self[row].roundRest = rest
+        }
+    }
+
+    /// `source`, each part it never set taken from the first of the rows at `indices` that set
+    /// it (`Rest.filled(from:)`): the rest rows take when they become one superset.
+    func roundRest(_ source: Rest, filledFrom indices: some Collection<Int>) -> Rest {
+        source.filled(from: indices.map { self[$0].roundRest })
+    }
+
     /// Restores what every superset holds to: in one piece, so a second run of an id gets an id
     /// of its own; at least two rows, so a run of one goes plain; and one round count, its first
     /// row's, and one rest, its first row's or, where that is automatic, the first member's set
@@ -230,12 +254,12 @@ extension [WorkoutExercise] {
             } else {
                 let kept = seen.contains(superset) ? UUID() : superset
                 seen.insert(kept)
-                let rounds = self[start].plan.sets
-                for row in start ..< end {
-                    self[row].supersetID = kept
-                    self[row].plan.sets = rounds
-                }
-                shareRoundRest(self[start].roundRest, over: start ..< end)
+                formSuperset(
+                    kept,
+                    at: start ..< end,
+                    rounds: self[start].plan.sets,
+                    rest: roundRest(self[start].roundRest, filledFrom: start ..< end),
+                )
             }
             start = end
         }

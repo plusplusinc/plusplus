@@ -63,20 +63,24 @@ extension Workout {
         case .below: below
         case nil: above?.supersetID != nil && above?.supersetID == below?.supersetID ? above : nil
         }
-        // Joining a plain row pairs the two in a new superset.
-        let index = joined.flatMap { rest.firstIndex(of: $0) }
-        if let index, rest[index].supersetID == nil {
-            rest[index].supersetID = UUID()
-            rest[index].plan.sets = max(rest[index].plan.sets, row.plan.sets)
-        }
-        let partner = index.map { rest[$0] }
-        row.supersetID = partner?.supersetID
-        // The row takes the rest of the superset it lands in; any of the one it left stay there.
-        row.roundRest = partner?.roundRest ?? .neverSet
-        if let partner, partner.supersetID != nil {
-            row.plan.sets = partner.plan.sets
-        }
+        let partner = joined.flatMap { rest.firstIndex(of: $0) }.map { rest[$0] }
+        row.supersetID = nil
         rest.insert(row, at: to)
+        if let partner {
+            // The row takes the round count and rest of the superset it lands in, any of the one
+            // it left staying there; joining a plain row pairs the two in a new superset.
+            let members = rest.indices.filter { index in
+                [row.id, partner.id].contains(rest[index].id)
+                    || partner.supersetID != nil && rest[index].supersetID == partner.supersetID
+            }
+            rest.formSuperset(
+                partner.supersetID ?? UUID(),
+                at: members,
+                rounds: partner.supersetID == nil
+                    ? max(partner.plan.sets, row.plan.sets) : partner.plan.sets,
+                rest: partner.roundRest,
+            )
+        }
         rest.normalizeSupersets()
         guard rest != exercises else { return false }
         exercises = rest
