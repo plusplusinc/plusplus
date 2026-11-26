@@ -26,7 +26,7 @@ extension WorkoutScreen {
                         EndButton {
                             // Under a finish's "++" the workout has ended: nothing to ask.
                             if session.loggedWorkout != nil {
-                                isConfirmingEnd = true
+                                askToEnd()
                             }
                         }
                         .transition(.opacity)
@@ -68,9 +68,23 @@ extension WorkoutScreen {
         }
     }
 
+    /// Shows End's dialog: this screen's own at the root, and for a workout pushed on the
+    /// Workouts screen, that screen's, outside its navigation stack. Inside the stack, as this
+    /// screen's own would be there, iOS showed a popover with an arrow.
+    private func askToEnd() {
+        if let pushedEnd {
+            pushedEnd.wrappedValue = EndChoices(
+                finish: finish,
+                discard: { _ = end(session.discard) },
+            )
+        } else {
+            isConfirmingEnd = true
+        }
+    }
+
     /// Whether the bar draws the workout in progress: End and its time. Held under a finish's
     /// "++", where the store has already ended it, so the bar changes only as the ending plays.
-    private var barShowsWorkout: Bool {
+    var barShowsWorkout: Bool {
         session.loggedWorkout != nil || phase.isEndBegun
     }
 

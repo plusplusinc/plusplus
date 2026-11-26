@@ -168,36 +168,29 @@ public final class AppSession {
         isDrawerOpen = false
     }
 
-    /// Starts a logged workout on `workout`, shown at the root, so no back button or swipe leaves
-    /// it, named as the workout shows now, when `canStart(on:)` allows it.
+    /// Starts a logged workout on `workout`, named as the workout shows now, when
+    /// `canStart(on:)` allows it, on the screen showing it, at the root or pushed on the
+    /// Workouts screen, so that screen's own Start plays: a pushed workout swapped for a fresh
+    /// screen at the root cut to it, with none of Start's motion. Until the workout ends,
+    /// nothing leaves a pushed one: its screen hides its back button, and `popWorkout()`
+    /// refuses.
     ///
-    /// The first set's "Start in" begins as the screen at the root lands on it, and the
-    /// workout's time starts as it ends (`landOnFirstSet`). A workout pushed on the Workouts
-    /// screen gets a fresh screen at the root, opening on it as it is now, so its "Start in"
-    /// is begun here, for that screen to open on, `lead` seconds from now: as long as the root
-    /// screen's own Start takes to land, so its 0:05 holds as long. Under a second, as
-    /// `LiveWorkout.landingStart(at:restOverride:)` holds the time only for a landing that soon.
-    public func start(on workout: Workout.ID, at now: Date = .now, lead: Double = 0) {
+    /// The first set's "Start in" begins as the screen lands on it, and the workout's time
+    /// starts as it ends (`landOnFirstSet`).
+    public func start(on workout: Workout.ID, at now: Date = .now) {
         guard canStart(on: workout) else { return }
-        // The logged workout first: a screen shown at the root reads it as it is made, to open
-        // on the current exercise.
-        let started = LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)
-        change(.save(screen == .workout
-                ? started
-                : LiveWorkout(workout: current, loggedWorkout: started)
-                .landingStart(at: now.addingTimeInterval(lead))))
-        if screen != .workout {
-            opened = current
-            screen = .workout
-        }
+        change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
         closeDrawer()
     }
 
-    /// Whether a Start pressed on `workout` may still start: only on the open workout, once it
-    /// has an exercise, with none in progress and no switch under way. A workout switched away
-    /// from, or being switched away from, starts nothing: the switch stops Start.
+    /// Whether a Start pressed on `workout` may still start: only on the open workout, while
+    /// its screen shows, once it has an exercise, with none in progress and no switch under way.
+    /// A workout switched away from, or being switched away from, starts nothing: the switch
+    /// stops Start. So does back from a pushed one within Start's beats, which would otherwise
+    /// start a workout with no screen showing it.
     public func canStart(on workout: Workout.ID) -> Bool {
-        loggedWorkout == nil && !isSwitching && workout == current.id && !current.exercises.isEmpty
+        loggedWorkout == nil && !isSwitching && showing == .workout && workout == current.id
+            && !current.exercises.isEmpty
     }
 
     /// The name the open workout shows, which its logged workout keeps: empty for New workout.
