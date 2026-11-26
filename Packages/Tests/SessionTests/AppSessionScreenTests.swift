@@ -262,6 +262,20 @@ struct AppSessionScreenTests {
         #expect(session.showing == .workouts)
         #expect(session.current == saved)
     }
+}
+
+/// Start, on a workout pushed on the Workouts screen and on one at the root.
+extension AppSessionScreenTests {
+    @Test("Back from a pushed workout before its Start lands starts nothing")
+    func backBeforeStartLands() async throws {
+        let session = await pushedSession()
+        let workout = try addingExercise(to: session.current, in: session)
+        #expect(session.canStart(on: workout.id))
+        session.popWorkout()
+        #expect(!session.canStart(on: workout.id))
+        session.start(on: workout.id)
+        #expect(session.loggedWorkout == nil)
+    }
 
     @Test("A pop while a pushed workout is in progress is refused, and pops again once it ends")
     func popAfterStart() async throws {

@@ -183,11 +183,14 @@ public final class AppSession {
         closeDrawer()
     }
 
-    /// Whether a Start pressed on `workout` may still start: only on the open workout, once it
-    /// has an exercise, with none in progress and no switch under way. A workout switched away
-    /// from, or being switched away from, starts nothing: the switch stops Start.
+    /// Whether a Start pressed on `workout` may still start: only on the open workout, while
+    /// its screen shows, once it has an exercise, with none in progress and no switch under way.
+    /// A workout switched away from, or being switched away from, starts nothing: the switch
+    /// stops Start. So does back from a pushed one within Start's beats, which would otherwise
+    /// start a workout with no screen showing it.
     public func canStart(on workout: Workout.ID) -> Bool {
-        loggedWorkout == nil && !isSwitching && workout == current.id && !current.exercises.isEmpty
+        loggedWorkout == nil && !isSwitching && showing == .workout && workout == current.id
+            && !current.exercises.isEmpty
     }
 
     /// The name the open workout shows, which its logged workout keeps: empty for New workout.

@@ -121,9 +121,8 @@ extension WorkoutFinishUITests {
     /// Run last, from the empty History the delete leaves. That a finish goes to Log by the
     /// drawer and that a workout started from the list stays on it are
     /// `AppSessionDrawerWayTests`' and `AppSessionScreenTests`'; this is the wire from the system
-    /// dialog's Finish workout, which
-    /// only the running app composes, to the same finish as the key's, on a workout opened from
-    /// the Workouts list.
+    /// dialog's Finish workout, which only the running app composes, to the same finish as the
+    /// key's, on a workout opened from the Workouts list.
     func dialogFinishGoesToLog(named name: String, in app: XCUIApplication) {
         XCTContext
             .runActivity(named: "End's Finish, on a workout from the list, goes to Log") { _ in
