@@ -11,16 +11,19 @@ import Testing
 /// theme, the look, the two tokens, and the ratio.
 @Suite("Theme contrast")
 nonisolated struct ThemeContrastTests {
-    /// One theme in one look, at a contrast setting. PlusPlus's colorsets also have Increase
-    /// Contrast variants; the other themes' looks have one value each.
+    /// One theme in one look, at a contrast setting, on the screen or on a sheet. PlusPlus's
+    /// colorsets also have Increase Contrast variants; the other themes' looks have one value
+    /// each, and Black belt a second on a sheet.
     struct Look: CustomTestStringConvertible, Sendable {
         let theme: Theme
         let scheme: ColorScheme
         let contrast: ColorSchemeContrast
+        var onSheet = false
 
         var testDescription: String {
             let increased = contrast == .increased ? ", increased contrast" : ""
-            return "\(theme.name) \(scheme == .dark ? "dark" : "light")\(increased)"
+            let sheet = onSheet ? ", on a sheet" : ""
+            return "\(theme.name) \(scheme == .dark ? "dark" : "light")\(increased)\(sheet)"
         }
 
         func color(_ token: ColorToken) -> Color.Resolved {
@@ -28,6 +31,7 @@ nonisolated struct ThemeContrastTests {
             environment.theme = theme
             environment.colorScheme = scheme
             environment._colorSchemeContrast = contrast
+            environment.isOnSheet = onSheet
             return theme.resolve(token, in: environment)
         }
     }
@@ -37,7 +41,10 @@ nonisolated struct ThemeContrastTests {
             let contrasts: [ColorSchemeContrast] = theme == .plusPlus
                 ? [.standard, .increased]
                 : [.standard]
-            return contrasts.map { Look(theme: theme, scheme: scheme, contrast: $0) }
+            let sheets = theme.hasSheetLook ? [false, true] : [false]
+            return contrasts.flatMap { contrast in
+                sheets.map { Look(theme: theme, scheme: scheme, contrast: contrast, onSheet: $0) }
+            }
         }
     }
 
@@ -61,12 +68,12 @@ nonisolated struct ThemeContrastTests {
         [Pair(mark, on: .background, 3), Pair(mark, on: .well, 3)]
     }
 
-    /// Done drawn as text (Log's counts and figures) on the screen and on a card, and under a
-    /// done day's number, which draws in the background's color on it. PlusPlus light's purple
-    /// is 4.26:1 on its white and has its own card, so the pairs hold the other themes' looks.
+    /// Done drawn as text (Log's counts and figures) on the screen and on a card, and a count
+    /// key's label ("Log early") over the key's done fill.
     private static let doneTextPairs: [Pair] = [
         Pair(.doneText, on: .background, 4.5),
         Pair(.doneText, on: .surface, 4.5),
+        Pair(.onPrimaryKey, on: .doneText, 4.5),
     ]
 
     private struct Pair {
@@ -84,8 +91,7 @@ nonisolated struct ThemeContrastTests {
         arguments: looks,
     )
     func ratiosHold(look: Look) {
-        let doneText = look.theme == .plusPlus ? [] : Self.doneTextPairs
-        for pair in Self.pairs + doneText {
+        for pair in Self.pairs + Self.doneTextPairs {
             let ratio = Self.contrast(look.color(pair.drawn), look.color(pair.ground))
             #expect(
                 ratio >= pair.ratio,
@@ -101,12 +107,15 @@ nonisolated struct ThemeContrastTests {
     /// Two 4 pt bars side by side read as one color unless apart in lightness as well as hue:
     /// 0.08 in OKLab for any two hues (a green beside a brown or a pink of one lightness read as
     /// one), 0.12 where the hues are close (a purple beside a blue), 0.15 for two grays.
-    /// PlusPlus's colorsets keep their own 0.05.
+    /// PlusPlus dark keeps its own 0.05. PlusPlus light is held to nothing here: its colorsets
+    /// are `main`'s as they were before themes, where done (7A4FD0) and active (158645) share a
+    /// lightness and stand apart only by hue, 142°; this card leaves PlusPlus's look as it was.
     @Test(
         "Done stands apart from active in lightness, further where hue can't help",
         arguments: looks,
     )
     func doneStandsApart(look: Look) {
+        guard look.theme != .plusPlus || look.scheme == .dark else { return }
         let accentRGB = RGB(look.color(.accent))
         let doneRGB = RGB(look.color(.done))
         let (accent, done) = (OKLab(accentRGB).lightness, OKLab(doneRGB).lightness)
@@ -126,7 +135,8 @@ nonisolated struct ThemeContrastTests {
     }
 
     /// A theme of grays (Chalk) has only lightness: active the strongest, furthest from the
-    /// ground, done the middle, to-do the quietest, each `Palette.grayStep` from the next.
+    /// ground, done the middle, to-do the quietest, each `Palette.grayStep` from the next; and
+    /// done's text (Log's counts) a step from the quieter text beside it, as text is from it.
     @Test("In a theme of grays, active, done, and to-do are three clear steps", arguments: looks)
     func graysStepApart(look: Look) {
         let (accent, done) = (RGB(look.color(.accent)), RGB(look.color(.done)))
@@ -141,6 +151,13 @@ nonisolated struct ThemeContrastTests {
             \(look.testDescription): active, done, and to-do stand \
             \(steps.map(Self.shown)) from the ground, not \(Palette.grayStep) steps down
             """,
+        )
+        let textGap = abs(
+            Self.lightness(look.color(.doneText)) - Self.lightness(look.color(.textSecondary)),
+        )
+        #expect(
+            textGap >= Palette.textStep,
+            "\(look.testDescription): doneText is \(Self.shown(textGap)) from textSecondary",
         )
     }
 
@@ -164,16 +181,18 @@ nonisolated struct ThemeContrastTests {
 
     /// A finished exercise's node (`done`) and an upcoming one (`rail`) side by side on a rail:
     /// they differ by hue as much as lightness, a purple beside a gray, so the guarantee is a
-    /// distance in OKLab, `Palette.nodeDistance`, not a contrast ratio.
+    /// distance in OKLab, `Palette.nodeGap(_:)`, not a contrast ratio: further where done is a
+    /// gray as well (Chalk).
     @Test("A finished node stands apart from an upcoming one", arguments: looks)
     func nodesStandApart(look: Look) {
-        let (done, rail) = (OKLab(RGB(look.color(.done))), OKLab(RGB(look.color(.rail))))
+        let doneRGB = RGB(look.color(.done))
+        let (done, rail) = (OKLab(doneRGB), OKLab(RGB(look.color(.rail))))
         let distance = (
             pow(done.lightness - rail.lightness, 2) + pow(done.greenRed - rail.greenRed, 2)
                 + pow(done.blueYellow - rail.blueYellow, 2),
         ).squareRoot()
         #expect(
-            distance >= Palette.nodeDistance,
+            distance >= Palette.nodeGap(doneRGB),
             "\(look.testDescription): done and rail are \(Self.shown(distance)) apart in OKLab",
         )
     }
@@ -182,13 +201,14 @@ nonisolated struct ThemeContrastTests {
     /// stand apart, the arrival shows nothing. In Chalk only lightness tells them apart.
     @Test("An arriving node stands apart from a resting one", arguments: looks)
     func arrivingStandsApart(look: Look) {
-        let (join, rail) = (OKLab(RGB(look.color(.railJoin))), OKLab(RGB(look.color(.rail))))
+        let joinRGB = RGB(look.color(.railJoin))
+        let (join, rail) = (OKLab(joinRGB), OKLab(RGB(look.color(.rail))))
         let distance = (
             pow(join.lightness - rail.lightness, 2) + pow(join.greenRed - rail.greenRed, 2)
                 + pow(join.blueYellow - rail.blueYellow, 2),
         ).squareRoot()
         #expect(
-            distance >= Palette.nodeDistance,
+            distance >= Palette.nodeGap(joinRGB),
             "\(look.testDescription): railJoin and rail are \(Self.shown(distance)) apart in OKLab",
         )
     }
@@ -204,6 +224,25 @@ nonisolated struct ThemeContrastTests {
             step >= Palette.textStep,
             "\(look.testDescription): textSecondary is \(Self.shown(step)) from textPrimary",
         )
+    }
+
+    /// A sheet in the screen's own color shows its edge where the screen dims around it, which
+    /// true black can't: there a sheet stands on a ground of its own, as far from the screen's as
+    /// PlusPlus dark's card stands from its ground (1.13:1).
+    @Test("Over true black, a sheet stands a step off the screen", arguments: looks)
+    func sheetStandsOffBlack(look: Look) {
+        let ground = look.color(.background)
+        let black = RGB(0x000000).resolved()
+        guard !look.onSheet, Self.contrast(ground, black) < 1.08 else { return }
+        #expect(look.theme.hasSheetLook, "\(look.testDescription): a black ground, no sheet look")
+        let sheet = Look(
+            theme: look.theme,
+            scheme: look.scheme,
+            contrast: look.contrast,
+            onSheet: true,
+        )
+        let step = Self.contrast(sheet.color(.background), ground)
+        #expect(step >= 1.13, "\(look.testDescription): a sheet is \(Self.shown(step)):1 off it")
     }
 
     private static func shown(_ value: Double) -> String {
@@ -234,13 +273,13 @@ nonisolated struct ThemeContrastTests {
             Theme.isRed(RGB(hex).resolved())
         }
         #expect(isRed(0xFF0000))
-        #expect(isRed(0xF92672))
-        #expect(isRed(0xE93C58))
-        #expect(isRed(0xEBBCBA))
-        #expect(isRed(0xAF3A03))
-        #expect(!isRed(0xFE8019))
-        #expect(!isRed(0xFE640B))
-        #expect(!isRed(0xFF79C6))
+        #expect(isRed(0xE0115F))
+        #expect(isRed(0xDC143C))
+        #expect(isRed(0xF08080))
+        #expect(isRed(0xB7410E))
+        #expect(!isRed(0xFF8C00))
+        #expect(!isRed(0xCC5500))
+        #expect(!isRed(0xC71585))
         #expect(!isRed(0x9E9E9E))
     }
 

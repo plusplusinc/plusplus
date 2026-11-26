@@ -7,7 +7,7 @@ nonisolated struct RGB: Hashable, Sendable {
     var green: Double
     var blue: Double
 
-    /// `RGB(0x2E3440)`.
+    /// `RGB(0x158645)`.
     init(_ hex: UInt32) {
         red = Double((hex >> 16) & 0xFF) / 255
         green = Double((hex >> 8) & 0xFF) / 255

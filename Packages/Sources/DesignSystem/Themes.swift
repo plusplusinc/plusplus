@@ -17,18 +17,27 @@ nonisolated extension Theme {
     ]
 
     /// True black, the top rank, for an OLED screen, in PlusPlus dark's own colors: active
-    /// green, done purple, arriving blue.
+    /// green, done purple, arriving blue. A sheet stands on a near-black a step up, as iOS's own
+    /// sheets do over black, with every neutral on it stepped from that: in the screen's black
+    /// a sheet had no edge, and a card on it none either.
     public static let blackBelt = Theme(
         id: "black-belt",
         name: "Black belt",
-        looks: .darkOnly(Palette(
-            ground: 0x000000,
+        looks: .darkOnly(
+            black(ground: 0x000000),
+            onSheet: black(ground: 0x1A1A19),
+        ),
+    )
+
+    private static func black(ground: UInt32) -> Palette {
+        Palette(
+            ground: ground,
             text: 0xF5F3EE,
             active: 0x46D17C,
             done: 0xB08CF0,
             arriving: 0x5CA8F5,
-        )),
-    )
+        )
+    }
 
     /// The weight room's steel and rust: active steel blue, done rust, arriving a paler,
     /// clearer blue.
@@ -55,7 +64,9 @@ nonisolated extension Theme {
 
     /// A workout written on a chalkboard, in grays alone, told apart by three clear steps of
     /// lightness: active the strongest, done the middle, to-do the quietest, each at least 0.15
-    /// from the next (`Palette.grayStep`).
+    /// from the next (`Palette.grayStep`). Done sits as near active as that allows, so a
+    /// finished exercise's dot stands well clear of an upcoming one's gray and done's text of
+    /// the quieter text.
     public static let chalk = Theme(
         id: "chalk",
         name: "Chalk",
@@ -64,14 +75,14 @@ nonisolated extension Theme {
                 ground: 0xF4F2EC,
                 text: 0x2A2C2B,
                 active: 0x1E2120,
-                done: 0x5E615D,
+                done: 0x464946,
                 arriving: 0x4E514E,
             ),
             dark: Palette(
                 ground: 0x1B1F1E,
                 text: 0xF2F0E8,
                 active: 0xF2F0E8,
-                done: 0x9A9D99,
+                done: 0xB8BBB7,
                 arriving: 0xC9CCC8,
             ),
         ),
@@ -122,9 +133,12 @@ nonisolated extension Theme {
         ),
     )
 
-    /// A swimming pool, its ground the water's turquoise, brighter and greener than Ocean's sea:
-    /// in light, active the navy of a lane line, done the red of a lane rope; in dark, deeper
-    /// water under pale aqua, coral, and a sunny yellow arriving.
+    /// A swimming pool, its ground the water's turquoise, brighter and greener than Ocean's sea.
+    /// In light, active the navy of a lane line, done the deep water's teal; in dark, deeper
+    /// water under aqua, done a pale buoy yellow. Arriving is the lane rope's red in both, for
+    /// the moment it arrives: as done, Log's counts and a rest's fill read as warnings. The navy
+    /// and the aqua sit far enough from done in lightness that `Palette` keeps done as drawn:
+    /// a navy beside the teal moved it to the text's near-black.
     public static let pool = Theme(
         id: "pool",
         name: "Pool",
@@ -132,16 +146,16 @@ nonisolated extension Theme {
             light: Palette(
                 ground: 0x56D6E2,
                 text: 0x06283A,
-                active: 0x0B3C8C,
-                done: 0xB8342A,
-                arriving: 0x00596A,
+                active: 0x0A2F70,
+                done: 0x006070,
+                arriving: 0xC8402F,
             ),
             dark: Palette(
                 ground: 0x07596A,
                 text: 0xEAFBFD,
-                active: 0xB5F5F8,
-                done: 0xFFB3A6,
-                arriving: 0xFFE9A8,
+                active: 0x88DCE5,
+                done: 0xFFE9A8,
+                arriving: 0xFFB3A6,
             ),
         ),
     )

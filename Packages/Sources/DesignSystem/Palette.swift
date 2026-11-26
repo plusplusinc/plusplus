@@ -118,8 +118,15 @@ nonisolated struct Palette: Sendable {
     /// gray read as one.
     static let nodeDistance = 0.10
 
+    /// How far the rail's gray stands from a node's `color`: `nodeDistance`, or `grayStep` where
+    /// the node is a gray too (Chalk), as lightness is all that tells two gray dots apart, and
+    /// at 0.11 a finished one read as an upcoming one.
+    static func nodeGap(_ color: RGB) -> Double {
+        isGray(color) ? grayStep : nodeDistance
+    }
+
     /// The rail's gray moved in lightness, from where it keeps 3:1 on `grounds`, by the least
-    /// step that keeps 3:1 and stands it `nodeDistance` from each of `nodes`: `done`, a
+    /// step that keeps 3:1 and stands it `nodeGap(_:)` from each of `nodes`: `done`, a
     /// finished exercise's, and `railJoin`, an arriving one's, which settles to the rail, so the
     /// arrival shows. Moved, not them, so they stay the theme's own colors.
     private static func node(_ rail: RGB, apartFrom nodes: [RGB], grounds: [RGB]) -> RGB {
@@ -135,7 +142,7 @@ nonisolated struct Palette: Sendable {
         for step in 0 ... 50 {
             for direction in [0.01, -0.01] {
                 let moved = withLightness(rail, start + Double(step) * direction)
-                if nodes.allSatisfy({ distance(moved, $0) >= nodeDistance }),
+                if nodes.allSatisfy({ distance(moved, $0) >= nodeGap($0) }),
                    grounds.allSatisfy({ contrast(moved, $0) >= 3 })
                 {
                     return moved

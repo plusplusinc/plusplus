@@ -89,6 +89,8 @@ public struct ThemeCard: View {
         .contentShape(shape)
         .environment(\.theme, theme)
         .environment(\.colorScheme, scheme)
+        // A picture of the theme's screen, so in its screen's look on a sheet too.
+        .environment(\.isOnSheet, false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(theme.name)
         .accessibilityValue(theme.looksLine)

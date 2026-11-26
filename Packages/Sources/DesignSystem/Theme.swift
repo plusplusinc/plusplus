@@ -16,7 +16,19 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
         /// The asset catalog's colorsets, light and dark.
         case catalog
         case both(light: Palette, dark: Palette)
-        case darkOnly(Palette)
+        /// `onSheet`, where the look's ground is true black: what a sheet draws in
+        /// (`isOnSheet`), a step up from the screen, as a sheet over black in the screen's own
+        /// black showed no edge.
+        case darkOnly(Palette, onSheet: Palette? = nil)
+    }
+
+    /// Whether a sheet draws in a look of its own, a step up from the screen's.
+    var hasSheetLook: Bool {
+        if case .darkOnly(_, onSheet: .some) = looks {
+            true
+        } else {
+            false
+        }
     }
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
@@ -36,8 +48,8 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
     /// Whether a color reads as a red, which `accent` never is: it fills the + that adds an
     /// exercise, and a red + reads as a warning. A red is a color with OKLab chroma of at least
     /// 0.05 (not a gray) whose OKLab hue is from 350° round to 40°: from the pinks' edge to where
-    /// orange begins. A pink-red and a coral (7° to 17°) and an orange that reads as rust (39°)
-    /// fall inside; a peach (42°), and a hot pink (347°) outside.
+    /// orange begins. A raspberry (9°), a crimson and a light coral (20°), pure red (29°), and a
+    /// rust (39°) fall inside; a burnt orange (46°), and a magenta pink (just under 350°) outside.
     public static func isRed(_ color: Color.Resolved) -> Bool {
         let lab = OKLab(RGB(color))
         let chroma = (lab.greenRed * lab.greenRed + lab.blueYellow * lab.blueYellow).squareRoot()
@@ -95,8 +107,8 @@ public nonisolated struct Theme: Identifiable, Sendable, Equatable {
             Color(token.rawValue, bundle: .module).resolve(in: environment)
         case let .both(light, dark):
             (environment.colorScheme == .dark ? dark : light)[token]
-        case let .darkOnly(dark):
-            dark[token]
+        case let .darkOnly(dark, onSheet):
+            (environment.isOnSheet ? onSheet ?? dark : dark)[token]
         }
     }
 }
@@ -123,4 +135,32 @@ public nonisolated enum Appearance: String, CaseIterable, Sendable {
 nonisolated extension EnvironmentValues {
     /// The theme `Color.pp` draws in. A subtree set to another draws in that one.
     @Entry public var theme = Theme.plusPlus
+    /// Whether what draws is on a sheet (`sheetGround()`), where a theme over true black draws
+    /// a step up from the screen.
+    @Entry var isOnSheet = false
+}
+
+extension View {
+    /// A sheet's content drawn on a sheet (`isOnSheet`), so a theme over true black lifts the
+    /// sheet a step off the screen; `filled`, under the screen's own color (`background`), else
+    /// under what the content draws itself, as Add exercise's navigation stack does.
+    public func sheetGround(filled: Bool = true) -> some View {
+        modifier(SheetGround(filled: filled))
+    }
+}
+
+private struct SheetGround: ViewModifier {
+    let filled: Bool
+
+    func body(content: Content) -> some View {
+        if filled {
+            // A color, not a view: as a view, the system drew the dimmed screen around the sheet
+            // a step apart from the color's.
+            content
+                .environment(\.isOnSheet, true)
+                .presentationBackground(Color(TokenColor(token: .background, onSheet: true)))
+        } else {
+            content.environment(\.isOnSheet, true)
+        }
+    }
 }

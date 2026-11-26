@@ -69,7 +69,7 @@ struct SettingsSheet: View {
         .phoneScheme(Binding { phone ?? .dark } set: { phone = $0 })
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.pp(.background))
+        .sheetGround()
     }
 }
 
@@ -126,7 +126,7 @@ struct ThemeScreen: View {
         ScrollViewReader { proxy in
             ScrollView {
                 // Not lazy: a lazy stack scrolled to its last card from estimated heights and
-                // opened with Zenburn's card cut off at the bottom. Twenty cards lay out cheaply.
+                // opened with the last card cut off at the bottom. A dozen cards lay out cheaply.
                 VStack(spacing: Spacing.sm) {
                     ForEach(Theme.all) { theme in
                         Button {

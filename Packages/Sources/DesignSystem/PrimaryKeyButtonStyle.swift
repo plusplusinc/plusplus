@@ -55,7 +55,7 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .overlay {
                 if let filling {
                     face(configuration.label, color: .onPrimaryKey)
-                        .mask(alignment: .leading) { FillingFace(filling: filling, color: .done) }
+                        .mask(alignment: .leading) { FillingFace(filling: filling) }
                         .accessibilityHidden(true)
                 }
             }

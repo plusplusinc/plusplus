@@ -19,9 +19,11 @@ public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// Purple: done. A finished exercise's node, and the bars of the sets done. Apart from
     /// `accent` in lightness as well as hue, so the two read apart without color.
     case done = "ppDone"
-    /// Done as text, and a fill that text sits on: Log's counts and figures, and a done day's
-    /// square under its number. `done`'s purple, moved in lightness only as far as 4.5:1 on
-    /// `background` and `surface` needs; PlusPlus's is `done` itself.
+    /// Done as text, and a fill that text sits on: Log's counts and figures, a done day's square
+    /// under its number, and a count key's fill under its label in `onPrimaryKey`
+    /// (`FillingFace`). `done`'s purple, moved in lightness only as far as 4.5:1 on `background`
+    /// and `surface` needs, which is `onPrimaryKey` in every theme but PlusPlus; PlusPlus's is
+    /// `done` itself.
     case doneText = "ppDoneText"
     /// The outline of a key-shaped button, and the title's resting cursor.
     case borderStrong = "ppBorderStrong"
@@ -79,9 +81,16 @@ extension Color {
 /// call site (a view, a fill, `.opacity`, a `Canvas`, `resolve(in:)`).
 nonisolated struct TokenColor: ShapeStyle, Hashable {
     let token: ColorToken
+    /// Resolved as on a sheet (`isOnSheet`) wherever it is drawn: a sheet's own ground, which the
+    /// system draws outside the sheet's content and its environment.
+    var onSheet = false
 
     func resolve(in environment: EnvironmentValues) -> Color.Resolved {
-        environment.theme.resolve(token, in: environment)
+        var environment = environment
+        if onSheet {
+            environment.isOnSheet = true
+        }
+        return environment.theme.resolve(token, in: environment)
     }
 }
 

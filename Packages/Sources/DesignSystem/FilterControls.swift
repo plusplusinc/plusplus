@@ -193,8 +193,9 @@ public struct ChipSheet<Item: Hashable>: View {
 /// the × won't fit side by side, the × goes under the title (`LineOrStack`), which beside it
 /// broke mid-word.
 ///
-/// The sheet is the screen's own color (`background`), as the exercise sheet and Add exercise
-/// are: an unchosen chip's `surfaceRaised` stands 1.29:1 from it, and 1.14:1 from `surface`.
+/// The sheet is the screen's own color (`background`, a step up over true black:
+/// `sheetGround()`), as the exercise sheet and Add exercise are: an unchosen chip's `surfaceRaised`
+/// stands 1.29:1 from it, and 1.14:1 from `surface`.
 struct FilterSheetFrame<Content: View>: View {
     let title: String
     let onDone: () -> Void
@@ -235,7 +236,7 @@ struct FilterSheetFrame<Content: View>: View {
             selection: $detent,
         )
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.pp(.background))
+        .sheetGround()
     }
 
     private var header: some View {
