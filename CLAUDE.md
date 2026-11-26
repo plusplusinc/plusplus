@@ -82,17 +82,17 @@ state, stateless services hold side effects, free functions hold the math. The a
 The main session leads a slice, as `/onward` describes: it writes the spec and acceptance
 criteria, makes the technical calls, and hands each phase, in order, to a subagent defined in
 `.claude/agents/`: planner, builder, and, for a card that touches stored data or the live
-workout's state, verifier. It reads their summaries and screenshots, not their work, and itself
-makes a round's small changes. A subagent follows its definition, answers only to the lead, and
-never merges.
+workout's state, verifier. It reads their summaries, screenshots, and each change's shape, and
+itself makes a round's small changes. A subagent follows its definition, answers only to the
+lead, and never merges.
 
 The maintainer owns the product. The lead goes to them to align on a card before it starts, for
 a product call, or to put a build in their hands, and they try every slice before it merges. A
 slice with something to see goes on their phone as soon as their feedback would help, then in
-rounds; a round is shown, not done, and the thorough checks run once, after they say it's right.
-Anything they throw out, or the lead finds along the way, becomes a card through `/brief`; a
-small tooling or process change the lead recommends in answer to their question is made then,
-in its own PR.
+rounds; a round is shown, not done, and the thorough checks run behind it, finishing after they
+say it's right. Anything they throw out, or the lead finds along the way, becomes a card through
+`/brief`; a small tooling or process change the lead recommends in answer to their question is
+made then, in its own PR.
 
 The maintainer's time is for the product. Tooling, CI, tests, process, the nightly retro's PR,
 and a bug whose right behavior is settled are the lead's to find, card, build, verify, and merge
@@ -120,7 +120,7 @@ The scripts are the single source of truth; the `/build`, `/test`, `/lint`, `/ru
 `/onward`, `/pr`, and `/retro` skills wrap them, and Xcode Cloud runs the same lint script.
 
 ```sh
-scripts/test.sh              # package and script tests on macOS, no simulator, seconds
+scripts/test.sh              # package and script tests on macOS, no simulator
 scripts/build.sh             # app for the simulator, compact diagnostics
 scripts/test.sh sim          # everything on the simulator, including snapshots
 scripts/run.sh [name]        # build, install, launch, screenshot to .build/screenshots/
