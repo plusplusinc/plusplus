@@ -10,7 +10,9 @@ import WorkoutStore
 /// three tabs: "Oct 25 – Nov 21", plain secondary text, not a control.
 /// It opens on History each time the drawer shows it, and after a finish, which goes there
 /// through the drawer: the workout just finished comes into History once the drawer has closed
-/// (`bringIn()`). The period is `LogPeriod`'s four calendar weeks.
+/// (`bringIn()`). The period is `LogPeriod`'s four calendar weeks. From the first finish with
+/// Apple Health never asked, History opens on a one-time card asking to save workouts there
+/// (`healthOffer`), until Apple's sheet is answered or "Not now" turns it down.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
 /// logged workout's row pushes it, read-only, with the system push, as a saved workout is
 /// pushed on Workouts, and swiped left offers Delete, as a saved workout's row does there.
