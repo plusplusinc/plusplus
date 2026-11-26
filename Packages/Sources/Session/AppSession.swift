@@ -1,4 +1,5 @@
 import Foundation
+import Health
 import Observation
 import OSLog
 import WorkoutStore
@@ -64,6 +65,8 @@ public final class AppSession {
     /// is dropped.
     @ObservationIgnored private var switches = 0
 
+    /// Saving finished workouts to Apple Health.
+    public let health: HealthSaving
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
     @ObservationIgnored let store: Store?
     /// Names a logged workout after its workout, at Start and again at Finish.
@@ -84,8 +87,10 @@ public final class AppSession {
         exercises: ExerciseList = .builtIn,
         store: Store?,
         namer: WorkoutNamer,
+        health: HealthSaving = HealthSaving(client: .unavailable),
     ) {
         self.namer = namer
+        self.health = health
         opened = workout
         current = workout
         self.loggedWorkout = loggedWorkout
@@ -368,12 +373,6 @@ extension AppSession {
 }
 
 extension AppSession {
-    /// Whether the open workout has anything to delete: one with nothing saved has none, and
-    /// one in progress is not deleted.
-    public var canDeleteOpen: Bool {
-        !current.isEmpty && loggedWorkout == nil
-    }
-
     /// Deletes a saved workout, its logged workouts staying stored. For the open one, its last
     /// edit lands and the session takes a new, empty workout and shows Workouts, whether the
     /// deleted one was pushed or at the root, before the store deletes it, so no save can bring

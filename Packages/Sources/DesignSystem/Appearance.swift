@@ -56,6 +56,15 @@ extension View {
     public func sheetGround(filled: Bool = true) -> some View {
         modifier(SheetGround(filled: filled))
     }
+
+    /// A Settings card's ground: inset from the card's edges, on the surface, its corners
+    /// rounded and clipping what it holds.
+    public func settingsCard() -> some View {
+        let shape = RoundedRectangle(cornerRadius: Spacing.sm + Radius.key, style: .continuous)
+        return padding(.horizontal, Spacing.md)
+            .background(shape.fill(.pp(.surface)))
+            .clipShape(shape)
+    }
 }
 
 private struct SheetGround: ViewModifier {

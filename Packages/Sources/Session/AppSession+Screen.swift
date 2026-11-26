@@ -214,4 +214,10 @@ extension AppSession {
         case log
         case workout
     }
+
+    /// Whether the open workout has anything to delete, for the workout screen's Delete: one
+    /// with nothing saved has none, and one in progress is not deleted (`delete(_:)`).
+    public var canDeleteOpen: Bool {
+        !current.isEmpty && loggedWorkout == nil
+    }
 }

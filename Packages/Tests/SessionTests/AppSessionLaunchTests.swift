@@ -20,7 +20,12 @@ struct AppSessionLaunchTests {
     }
 
     private func session(_ launch: Store.Launch) -> AppSession {
-        AppSession(launch: launch, store: store, namer: .muscleGroupsOnly)
+        AppSession(
+            launch: launch,
+            store: store,
+            namer: .muscleGroupsOnly,
+            health: HealthSaving(client: .unavailable),
+        )
     }
 
     @Test("After a finish it starts on the Workouts list, over a new workout, the drawer shut")
