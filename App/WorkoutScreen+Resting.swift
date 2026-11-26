@@ -26,9 +26,9 @@ import WorkoutStore
 /// Through any rest the key at the bottom swaps, as keys swap, for Skip rest, wide, gray, filling
 /// with the done purple from its leading edge as the rest runs (`restKeyFill`), full at 0:00,
 /// and +15 s beside it (`CountKeys`), the + above it staying put. There is no bar under the
-/// countdown. Skip rest cuts the rest at the tap (`skipRest()`): its keys go, the + riding down
+/// countdown. Skip rest ends the rest at the tap (`skipRest()`): its keys go, the + riding down
 /// with them to sit low, and its count holds the time it had left a quarter second
-/// (`LiveWorkout.skipHold`), then as it goes, never 0:00 (`WorkoutPhase.skipRest(left:)`), and
+/// (`LiveWorkout.skipHold`), then as it goes, never 0:00 (`WorkoutRest.shownLeft(atClock:)`), and
 /// the screen moves on as at a rest's end; +15 s steps the fill back and turns the countdown,
 /// the dot staying put. A pause holds the countdown, white, and swaps the keys for Continue
 /// (`WorkoutKey.continueWorkout`), the fill held, purple, as they go. Taps on them while the rest
@@ -74,9 +74,11 @@ extension WorkoutScreen {
     }
 
     /// The rest as drawn, with the workout it runs on: the one running, or the one End came in
-    /// until the list leaves it (`WorkoutPhase.drawnRest`).
+    /// until the list leaves it (`WorkoutPhase.drawnRest`). None while its set is not yet drawn,
+    /// as at its log: the rest found then was the one before, and Skip rest filled from it.
     var drawnResting: (rest: WorkoutRest, loggedWorkout: LoggedWorkout)? {
-        guard phase.drawnRest != nil, let shown, let rest = shown.rest(override: restOverride)
+        guard let drawn = phase.drawnRest, let shown,
+              let rest = shown.rest(after: drawn.set, override: restOverride)
         else { return nil }
         return (rest, shown.loggedWorkout)
     }
@@ -188,8 +190,7 @@ extension WorkoutScreen {
     func endRest() {
         guard let rest = phase.resting, let loggedWorkout = session.loggedWorkout,
               let next = live?.currentSet,
-              // By the watch's own clock: a skip's hold can be up before the stored rest's leave.
-              resting.map({ loggedWorkout.clock(at: .now) >= phase.leaveClock(of: $0) }) ?? true
+              resting.map({ loggedWorkout.clock(at: .now) >= $0.leaveClock }) ?? true
         else { return }
         // A timed set next counts from the rest's end, in the same update as the rest ends.
         session.beginCount(override: restOverride)
@@ -312,12 +313,12 @@ extension WorkoutScreen {
         guard let resting, let loggedWorkout = session.loggedWorkout else { return nil }
         return RestWatch(
             endClock: resting.endClock,
-            leaveClock: phase.leaveClock(of: resting),
+            leaveClock: resting.leaveClock,
             isPaused: loggedWorkout.isPaused,
         )
     }
 
-    /// Sleeps to where the screen moves on (`WorkoutPhase.leaveClock(of:)`), once 0:00 has held
+    /// Sleeps to where the screen moves on (`WorkoutRest.leaveClock`), once 0:00 has held
     /// a second, or a skip's time a quarter second, then ends the rest; never while paused. A rest
     /// gone while the screen rests, its row's rest set to 0 or the row deleted, ends at once. The
     /// rest's end is
@@ -327,7 +328,7 @@ extension WorkoutScreen {
         guard isResting else { return }
         while let resting {
             guard let loggedWorkout = session.loggedWorkout, !loggedWorkout.isPaused else { return }
-            let left = phase.leaveClock(of: resting) - loggedWorkout.clock(at: .now)
+            let left = resting.leaveClock - loggedWorkout.clock(at: .now)
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }

@@ -58,7 +58,7 @@ public struct WorkoutKey: Sendable {
             return stage
         }
         // A skipped rest, holding its time, waits on the set.
-        if let rest = phase.drawnRest, rest.beat < .returning, rest.skippedLeft != nil {
+        if let rest = phase.drawnRest, rest.beat < .returning, isSkipped(rest) {
             return .startIn
         }
         guard phase.isMovingOn || phase.isLeavingRest else { return nil }
@@ -113,10 +113,10 @@ public struct WorkoutKey: Sendable {
     }
 
     /// The log key saying `text`, or during a rest Skip rest and +15 s in its place: from the log
-    /// of a set with a rest after it until the rest ends or is skipped
-    /// (`WorkoutPhase.Resting.hasKeys`), and through End's leaving of a rest.
+    /// of a set with a rest after it until the rest ends or is skipped (`hasKeys(_:)`), and
+    /// through End's leaving of a rest.
     private func logRole(_ text: String) -> Role {
-        if phase.drawnRest?.hasKeys == true {
+        if let rest = phase.drawnRest, hasKeys(rest) {
             return .rest
         }
         return switch drawnCount {
@@ -194,7 +194,21 @@ public struct WorkoutKey: Sendable {
     /// Not while paused, whose key is Continue in the rest's keys' place.
     private var isRestIn: Bool {
         guard !continues, let rest = phase.resting else { return false }
-        return rest.hasKeys && rest.beat >= (rest.isWithinExercise ? .settled : .landed)
+        return hasKeys(rest) && rest.beat >= (rest.isWithinExercise ? .settled : .landed)
+    }
+
+    /// Whether Skip rest and +15 s are `rest`'s keys: until it ends, or is skipped, where they
+    /// go at the tap, for the moment its count holds.
+    private func hasKeys(_ rest: WorkoutPhase.Resting) -> Bool {
+        rest.beat < .returning && !isSkipped(rest)
+    }
+
+    /// Whether Skip rest has cut `rest`, as the workout drawn stores it
+    /// (`LoggedSet.restSkippedAt`): the one in progress, or the one End took.
+    private func isSkipped(_ rest: WorkoutPhase.Resting) -> Bool {
+        guard let last = (stored?.loggedWorkout ?? phase.drawnLoggedWorkout)?.sets.last
+        else { return false }
+        return last.planned == rest.set && last.restSkippedAt != nil
     }
 
     /// What a tap on the key does, as the workout is stored. Out of a workout, Start. After the

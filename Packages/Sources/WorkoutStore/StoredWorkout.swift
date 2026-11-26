@@ -2,8 +2,8 @@ import Foundation
 import OSLog
 import SwiftData
 
-typealias StoredWorkout = RoutineSchemaV12.StoredWorkout
-typealias StoredSet = RoutineSchemaV12.StoredSet
+typealias StoredWorkout = RoutineSchemaV13.StoredWorkout
+typealias StoredSet = RoutineSchemaV13.StoredSet
 
 extension StoredWorkout {
     /// Writes every field, setting only those that differ, so an unchanged workout stays clean.
@@ -72,6 +72,7 @@ extension StoredSet {
         update(\.clockWhenLogged, to: set.clockWhenLogged)
         update(\.restAdjustment, to: set.restAdjustment)
         update(\.timeAdded, to: set.timeAdded)
+        update(\.restSkippedAt, to: set.restSkippedAt)
     }
 
     /// A set's reps or time and weight, as the stored fields hold them.
@@ -122,6 +123,7 @@ extension StoredSet {
         set.clockWhenLogged = clockWhenLogged
         set.restAdjustment = restAdjustment
         set.timeAdded = timeAdded
+        set.restSkippedAt = restSkippedAt
         return set
     }
 

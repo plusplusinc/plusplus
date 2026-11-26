@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Today's shape: V11's, with a workout keeping the timed set under way (its set, where its
+/// As #239 shipped it: V11's, with a workout keeping the timed set under way (its set, where its
 /// count starts on the workout's clock, and its +15 s taps), and each logged set its +15 s taps,
 /// so a timed set's count carries on through a relaunch.
 enum RoutineSchemaV12: VersionedSchema {

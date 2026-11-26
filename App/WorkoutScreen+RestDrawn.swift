@@ -17,23 +17,24 @@ extension WorkoutScreen {
                 stage: .open,
                 length: resting.length,
                 ends: ends,
-                pausedLeft: rest.skippedLeft ?? pausedLeft,
+                pausedLeft: pausedLeft,
                 isPaused: loggedWorkout.isPaused,
             )
             return DrawnRestBlock(row: row, above: rest.isBack, block: block)
         }
         // Skipped, its room closes with the move on showing the time it had at the tap: closed
         // as a rest that ran out is, on an empty rest, it read 0:00 as it went.
-        if let move = phase.move, let left = move.skippedLeft,
-           let loggedWorkout = session.loggedWorkout,
-           let row = restRow(after: move.set, isBack: move.isBack, in: loggedWorkout)
+        if let move = phase.move, move.isFromRest, let live,
+           let skippedAt = live.loggedWorkout.sets.last?.restSkippedAt,
+           let skipped = live.rest(override: restOverride), skipped.after == move.set,
+           let row = restRow(after: move.set, isBack: move.isBack, in: live.loggedWorkout)
         {
-            // Held as a pause holds it, where the skip came in one.
+            // Held as a pause holds it, where the skip came in one: the time left at the tap.
             let block = RestBlock(
                 stage: .none,
                 length: 0,
-                pausedLeft: left,
-                isPaused: loggedWorkout.isPaused,
+                pausedLeft: skipped.remaining(atClock: skippedAt),
+                isPaused: live.loggedWorkout.isPaused,
             )
             return DrawnRestBlock(row: row, above: move.isBack, block: block)
         }
@@ -55,21 +56,22 @@ extension WorkoutScreen {
         return nil
     }
 
-    /// When `rest` ends, on `workout`'s clock running on from now, and the seconds it has left
-    /// where that clock stands still: paused, ended, or `stopped`, so the countdown holds; or
-    /// where it stood at `end`, End's choice (`WorkoutPhase.drawnEnd`), as the list shrinks out
-    /// of the workout End took: running on through the shrink, the count went on with a
-    /// second's roll as it went.
+    /// When `rest` ends, on `workout`'s clock running on from now, and the seconds it shows
+    /// where its count stands still (`WorkoutRest.shownLeft(atClock:)`): skipped, paused, ended,
+    /// or `stopped`, so the countdown holds; or where it stood at `end`, End's choice
+    /// (`WorkoutPhase.drawnEnd`), as the list shrinks out of the workout End took: running on
+    /// through the shrink, the count went on with a second's roll as it went.
     static func times(
         of rest: WorkoutRest,
         on loggedWorkout: LoggedWorkout,
         stopped: Bool = false,
         end: Date? = nil,
     ) -> (ends: Date, pausedLeft: Double?) {
-        let holds = stopped || end != nil || loggedWorkout.isPaused || !loggedWorkout.isInProgress
+        let holds = rest.skippedAt != nil || stopped || end != nil || loggedWorkout.isPaused
+            || !loggedWorkout.isInProgress
         return (
             loggedWorkout.date(ofClock: rest.endClock),
-            holds ? rest.remaining(atClock: loggedWorkout.clock(at: end ?? .now)) : nil,
+            holds ? rest.shownLeft(atClock: loggedWorkout.clock(at: end ?? .now)) : nil,
         )
     }
 
@@ -90,7 +92,7 @@ extension WorkoutScreen {
                 isRunning: !isOver,
                 length: resting.length,
                 ends: ends,
-                pausedLeft: within.skippedLeft ?? pausedLeft,
+                pausedLeft: pausedLeft,
                 isOver: isOver,
                 turns: within.beat == .settled,
                 isPaused: loggedWorkout.isPaused,

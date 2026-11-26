@@ -99,27 +99,24 @@ extension WorkoutScreen {
         }
     }
 
-    /// Skip rest: the rest is stored as cut at the tap (`LiveWorkout.skippingRest(override:at:)`),
-    /// its count holding the time it had left at the tap for `LiveWorkout.skipHold`, then ending
-    /// as one that ran out does, as the rest's watch says (`watchRest()`). Its keys go at the
-    /// tap, on the swap a rest's end moves the key on (`SetMotion.restSwap`), the + going down
-    /// with them: taken out with no animation, the + dropped on one frame. Only when
-    /// `WorkoutKey.skipRest` says so, and nothing once 0:00 holds, as the store
-    /// skips nothing then: skipped in the phase alone, the screen moved on before the stored
-    /// rest was over, and the next set's count was never begun.
+    /// Skip rest: the tap is stored with the rest (`LiveWorkout.skippingRest(override:at:)`),
+    /// its count holding the time it had left at the tap for `LiveWorkout.skipHold`
+    /// (`WorkoutRest.shownLeft(atClock:)`), then ending as one that ran out does, as the rest's
+    /// watch says (`watchRest()`). Its keys go at the tap, on the swap a rest's end moves the key
+    /// on (`SetMotion.restSwap`), the + going down with them: taken out with no animation, the +
+    /// dropped on one frame. Only when `WorkoutKey.skipRest` says so, and nothing where the rest
+    /// takes no taps (`WorkoutRest.takesTaps(atClock:)`), as the store skips nothing then.
     private func skipRest() {
         let now = Date.now
-        guard let resting, let loggedWorkout = session.loggedWorkout else { return }
-        let clock = loggedWorkout.clock(at: now)
-        let left = resting.remaining(atClock: clock)
-        guard left > 0 else { return }
-        // With the store's change, before `endRest()`'s animated swap: a new figure put in during
-        // the swap stood where it ends from its first frame.
+        guard let resting, let loggedWorkout = session.loggedWorkout,
+              resting.takesTaps(atClock: loggedWorkout.clock(at: now))
+        else { return }
+        // Before `endRest()`'s animated swap: a new figure put in during the swap stood where it
+        // ends from its first frame.
         restSkips += 1
         withAnimation(SetMotion.restSwap) {
-            phase.skipRest(left: left, leave: clock + LiveWorkout.skipHold)
+            session.skipRest(override: restOverride, at: now)
         }
-        session.skipRest(override: restOverride, at: now)
     }
 
     /// Pauses or resumes the workout, from the time key at the top or from Continue. Where that
@@ -132,8 +129,11 @@ extension WorkoutScreen {
     }
 
     /// The fill of Skip rest: running while the rest runs, held where it stood while paused, in
-    /// its own color, seen only as the keys swap out for Continue; held where
-    /// it stood where End came mid-rest; else full, as the keys leave once the rest is over.
+    /// its own color, seen only as the keys swap out for Continue; held where it stood where End
+    /// came mid-rest, or at a skip's tap, as the keys leave (`WorkoutRest.shownLeft(atClock:)`);
+    /// else full, as the keys leave once the rest is over. A skip with under `skipHold` left
+    /// runs past its end in its hold while its count holds the time at the tap, so the fill
+    /// reads what the count shows, not what is left.
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,
            let left = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
@@ -144,7 +144,7 @@ extension WorkoutScreen {
         }
         guard let rest = phase.drawnRest, rest.beat < .returning,
               let (resting, loggedWorkout) = drawnResting,
-              resting.remaining(atClock: loggedWorkout.clock(at: .now)) > 0
+              resting.shownLeft(atClock: loggedWorkout.clock(at: .now)) > 0
         else { return .over }
         let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
         return KeyFill(length: Double(resting.length), ends: ends, pausedLeft: pausedLeft)

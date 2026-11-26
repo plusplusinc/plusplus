@@ -52,7 +52,7 @@ extension TimedSetTests {
         #expect(logged.loggedWorkout.startedAt == Self.at(2.5))
         #expect(logged.loggedWorkout.sets.first?.clockWhenLogged == 0)
 
-        // Skip rest a moment after a log: none of the rest is left at the tap, none negative.
+        // Skip rest a moment after a log: the rest keeps its length, and holds what it had left.
         let skipped = LiveWorkout(
             workout: workout,
             loggedWorkout: logged.loggedWorkout.logging(
@@ -65,8 +65,11 @@ extension TimedSetTests {
             workout: workout,
             loggedWorkout: skipped.skippingRest(at: Self.at(13.3)),
         )
-        #expect(over.rest()?.remaining(atClock: over.loggedWorkout.clock(at: Self.at(13.3))) == 0)
-        #expect(over.rest()?.length == 0)
+        let tap = over.loggedWorkout.clock(at: Self.at(13.3))
+        let rest = try #require(over.rest())
+        #expect(rest.length == skipped.rest()?.length)
+        #expect(rest.skippedAt == tap)
+        #expect(rest.shownLeft(atClock: tap + 5) == rest.remaining(atClock: tap))
 
         // A device clock set back under way never reads as a time not started.
         #expect(logged.loggedWorkout.clock(at: Self.at(-100)) == 0)

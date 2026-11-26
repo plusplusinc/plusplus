@@ -57,8 +57,9 @@ struct WorkoutKeyTests {
             toRow = .nextExercise(to: left, isBack: false, startsRound: false)
         }
 
-        /// The workout with its first `count` sets logged, in order, at their rows' plans.
-        func live(logged count: Int, paused: Bool = false) -> LiveWorkout {
+        /// The workout with its first `count` sets logged, in order, at their rows' plans, the
+        /// rest after the last skipped or not.
+        func live(logged count: Int, paused: Bool = false, skipped: Bool = false) -> LiveWorkout {
             let start = Date(timeIntervalSinceReferenceDate: 1000)
             var live = LiveWorkout(
                 workout: workout,
@@ -72,6 +73,9 @@ struct WorkoutKeyTests {
                 guard let set = live.currentSet, let row = live.currentExercise else { break }
                 live.loggedWorkout = live.loggedWorkout.logging(set, of: row, at: start)
             }
+            if skipped, !live.loggedWorkout.sets.isEmpty {
+                live.loggedWorkout.sets[live.loggedWorkout.sets.count - 1].restSkippedAt = 20
+            }
             if paused {
                 live.loggedWorkout = live.loggedWorkout.pausing(at: start + 60)
             }
@@ -79,7 +83,7 @@ struct WorkoutKeyTests {
         }
 
         /// The key with `logged` sets stored, nil out of a workout, drawn with `shown` of them
-        /// (all, unless given), paused or not.
+        /// (all, unless given), paused or not, the rest after the last skipped or not.
         func key(
             logged: Int?,
             shown: Int? = nil,
@@ -87,10 +91,11 @@ struct WorkoutKeyTests {
             wayBack: WorkoutKey.WayBack? = nil,
             isScrolledAway: Bool = false,
             paused: Bool = false,
+            skipped: Bool = false,
         ) -> WorkoutKey {
             WorkoutKey(
-                stored: logged.map { live(logged: $0, paused: paused) },
-                shown: (shown ?? logged).map { live(logged: $0, paused: paused) },
+                stored: logged.map { live(logged: $0, paused: paused, skipped: skipped) },
+                shown: (shown ?? logged).map { live(logged: $0, paused: paused, skipped: skipped) },
                 phase: phase,
                 wayBack: wayBack,
                 isScrolledAway: isScrolledAway,

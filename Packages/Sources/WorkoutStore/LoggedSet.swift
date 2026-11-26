@@ -25,9 +25,12 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
     /// where the rest after it starts. Nil for a set logged before V11 kept it, which rests for
     /// none.
     public var clockWhenLogged: Double?
-    /// The rest after this set against the workout's, in seconds: its +15 s taps, and a skip's cut
-    /// to the seconds rested (`LiveWorkout.skippingRest(override:at:)`).
+    /// The rest after this set against the workout's, in seconds: its +15 s taps. A rest skipped
+    /// before V13 also holds its cut to the seconds rested, and reads as one that ran out early.
     public var restAdjustment = 0
+    /// Where the workout's clock stood at a Skip rest tap on the rest after this set
+    /// (`LiveWorkout.skippingRest(override:at:)`); nil for a rest not skipped.
+    public var restSkippedAt: Double?
     /// The +15 s taps on this set's own count, a timed set's, in seconds.
     public var timeAdded = 0
 
