@@ -29,7 +29,8 @@ extension StoredWorkout {
         if loggedWorkout.healthActivity != nil || !holdsUnreadActivity {
             update(\.healthActivity, to: loggedWorkout.healthActivity?.rawValue)
         }
-        // Not `healthWorkoutID`: nothing in the app writes it yet, and a save never clears it.
+        // Not `healthWorkoutID`: only `Store.markInHealth` writes it, so a save from a copy
+        // read before it was kept never clears it.
     }
 
     /// Whether the stored type is one this version doesn't know.

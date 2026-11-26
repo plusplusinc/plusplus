@@ -80,6 +80,10 @@ public final class AppSession {
     /// and keeping only the newest would drop the end, leaving the first in progress in the store.
     @ObservationIgnored
     let loggedWorkoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
+    /// Apple Health's catch-ups, one at a time, from the first asked (`catchUpHealth()`), and
+    /// the workouts deleted from Log since the running one read what is owed, which it skips.
+    @ObservationIgnored lazy var healthJobs = startHealthJobs()
+    @ObservationIgnored var deletedFromLog: Set<LoggedWorkout.ID> = []
 
     public init(
         workout: Workout,
@@ -110,12 +114,6 @@ public final class AppSession {
         changeLive { $0.droppingCount(for: workout) }
         current = workout
         saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
-    }
-
-    /// While a workout is in progress, and through a way's lead, as a finish's before Log
-    /// (`isLeadPending`), the drawer stays shut: neither ++ nor a swipe opens it, only the way.
-    public var isDrawerLocked: Bool {
-        loggedWorkout != nil || isLeadPending
     }
 
     /// Opens the drawer, unless one in progress keeps it shut or a row's sheet has been asked for.

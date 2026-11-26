@@ -43,7 +43,7 @@ enum RoutineSchemaV14: VersionedSchema {
         /// progress. An unknown one reads as nil, and a save leaves it as it is.
         var healthActivity: String?
         /// The id of the workout Apple Health saved for it. Read, never written by a save;
-        /// nothing writes it yet.
+        /// `Store.markInHealth` writes it.
         var healthWorkoutID: UUID?
 
         init(id: UUID) {

@@ -1,66 +1,33 @@
 import Foundation
 import Health
-import SwiftData
-import Synchronization
 import Testing
 @testable import Session
 @testable import WorkoutStore
 
-/// Saving to Apple Health through a fake client that answers as told and records each save.
+/// A finish saving to Apple Health, through a fake client that answers as told.
 @Suite("Apple Health saving")
 struct HealthSavingTests {
-    /// A Health whose access is set by the test, and whose saves arrive on `saved`.
-    private final class FakeHealth: Sendable {
-        let access: Mutex<HealthAccess>
-        let accessReads = Mutex(0)
-        let asks = Mutex(0)
-        let saveCount = Mutex(0)
-        /// Each workout saved, with the finished logged workouts the store held as it was.
-        let saved: AsyncStream<(HealthWorkout, [LoggedWorkout.ID])>
-        private let saves: AsyncStream<(HealthWorkout, [LoggedWorkout.ID])>.Continuation
-        private let store: Store?
+    private let fixture: HealthFixture
 
-        init(_ access: HealthAccess, store: Store? = nil) {
-            self.access = Mutex(access)
-            self.store = store
-            (saved, saves) = AsyncStream.makeStream()
-        }
-
-        var client: HealthClient {
-            HealthClient(
-                access: {
-                    self.accessReads.withLock { $0 += 1 }
-                    return self.access.withLock { $0 }
-                },
-                ask: {
-                    self.asks.withLock { $0 += 1 }
-                    self.access.withLock { $0 = .on }
-                },
-                save: { workout in
-                    self.saveCount.withLock { $0 += 1 }
-                    let stored = try await self.store?.finishedLoggedWorkouts() ?? []
-                    self.saves.yield((workout, stored.map(\.id)))
-                },
-            )
-        }
+    init() throws {
+        fixture = try HealthFixture()
     }
 
     private static func at(_ seconds: Double) -> Date {
-        Date(timeIntervalSinceReferenceDate: seconds)
+        HealthFixture.at(seconds)
     }
 
-    @Test("With saving on, a finish hands Health the workout after its write, reading access then")
+    @Test("With saving on, a finish hands Health the workout after its write, and keeps its id")
     func finishSaves() async throws {
-        let container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         let workout = Workout(
             name: "Upper",
             exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)],
         )
-        let health = FakeHealth(.on, store: Store(modelContainer: container))
+        let health = FakeHealth(.on, store: fixture.store())
         let session = AppSession(
             workout: workout,
-            store: Store(modelContainer: container),
+            store: fixture.store(),
             namer: .muscleGroupsOnly,
             health: HealthSaving(client: health.client),
         )
@@ -69,19 +36,21 @@ struct HealthSavingTests {
         session.finish(at: Self.at(70))
         // Nothing reads Health in the Finish tap's turn, nor as the session was made.
         #expect(health.accessReads.withLock { $0 } == 0)
-        var saves = health.saved.makeAsyncIterator()
-        let (saved, storedAtSave) = try #require(await saves.next())
+        await session.healthJobsLanded()
+        let saves = health.saves.withLock { $0 }
+        let saved = try #require(saves.first?.workout)
+        #expect(saves.count == 1)
         #expect(saved.id == logged.id)
         #expect(saved.start == Self.at(10))
         #expect(saved.end == Self.at(70))
-        #expect(storedAtSave == [logged.id])
-        #expect(health.saveCount.withLock { $0 } == 1)
+        #expect(saves.first?.stored == [logged.id])
+        let read = try #require(try await fixture.store().finishedLoggedWorkouts().first)
+        #expect(read.healthWorkoutID != nil)
     }
 
     @Test("A finish of created exercises, paused twice, hands Health their type and each pause")
     func finishCreatedPaused() async throws {
-        let container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
-        let store = Store(modelContainer: container)
+        let store = fixture.store()
         // Created exercises have no kind of their own, so they count as strength; with no
         // weight held, functional.
         let created = [
@@ -111,8 +80,8 @@ struct HealthSavingTests {
         session.togglePause(at: Self.at(50))
         session.togglePause(at: Self.at(60))
         session.finish(at: Self.at(90))
-        var saves = health.saved.makeAsyncIterator()
-        let (saved, _) = try #require(await saves.next())
+        await session.healthJobsLanded()
+        let saved = try #require(health.saves.withLock { $0.first?.workout })
         #expect(saved.activity == .functionalStrength)
         #expect(saved.pauses == [
             DateInterval(start: Self.at(40), end: Self.at(50)),
@@ -123,16 +92,21 @@ struct HealthSavingTests {
         #expect(stored.pauses == saved.pauses)
     }
 
-    @Test("With saving off, a save asks Health for nothing")
-    func offSavesNothing() async {
-        let health = FakeHealth(.off)
-        let saving = HealthSaving(client: health.client)
-        let finished = LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: Self.at(0))
-            .finishing(at: Self.at(60))
-        await saving.save(Result { () throws(HealthWorkout.Withheld) in
-            try HealthWorkout(finished, in: .builtIn)
-        })
-        #expect(health.saveCount.withLock { $0 } == 0)
+    @Test("A finish with no store behind the session, its write never landing, sends nothing")
+    func noStoreSendsNothing() async throws {
+        let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
+        let workout = Workout(exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)])
+        let health = FakeHealth(.on)
+        let session = AppSession(
+            workout: workout,
+            store: nil,
+            namer: .muscleGroupsOnly,
+            health: HealthSaving(client: health.client),
+        )
+        session.start(on: workout.id, at: Self.at(10))
+        session.finish(at: Self.at(70))
+        await session.healthJobsLanded()
+        #expect(health.savedIDs.isEmpty)
     }
 
     @Test("Access is read at the first refresh, not as saving is made, and follows each after")

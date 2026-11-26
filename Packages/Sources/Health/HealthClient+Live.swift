@@ -27,7 +27,15 @@ extension HealthClient {
     /// A static, so it is made on first use.
     private static let store = HKHealthStore()
 
-    private static func save(_ workout: HealthWorkout, to store: HKHealthStore) async throws {
+    /// Removes whatever the app saved under the workout's tag first, so a save repeated, after a
+    /// relaunch between Health's save and the store keeping its id, leaves one. Removing takes
+    /// only the write permission, and reads nothing: shown on the simulator, it removes exactly
+    /// the tagged workout, and succeeds when none matches.
+    private static func save(
+        _ workout: HealthWorkout,
+        to store: HKHealthStore,
+    ) async throws -> UUID? {
+        try await store.deleteObjects(of: .workoutType(), predicate: tagged(workout.id))
         let builder = HKWorkoutBuilder(
             healthStore: store,
             configuration: configuration(for: workout),
@@ -54,7 +62,15 @@ extension HealthClient {
             try await builder.addWorkoutEvents(events)
         }
         try await builder.endCollection(at: workout.end)
-        _ = try await builder.finishWorkout()
+        return try await builder.finishWorkout()?.uuid
+    }
+
+    /// Every workout the app saved for the logged workout `id` (`metadata(for:)`).
+    private static func tagged(_ id: LoggedWorkout.ID) -> NSPredicate {
+        HKQuery.predicateForObjects(
+            withMetadataKey: HKMetadataKeyExternalUUID,
+            allowedValues: [id.uuidString],
+        )
     }
 
     /// The workout's type, done indoors: every workout the app saves is one.

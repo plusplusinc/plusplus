@@ -18,13 +18,15 @@ public struct HealthClient: Sendable {
     public var access: @Sendable () -> HealthAccess
     /// Brings up Apple's sheet, asking only to write workouts; returns at once if answered before.
     public var ask: @Sendable () async throws -> Void
-    /// Saves one workout.
-    public var save: @Sendable (HealthWorkout) async throws -> Void
+    /// Saves one workout in place of any the app saved for the same logged workout, so a save
+    /// repeated leaves one, and returns Health's id for it; nil when Health saved it but didn't
+    /// hand it back, as with the phone locked.
+    public var save: @Sendable (HealthWorkout) async throws -> UUID?
 
     public init(
         access: @escaping @Sendable () -> HealthAccess,
         ask: @escaping @Sendable () async throws -> Void,
-        save: @escaping @Sendable (HealthWorkout) async throws -> Void,
+        save: @escaping @Sendable (HealthWorkout) async throws -> UUID?,
     ) {
         self.access = access
         self.ask = ask
@@ -35,6 +37,6 @@ public struct HealthClient: Sendable {
     public static let unavailable = Self(
         access: { .unavailable },
         ask: { },
-        save: { _ in },
+        save: { _ in nil },
     )
 }

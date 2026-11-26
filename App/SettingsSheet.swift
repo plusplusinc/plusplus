@@ -10,6 +10,7 @@ import SwiftUI
 /// the sheet and the app behind it recolor under the finger.
 struct SettingsSheet: View {
     let health: HealthSaving
+    let askToSaveToHealth: () async -> Void
     @Environment(Look.self) private var look
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -25,7 +26,7 @@ struct SettingsSheet: View {
                     if let access = health.access, access != .unavailable {
                         GroupLabel("Apple Health")
                             .padding(.top, Spacing.lg)
-                        HealthChoice(health: health)
+                        HealthChoice(health: health, ask: askToSaveToHealth)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -134,13 +135,16 @@ struct AppearanceChoice: View {
 /// Never asked, a tap brings up Apple's sheet; once answered, the row only shows the answer.
 struct HealthChoice: View {
     let health: HealthSaving
+    /// The ask, and once allowed, every workout already in Log saved
+    /// (`AppSession.askToSaveToHealth()`).
+    let ask: () async -> Void
 
     var body: some View {
         SettingRow(
             "Save workouts",
             value: health.access == .on ? "On" : "Off",
             hint: "Asks to save workouts to Apple Health",
-            action: health.access == .notAsked ? { Task { await health.ask() } } : nil,
+            action: health.access == .notAsked ? { Task { await ask() } } : nil,
         )
     }
 }
@@ -207,7 +211,7 @@ private struct GroupLabel: View {
 }
 
 #Preview {
-    SettingsSheet(health: HealthSaving(client: .unavailable))
+    SettingsSheet(health: HealthSaving(client: .unavailable), askToSaveToHealth: { })
         .environment(Look(defaults: UserDefaults(suiteName: "preview") ?? .standard))
 }
 

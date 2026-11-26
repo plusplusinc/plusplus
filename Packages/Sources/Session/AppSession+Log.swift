@@ -26,6 +26,7 @@ extension AppSession {
     /// workout's writes, so an End still landing can't bring it back. The store refuses the one
     /// in progress. A delete that fails is logged, and the read leaves the workout listed.
     public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) async {
+        deletedFromLog.insert(id)
         loggedWorkoutWrites.yield(.delete(id))
         await refreshLog()
     }
