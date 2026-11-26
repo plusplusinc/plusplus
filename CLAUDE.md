@@ -15,7 +15,8 @@ planning work in it), and in `docs/`. If this file and a rules file disagree, th
 with its sets, reps or time, weight, and rest, some joined into supersets, saved on the phone as
 it is edited, and logged set by set on that same screen; a Workouts screen listing and
 filtering the saved ones; and Log, the finished ones. Settings, from the drawer, picks Light,
-Dark, or the phone's, and Void makes dark true black. Nothing syncs yet, and there is no
+Dark, or the phone's, Void makes dark true black, and Apple Health gets finished workouts once
+allowed there. Nothing syncs yet, and there is no
 watch app yet.
 
 This file does not say how a feature looks or behaves. That is in the doc comments of the types
@@ -32,17 +33,20 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 ```
 App ──> DesignSystem   (SwiftUI only, no domain code)
  ├────> Session ──> WorkoutStore   (the open workout and its logged sets, observable; no UI)
+ │         └────> Health ──> WorkoutStore   (Apple Health, via HealthKit)
  └────> WorkoutStore   (domain types, SwiftData, and workout naming; no UI)
 ```
 
-`Session` ships inside the `WorkoutStore` product, so the app links it with no project change.
+`Session` and `Health` ship inside the `WorkoutStore` product, so the app links them with no
+project change.
 
 **These arrows are the rule, not a description.** New code goes in the lowest layer that can
 hold it, and a new layer gets a target when it has code. Nothing imports `App`.
 
 Plain SwiftUI, no view-model layer: views hold presentation logic, `@Observable` stores hold
 state, stateless services hold side effects, free functions hold the math. The app,
-`DesignSystem`, and `Session` are main-actor by default; `WorkoutStore` is nonisolated.
+`DesignSystem`, and `Session` are main-actor by default; `WorkoutStore` and `Health` are
+nonisolated.
 
 ## How we work
 
@@ -109,8 +113,8 @@ deleting what isn't the lead's.
 - **Never hand-edit `project.pbxproj`, and keep it free of build settings.** Settings live in
   `Config/*.xcconfig` and `scripts/lint.sh` fails if one lands in the project, which Xcode's
   wizards occasionally do. Dependencies go in `Packages/Package.swift`.
-- `App/` is a buildable folder: a file on disk is in the target. Anything in it ships inside the
-  app bundle, so never leave notes or scratch files there.
+- `App/` is a buildable folder: a file on disk is in the target. Anything in it ships, so leave
+  no notes there.
 - The package appears in the project both as a package reference and as a folder reference. The
   folder reference is what lets the app scheme run the package's test targets; remove it and
   `xcodebuild test` finds no test bundles.
@@ -134,11 +138,10 @@ scripts/pr-media.sh <pr> <file>... # put screenshots and recordings in a PR's bo
 ```
 
 Reach an external service through its own CLI (`gh`, `asc`). A wrapper script or MCP server
-has to earn its place; `docs/agent-tooling.md` says when, and how to build a script agents call.
+has to earn its place (`docs/agent-tooling.md`).
 
-Apple documentation: the `sosumi` MCP server works with Xcode closed. The `xcode` MCP server
-gives live diagnostics and preview rendering, and on Xcode 27 runs headless with Xcode closed.
-See `docs/agent-tooling.md`.
+Apple documentation: the `sosumi` MCP server. The `xcode` MCP server gives live diagnostics and
+preview rendering, headless on Xcode 27. See `docs/agent-tooling.md`.
 
 ## Branching
 

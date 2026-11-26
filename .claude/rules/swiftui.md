@@ -81,7 +81,7 @@ with the feature.
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
   `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by
   `CurrentFigure`.
-- Settings: `SettingsSheet` (`AppearanceChoice`), `AppearancePicture`, `PhoneScheme`,
+- Settings: `SettingsSheet` (`AppearanceChoice`, `HealthChoice`), `SettingRow`, `AppearancePicture`, `PhoneScheme`,
   `Appearance`, `Look`, `Palette`, `sheetGround(filled:)`, `SideDrawer`.
 
 ## Pitfalls
