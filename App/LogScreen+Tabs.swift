@@ -19,7 +19,7 @@ extension LogScreen {
             if showsHealthOffer {
                 healthOffer
                     .padding(.bottom, Spacing.lg)
-                    .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.cutAway))
+                    .transition(.cutAway)
             }
             loggedWorkoutCount(period)
                 .padding(.bottom, Spacing.md)
@@ -57,7 +57,10 @@ extension LogScreen {
             }
         }
         // The card's room closes as it fades, cut off where the calendar and rows have risen
-        // to (`CutAway`); with Reduce Motion, a crossfade (`cardCrossfade`).
+        // to (`CutAway`). With Reduce Motion, on a crossfade's ease (`cardCrossfade`) but still
+        // cut: the content under it rises either way, and faded alone the card let the count
+        // and the calendar's letters through its buttons. The cut follows that rise, so it
+        // adds no motion of its own.
         .animation(reduceMotion ? .cardCrossfade : .snappy, value: showsHealthOffer)
     }
 
