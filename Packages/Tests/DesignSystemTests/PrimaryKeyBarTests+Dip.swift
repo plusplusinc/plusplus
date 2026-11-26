@@ -148,6 +148,14 @@ extension PrimaryKeyBarTests {
         let rising = run.samples.filter { $0.words == "Skip rest" }.compactMap(\.key)
         let first = try #require(rising.first, "the next key never came in")
         #expect(first.minY - restKey.minY > deepest / 2, "the next key came in risen: \(first)")
+        // The turn comes as the drop as drawn ends, not on a timer or a completion that can come
+        // before the first frame or frames late: the key going is last drawn within its last
+        // frame's step of the bottom, where the next one is first drawn.
+        let lowest = try #require(run.samples.compactMap(\.key).map(\.minY).max())
+        #expect(abs(lowest - first.minY) < 1, "the next key started short of the bottom: \(first)")
+        let going = run.samples.filter { $0.words == "Log set" }.compactMap(\.key)
+        let last = try #require(going.last)
+        #expect(lowest - last.minY < 15, "the swap turned before the drop ended: \(last)")
     }
 
     /// At the largest text sizes a rest's keys are taller than Log set. The button took the

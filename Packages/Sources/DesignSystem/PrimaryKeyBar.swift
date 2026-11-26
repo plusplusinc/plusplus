@@ -280,6 +280,11 @@ private struct PrimaryKeyBar<
             // turns it off until the swap is over, a whole swap later, and it comes on again only
             // from a key showing.
             .onChange(of: box.tray.needsSwap) { startSwap() }
+            .onPreferenceChange(KeySwapDown.self) { isDown in
+                if isDown {
+                    turn()
+                }
+            }
             .background {
                 Color.clear.onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
                     bottomInset = $0
@@ -309,15 +314,12 @@ private struct PrimaryKeyBar<
     }
 
     /// Another key due while one shows: the one showing goes down with its words, easing in, so
-    /// it is still in sight until it clears the edge, and once its curve has ended there, the
-    /// swap turns.
+    /// it is still in sight until it clears the edge.
     private func startSwap() {
         guard box.tray.needsSwap else { return }
-        withAnimation(.keyDrop, completionCriteria: .logicallyComplete) {
+        withAnimation(.keyDrop) {
             box.tray.startLeaving()
             beats += 1
-        } completion: { [box, swap = box.tray.swaps + 1] in
-            turn(box, swap)
         }
     }
 
@@ -325,10 +327,12 @@ private struct PrimaryKeyBar<
     /// face, and its part of the swap run back to 0 from 1. Placed below the edge in one update
     /// and risen in the next, after a `Task.yield()`, the two at times landed in one update with
     /// no animation, and the key stood at rest a frame after the last one went (2026-11-25).
-    /// On the drop's end rather than timed: timed, the drop lost its last two frames, 28 pt.
-    private func turn(_ box: TrayBox<Face>, _ swap: Int) {
+    /// Turned once the drop as drawn is all the way down (`KeySwapDown`): timed, the drop lost
+    /// its last two frames, 28 pt; and `withAnimation`'s completion can run before the first
+    /// frame, or frames after the motion stops.
+    private func turn() {
         withAnimation(.keyRise) {
-            box.tray.turn(swap)
+            box.tray.turn(box.tray.swaps)
             beats += 1
         }
     }

@@ -51,6 +51,7 @@ struct KeyTravel: ViewModifier, Animatable {
             .anchorPreference(key: KeyTrayDrawn.self, value: .bounds) {
                 TrayDrawn(bounds: $0, parts: parts)
             }
+            .preference(key: KeySwapDown.self, value: parts.swap >= 1)
             .visualEffect { content, proxy in
                 content.offset(
                     y: reach.depth(parts, height: proxy.size.height, reduceMotion: reduceMotion),
@@ -108,6 +109,17 @@ extension View {
 struct TrayDrawn: Equatable {
     var bounds: Anchor<CGRect>?
     var parts = KeyReach.Parts(swap: 0, away: 0, drop: 0)
+}
+
+/// Whether the key going in a swap is all the way down as drawn, its animated part at its target,
+/// so the bar turns the swap on the frame the drop ends: read from the animation itself, as
+/// `listResizes(_:)` does, never from a timer or `withAnimation`'s completion.
+struct KeySwapDown: PreferenceKey {
+    static let defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
 }
 
 /// Where the bar's key is, for the floating button that rides on it.
