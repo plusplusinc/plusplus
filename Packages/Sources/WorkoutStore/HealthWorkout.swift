@@ -1,8 +1,8 @@
 import Foundation
 
 /// The kinds of workout the app saves to Apple Health, in its own words; the Health target maps
-/// each to Health's type.
-public enum HealthActivity: Equatable, Sendable {
+/// each to Health's type. Stored as its raw string with a finished workout.
+public enum HealthActivity: String, Equatable, Sendable {
     /// Mostly strength exercises, at least half of them holding a weight.
     case traditionalStrength
     /// Mostly strength exercises, most of them holding no weight.
@@ -25,6 +25,17 @@ public enum HealthActivity: Equatable, Sendable {
             let weighted = strength.count { $0.load != nil }
             self = weighted * 2 >= strength.count ? .traditionalStrength : .functionalStrength
         }
+    }
+
+    /// The type for a workout that logged `sets`: from the rows it logged sets of, each row's
+    /// exercise once as it is in `list`, so an exercise in two rows counts twice, as the
+    /// workout's row counts it (`Workout.summary`); one since deleted is left out. From what
+    /// was done, not the workout's plan.
+    public init(logged sets: [LoggedSet], in list: ExerciseList) {
+        var rows: Set<WorkoutExercise.ID> = []
+        self.init(exercises: sets
+            .filter { rows.insert($0.row).inserted }
+            .compactMap { list.exercise(id: $0.exerciseID) })
     }
 }
 
@@ -53,41 +64,33 @@ public struct HealthWorkout: Equatable, Sendable {
         self.pauses = pauses
     }
 
-    /// Why a finished workout goes nowhere.
+    /// Why a finished workout goes nowhere (`LoggedWorkout.healthWithheld`).
     public enum Withheld: Error, Equatable, Sendable {
         /// It hasn't ended.
         case notFinished
-        /// It was paused and resumed before its finish. The store keeps a resumed pause's
-        /// length but not when it happened, and Health takes a pause only at its times, so it
+        /// Its end isn't after its start, as with a device clock set back.
+        case noLength
+        /// Its kept pauses don't account for its time paused, as for one paused before the
+        /// store kept a pause's times (V14). Health takes a pause only at its times, so it
         /// would go either with its pauses counted in its length or with a pause made up.
-        case resumedBefore
+        case timesNotKept
     }
 
-    /// The workout for `finished`, whose pauses resumed before the finish came to
-    /// `resumedSeconds` (the paused seconds it had just before), and which was paused from
-    /// `pausedSince` until its finish, if it was. Its type is from the rows it logged sets of,
-    /// each row's exercise once as it is in `list`, so an exercise in two rows counts twice,
-    /// as the workout's row counts it (`Workout.summary`); one since deleted is left out. From
-    /// what was done, not the workout's plan, which can change before a later save.
-    public init(
-        finished: LoggedWorkout,
-        in list: ExerciseList,
-        resumedSeconds: Double,
-        pausedSince: Date?,
-    ) throws(Withheld) {
+    /// The workout for `finished`, from what the store keeps of it alone, when Health can have
+    /// it (`LoggedWorkout.healthWithheld`). Its type is the one worked out at Finish, else, for
+    /// a workout finished before that was kept, from what it logged as `list` has it now
+    /// (`HealthActivity(logged:in:)`).
+    public init(_ finished: LoggedWorkout, in list: ExerciseList) throws(Withheld) {
+        if let withheld = finished.healthWithheld {
+            throw withheld
+        }
         guard let end = finished.endedAt else { throw .notFinished }
-        guard resumedSeconds == 0 else { throw .resumedBefore }
-        let lastPause = pausedSince.map { DateInterval(start: min($0, end), end: end) }
-        var rows: Set<WorkoutExercise.ID> = []
-        let rowExercises = finished.sets
-            .filter { rows.insert($0.row).inserted }
-            .compactMap { list.exercise(id: $0.exerciseID) }
         self.init(
             id: finished.id,
-            activity: HealthActivity(exercises: rowExercises),
+            activity: finished.healthActivity ?? HealthActivity(logged: finished.sets, in: list),
             start: finished.startedAt,
             end: end,
-            pauses: lastPause.map { [$0] } ?? [],
+            pauses: finished.pauses,
         )
     }
 }

@@ -78,6 +78,51 @@ struct HealthSavingTests {
         #expect(health.saveCount.withLock { $0 } == 1)
     }
 
+    @Test("A finish of created exercises, paused twice, hands Health their type and each pause")
+    func finishCreatedPaused() async throws {
+        let container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
+        let store = Store(modelContainer: container)
+        // Created exercises have no kind of their own, so they count as strength; with no
+        // weight held, functional.
+        let created = [
+            CreatedExercise(name: "Couch stretch", muscleGroups: [.legs], measure: .time),
+            CreatedExercise(name: "Doorway stretch", muscleGroups: [.chest], measure: .time),
+        ]
+        for exercise in created {
+            try await store.save(exercise)
+        }
+        let rows = created.map {
+            WorkoutExercise(exercise: Exercise(created: $0), weightUnit: .pounds)
+        }
+        let workout = Workout(name: "Stretch", exercises: rows)
+        let health = FakeHealth(.on, store: store)
+        let session = try await AppSession(
+            workout: workout,
+            exercises: store.exercises(),
+            store: store,
+            namer: .muscleGroupsOnly,
+            health: HealthSaving(client: health.client),
+        )
+        session.start(on: workout.id, at: Self.at(10))
+        for (row, seconds) in zip(rows, [20.0, 30]) {
+            session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(seconds))
+        }
+        session.togglePause(at: Self.at(40))
+        session.togglePause(at: Self.at(50))
+        session.togglePause(at: Self.at(60))
+        session.finish(at: Self.at(90))
+        var saves = health.saved.makeAsyncIterator()
+        let (saved, _) = try #require(await saves.next())
+        #expect(saved.activity == .functionalStrength)
+        #expect(saved.pauses == [
+            DateInterval(start: Self.at(40), end: Self.at(50)),
+            DateInterval(start: Self.at(60), end: Self.at(90)),
+        ])
+        let stored = try #require(try await store.finishedLoggedWorkouts().first)
+        #expect(stored.healthActivity == .functionalStrength)
+        #expect(stored.pauses == saved.pauses)
+    }
+
     @Test("With saving off, a save asks Health for nothing")
     func offSavesNothing() async {
         let health = FakeHealth(.off)
@@ -85,12 +130,7 @@ struct HealthSavingTests {
         let finished = LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: Self.at(0))
             .finishing(at: Self.at(60))
         await saving.save(Result { () throws(HealthWorkout.Withheld) in
-            try HealthWorkout(
-                finished: finished,
-                in: .builtIn,
-                resumedSeconds: 0,
-                pausedSince: nil,
-            )
+            try HealthWorkout(finished, in: .builtIn)
         })
         #expect(health.saveCount.withLock { $0 } == 0)
     }

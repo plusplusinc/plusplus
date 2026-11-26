@@ -44,8 +44,10 @@ public final class HealthSaving {
             } catch {
                 Logger.session.error("A workout didn't save to Apple Health: \(error)")
             }
-        case .failure(.resumedBefore):
+        case .failure(.timesNotKept):
             Logger.session.notice("Not saved to Apple Health: its pauses' times aren't kept")
+        case .failure(.noLength):
+            Logger.session.notice("Not saved to Apple Health: it ends at or before its start")
         case .failure(.notFinished):
             Logger.session.notice("Not saved to Apple Health: it hasn't ended")
         }

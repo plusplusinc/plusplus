@@ -57,18 +57,12 @@ struct HealthActivityTests {
         let logged = LogFixture.loggedWorkout(daysAgo: 0, workout.exercises.map {
             LogFixture.set($0.exercise.id, .reps(10), row: $0.id)
         })
-        let health = try HealthWorkout(
-            finished: logged,
-            in: .builtIn,
-            resumedSeconds: 0,
-            pausedSince: nil,
-        )
         #expect(workout.summary?.kind == .conditioning)
-        #expect(health.activity == .highIntensityIntervals)
+        #expect(HealthActivity(logged: logged.sets, in: .builtIn) == .highIntensityIntervals)
     }
 
     @Test("A finished workout's type counts each row it logged once, the deleted left out")
-    func fromLogged() throws {
+    func fromLogged() {
         func set(_ id: String, round: Int = 1, row: UUID = UUID()) -> LoggedSet {
             LogFixture.set(id, round: round, .reps(10), row: row)
         }
@@ -83,12 +77,22 @@ struct HealthActivityTests {
             set("goblet-squat"),
             set("created:gone"),
         ])
-        let workout = try HealthWorkout(
-            finished: logged,
-            in: .builtIn,
-            resumedSeconds: 0,
-            pausedSince: nil,
-        )
-        #expect(workout.activity == .traditionalStrength)
+        #expect(HealthActivity(logged: logged.sets, in: .builtIn) == .traditionalStrength)
+    }
+
+    @Test("A stored type reads back by its raw string, an unknown one as none")
+    func rawValues() {
+        // The strings stored: a renamed case would read every workout stored before as none.
+        let stored: [String: HealthActivity] = [
+            "traditionalStrength": .traditionalStrength,
+            "functionalStrength": .functionalStrength,
+            "highIntensityIntervals": .highIntensityIntervals,
+            "flexibility": .flexibility,
+        ]
+        for (raw, activity) in stored {
+            #expect(activity.rawValue == raw)
+            #expect(HealthActivity(rawValue: raw) == activity)
+        }
+        #expect(HealthActivity(rawValue: "swimming") == nil)
     }
 }

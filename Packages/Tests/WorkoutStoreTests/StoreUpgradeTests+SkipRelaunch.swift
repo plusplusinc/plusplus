@@ -95,7 +95,7 @@ extension StoreUpgradeTests {
     }
 
     /// A launch's store: today's shape on a new container over the file.
-    private static func current(at url: URL) throws -> Store {
+    static func current(at url: URL) throws -> Store {
         try Store(modelContainer: ModelContainer(
             for: Store.schema,
             migrationPlan: StoreMigrationPlan.self,

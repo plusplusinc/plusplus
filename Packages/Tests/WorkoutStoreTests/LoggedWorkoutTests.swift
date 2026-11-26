@@ -52,6 +52,59 @@ struct LoggedWorkoutTests {
         #expect(twice.pausing(at: at(100)).elapsed(at: at(900)) == .seconds(75))
     }
 
+    @Test("Each resume keeps its pause's times, and a finish while paused keeps the last")
+    func pausesKept() {
+        let twice = loggedWorkout
+            .pausing(at: at(10)).resuming(at: at(20))
+            .pausing(at: at(30)).resuming(at: at(45))
+        #expect(twice.pauses == [
+            DateInterval(start: at(10), end: at(20)),
+            DateInterval(start: at(30), end: at(45)),
+        ])
+        let finished = twice.pausing(at: at(60)).finishing(at: at(100))
+        #expect(finished.pauses.last == DateInterval(start: at(60), end: at(100)))
+        #expect(finished.pauses.reduce(0) { $0 + $1.duration } == finished.pausedSeconds)
+        // A resume read off a clock set back keeps a pause of no length, not one reversed.
+        let setBack = loggedWorkout.pausing(at: at(50)).resuming(at: at(40))
+        #expect(setBack.pauses == [DateInterval(start: at(50), duration: 0)])
+    }
+
+    /// Started at 0 with its time due at 10, as through the first set's "Start in".
+    private var startingIn: LoggedWorkout {
+        var early = loggedWorkout
+        early.startedAt = at(10)
+        return early
+    }
+
+    @Test("A pause before the time starts moves the start on, the clock unchanged, no pause kept")
+    func pauseBeforeStart() throws {
+        let paused = startingIn.pausing(at: at(2))
+        let resumed = paused.resuming(at: at(5))
+        #expect(resumed.startedAt == at(13))
+        #expect(resumed.pauses.isEmpty)
+        #expect(resumed.pausedSeconds == 0)
+        #expect(resumed.clock(at: at(5)) == paused.clock(at: at(5)))
+        #expect(resumed.clock(at: at(9)) == startingIn.clock(at: at(6)))
+        // "Start in" runs out and a set is logged as usual: Health gets the start, no pause.
+        let row = try WorkoutExercise.builtIn("Push-up")
+        let finished = resumed
+            .logging(PlannedSet(row: row.id, round: 1), of: row, at: at(20))
+            .finishing(at: at(30))
+        let health = try HealthWorkout(finished, in: .builtIn)
+        #expect(health.start == at(13))
+        #expect(health.pauses.isEmpty)
+    }
+
+    @Test("A set logged ahead of the clock starts the time at the log, after a pause too")
+    func startingClockAfterPause() throws {
+        let row = try WorkoutExercise.builtIn("Push-up")
+        let paused = startingIn.pausing(at: at(2)).resuming(at: at(5))
+        let logged = paused.logging(PlannedSet(row: row.id, round: 1), of: row, at: at(8))
+        #expect(logged.startedAt == at(8))
+        #expect(logged.pauses.isEmpty)
+        #expect(logged.clock(at: at(8)) == 0)
+    }
+
     @Test("Pausing a paused workout and resuming a running one change nothing")
     func noOps() {
         let paused = loggedWorkout.pausing(at: at(10))
