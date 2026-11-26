@@ -22,19 +22,19 @@ struct LookTests {
     nonisolated struct Choice: Equatable, Sendable, CustomStringConvertible {
         let appearance: Appearance
         let isAutomatic: Bool
-        let isTrueBlack: Bool
+        let isVoid: Bool
 
-        init(_ appearance: Appearance, automatic: Bool = false, trueBlack: Bool = false) {
-            (self.appearance, isAutomatic, isTrueBlack) = (appearance, automatic, trueBlack)
+        init(_ appearance: Appearance, automatic: Bool = false, void: Bool = false) {
+            (self.appearance, isAutomatic, isVoid) = (appearance, automatic, void)
         }
 
         @MainActor
         init(_ look: Look) {
-            self.init(look.appearance, automatic: look.isAutomatic, trueBlack: look.isVoid)
+            self.init(look.appearance, automatic: look.isAutomatic, void: look.isVoid)
         }
 
         var description: String {
-            "\(appearance), automatic \(isAutomatic), true black \(isTrueBlack)"
+            "\(appearance), automatic \(isAutomatic), Void \(isVoid)"
         }
     }
 
@@ -43,12 +43,12 @@ struct LookTests {
         try withDefaults { defaults in
             for appearance in Appearance.allCases {
                 for automatic in [false, true] {
-                    for trueBlack in [false, true] {
+                    for void in [false, true] {
                         let look = Look(defaults: defaults)
                         look.appearance = appearance
                         look.isAutomatic = automatic
-                        look.isVoid = trueBlack
-                        let choice = Choice(appearance, automatic: automatic, trueBlack: trueBlack)
+                        look.isVoid = void
+                        let choice = Choice(appearance, automatic: automatic, void: void)
                         #expect(Choice(Look(defaults: defaults)) == choice)
                     }
                 }
@@ -72,7 +72,7 @@ struct LookTests {
             ("light", Choice(.light)),
             ("dark", Choice(.dark)),
             ("auto", Choice(.dark, automatic: true)),
-            ("black-belt", Choice(.dark, trueBlack: true)),
+            ("black-belt", Choice(.dark, void: true)),
         ],
     )
     func fourAppearancesMigrate(stored: String, expected: Choice) throws {
@@ -84,8 +84,8 @@ struct LookTests {
         }
     }
 
-    /// The true-black switch under the key the first build with switches wrote.
-    @Test("The true-black switch stored under its earlier key opens as it was, and moves")
+    /// The Void switch under the key the first build with switches wrote.
+    @Test("The Void switch stored under its earlier key opens as it was, and moves")
     func earlierSwitchKeyMigrates() throws {
         try withDefaults { defaults in
             for isOn in [false, true] {
@@ -132,8 +132,8 @@ struct LookTests {
 
     /// The switch only changes a dark app, so it is offered only where the app can be dark; its
     /// value is kept while it is not, so it comes back as it was.
-    @Test("True black is offered only where the app can be dark, and kept while it isn't")
-    func trueBlackOffered() throws {
+    @Test("Void is offered only where the app can be dark, and kept while it isn't")
+    func voidOffered() throws {
         try withDefaults { defaults in
             let look = Look(defaults: defaults)
             look.choose(.dark)

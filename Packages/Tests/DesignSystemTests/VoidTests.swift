@@ -3,19 +3,19 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// Black belt's colors, on the black screen and on a sheet, keep the ratios their jobs need, as
+/// Void's colors, on the black screen and on a sheet, keep the ratios their jobs need, as
 /// PlusPlus's do: text and active at WCAG 2's 4.5:1, the rail's marks at 3:1 on the screen and on
 /// `well`. A palette can change with every snapshot re-recorded in good faith, so this computes
 /// the ratios from the colors as they resolve; a failure names the ground, the two tokens, and
 /// the ratio.
-@Suite("Black belt")
-nonisolated struct BlackBeltTests {
-    /// Black belt's screen, or a sheet over it.
+@Suite("Void")
+nonisolated struct VoidTests {
+    /// Void's screen, or a sheet over it.
     struct Ground: CustomTestStringConvertible, Sendable {
         let onSheet: Bool
 
         var testDescription: String {
-            onSheet ? "Black belt, on a sheet" : "Black belt"
+            onSheet ? "Void, on a sheet" : "Void"
         }
 
         /// As `Color.pp` resolves it with the switch on, in `scheme`: dark by default, where the

@@ -5,7 +5,7 @@ import SwiftUI
 /// or dark), whether it follows the phone instead (`isAutomatic`), and whether dark is true
 /// black (`isVoid`). Each is stored as it changes. A stored look that names none reads as
 /// `Appearance.initial`. Values stored by earlier builds read as the same choice: the four
-/// appearances (light, dark, auto, black-belt) before the switches, and the true-black switch
+/// appearances (light, dark, auto, black-belt) before the switches, and the Void switch
 /// under its earlier key (`legacyVoidKeys`).
 @Observable
 public final class Look {
@@ -27,7 +27,7 @@ public final class Look {
     public static let appearanceKey = "appearance"
     public static let automaticKey = "appearance-automatic"
     public static let voidKey = "void"
-    /// Where earlier builds kept the true-black switch.
+    /// Where earlier builds kept the Void switch.
     static let legacyVoidKeys = ["black-belt"]
     public static let keys = [appearanceKey, automaticKey, voidKey] + legacyVoidKeys
 
@@ -67,7 +67,7 @@ public final class Look {
         isAutomatic ? nil : appearance.colorScheme
     }
 
-    /// Whether the true-black switch can do anything: the app can be dark, Dark held or
+    /// Whether the Void switch can do anything: the app can be dark, Dark held or
     /// Automatic on.
     public var offersVoid: Bool {
         isAutomatic || appearance == .dark

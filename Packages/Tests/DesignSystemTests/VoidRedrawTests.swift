@@ -6,12 +6,12 @@ import Testing
 import UIKit
 @testable import DesignSystem
 
-/// Black belt chosen recolors what is already on screen: `Color.pp` resolves from the
+/// Void chosen recolors what is already on screen: `Color.pp` resolves from the
 /// environment each time it draws, so a view two levels under the one that holds the choice
 /// redraws in the new colors, with nothing of its own changed. A snapshot draws one moment and
 /// cannot show a change, so this hosts the view and reads what it drew before and after.
-@Suite("Black belt redraw")
-struct BlackBeltRedrawTests {
+@Suite("Void redraw")
+struct VoidRedrawTests {
     @Observable
     final class Chosen {
         var isVoid = false
@@ -56,6 +56,56 @@ struct BlackBeltRedrawTests {
         #expect(Self.near(after, [0, 0, 0]), "After the change: \(after)")
     }
 
+    /// The screen the open drawer slides aside: a plain ground, at the drawer's end.
+    private struct OpenDrawer: View {
+        let isVoid: Bool
+        let scheme: ColorScheme
+
+        var body: some View {
+            SideDrawer(isOpen: .constant(true), progress: 1) {
+                Color.clear
+            } content: {
+                Color.pp(.background).ignoresSafeArea()
+            }
+            .environment(\.isVoid, isVoid)
+            .environment(\.colorScheme, scheme)
+        }
+    }
+
+    /// The sliver of screen beside the open drawer, as 8-bit sRGB.
+    private static func sliver(isVoid: Bool, scheme: ColorScheme) throws -> [Int] {
+        let host = UIHostingController(rootView: OpenDrawer(isVoid: isVoid, scheme: scheme))
+        let window = UIWindow.sceneless(hosting: host, at: .large)
+        defer { window.isHidden = true }
+        window.settle()
+        return try center(of: host, x: host.view.bounds.maxX - DrawerMetrics.sliver / 2)
+    }
+
+    /// In the screen's black the dimmed sliver was as black as the drawer; Void lifts its ground
+    /// to `Palette.voidUnderDrawer`. Light and Dark draw only the dim, as before: Void changes
+    /// nothing where the app is light.
+    @Test("Under an open drawer Void's screen lifts off black, and Light and Dark only dim")
+    func drawerLift() throws {
+        let lift = Palette.voidUnderDrawer
+        let lifted = [lift.red, lift.green, lift.blue].map { Int(($0 * 255).rounded()) }
+        let void = try Self.sliver(isVoid: true, scheme: .dark)
+        #expect(Self.near(void, lifted), "Void: \(void)")
+        let dark = try Self.sliver(isVoid: false, scheme: .dark)
+        #expect(Self.near(dark, Self.dimmed(Self.background(isVoid: false))), "Dark: \(dark)")
+        let light = try Self.sliver(isVoid: false, scheme: .light)
+        #expect(try Self.sliver(isVoid: true, scheme: .light) == light, "Light: \(light)")
+    }
+
+    /// `ground` under PlusPlus dark's `dim`, as the drawer lays it over the screen.
+    private static func dimmed(_ ground: [Int]) -> [Int] {
+        var environment = EnvironmentValues()
+        environment.colorScheme = .dark
+        let dim = Color.pp(.dim).resolve(in: environment)
+        let over = [dim.red, dim.green, dim.blue].map { Double($0) * 255 }
+        let alpha = Double(dim.opacity)
+        return zip(ground, over).map { Int((Double($0) * (1 - alpha) + $1 * alpha).rounded()) }
+    }
+
     /// The dark `background`, as 8-bit sRGB.
     private static func background(isVoid: Bool) -> [Int] {
         var environment = EnvironmentValues()
@@ -70,11 +120,11 @@ struct BlackBeltRedrawTests {
         zip(drawn, expected).allSatisfy { abs($0 - $1) <= 2 }
     }
 
-    /// The window's middle pixel, as 8-bit sRGB, rendered from its layers: the window has no
-    /// scene, so `drawHierarchy` has nothing to copy.
-    private static func center(of host: UIViewController) throws -> [Int] {
+    /// The window's pixel at `x` (its middle by default) halfway down, as 8-bit sRGB, rendered
+    /// from its layers: the window has no scene, so `drawHierarchy` has nothing to copy.
+    private static func center(of host: UIViewController, x: CGFloat? = nil) throws -> [Int] {
         let bounds = host.view.bounds
-        let point = CGRect(x: bounds.midX, y: bounds.midY, width: 1, height: 1)
+        let point = CGRect(x: x ?? bounds.midX, y: bounds.midY, width: 1, height: 1)
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         let image = UIGraphicsImageRenderer(bounds: point, format: format).image {

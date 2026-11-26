@@ -1,8 +1,8 @@
 import Testing
 @testable import DesignSystem
 
-/// The arithmetic Black belt's colors are worked out with. What it makes of them is held by
-/// `BlackBeltTests`; these hold the steps it is made of.
+/// The arithmetic Void's colors are worked out with. What it makes of them is held by
+/// `VoidTests`; these hold the steps it is made of.
 @Suite("Color math")
 nonisolated struct ColorMathTests {
     @Test("sRGB to OKLab and back returns the color within one 8-bit step")

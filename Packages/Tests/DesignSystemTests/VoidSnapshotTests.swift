@@ -5,13 +5,13 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// Black belt as it is drawn: a workout mid-set on the black screen, and a sheet's rows on the
+/// Void as it is drawn: a workout mid-set on the black screen, and a sheet's rows on the
 /// sheet's lifted gray. What its colors keep (their ratios, a sheet's step) is
-/// `BlackBeltTests`'; these hold how they land on screen. Colors only: the layouts at the
+/// `VoidTests`'; these hold how they land on screen. Colors only: the layouts at the
 /// largest text size are the rail's, the current exercise's, and the value row's own snapshots',
 /// so these skip it.
-@Suite("Black belt snapshots")
-struct BlackBeltSnapshotTests {
+@Suite("Void snapshots")
+struct VoidSnapshotTests {
     private static let width: CGFloat = 390
 
     private struct Row: Identifiable {
