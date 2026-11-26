@@ -42,7 +42,7 @@ private final class FakeHealth: Sendable {
                     }
                 }
             },
-            remove: { _ in },
+            remove: { _, _ in },
             save: { _ in UUID() },
         )
     }

@@ -19,10 +19,17 @@ extension HealthClient {
         ask: {
             try await store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: [])
         },
-        remove: { ids in
+        remove: { ids, healthIDs in
             // Removing takes only the write permission, and reads nothing: shown on the
-            // simulator, it removes exactly the tagged workouts, and succeeds when none matches.
-            try await store.deleteObjects(of: .workoutType(), predicate: tagged(ids))
+            // simulator, it removes exactly the tagged workouts, succeeds when none matches, and
+            // takes the tag or Health's own id in one predicate.
+            let predicate = healthIDs.isEmpty ? tagged(ids) : NSCompoundPredicate(
+                orPredicateWithSubpredicates: [
+                    tagged(ids),
+                    HKQuery.predicateForObjects(with: Set(healthIDs)),
+                ],
+            )
+            try await store.deleteObjects(of: .workoutType(), predicate: predicate)
         },
         save: { workout in
             try await save(workout, to: store)

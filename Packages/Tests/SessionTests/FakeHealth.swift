@@ -14,8 +14,14 @@ final class FakeHealth: Sendable {
     let access: Mutex<HealthAccess>
     let accessReads = Mutex(0)
     let asks = Mutex(0)
-    /// The logged workouts of each removal.
+    /// The logged workouts of each removal, and the Health ids it named.
     let removals = Mutex<[[LoggedWorkout.ID]]>([])
+    let removedHealthIDs = Mutex<[[UUID]]>([])
+    /// The logged workouts Health holds a workout for, each Health's id, as saves and removals
+    /// leave them.
+    let inHealth = Mutex<[LoggedWorkout.ID: UUID]>([:])
+    /// Whether removals throw, with access on.
+    let refusesRemovals = Mutex(false)
     /// Each workout saved, with the finished logged workouts the store held as it was.
     let saves = Mutex<[(workout: HealthWorkout, stored: [LoggedWorkout.ID])]>([])
     /// Each logged workout a save was tried for, saved or not.
@@ -103,9 +109,16 @@ final class FakeHealth: Sendable {
                 self.asks.withLock { $0 += 1 }
                 self.access.withLock { $0 = .on }
             },
-            remove: { ids in
+            remove: { ids, healthIDs in
                 try self.allowed()
+                if self.refusesRemovals.withLock({ $0 }) {
+                    throw SaveFailed()
+                }
                 self.removals.withLock { $0.append(ids) }
+                self.removedHealthIDs.withLock { $0.append(healthIDs) }
+                self.inHealth.withLock { held in
+                    held = held.filter { !ids.contains($0.key) && !healthIDs.contains($0.value) }
+                }
             },
             save: { workout in
                 try self.allowed()
@@ -121,18 +134,26 @@ final class FakeHealth: Sendable {
                 }
                 let stored = try await self.store?.finishedLoggedWorkouts() ?? []
                 self.saves.withLock { $0.append((workout, stored.map(\.id))) }
-                return self.returnsNoID.withLock { $0 } ? nil : UUID()
+                let healthID = UUID()
+                self.inHealth.withLock { $0[workout.id] = healthID }
+                return self.returnsNoID.withLock { $0 } ? nil : healthID
             },
         )
     }
 }
 
-/// One in-memory store, whose sessions are launches of the app over it.
+/// One in-memory store and one device's defaults, whose sessions are launches of the app over
+/// them.
 struct HealthFixture {
     let container: ModelContainer
+    private let device = DeviceDefaults()
 
     init() throws {
         container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
+    }
+
+    var defaults: UserDefaults {
+        device.defaults
     }
 
     static func at(_ seconds: Double) -> Date {
@@ -156,7 +177,7 @@ struct HealthFixture {
             exercises: exercises,
             store: hasStore ? store() : nil,
             namer: .muscleGroupsOnly,
-            health: HealthSaving(client: health.client),
+            health: HealthSaving(client: health.client, defaults: defaults),
         )
     }
 
@@ -175,6 +196,19 @@ struct HealthFixture {
         ).finishing(at: Self.at(end))
         try await store().save(finished)
         return finished
+    }
+}
+
+/// A defaults domain of the test's own, on disk as a device's is, removed once the test is done.
+private final class DeviceDefaults: Sendable {
+    let name = "HealthFixture.\(UUID().uuidString)"
+
+    var defaults: UserDefaults {
+        UserDefaults(suiteName: name) ?? .standard
+    }
+
+    deinit {
+        UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
     }
 }
 
