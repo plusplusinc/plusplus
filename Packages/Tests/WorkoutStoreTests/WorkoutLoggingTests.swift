@@ -69,6 +69,11 @@ struct WorkoutLoggingTests {
         #expect(loggedWorkout.sets.map(\.side) == [.left])
         #expect(workout.progress(of: row.id, logged: loggedWorkout.sets)
             == RowProgress(done: 0, total: 3, sidesDone: 1))
+        #expect(
+            RowProgress(done: 0, total: 3, sidesDone: 1).afterSet
+                == RowProgress(done: 1, total: 3, sidesDone: 0),
+            "The set done, so are both its sides",
+        )
         #expect(workout.isStarted(row.id, logged: loggedWorkout.sets))
         #expect(workout.nextSet(after: loggedWorkout.sets)
             == PlannedSet(row: row.id, round: 1, side: .right))

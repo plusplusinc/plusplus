@@ -83,15 +83,15 @@ struct SetSegments: View {
     @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 4
 
     /// Between the two sides of a set, and between two sets done a side at a time.
-    private static let pairGap: CGFloat = 1.5
-    private static let pairsGap: CGFloat = 6
+    @ScaledMetric(relativeTo: .subheadline) private var pairGap: CGFloat = 1.5
+    @ScaledMetric(relativeTo: .subheadline) private var pairsGap: CGFloat = 6
 
     var body: some View {
         let isPerSide = progress.sidesDone != nil
-        HStack(spacing: isPerSide ? Self.pairsGap : Spacing.xs) {
+        HStack(spacing: isPerSide ? pairsGap : Spacing.xs) {
             ForEach(0 ..< max(progress.total, 0), id: \.self) { index in
                 if isPerSide {
-                    HStack(spacing: Self.pairGap) {
+                    HStack(spacing: pairGap) {
                         ForEach(0 ..< 2, id: \.self) { side in
                             segment(color(index, side: side))
                         }
