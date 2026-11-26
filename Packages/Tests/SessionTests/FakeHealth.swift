@@ -2,6 +2,7 @@ import Foundation
 import Health
 import SwiftData
 import Synchronization
+import Testing
 @testable import Session
 @testable import WorkoutStore
 
@@ -14,12 +15,10 @@ final class FakeHealth: Sendable {
     let access: Mutex<HealthAccess>
     let accessReads = Mutex(0)
     let asks = Mutex(0)
-    /// The logged workouts of each removal, and the Health ids it named.
+    /// The logged workouts of each removal.
     let removals = Mutex<[[LoggedWorkout.ID]]>([])
-    let removedHealthIDs = Mutex<[[UUID]]>([])
-    /// The logged workouts Health holds a workout for, each Health's id, as saves and removals
-    /// leave them.
-    let inHealth = Mutex<[LoggedWorkout.ID: UUID]>([:])
+    /// The logged workouts Health holds a workout tagged for, as saves and removals leave them.
+    let inHealth = Mutex<Set<LoggedWorkout.ID>>([])
     /// Whether removals throw, with access on.
     let refusesRemovals = Mutex(false)
     /// Each workout saved, with the finished logged workouts the store held as it was.
@@ -109,16 +108,13 @@ final class FakeHealth: Sendable {
                 self.asks.withLock { $0 += 1 }
                 self.access.withLock { $0 = .on }
             },
-            remove: { ids, healthIDs in
+            remove: { ids in
                 try self.allowed()
                 if self.refusesRemovals.withLock({ $0 }) {
                     throw SaveFailed()
                 }
                 self.removals.withLock { $0.append(ids) }
-                self.removedHealthIDs.withLock { $0.append(healthIDs) }
-                self.inHealth.withLock { held in
-                    held = held.filter { !ids.contains($0.key) && !healthIDs.contains($0.value) }
-                }
+                self.inHealth.withLock { $0.subtract(ids) }
             },
             save: { workout in
                 try self.allowed()
@@ -134,9 +130,8 @@ final class FakeHealth: Sendable {
                 }
                 let stored = try await self.store?.finishedLoggedWorkouts() ?? []
                 self.saves.withLock { $0.append((workout, stored.map(\.id))) }
-                let healthID = UUID()
-                self.inHealth.withLock { $0[workout.id] = healthID }
-                return self.returnsNoID.withLock { $0 } ? nil : healthID
+                self.inHealth.withLock { _ = $0.insert(workout.id) }
+                return self.returnsNoID.withLock { $0 } ? nil : UUID()
             },
         )
     }
@@ -146,14 +141,13 @@ final class FakeHealth: Sendable {
 /// them.
 struct HealthFixture {
     let container: ModelContainer
-    private let device = DeviceDefaults()
+    let defaults: UserDefaults
+    private let device: DeviceDefaults
 
     init() throws {
         container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
-    }
-
-    var defaults: UserDefaults {
-        device.defaults
+        device = DeviceDefaults()
+        defaults = try #require(UserDefaults(suiteName: device.name))
     }
 
     static func at(_ seconds: Double) -> Date {
@@ -202,10 +196,6 @@ struct HealthFixture {
 /// A defaults domain of the test's own, on disk as a device's is, removed once the test is done.
 private final class DeviceDefaults: Sendable {
     let name = "HealthFixture.\(UUID().uuidString)"
-
-    var defaults: UserDefaults {
-        UserDefaults(suiteName: name) ?? .standard
-    }
 
     deinit {
         UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)

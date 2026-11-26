@@ -57,10 +57,12 @@ extension AppSession {
     /// the next. What wasn't saved, or came back with no id, stays owed, and the next catch-up
     /// saves it again, in place of any Health kept.
     ///
-    /// Then the removals owed for workouts deleted from Log, in one call, after the saves on the
-    /// same queue, so a removal never runs beside a save of the same workout. A workout deleted
-    /// before its turn in the saves is skipped; one deleted during its own save is removed here
-    /// or by the catch-up its delete asks for. While saving is off they stay owed.
+    /// First, the removals owed for workouts deleted from Log, in one call, on the same queue as
+    /// the saves, so a removal never runs beside a save of the same workout. Each one's workout
+    /// is gone from the store by then, so the saves can't owe it, and a save that fails never
+    /// holds a removal back. A workout deleted before its turn in the saves is skipped; one
+    /// deleted during its own save is removed by the catch-up its delete asked for. While saving
+    /// is off they stay owed.
     private func runCatchUp() async {
         // Cleared before the wait, so an ask from here on queues a run that reads after it: a
         // finish's write sent after this wait began wouldn't be in this run's read.
@@ -70,21 +72,21 @@ extension AppSession {
         let removals = health.removalsOwed
         await loggedWorkoutWritesLanded()
         await health.refreshed()
-        guard health.access == .on, let store,
-              await settleRemovals(removals, in: store),
-              await saveOwed(from: store)
-        else { return }
-        await makeRemovals(removals)
+        guard health.access == .on, let store else { return }
+        if await settleRemovals(removals, in: store) {
+            await makeRemovals(removals)
+            // A refused removal read the access again: off, nothing would save.
+            guard health.access == .on else { return }
+        }
+        await saveOwed(from: store)
     }
 
     /// Drops the removals whose delete never landed, as when the store refused it or the app
     /// closed before it, so their workout is saved as owed; false when the store didn't answer.
-    private func settleRemovals(_ removals: [HealthSaving.OwedRemoval], in store: Store) async
-        -> Bool
-    {
+    private func settleRemovals(_ removals: [LoggedWorkout.ID], in store: Store) async -> Bool {
         guard !removals.isEmpty else { return true }
         do {
-            try await health.forgetRemovals(of: store.heldLoggedWorkouts(among: removals.map(\.id)))
+            try await health.forgetRemovals(of: store.heldLoggedWorkouts(among: removals))
             return true
         } catch {
             Logger.session.error("Which deleted workouts are gone didn't load: \(error)")
@@ -93,8 +95,8 @@ extension AppSession {
     }
 
     /// Makes the removals still owed of `removals`; one Health refuses stays owed for the next.
-    private func makeRemovals(_ removals: [HealthSaving.OwedRemoval]) async {
-        let owed = removals.filter { health.owesRemoval(of: $0.id) }
+    private func makeRemovals(_ removals: [LoggedWorkout.ID]) async {
+        let owed = removals.filter(health.owesRemoval(of:))
         guard !owed.isEmpty else { return }
         do {
             try await health.makeRemovals(owed)
@@ -104,16 +106,16 @@ extension AppSession {
         }
     }
 
-    /// The saves of the run, as above; false when the run stops.
-    private func saveOwed(from store: Store) async -> Bool {
+    /// The saves of the run, as above.
+    private func saveOwed(from store: Store) async {
         let owed: [LoggedWorkout]
         do {
             owed = try await store.owedToHealth()
         } catch {
             Logger.session.error("What Apple Health is owed didn't load: \(error)")
-            return false
+            return
         }
-        guard !owed.isEmpty else { return true }
+        guard !owed.isEmpty else { return }
         // One removal for the run, then saves that only add: a workout is owed only while the
         // store has no Health id for it, so everything a save of it may have left (a run killed
         // after Health's save, before its id was kept) carries a tag removed here, and a
@@ -124,7 +126,7 @@ extension AppSession {
         } catch {
             Logger.session.error("Apple Health didn't remove the app's workouts: \(error)")
             await health.refreshed()
-            return false
+            return
         }
         for finished in owed {
             // Deleted from Log since the read: never saved.
@@ -139,7 +141,7 @@ extension AppSession {
                 // come back in the same order every run.
                 Logger.session.error("Apple Health didn't take a workout: \(error)")
                 await health.refreshed()
-                guard health.access == .on else { return false }
+                guard health.access == .on else { return }
                 continue
             }
             guard let healthID else { continue }
@@ -149,7 +151,6 @@ extension AppSession {
                 Logger.session.error("A workout's Apple Health id didn't save: \(error)")
             }
         }
-        return true
     }
 
     /// Returns once every Health job asked for so far has run. For tests.

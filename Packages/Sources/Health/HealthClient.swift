@@ -18,9 +18,9 @@ public struct HealthClient: Sendable {
     public var access: @Sendable () -> HealthAccess
     /// Brings up Apple's sheet, asking only to write workouts; returns at once if answered before.
     public var ask: @Sendable () async throws -> Void
-    /// Removes, in one call, every workout the app saved for any of the logged workouts, by the
-    /// tag each carries, and every Health workout among the ids given; succeeds when none is there.
-    public var remove: @Sendable ([LoggedWorkout.ID], [UUID]) async throws -> Void
+    /// Removes every workout the app saved for any of the logged workouts, by the tag each
+    /// carries; succeeds when none is there.
+    public var remove: @Sendable ([LoggedWorkout.ID]) async throws -> Void
     /// Saves one workout, tagged with its logged workout's id, and returns Health's id for it;
     /// nil when Health saved it but didn't hand it back, as with the phone locked. A save adds:
     /// to replace what an earlier save left, `remove` its logged workout first. Callers make one
@@ -31,7 +31,7 @@ public struct HealthClient: Sendable {
     public init(
         access: @escaping @Sendable () -> HealthAccess,
         ask: @escaping @Sendable () async throws -> Void,
-        remove: @escaping @Sendable ([LoggedWorkout.ID], [UUID]) async throws -> Void,
+        remove: @escaping @Sendable ([LoggedWorkout.ID]) async throws -> Void,
         save: @escaping @Sendable (HealthWorkout) async throws -> UUID?,
     ) {
         self.access = access
@@ -44,7 +44,7 @@ public struct HealthClient: Sendable {
     public static let unavailable = Self(
         access: { .unavailable },
         ask: { },
-        remove: { _, _ in },
+        remove: { _ in },
         save: { _ in nil },
     )
 }

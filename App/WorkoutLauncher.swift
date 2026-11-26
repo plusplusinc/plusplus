@@ -76,7 +76,7 @@ struct WorkoutLauncher: View {
                         exercises: exercises(),
                         store: store,
                         namer: namer,
-                        health: health,
+                        health: HealthSaving(client: healthClient),
                     )
                     // A timed set that ran out while the app was away is logged, before the
                     // screen opens on the workout.
@@ -100,15 +100,12 @@ struct WorkoutLauncher: View {
         }
     }
 
-    /// The live Health keeps the removals it owes on the device; a fake keeps them in memory, so
-    /// none reaches the next launch's live one.
-    private var health: HealthSaving {
+    private var healthClient: HealthClient {
         #if DEBUG
-        if let client = LaunchOptions.healthClient {
-            return HealthSaving(client: client)
-        }
+        LaunchOptions.healthClient ?? .live
+        #else
+        .live
         #endif
-        return HealthSaving(client: .live, defaults: .standard)
     }
 
     /// Read after `launch()`, which may reset the store first.

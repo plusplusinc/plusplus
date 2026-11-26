@@ -26,12 +26,14 @@ extension AppSession {
     /// workout's writes, so an End still landing can't bring it back. The store refuses the one
     /// in progress. A delete that fails is logged, and the read leaves the workout listed.
     ///
-    /// Apple Health is owed its removal from before the delete is sent, on the device, so a
-    /// relaunch still makes it, and a catch-up still to save it skips it; the catch-up asked
-    /// here makes it, or drops it if the delete never landed. Nothing waits on Health, and
-    /// nothing it answers shows.
+    /// Deleted from Log means removed from Apple Health, and this is where that rule lives:
+    /// `Store.deleteLoggedWorkout(_:)` knows nothing of Health. The removal is owed from before
+    /// the delete is sent, on the device, so a relaunch still makes it, and a catch-up still to
+    /// save the workout skips it; the catch-up asked here makes it, by the workout's tag, or
+    /// drops it if the delete never landed. Nothing waits on Health, and nothing it answers
+    /// shows.
     public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) async {
-        health.oweRemoval(of: id, healthID: log?.loggedWorkout(id: id)?.healthWorkoutID)
+        health.oweRemoval(of: id)
         loggedWorkoutWrites.yield(.delete(id))
         catchUpHealth()
         await refreshLog()

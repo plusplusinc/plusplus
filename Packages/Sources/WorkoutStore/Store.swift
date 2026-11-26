@@ -117,7 +117,8 @@ public actor Store {
 
     /// Deletes a finished logged workout and its sets; nothing if there is none, or if it is still
     /// in progress, which only Discard ends without keeping. Its workout stays, as it holds no
-    /// link to it. A delete that doesn't save is undone (`saveOrRollback()`).
+    /// link to it. A delete that doesn't save is undone (`saveOrRollback()`). Its removal from
+    /// Apple Health is `AppSession.deleteLoggedWorkout(_:)`'s, the one caller.
     public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) throws {
         guard let stored = try storedLoggedWorkout(id: id), stored.endedAt != nil else { return }
         modelContext.delete(stored)

@@ -5,7 +5,7 @@ import Testing
 @testable import WorkoutStore
 
 /// Deleting a workout from Log takes it out of Apple Health: the removal is owed on the device
-/// from before the delete is sent, made by a catch-up after its saves, and never lets a
+/// from before the delete is sent, made by a catch-up before its saves, and never lets a
 /// deleted workout be saved. A relaunch is a second session over the same store and defaults.
 @Suite("Apple Health delete")
 struct HealthDeleteTests {
@@ -22,25 +22,24 @@ struct HealthDeleteTests {
         return session
     }
 
-    /// `finished`, saved to Health by a catch-up, with its Health id.
-    private func inHealth(_ finished: LoggedWorkout, _ health: FakeHealth) async throws -> UUID {
+    /// `finished`, saved to Health by a catch-up.
+    private func inHealth(_ finished: LoggedWorkout, _ health: FakeHealth) async throws {
         await fixture.launched(health).caughtUpHealth()
-        return try #require(health.inHealth.withLock { $0[finished.id] })
+        try #require(health.inHealth.withLock { $0.contains(finished.id) })
     }
 
-    @Test("A workout in Health deleted from Log leaves Health, by its tag and Health's id")
+    @Test("A workout in Health deleted from Log leaves Health, by its tag")
     func deleteRemoves() async throws {
         let deleted = try await fixture.seedFinished(100, 200)
         let kept = try await fixture.seedFinished(300, 400)
         let health = FakeHealth(.on)
-        let healthID = try await inHealth(deleted, health)
+        try await inHealth(deleted, health)
         let session = await showingLog(health)
         await session.deleteLoggedWorkout(deleted.id)
         await session.healthJobsLanded()
         #expect(session.log?.loggedWorkouts.map(\.id) == [kept.id])
-        #expect(health.inHealth.withLock { $0.keys.sorted() } == [kept.id])
+        #expect(health.inHealth.withLock { $0 } == [kept.id])
         #expect(health.removals.withLock { $0.last } == [deleted.id])
-        #expect(health.removedHealthIDs.withLock { $0.last } == [healthID])
         #expect(session.health.removalsOwed.isEmpty)
     }
 
@@ -48,13 +47,13 @@ struct HealthDeleteTests {
     func refusedRemovalRetried() async throws {
         let deleted = try await fixture.seedFinished(100, 200)
         let health = FakeHealth(.on)
-        _ = try await inHealth(deleted, health)
+        try await inHealth(deleted, health)
         let session = await showingLog(health)
         health.refusesRemovals.withLock { $0 = true }
         await session.deleteLoggedWorkout(deleted.id)
         await session.healthJobsLanded()
         #expect(session.log?.loggedWorkouts == [])
-        #expect(health.inHealth.withLock { $0[deleted.id] } != nil)
+        #expect(health.inHealth.withLock { $0.contains(deleted.id) })
         health.refusesRemovals.withLock { $0 = false }
         await session.caughtUpHealth()
         #expect(health.inHealth.withLock { $0.isEmpty })
@@ -65,7 +64,7 @@ struct HealthDeleteTests {
     func offThenRelaunchRemoves() async throws {
         let deleted = try await fixture.seedFinished(100, 200)
         let health = FakeHealth(.on)
-        _ = try await inHealth(deleted, health)
+        try await inHealth(deleted, health)
         health.access.withLock { $0 = .off }
         let removalsBefore = health.removals.withLock { $0.count }
         let session = await showingLog(health)
@@ -81,16 +80,24 @@ struct HealthDeleteTests {
         #expect(health.removals.withLock { $0.count } == removalsBefore + 1)
     }
 
-    @Test("Never asked, a delete leaves Log and asks Health for no removal")
-    func notAskedRemovesNothing() async throws {
+    @Test(
+        "Never asked, or with no Health, a delete leaves Log and owes no removal, then or once on",
+        arguments: [HealthAccess.notAsked, .unavailable],
+    )
+    func noHealthOwesNothing(access: HealthAccess) async throws {
         let deleted = try await fixture.seedFinished(100, 200)
-        let health = FakeHealth(.notAsked)
+        let health = FakeHealth(access)
         let session = await showingLog(health)
+        // As at launch, the access is read before Log is shown.
+        await session.caughtUpHealth()
         await session.deleteLoggedWorkout(deleted.id)
         await session.healthJobsLanded()
         #expect(session.log?.loggedWorkouts == [])
+        #expect(session.health.removalsOwed.isEmpty)
+        #expect(fixture.defaults.object(forKey: HealthSaving.removalsKey) == nil)
+        health.access.withLock { $0 = .on }
+        await fixture.launched(health).caughtUpHealth()
         #expect(health.removals.withLock { $0.isEmpty })
-        #expect(health.attempts.withLock { $0.isEmpty })
     }
 
     @Test("A workout still owed to Health when deleted is never saved, saving turned on after")
@@ -120,7 +127,26 @@ struct HealthDeleteTests {
         health.release()
         await session.healthJobsLanded()
         #expect(health.attempts.withLock { $0 } == [first.id])
-        #expect(health.inHealth.withLock { $0.keys.sorted() } == [first.id])
+        #expect(health.inHealth.withLock { $0 } == [first.id])
+    }
+
+    @Test("A deleted workout leaves Health before the run's saves, one of which Health refuses")
+    func removalBeforeFailingSave() async throws {
+        let deleted = try await fixture.seedFinished(100, 200)
+        let health = FakeHealth(.on)
+        try await inHealth(deleted, health)
+        let refused = try await fixture.seedFinished(300, 400)
+        health.fails.withLock { $0 = [refused.id] }
+        let session = await showingLog(health)
+        health.holdsNext.withLock { $0 = true }
+        await session.deleteLoggedWorkout(deleted.id)
+        await health.saveHeld()
+        #expect(health.inHealth.withLock { !$0.contains(deleted.id) })
+        health.release()
+        await session.healthJobsLanded()
+        #expect(health.attempts.withLock { $0.last } == refused.id)
+        #expect(health.inHealth.withLock { $0.isEmpty })
+        #expect(session.health.removalsOwed.isEmpty)
     }
 
     @Test("A workout deleted during its own save ends removed, and is never saved again")
@@ -153,37 +179,22 @@ struct HealthDeleteTests {
         #expect(session.health.removalsOwed.isEmpty)
         session.finish(at: HealthFixture.at(70))
         await session.healthJobsLanded()
-        #expect(health.inHealth.withLock { $0.keys.sorted() } == [logged.id])
+        #expect(health.inHealth.withLock { $0 } == [logged.id])
     }
 
-    @Test("Discarding a workout in progress asks Health for nothing")
-    func discardAsksNothing() async throws {
-        let workout = try workoutOfOne()
-        let health = FakeHealth(.on)
-        let session = fixture.launched(health, workout: workout)
-        session.start(on: workout.id, at: HealthFixture.at(10))
-        session.discard()
-        await session.writesLanded()
-        await session.healthJobsLanded()
-        #expect(health.removals.withLock { $0.isEmpty })
-        #expect(health.accessReads.withLock { $0 } == 0)
-        #expect(session.health.removalsOwed.isEmpty)
-    }
-
-    @Test("Removals owed outlive the session in the device's defaults, the newest 100 kept")
+    @Test("Removals owed outlive the session in the device's defaults, every one kept")
     func owedKeptOnDevice() {
-        let saving = HealthSaving(client: .unavailable, defaults: fixture.defaults)
-        let ids = (0 ... HealthSaving.removalsKept).map { _ in UUID() }
-        let healthID = UUID()
+        let client = FakeHealth(.off).client
+        let saving = HealthSaving(client: client, defaults: fixture.defaults)
+        let ids = (0 ..< 150).map { _ in UUID() }
         for id in ids {
-            saving.oweRemoval(of: id, healthID: id == ids.last ? healthID : nil)
+            saving.oweRemoval(of: id)
         }
-        let relaunched = HealthSaving(client: .unavailable, defaults: fixture.defaults)
-        #expect(relaunched.removalsOwed.map(\.id) == Array(ids.dropFirst()))
-        #expect(relaunched.removalsOwed.last?.healthID == healthID)
+        saving.oweRemoval(of: ids[0])
+        let relaunched = HealthSaving(client: client, defaults: fixture.defaults)
+        #expect(relaunched.removalsOwed == ids)
         relaunched.forgetRemovals(of: Set(ids))
-        #expect(HealthSaving(client: .unavailable, defaults: fixture.defaults).removalsOwed
-            .isEmpty)
+        #expect(fixture.defaults.object(forKey: HealthSaving.removalsKey) == nil)
     }
 
     private func workoutOfOne() throws -> Workout {
