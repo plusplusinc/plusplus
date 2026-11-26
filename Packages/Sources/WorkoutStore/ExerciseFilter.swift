@@ -38,6 +38,22 @@ extension Exercise {
     }
 }
 
+extension [Exercise] {
+    /// The kind most of these are, each counted once per place in the list, the rule a
+    /// workout's row and the type Apple Health gets for it both read. A tie goes Strength,
+    /// Conditioning, Stretching; none is Strength.
+    public var kind: ExerciseKind {
+        var kinds: [ExerciseKind: Int] = [:]
+        for exercise in self {
+            kinds[exercise.kind, default: 0] += 1
+        }
+        let order: [ExerciseKind] = [.strength, .conditioning, .stretch]
+        return order.enumerated()
+            .max { (kinds[$0.element] ?? 0, -$0.offset) < (kinds[$1.element] ?? 0, -$1.offset) }?
+            .element ?? .strength
+    }
+}
+
 /// One of the Equipment filter's choices: no equipment at all, or a piece. Declared in the
 /// filter's display order, No equipment first.
 public enum EquipmentChoice: Hashable, Sendable {

@@ -49,27 +49,38 @@ struct HealthActivityTests {
         #expect(try HealthActivity(exercises: Exercise.builtIn(named: names)) == activity)
     }
 
-    @Test("A workout's row and the type Health gets read the same kind")
-    func sameKindAsSummary() throws {
-        let names = ["Burpee", "Jumping jacks", "Push-up", "Hamstring stretch"]
+    @Test("An exercise in three rows counts three times, on the row and in Health alike")
+    func repeatedExercise() throws {
+        // Counted once per exercise, this would be strength: Push-up and Pull-up against Burpee.
+        let names = ["Burpee", "Burpee", "Burpee", "Push-up", "Pull-up"]
         let workout = try Workout(exercises: names.map { try WorkoutExercise.builtIn($0) })
-        let exercises = try Exercise.builtIn(named: names)
+        let logged = LogFixture.loggedWorkout(daysAgo: 0, workout.exercises.map {
+            LogFixture.set($0.exercise.id, .reps(10), row: $0.id)
+        })
+        let health = try HealthWorkout(
+            finished: logged,
+            in: .builtIn,
+            resumedSeconds: 0,
+            pausedSince: nil,
+        )
         #expect(workout.summary?.kind == .conditioning)
-        #expect(exercises.kind == .conditioning)
-        #expect(HealthActivity(exercises: exercises) == .highIntensityIntervals)
+        #expect(health.activity == .highIntensityIntervals)
     }
 
-    @Test("A finished workout's type is from what it logged, each once, the deleted left out")
+    @Test("A finished workout's type counts each row it logged once, the deleted left out")
     func fromLogged() throws {
-        func set(_ id: String, row: UUID = LogFixture.row) -> LoggedSet {
-            LogFixture.set(id, .reps(10), row: row)
+        func set(_ id: String, round: Int = 1, row: UUID = UUID()) -> LoggedSet {
+            LogFixture.set(id, round: round, .reps(10), row: row)
         }
-        // Push-up in two rows counts once, so the kettlebell holds half: traditional. Counted
-        // twice it would be functional. The deleted exercise would tip it either way.
+        // Push-up's three sets in one row count once, so the kettlebell holds half:
+        // traditional. Counted by set it would be functional. The deleted exercise would tip
+        // it either way.
+        let pushUps = UUID()
         let logged = LogFixture.loggedWorkout(daysAgo: 0, [
-            set("push-up"),
+            set("push-up", round: 1, row: pushUps),
+            set("push-up", round: 2, row: pushUps),
+            set("push-up", round: 3, row: pushUps),
             set("goblet-squat"),
-            set("push-up", row: UUID()),
             set("created:gone"),
         ])
         let workout = try HealthWorkout(
@@ -79,13 +90,5 @@ struct HealthActivityTests {
             pausedSince: nil,
         )
         #expect(workout.activity == .traditionalStrength)
-        let bodyweight = LogFixture.loggedWorkout(daysAgo: 0, [set("push-up"), set("pull-up")])
-        let functional = try HealthWorkout(
-            finished: bodyweight,
-            in: .builtIn,
-            resumedSeconds: 0,
-            pausedSince: nil,
-        )
-        #expect(functional.activity == .functionalStrength)
     }
 }

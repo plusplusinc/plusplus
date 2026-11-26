@@ -12,13 +12,11 @@ public enum HealthActivity: Equatable, Sendable {
     /// Mostly stretches.
     case flexibility
 
-    /// The type for a workout of `exercises`, each counted once per place: by the kind most of
-    /// them are (`[Exercise].kind`), the one a workout's row reads, and for strength by its
-    /// strength exercises alone, the others leaving the weights' share unchanged. Counted by
-    /// exercise, not set, as that kind is. Weights are what holds a weight (`Exercise.load`),
-    /// so a pull-up's bar, a band, or a bench alone is bodyweight. An even split, and no
-    /// exercises at all, is traditional strength.
-    public init(exercises: [Exercise]) {
+    /// The type for a workout of `exercises`, by their kind (`[Exercise].kind`); for strength,
+    /// by the share of its strength exercises alone that hold a weight (`Exercise.load`), so a
+    /// pull-up's bar, a band, or a bench alone is bodyweight. Half or more is traditional, as
+    /// are no exercises at all.
+    init(exercises: [Exercise]) {
         switch exercises.kind {
         case .stretch: self = .flexibility
         case .conditioning: self = .highIntensityIntervals
@@ -67,9 +65,10 @@ public struct HealthWorkout: Equatable, Sendable {
 
     /// The workout for `finished`, whose pauses resumed before the finish came to
     /// `resumedSeconds` (the paused seconds it had just before), and which was paused from
-    /// `pausedSince` until its finish, if it was. Its type is from the exercises it logged
-    /// sets of, each once, as they are in `list`; one since deleted is left out. From what was
-    /// done, not the workout's plan, which can change before a later save.
+    /// `pausedSince` until its finish, if it was. Its type is from the rows it logged sets of,
+    /// each row's exercise once as it is in `list`, so an exercise in two rows counts twice,
+    /// as the workout's row counts it (`Workout.summary`); one since deleted is left out. From
+    /// what was done, not the workout's plan, which can change before a later save.
     public init(
         finished: LoggedWorkout,
         in list: ExerciseList,
@@ -79,11 +78,13 @@ public struct HealthWorkout: Equatable, Sendable {
         guard let end = finished.endedAt else { throw .notFinished }
         guard resumedSeconds == 0 else { throw .resumedBefore }
         let lastPause = pausedSince.map { DateInterval(start: min($0, end), end: end) }
+        var rows: Set<WorkoutExercise.ID> = []
+        let rowExercises = finished.sets
+            .filter { rows.insert($0.row).inserted }
+            .compactMap { list.exercise(id: $0.exerciseID) }
         self.init(
             id: finished.id,
-            activity: HealthActivity(
-                exercises: finished.loggedExercises(in: list).compactMap(\.exercise),
-            ),
+            activity: HealthActivity(exercises: rowExercises),
             start: finished.startedAt,
             end: end,
             pauses: lastPause.map { [$0] } ?? [],
