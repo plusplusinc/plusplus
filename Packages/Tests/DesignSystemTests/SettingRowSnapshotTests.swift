@@ -35,7 +35,7 @@ struct SettingRowSnapshotTests {
                 value: "Off",
                 isOn: false,
                 change: .init(
-                    "Turn on in Apple Health",
+                    "Enable in Apple Health",
                     leavesApp: true,
                     note: "Tap your picture",
                 ) { },

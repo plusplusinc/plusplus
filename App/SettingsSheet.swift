@@ -177,7 +177,7 @@ struct HealthChoice: View {
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                change: inHealth("Turn on in Apple Health"),
+                change: inHealth("Enable in Apple Health"),
             )
         }
     }
