@@ -39,14 +39,39 @@ extension AppSession {
         await refreshLog()
     }
 
-    /// Whether Log shows the card that asks to save to Apple Health: offered
-    /// (`HealthSaving.isOffered`), and only while Log holds a finished workout, as the card asks
-    /// to save the workouts there. With the last one deleted it goes, and comes back with the
-    /// next finish unless turned down; the offer itself is kept.
-    public var showsHealthOffer: Bool {
-        health.isOffered && log?.loggedWorkouts.isEmpty == false
+    /// What Log shows above its calendar about Apple Health: a note while one shows
+    /// (`HealthSaving.note`); else the prompt to sync while offered (`HealthSaving.isOffered`),
+    /// and only while Log holds a finished workout, as it asks to sync the workouts there. With
+    /// the last one deleted the prompt goes, and comes back with the next finish unless
+    /// dismissed; the offer itself is kept.
+    public var healthPrompt: HealthPrompt? {
+        if let note = health.note {
+            return .note(note)
+        }
+        guard health.isOffered, log?.loggedWorkouts.isEmpty == false else { return nil }
+        return .ask
     }
 
+    /// The prompt's green button: Apple's sheet, then the catch-up as any ask
+    /// (`askToSaveToHealth()`). Answered Don't Allow, the prompt's note for it takes its place;
+    /// allowed, the prompt goes as the access is read; left unanswered, it stays.
+    public func syncFromPrompt() async {
+        await askToSaveToHealth()
+        if health.access == .off {
+            health.noteDenied()
+        }
+    }
+}
+
+/// Log's Apple Health line above its calendar (`AppSession.healthPrompt`).
+public enum HealthPrompt: Equatable, Sendable {
+    /// "Sync to Apple Health", with its ×.
+    case ask
+    /// Where syncing can be turned on later, until OK.
+    case note(HealthSaving.Note)
+}
+
+extension AppSession {
     /// Log has taken the workout just finished, to bring it into History itself.
     public func takeJustFinished() {
         justFinished = nil

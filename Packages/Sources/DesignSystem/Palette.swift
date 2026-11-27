@@ -69,7 +69,6 @@ nonisolated struct Palette: Sendable {
             .surface: surface.resolved(),
             .surfaceRaised: raised.resolved(),
             .selectionFill: raised.resolved(),
-            .pillOnSurface: stepped(1.69).resolved(),
             .borderStrong: stepped(1.89).resolved(),
             .separator: stepped(2.24).resolved(),
             .toDo: stepped(3.14).resolved(),

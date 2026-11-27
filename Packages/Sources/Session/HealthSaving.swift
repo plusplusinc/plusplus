@@ -26,20 +26,33 @@ public final class HealthSaving {
     @ObservationIgnored private var owedSinceRead: Set<LoggedWorkout.ID> = []
     @ObservationIgnored private let defaults: UserDefaults
 
-    /// Where the card on Log that asks to save to Apple Health stands on this device: nil until
-    /// the first finish since the card came to the app, whatever Health's access was then. Kept
-    /// on the device, not in the store, as Health's answer is the device's: a "Not now" synced
-    /// to another device would hide the card where Apple's sheet was never shown.
+    /// Where the prompt on Log that asks to sync to Apple Health stands on this device: nil
+    /// until the first finish since the prompt came to the app, whatever Health's access was
+    /// then. Kept on the device, not in the store, as Health's answer is the device's: a
+    /// dismissal synced to another device would hide the prompt where Apple's sheet was never
+    /// shown.
     private(set) var offer: Offer?
 
     enum Offer: String {
-        /// A workout was finished since the card came to the app, and the card wasn't turned
-        /// down, whatever Health's access was then. It shows whenever Health reads as never
-        /// asked (`isOffered`): not while it is answered, but again if the answer is undone,
-        /// as by resetting the phone's privacy settings.
+        /// A workout was finished since the prompt came to the app, and it wasn't dismissed,
+        /// whatever Health's access was then. It shows whenever Health reads as never asked
+        /// (`isOffered`): not while it is answered, but again if the answer is undone, as by
+        /// resetting the phone's privacy settings.
         case offered
-        /// "Not now": the card never shows again, and Apple's sheet is left unspent.
+        /// Dismissed with its ×: the prompt never shows again, and Apple's sheet is left
+        /// unspent.
         case declined
+    }
+
+    /// The note that takes the prompt's place on Log for a moment, saying where syncing can be
+    /// turned on later; nil while none shows. In memory only: after a relaunch it is gone.
+    public private(set) var note: Note?
+
+    public enum Note: Equatable, Sendable {
+        /// The prompt was dismissed: Settings can still turn syncing on.
+        case dismissed
+        /// Apple's sheet was answered Don't Allow: only the Health app can turn it on.
+        case denied
     }
 
     /// The key the removals owed are kept under, for a reset.
@@ -58,10 +71,10 @@ public final class HealthSaving {
     }
 
     /// Whether the card that asks to save to Apple Health is offered: a finish has made the
-    /// offer, "Not now" hasn't turned it down, and the system reads Health as never asked. While
+    /// offer, its × hasn't dismissed it, and the system reads Health as never asked. While
     /// Apple's sheet is answered, from the card or Settings, or with Health unavailable, it is
     /// not, with nothing more stored: it is the access read that takes it back. Log shows it
-    /// only while it holds a finished workout (`AppSession.showsHealthOffer`).
+    /// only while it holds a finished workout (`AppSession.healthPrompt`).
     var isOffered: Bool {
         offer == .offered && access == .notAsked
     }
@@ -74,9 +87,20 @@ public final class HealthSaving {
         keepOffer(.offered)
     }
 
-    /// "Not now" on the card: it goes for good; Settings' row still asks.
+    /// The prompt's ×: it goes for good, its note in its place; Settings' row still asks.
     public func declineOffer() {
         keepOffer(.declined)
+        note = .dismissed
+    }
+
+    /// Shows the note for a Don't Allow answered from the prompt.
+    func noteDenied() {
+        note = .denied
+    }
+
+    /// The note's OK, its fill run out, or Log left: it goes.
+    public func endNote() {
+        note = nil
     }
 
     private func keepOffer(_ offer: Offer) {

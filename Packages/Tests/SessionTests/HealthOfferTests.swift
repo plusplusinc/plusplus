@@ -123,3 +123,10 @@ struct HealthOfferTests {
         #expect(!session.showsHealthOffer)
     }
 }
+
+extension AppSession {
+    /// Whether Log shows the prompt's ask, rather than a note or nothing.
+    fileprivate var showsHealthOffer: Bool {
+        healthPrompt == .ask
+    }
+}

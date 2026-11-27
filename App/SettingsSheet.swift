@@ -127,22 +127,29 @@ struct AppearanceChoice: View {
     }
 }
 
-/// Apple Health's one row, "Save workouts", reading On or Off from the system's permission. It
-/// is not a switch: Apple asks apps to leave Health sharing to the system's privacy settings.
-/// Never asked, a tap brings up Apple's sheet; once answered, the row only shows the answer.
+/// Apple Health's one row, "Sync workouts", from the system's permission. It is not a switch:
+/// Apple asks apps to leave Health sharing to the system's privacy settings, so nothing here
+/// turns syncing off. Never asked, a green "Turn on" brings up Apple's sheet; allowed, it reads
+/// On; denied, Off, with where in the Health app to turn it on under a hairline. Dismissing
+/// Log's prompt changes nothing here.
 struct HealthChoice: View {
     let health: HealthSaving
-    /// The ask, and once allowed, every workout already in Log saved
+    /// The ask, and once allowed, every workout already in Log synced
     /// (`AppSession.askToSaveToHealth()`).
     let ask: () async -> Void
 
+    static let offNote =
+        "To turn it on, open the Health app, tap your picture, then Privacy, Apps, PlusPlus."
+
     var body: some View {
-        SettingRow(
-            "Save workouts",
-            value: health.access == .on ? "On" : "Off",
-            hint: "Asks to save workouts to Apple Health",
-            action: health.access == .notAsked ? { Task { await ask() } } : nil,
-        )
+        switch health.access {
+        case .notAsked:
+            SettingRow("Sync workouts", button: "Turn on") { Task { await ask() } }
+        case .on:
+            SettingRow("Sync workouts", value: "On")
+        default:
+            SettingRow("Sync workouts", value: "Off", note: Self.offNote)
+        }
     }
 }
 

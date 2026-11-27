@@ -14,9 +14,9 @@ struct SettingRowSnapshotTests {
     @Test("Never asked, on, and off, each on its card")
     func states() {
         let view = VStack(spacing: Spacing.md) {
-            SettingRow("Save workouts", value: "Off", hint: "Asks to save workouts") { }
-            SettingRow("Save workouts", value: "On")
-            SettingRow("Save workouts", value: "Off")
+            SettingRow("Sync workouts", button: "Turn on") { }
+            SettingRow("Sync workouts", value: "On")
+            SettingRow("Sync workouts", value: "Off", note: "To turn it on, open the Health app.")
         }
         .padding(Spacing.md)
         .sheetGround()
