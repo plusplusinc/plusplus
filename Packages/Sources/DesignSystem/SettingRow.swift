@@ -6,8 +6,8 @@ import SwiftUI
 /// is the system's answer, which the app only reads. Under a hairline in the same card, a
 /// button as wide as the card that changes it (`Change`), neutral when the setting is on and
 /// green when it is off, the state with something to do; an arrow after its words when it
-/// leaves the app for where the setting lives; and under it a line on what it does or where to
-/// go from there. VoiceOver reads the name and the value as one element.
+/// leaves the app for where the setting lives; and under it, then, a line on where to go from
+/// there. VoiceOver reads the name and the value as one element.
 public struct SettingRow: View {
     private let title: String
     private let value: String
@@ -22,10 +22,15 @@ public struct SettingRow: View {
     public struct Change {
         let title: String
         let leavesApp: Bool
-        let note: String
+        let note: String?
         let action: () -> Void
 
-        public init(_ title: String, leavesApp: Bool, note: String, action: @escaping () -> Void) {
+        public init(
+            _ title: String,
+            leavesApp: Bool,
+            note: String? = nil,
+            action: @escaping () -> Void,
+        ) {
             self.title = title
             self.leavesApp = leavesApp
             self.note = note
@@ -59,10 +64,12 @@ public struct SettingRow: View {
                     }
                 }
                 .buttonStyle(isOn ? .pillOnSurface(widens: true) : .greenPill(widens: true))
-                Text(change.note)
-                    .font(.ppCaption)
-                    .foregroundStyle(.pp(.textSecondary))
-                    .fixedSize(horizontal: false, vertical: true)
+                if let note = change.note {
+                    Text(note)
+                        .font(.ppCaption)
+                        .foregroundStyle(.pp(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(.top, Spacing.sm + Spacing.xs)
             .padding(.bottom, Spacing.md)
@@ -106,7 +113,7 @@ public struct SettingRow: View {
             "Sync workouts",
             value: "Off",
             isOn: false,
-            change: .init("Turn on", leavesApp: false, note: "Syncs each workout you finish") { },
+            change: .init("Sync to Apple Health", leavesApp: false) { },
         )
         SettingRow(
             "Sync workouts",

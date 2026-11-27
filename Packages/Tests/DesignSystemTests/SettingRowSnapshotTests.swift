@@ -18,7 +18,7 @@ struct SettingRowSnapshotTests {
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                change: .init("Turn on", leavesApp: false, note: "Syncs each workout") { },
+                change: .init("Sync to Apple Health", leavesApp: false) { },
             )
             SettingRow(
                 "Sync workouts",
