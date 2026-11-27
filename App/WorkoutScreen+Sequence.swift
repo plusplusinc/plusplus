@@ -44,9 +44,9 @@ extension WorkoutScreen {
         sequence.cancel()
         // A timed set the stopped sequence was landing on counts from now; stopped within
         // Start, the first set's "Start in" begins here, as at Start's landing.
-        session.landOnFirstSet(override: restOverride)
+        session.landOnFirstSet()
         withTransaction(\.disablesAnimations, true) {
-            phase.settleAtOnce(resuming: live, restOverride: restOverride, at: .now)
+            phase.settleAtOnce(resuming: live, at: .now)
             closingRoomTop = nil
             isCrossfading = false
             // Start's ride down, and any lift drawn for a motion, are over.

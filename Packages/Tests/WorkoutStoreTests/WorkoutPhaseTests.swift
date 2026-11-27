@@ -229,11 +229,7 @@ struct WorkoutPhaseTests {
             for hasLiveWorkout in [false, true] {
                 var stopped = phase
                 let live = LiveWorkout(workout: Workout(), loggedWorkout: Self.loggedWorkout)
-                stopped.settleAtOnce(
-                    resuming: hasLiveWorkout ? live : nil,
-                    restOverride: nil,
-                    at: .now,
-                )
+                stopped.settleAtOnce(resuming: hasLiveWorkout ? live : nil, at: .now)
                 #expect(
                     stopped == (hasLiveWorkout ? .running : .idle),
                     "\(phase), \(hasLiveWorkout)",

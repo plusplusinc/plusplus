@@ -1,4 +1,29 @@
 import Foundation
+import Synchronization
+
+extension LiveWorkout {
+    #if DEBUG
+    /// For the UI tests, every rest's length a workout runs where it has one, never where it has
+    /// none, as between a set's sides: set once, as the app reads its launch arguments
+    /// (`-seedRest`), so nothing passes it along. The workout's own rests, and the lengths worked
+    /// out from them, are left as stored. Compiled out of release builds.
+    public static func overrideRests(with seconds: Int?) {
+        restOverride.withLock { $0 = seconds }
+    }
+
+    private static let restOverride = Mutex<Int?>(nil)
+    #endif
+
+    /// `stored`, a rest the workout has, as it runs: in a debug build, the UI tests' length where
+    /// one is set (`overrideRests(with:)`).
+    public static func running(rest stored: Int) -> Int {
+        #if DEBUG
+        stored > 0 ? restOverride.withLock { $0 } ?? stored : 0
+        #else
+        stored
+        #endif
+    }
+}
 
 extension Workout {
     /// The rest between `set` and `next`, in seconds, as the workout stores it now: none after the
@@ -99,14 +124,12 @@ extension LiveWorkout {
 
     /// The rest after the last set logged, while there is one: nil with no gap after it, a set
     /// logged before its clock was kept, or nothing left to do. Whether it is over is the
-    /// caller's, at its moment. `override`, for the UI tests, replaces every rest's length where
-    /// the workout has one, never where it has none, as between a set's sides.
-    public func rest(override: Int? = nil) -> WorkoutRest? {
+    /// caller's, at its moment.
+    public func rest() -> WorkoutRest? {
         guard let last = loggedWorkout.sets.last, let start = last.clockWhenLogged,
               let next = currentSet
         else { return nil }
-        let stored = workout.rest(after: last.planned, before: next)
-        let gap = stored > 0 ? override ?? stored : 0
+        let gap = Self.running(rest: workout.rest(after: last.planned, before: next))
         guard gap > 0 else { return nil }
         return WorkoutRest(
             after: last.planned,
@@ -120,8 +143,8 @@ extension LiveWorkout {
     /// The rest after `set`, while it is the one after the last set logged: nil after any other.
     /// A screen drawing the workout without a set just logged finds the rest before that set,
     /// which, skipped, still shows the time it had.
-    public func rest(after set: PlannedSet, override: Int? = nil) -> WorkoutRest? {
-        rest(override: override).flatMap { $0.after == set ? $0 : nil }
+    public func rest(after set: PlannedSet) -> WorkoutRest? {
+        rest().flatMap { $0.after == set ? $0 : nil }
     }
 
     /// How long before `set` begins its count's "Start in" does, with its hold; 0 for none.
@@ -133,12 +156,8 @@ extension LiveWorkout {
     /// The workout with the rest running after the last set made longer by `seconds`, as a +15 s
     /// tap does, at `now`. Unchanged with no rest running, or once it takes no taps
     /// (`WorkoutRest.takesTaps(atClock:)`), or once the next set's count has begun.
-    public func extendingRest(
-        by seconds: Int,
-        override: Int? = nil,
-        at now: Date,
-    ) -> LoggedWorkout {
-        guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(override: override),
+    public func extendingRest(by seconds: Int, at now: Date) -> LoggedWorkout {
+        guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(),
               rest.takesTaps(atClock: loggedWorkout.clock(at: now))
         else { return loggedWorkout }
         var extended = loggedWorkout
@@ -153,11 +172,11 @@ extension LiveWorkout {
     /// set has a count due, a "Start in" or a timed set's own, it is begun here, from that move,
     /// so a relaunch finds the count where the screen had it. Unchanged with no rest running, or
     /// once it takes no taps (`WorkoutRest.takesTaps(atClock:)`).
-    public func skippingRest(override: Int? = nil, at now: Date) -> LoggedWorkout {
+    public func skippingRest(at now: Date) -> LoggedWorkout {
         let clock = loggedWorkout.clock(at: now)
         // A count begun once the rest moved on is its set's, though an edit that lengthens the
         // rest runs it again: a skip then would begin the set over. +15 s refuses it alike.
-        guard loggedWorkout.isInProgress, setCount == nil, var rest = rest(override: override),
+        guard loggedWorkout.isInProgress, setCount == nil, var rest = rest(),
               rest.takesTaps(atClock: clock)
         else { return loggedWorkout }
         var skipped = loggedWorkout
@@ -174,27 +193,21 @@ extension LiveWorkout {
     /// exercise down the rail, or back up a superset's loop to its next round, with a rest after
     /// it; or on to the same row's next set, with a rest between its sets, after a set's last side
     /// when it is done one side at a time, never between its sides.
-    public func rests(after set: PlannedSet, leadingTo step: Step, override: Int? = nil) -> Bool {
-        restLength(after: set, leadingTo: step, override: override) > 0
-            && rest(override: override) != nil
+    public func rests(after set: PlannedSet, leadingTo step: Step) -> Bool {
+        restLength(after: set, leadingTo: step) > 0 && rest() != nil
     }
 
     /// The seconds of rest logging `set` leading to `step` runs, 0 for none, which a screen can
-    /// promise before the log: `rests(after:leadingTo:override:)`'s rule.
-    public func restLength(
-        after set: PlannedSet,
-        leadingTo step: Step,
-        override: Int? = nil,
-    ) -> Int {
-        let stored: Int
-        switch step {
+    /// promise before the log: `rests(after:leadingTo:)`'s rule.
+    public func restLength(after set: PlannedSet, leadingTo step: Step) -> Int {
+        let stored = switch step {
         case let .nextExercise(next, isBack, _) where !isBack || workout.isInSuperset(set.row):
-            stored = workout.rest(after: set, before: next)
+            workout.rest(after: set, before: next)
         case .nextSet:
-            stored = workout.restBetweenSets(after: set) ?? 0
+            workout.restBetweenSets(after: set) ?? 0
         default:
-            return 0
+            0
         }
-        return stored > 0 ? override ?? stored : 0
+        return Self.running(rest: stored)
     }
 }

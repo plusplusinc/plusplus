@@ -191,7 +191,7 @@ extension WorkoutScreen {
         guard phase.log(
             set,
             leadingTo: step,
-            rests: live?.rests(after: set, leadingTo: step, override: restOverride) ?? false,
+            rests: live?.rests(after: set, leadingTo: step) ?? false,
             moves: !reduceMotion,
         )
         else { return }

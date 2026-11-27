@@ -62,22 +62,38 @@ public struct KeyFill: Equatable, Sendable {
 
     /// The run on to full as a count ends early: as quick as half a key's swap, easing out.
     static let runOn = Animation.easeOut(duration: PrimaryKeyButtonStyle.swapHalf)
+
+    /// The time between two of the fill's redraws on a face `width` points wide at `scale` pixels
+    /// a point: as long as its edge takes to move a pixel, so a long rest's fill redraws a few
+    /// times a second, never more often than 60 a second. On ProMotion, 120 moved a long rest's
+    /// fill under a point a frame.
+    func redrawInterval(width: CGFloat, scale: CGFloat) -> TimeInterval {
+        let pixels = width * scale
+        guard pixels > 0 else { return Self.fastestRedraw }
+        return max(Self.fastestRedraw, length / pixels)
+    }
+
+    private static let fastestRedraw = 1.0 / 60
 }
 
-/// A key face's fill from its leading edge, redrawn each frame while it runs, in `color`: the
-/// done purple, held in it while paused, as the key swaps to Continue. As a mask, the part of
-/// the label over it.
+/// A key face's fill from its leading edge, redrawn as its edge moves a pixel while it runs
+/// (`KeyFill.redrawInterval(width:scale:)`), in `color`: the done purple, held in it while
+/// paused, as the key swaps to Continue. As a mask, the part of the label over it.
 struct FillingFace: View {
     let filling: KeyFill
     var color: ColorToken?
+    @Environment(\.displayScale) private var scale
 
     var body: some View {
-        // At most 60 a second: on ProMotion, 120 moved a long rest's fill under a point a frame.
-        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: filling.holds)) { context in
-            GeometryReader { geometry in
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            TimelineView(.animation(
+                minimumInterval: filling.redrawInterval(width: width, scale: scale),
+                paused: filling.holds,
+            )) { context in
                 Rectangle()
                     .fill(.pp(color ?? .done))
-                    .frame(width: geometry.size.width * filling.share(at: context.date))
+                    .frame(width: width * filling.share(at: context.date))
                     .animation(KeyFill.runOn, value: filling.isOver)
             }
         }

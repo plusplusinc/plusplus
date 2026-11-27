@@ -95,11 +95,11 @@ extension WorkoutScreen {
     /// dot stays put. Only when `WorkoutKey.extendRest(by:)` says so.
     private func extendRest(by seconds: Int) {
         withAnimation(SetMotion.restRoll) {
-            session.extendRest(by: seconds, override: restOverride)
+            session.extendRest(by: seconds)
         }
     }
 
-    /// Skip rest: the tap is stored with the rest (`LiveWorkout.skippingRest(override:at:)`),
+    /// Skip rest: the tap is stored with the rest (`LiveWorkout.skippingRest(at:)`),
     /// its count holding the time it had left at the tap for `LiveWorkout.skipHold`
     /// (`WorkoutRest.shownLeft(atClock:)`), then ending as one that ran out does, as the rest's
     /// watch says (`watchRest()`). Its keys go at the tap, on the swap a rest's end moves the key
@@ -115,7 +115,7 @@ extension WorkoutScreen {
         // ends from its first frame.
         restSkips += 1
         withAnimation(SetMotion.restSwap) {
-            session.skipRest(override: restOverride, at: now)
+            session.skipRest(at: now)
         }
     }
 
@@ -137,7 +137,7 @@ extension WorkoutScreen {
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,
            let left = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
-               .rest(override: restOverride)
+               .rest()
         {
             let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)
             return KeyFill(length: Double(left.length), ends: ends, pausedLeft: pausedLeft)
