@@ -167,6 +167,46 @@ struct RailPulseTests {
         #expect(RailPulseRun.drawn(still, way: .down, leavesNode: true, origin: .zero).leavesNode)
     }
 
+    @Test(
+        "Out of a rest, as its stop passes the node and goes, the pulse still lands on the node",
+        arguments: [nil, RailRoute.line(from: CGPoint(x: 0, y: 64), to: CGPoint(x: 0, y: 64))],
+    )
+    @MainActor
+    func landsAfterRestCloses(route: RailRoute?) {
+        let node = CGPoint(x: 0, y: 64)
+        // The rest's stop gone, or level with the node as the two pass: no route to run.
+        let drawn = RailPulseRun.drawn(
+            route,
+            landing: node,
+            way: .down,
+            leavesNode: false,
+            origin: .zero,
+        )
+        #expect(drawn.route.points.last == node)
+        // From the head's touching the node to the plop settled, it draws on the node.
+        let touches = SetMotion.travelStart + SetMotion.travel(.down)
+        for step in 0 ... 60 {
+            let time = touches + (PulseShape.runEnd(.down) - touches) * Double(step) / 61
+            let box = PulseShape(
+                time: time,
+                route: drawn.route,
+                size: 14,
+                restingSize: 10,
+                leavesNode: false,
+            ).path(in: .zero).boundingRect
+            #expect(!box.isNull && box.contains(node), "at \(time) s: \(box)")
+        }
+        // Before a run has set off from anywhere, nothing.
+        let unstarted = RailPulseRun.drawn(
+            route,
+            landing: node,
+            way: .down,
+            leavesNode: false,
+            origin: nil,
+        )
+        #expect(unstarted.route.length == 0)
+    }
+
     @Test("Up a loop, the travel shoots off, ends where it lands, and still moves as it lands")
     func loopTravel() {
         #expect(SetMotion.distance(at: 0, .loop) == 0)

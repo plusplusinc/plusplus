@@ -316,6 +316,8 @@ nonisolated struct PulseShape: Shape {
 /// becomes without a seam. With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
     let route: RailRoute?
+    /// Where the run lands, on each frame, while the stop it set off from may be gone.
+    var landing: CGPoint?
     let way: SetMotion.Way
     let run: Int
     var leavesNode = true
@@ -360,9 +362,9 @@ struct RailPulseRun: View {
     }
 
     private var drawnRoute: (route: RailRoute, leavesNode: Bool) {
-        guard let route else { return (RailRoute([]), leavesNode) }
-        return Self.drawn(
+        Self.drawn(
             route,
+            landing: landing,
             way: way,
             leavesNode: leavesNode,
             origin: origin?.run == run ? origin?.point : nil,
@@ -375,13 +377,21 @@ struct RailPulseRun: View {
     /// with it before it shot down (2026-11-19); with a neck to it, the green split and stretched
     /// up after it. Once the node has moved, the pulse leaves it behind at once, in its own
     /// color, and goes on down as one shape. Round a loop it heads up anyway, along the loop
-    /// drawn from the node.
+    /// drawn from the node. With no `route` to run, from `origin` to `landing`: out of a rest
+    /// above a superset's first member, the rest's stop sinks as its room closes and the node
+    /// rises to meet it, so the two pass on one frame, and the stop goes before the pulse lands;
+    /// with nothing drawn then, nothing on the rail was green for 1 to 4 frames (2026-11-27).
     static func drawn(
-        _ route: RailRoute,
+        _ route: RailRoute?,
+        landing: CGPoint? = nil,
         way: SetMotion.Way,
         leavesNode: Bool,
         origin: CGPoint?,
     ) -> (route: RailRoute, leavesNode: Bool) {
+        guard let route, route.length > 0 else {
+            guard let landing, let origin else { return (RailRoute([]), leavesNode) }
+            return (.line(from: origin, to: landing), false)
+        }
         guard way == .down, leavesNode, let origin, let start = route.points.first,
               start != origin
         else { return (route, leavesNode) }

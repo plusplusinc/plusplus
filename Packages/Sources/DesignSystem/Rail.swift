@@ -288,6 +288,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             GeometryReader { proxy in
                 RailPulseRun(
                     route: pulse.flatMap { route($0.from, $0.to, nodes, in: proxy) },
+                    landing: pulse.flatMap { point(of: $0.to, nodes, in: proxy) },
                     way: pulse?.way ?? .down,
                     run: pulse?.run ?? 0,
                     leavesNode: pulse?.from.isNode ?? true,
