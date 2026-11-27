@@ -129,7 +129,8 @@ struct AppearanceChoice: View {
 
 /// Apple Health's one row, "Sync workouts", from the system's permission. It is not a switch:
 /// Apple asks apps to leave Health sharing to the system's privacy settings, so nothing here
-/// turns syncing off. Never asked, a green "Turn on" brings up Apple's sheet; allowed, it reads
+/// turns syncing off. Never asked, a green "Sync to Apple Health", Log's prompt's words, brings up
+/// Apple's sheet; allowed, it reads
 /// On, with a button that opens the Health app and where to go in it; denied, Off, with the
 /// same in green. Dismissing Log's prompt changes nothing here.
 struct HealthChoice: View {
@@ -138,7 +139,7 @@ struct HealthChoice: View {
     /// (`AppSession.askToSaveToHealth()`).
     let ask: () async -> Void
 
-    static let whatSyncs = "Syncs each workout you finish to Apple Health"
+    static let whatSyncs = "Sends each workout you finish, with its type and length"
 
     /// Where to go in Health. The stops after "then" are joined by no-break spaces, so the
     /// line breaks after "then" and none ends on a stop's arrow.
@@ -162,7 +163,7 @@ struct HealthChoice: View {
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                change: .init("Turn on", leavesApp: false, note: Self.whatSyncs) {
+                change: .init("Sync to Apple Health", leavesApp: false, note: Self.whatSyncs) {
                     Task { await ask() }
                 },
             )
