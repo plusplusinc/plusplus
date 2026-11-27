@@ -8,7 +8,8 @@ import XCTest
 /// in view and nothing scrolled. Only the running app's scroll view shows where the list rests;
 /// which set comes next and how long the rest is are `WorkoutLoggingTests`'. Its own test, since
 /// it launches into a workout under way with a rest between exercises (`-seedWorkout 1`,
-/// `-seedRest 30`, which overrides the launch's 0, the later value winning).
+/// `-seedRest 30`, which overrides the launch's 0, the later value winning). In that rest it then
+/// runs the count and its keys, the one UI check of a rest's countdown (`runRestKeys(in:)`).
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RestAfterAddUITests: XCTestCase {
