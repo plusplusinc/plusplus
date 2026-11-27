@@ -141,7 +141,7 @@ struct HealthChoice: View {
     /// Where to go in Health. The stops after "then" are joined by no-break spaces, so the
     /// line breaks after "then" and none ends on a stop's arrow.
     static let healthPath =
-        "In Health, tap your picture,\u{A0}then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
+        "Tap your picture,\u{A0}then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
 
     private func leave(_ title: String) -> SettingRow.Leave {
         .init(title, note: Self.healthPath) { openURL(Self.healthApp) }
