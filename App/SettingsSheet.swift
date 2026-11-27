@@ -138,10 +138,8 @@ struct HealthChoice: View {
     /// (`AppSession.askToSaveToHealth()`).
     let ask: () async -> Void
 
-    static let onNote =
-        "To change this, open the Health app, tap your picture, then Privacy, Apps, PlusPlus."
-    static let offNote =
-        "To turn it on, open the Health app, tap your picture, then Privacy, Apps, PlusPlus."
+    static let onNote = "Managed in the Health app: your picture › Privacy › Apps › PlusPlus"
+    static let offNote = onNote
 
     private func openHealth() {
         openURL(Self.healthApp)
