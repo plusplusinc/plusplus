@@ -119,13 +119,13 @@ public struct SettingRow: View {
             "Sync workouts",
             value: "On",
             isOn: true,
-            change: .init("Manage in Health", leavesApp: true, note: path) { },
+            change: .init("Manage in Apple Health", leavesApp: true, note: path) { },
         )
         SettingRow(
             "Sync workouts",
             value: "Off",
             isOn: false,
-            change: .init("Turn on in Health", leavesApp: true, note: path) { },
+            change: .init("Turn on in Apple Health", leavesApp: true, note: path) { },
         )
     }
     .padding(Spacing.md)

@@ -109,7 +109,7 @@ extension LogScreen {
     static func healthNoteText(_ note: HealthSaving.Note) -> String {
         switch note {
         case .dismissed: "You can turn on Apple Health sync later in Settings."
-        case .denied: "You can turn on Apple Health sync later in the Health app."
+        case .denied: "You can turn on Apple Health sync later in the Apple Health app."
         }
     }
 

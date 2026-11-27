@@ -170,14 +170,14 @@ struct HealthChoice: View {
                 "Sync workouts",
                 value: "On",
                 isOn: true,
-                change: inHealth("Manage in Health"),
+                change: inHealth("Manage in Apple Health"),
             )
         default:
             SettingRow(
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                change: inHealth("Turn on in Health"),
+                change: inHealth("Turn on in Apple Health"),
             )
         }
     }

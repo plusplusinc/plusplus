@@ -24,13 +24,21 @@ struct SettingRowSnapshotTests {
                 "Sync workouts",
                 value: "On",
                 isOn: true,
-                change: .init("Manage in Health", leavesApp: true, note: "Tap your picture") { },
+                change: .init(
+                    "Manage in Apple Health",
+                    leavesApp: true,
+                    note: "Tap your picture",
+                ) { },
             )
             SettingRow(
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                change: .init("Turn on in Health", leavesApp: true, note: "Tap your picture") { },
+                change: .init(
+                    "Turn on in Apple Health",
+                    leavesApp: true,
+                    note: "Tap your picture",
+                ) { },
             )
         }
         .padding(Spacing.md)
