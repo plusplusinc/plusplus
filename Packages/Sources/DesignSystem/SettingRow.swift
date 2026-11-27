@@ -69,7 +69,7 @@ public struct SettingRow: View {
                                 .accessibilityHidden(true)
                         }
                     }
-                    .buttonStyle(isOn ? .pillOnSurface : .greenPill())
+                    .buttonStyle(isOn ? .pillOnSurface(widens: true) : .greenPill(widens: true))
                     Text(leaves.note)
                         .font(.ppCaption)
                         .foregroundStyle(.pp(.textSecondary))

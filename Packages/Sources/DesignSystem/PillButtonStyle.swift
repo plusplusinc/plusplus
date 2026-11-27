@@ -75,10 +75,12 @@ extension ButtonStyle where Self == PillButtonStyle {
         PillButtonStyle()
     }
 
-    /// The pill on a `surface` card, in the gray that stands off it.
-    public static var pillOnSurface: PillButtonStyle {
+    /// The pill on a `surface` card, in the gray that stands off it, as wide as it is given
+    /// when it `widens`.
+    public static func pillOnSurface(widens: Bool = false) -> PillButtonStyle {
         var style = PillButtonStyle()
         style.fill = .pillOnSurface
+        style.widens = widens
         return style
     }
 
