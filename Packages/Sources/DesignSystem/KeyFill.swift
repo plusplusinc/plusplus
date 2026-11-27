@@ -69,7 +69,7 @@ public struct KeyFill: Equatable, Sendable {
     /// fill under a point a frame.
     func redrawInterval(width: CGFloat, scale: CGFloat) -> TimeInterval {
         let pixels = width * scale
-        guard pixels > 0, length > 0 else { return Self.fastestRedraw }
+        guard pixels > 0 else { return Self.fastestRedraw }
         return max(Self.fastestRedraw, length / pixels)
     }
 

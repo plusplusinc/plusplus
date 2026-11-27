@@ -301,7 +301,7 @@ extension XCUIApplication {
 
 @MainActor
 extension XCUIElement {
-    /// The time key's value, "1 minute, 5 seconds", in seconds.
+    /// The time key's or a rest countdown's value, "1 minute, 5 seconds", in seconds.
     var seconds: Int {
         let spoken = value as? String ?? ""
         return spoken.split(separator: ", ").reduce(0) { total, part in

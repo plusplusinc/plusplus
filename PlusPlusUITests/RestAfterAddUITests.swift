@@ -74,18 +74,18 @@ final nonisolated class RestAfterAddUITests: XCTestCase {
     private static func runRestKeys(in app: XCUIApplication) {
         let count = app.otherElements["Rest"]
         XCTAssertTrue(count.appears(), "The rest showed no countdown")
-        let start = seconds(count)
+        let start = count.seconds
         XCTAssertLessThan(
-            reading(seconds(count), until: { $0 < start }, within: 2),
+            reading(count.seconds, until: { $0 < start }, within: 2),
             start,
             "The countdown stood still at \(start) s",
         )
-        let ticked = seconds(count)
+        let ticked = count.seconds
         app.buttons["Plus 15 seconds"].tap()
         XCTAssertGreaterThan(
-            reading(seconds(count), until: { $0 > ticked + 10 }, within: 2),
+            reading(count.seconds, until: { $0 > ticked + 10 }, within: 2),
             ticked + 10,
-            "+15 s left the countdown at \(seconds(count)) s from \(ticked) s",
+            "+15 s left the countdown at \(count.seconds) s from \(ticked) s",
         )
         app.workoutKey.tap()
         XCTAssertTrue(count.disappears(), "The countdown stayed after Skip rest")
@@ -97,15 +97,5 @@ final nonisolated class RestAfterAddUITests: XCTestCase {
             logSet.appears(within: XCUIApplication.startInWait),
             "Skip rest never brought back Log set",
         )
-    }
-
-    /// The seconds a countdown reads to VoiceOver, its value: "43 seconds", "1 minute, 5
-    /// seconds", "1 minute"; -1 for none.
-    @MainActor
-    private static func seconds(_ count: XCUIElement) -> Int {
-        let value = count.value as? String ?? ""
-        let numbers = value.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
-        guard let first = numbers.first else { return -1 }
-        return value.contains("minute") ? first * 60 + (numbers.dropFirst().first ?? 0) : first
     }
 }

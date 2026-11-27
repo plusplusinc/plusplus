@@ -268,7 +268,7 @@ extension WorkoutScreen {
     }
 
     /// What follows `set` at its caption line's end, before it is logged: "then rest 1:00" where
-    /// a rest will run after it (`LiveWorkout.restLength(after:leadingTo:override:)`), never for
+    /// a rest will run after it (`LiveWorkout.restLength(after:leadingTo:)`), never for
     /// a rest of 0 s, which runs none; "last set" on the workout's last; else nothing. `earlier`,
     /// sets taken as logged first.
     func afterText(

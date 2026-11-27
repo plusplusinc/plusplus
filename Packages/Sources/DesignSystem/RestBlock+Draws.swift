@@ -1,3 +1,5 @@
+import SwiftUI
+
 extension RestBlock {
     #if DEBUG
     /// How many times any countdown's timeline has drawn, for the test that a shut rest draws
@@ -11,5 +13,15 @@ extension RestBlock {
         countdownDraws += 1
         #endif
         return seconds
+    }
+
+    /// A shut rest's figure, "0:00", drawn once in the countdown's font, with no timeline: what a
+    /// shut countdown showed, its length 0, so the room lays out as it did.
+    static func shutFigure(size: CGFloat, locale: Locale) -> some View {
+        Text(text(0, locale: locale))
+            .font(.system(size: size, weight: .bold, design: .monospaced))
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .accessibilityHidden(true)
     }
 }

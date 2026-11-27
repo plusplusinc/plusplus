@@ -1,21 +1,31 @@
 import Foundation
 import Synchronization
 
-extension Workout {
-    /// For the UI tests, every rest's length where the workout has one, never where it has none,
-    /// as between a set's sides: set once, as the app reads its launch arguments (`-seedRest`),
-    /// and nil otherwise, so every rest a workout runs follows it with nothing passed along.
+extension LiveWorkout {
+    #if DEBUG
+    /// For the UI tests, every rest's length a workout runs where it has one, never where it has
+    /// none, as between a set's sides: set once, as the app reads its launch arguments
+    /// (`-seedRest`), so nothing passes it along. The workout's own rests, and the lengths worked
+    /// out from them, are left as stored. Compiled out of release builds.
     public static func overrideRests(with seconds: Int?) {
         restOverride.withLock { $0 = seconds }
     }
 
     private static let restOverride = Mutex<Int?>(nil)
+    #endif
 
-    /// `stored`, a rest the workout has, as it runs: the override's length where one is set.
-    private static func running(_ stored: Int) -> Int {
+    /// `stored`, a rest the workout has, as it runs: in a debug build, the UI tests' length where
+    /// one is set (`overrideRests(with:)`).
+    public static func running(rest stored: Int) -> Int {
+        #if DEBUG
         stored > 0 ? restOverride.withLock { $0 } ?? stored : 0
+        #else
+        stored
+        #endif
     }
+}
 
+extension Workout {
     /// The rest between `set` and `next`, in seconds, as the workout stores it now: none after the
     /// workout's last set, or the set's row gone; none between a set's two sides, or between a
     /// superset's members in one round; a superset's rest after each round where a round ends;
@@ -24,9 +34,9 @@ extension Workout {
         guard let next, let row = exercises.first(where: { $0.id == set.row }) else { return 0 }
         if let round = restAfterRound(of: set.row) {
             let sameSuperset = exercises.first { $0.id == next.row }?.supersetID == row.supersetID
-            return sameSuperset && next.round == set.round ? 0 : Self.running(round)
+            return sameSuperset && next.round == set.round ? 0 : round
         }
-        return next.row == set.row && next.round == set.round ? 0 : Self.running(row.rest)
+        return next.row == set.row && next.round == set.round ? 0 : row.rest
     }
 
     /// The rest between two sets of `id`, in seconds, where a screen runs one: none in a
@@ -34,9 +44,9 @@ extension Workout {
     /// set's last side, as a plain one after each set.
     public func restBetweenSets(of id: WorkoutExercise.ID) -> Int? {
         guard let row = exercises.first(where: { $0.id == id }), !isInSuperset(id),
-              row.plan.sets > 1, Self.running(row.rest) > 0
+              row.plan.sets > 1, row.rest > 0
         else { return nil }
-        return Self.running(row.rest)
+        return row.rest
     }
 
     /// The rest between sets that follows `set`, where its row rests between them: none after a
@@ -119,7 +129,7 @@ extension LiveWorkout {
         guard let last = loggedWorkout.sets.last, let start = last.clockWhenLogged,
               let next = currentSet
         else { return nil }
-        let gap = workout.rest(after: last.planned, before: next)
+        let gap = Self.running(rest: workout.rest(after: last.planned, before: next))
         guard gap > 0 else { return nil }
         return WorkoutRest(
             after: last.planned,
@@ -190,7 +200,7 @@ extension LiveWorkout {
     /// The seconds of rest logging `set` leading to `step` runs, 0 for none, which a screen can
     /// promise before the log: `rests(after:leadingTo:)`'s rule.
     public func restLength(after set: PlannedSet, leadingTo step: Step) -> Int {
-        switch step {
+        let stored = switch step {
         case let .nextExercise(next, isBack, _) where !isBack || workout.isInSuperset(set.row):
             workout.rest(after: set, before: next)
         case .nextSet:
@@ -198,5 +208,6 @@ extension LiveWorkout {
         default:
             0
         }
+        return Self.running(rest: stored)
     }
 }

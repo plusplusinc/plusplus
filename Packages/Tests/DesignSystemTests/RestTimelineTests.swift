@@ -12,11 +12,14 @@ import UIKit
 @MainActor
 @Suite("Rest timelines")
 struct RestTimelineTests {
-    /// The countdown draws laying out `rows` in a window took.
+    /// The countdown draws laying out `rows` in a window took. Laid out with no turn of the run
+    /// loop, so no other test's window left open can tick a countdown into the count.
     private func countdownDraws(laying rows: some View) -> Int {
+        let host = UIHostingController(rootView: rows)
         let before = RestBlock.countdownDraws
-        let window = UIWindow.sceneless(hosting: UIHostingController(rootView: rows), at: .large)
-        window.settle()
+        let window = UIWindow.sceneless(hosting: host, at: .large)
+        defer { window.isHidden = true }
+        window.layoutIfNeeded()
         return RestBlock.countdownDraws - before
     }
 

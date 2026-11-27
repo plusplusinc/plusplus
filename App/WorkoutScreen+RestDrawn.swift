@@ -80,7 +80,8 @@ extension WorkoutScreen {
     /// tall as the rest for every set of an exercise that rests between them. Nil for any other
     /// row, and an exercise with no rest between its sets.
     func setRest(of id: WorkoutExercise.ID, current: WorkoutExercise.ID?) -> SetRest? {
-        guard id == current, let shown, let gap = workout.restBetweenSets(of: id)
+        guard id == current, let shown,
+              let gap = workout.restBetweenSets(of: id).map(LiveWorkout.running(rest:)), gap > 0
         else { return nil }
         if let within = phase.drawnRest, within.isWithinExercise, within.beat >= .shown,
            let (resting, loggedWorkout) = drawnResting

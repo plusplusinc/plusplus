@@ -36,7 +36,7 @@ struct PlusPlusApp: App {
         if LaunchOptions.turnsOffUIKitAnimations {
             UIView.setAnimationsEnabled(false)
         }
-        Workout.overrideRests(with: LaunchOptions.restOverride)
+        LiveWorkout.overrideRests(with: LaunchOptions.restOverride)
         #else
         namer = .standard
         resetsStore = false

@@ -28,7 +28,7 @@ enum LaunchOptions {
 
     /// `-seedRest <seconds>`: every rest after a set lasts this long, in place of the workout's,
     /// so the UI tests, launched with 0, log on with no rest between exercises. Read once, at
-    /// launch, into `Workout.overrideRests(with:)`.
+    /// launch, into `LiveWorkout.overrideRests(with:)`.
     static var restOverride: Int? {
         UserDefaults.standard.object(forKey: "seedRest").flatMap { _ in
             UserDefaults.standard.integer(forKey: "seedRest")
