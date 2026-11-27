@@ -15,8 +15,18 @@ struct SettingRowSnapshotTests {
     func states() {
         let view = VStack(spacing: Spacing.md) {
             SettingRow("Sync workouts", button: "Turn on") { }
-            SettingRow("Sync workouts", value: "On")
-            SettingRow("Sync workouts", value: "Off", note: "To turn it on, open the Health app.")
+            SettingRow(
+                "Sync workouts",
+                value: "On",
+                isOn: true,
+                leaves: .init("Manage in Health", note: "In Health, tap your picture") { },
+            )
+            SettingRow(
+                "Sync workouts",
+                value: "Off",
+                isOn: false,
+                leaves: .init("Turn on in Health", note: "In Health, tap your picture") { },
+            )
         }
         .padding(Spacing.md)
         .sheetGround()

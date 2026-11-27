@@ -41,6 +41,7 @@ nonisolated struct VoidTests {
         Pair(.textPrimary, on: .background, 4.5),
         Pair(.textPrimary, on: .surface, 4.5),
         Pair(.textPrimary, on: .surfaceRaised, 4.5),
+        Pair(.textPrimary, on: .pillOnSurface, 4.5),
         Pair(.textSecondary, on: .background, 4.5),
         Pair(.textSecondary, on: .surface, 4.5),
         Pair(.textSecondary, on: .surfaceRaised, 4.5),
@@ -90,7 +91,7 @@ nonisolated struct VoidTests {
     @Test("Every gray is neutral, not warm", arguments: grounds)
     func graysAreNeutral(ground: Ground) {
         let grays: [ColorToken] = [
-            .background, .surface, .surfaceRaised, .selectionFill, .borderStrong,
+            .background, .surface, .surfaceRaised, .selectionFill, .pillOnSurface, .borderStrong,
             .separator,
             .toDo, .well, .textSecondary, .rail, .textPrimary,
         ]

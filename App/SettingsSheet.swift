@@ -130,19 +130,18 @@ struct AppearanceChoice: View {
 /// Apple Health's one row, "Sync workouts", from the system's permission. It is not a switch:
 /// Apple asks apps to leave Health sharing to the system's privacy settings, so nothing here
 /// turns syncing off. Never asked, a green "Turn on" brings up Apple's sheet; allowed, it reads
-/// On; denied, Off, with where in the Health app to turn it on under a hairline. Dismissing
-/// Log's prompt changes nothing here.
+/// On, with a button that opens the Health app and where to go in it; denied, Off, with the
+/// same in green. Dismissing Log's prompt changes nothing here.
 struct HealthChoice: View {
     let health: HealthSaving
     /// The ask, and once allowed, every workout already in Log synced
     /// (`AppSession.askToSaveToHealth()`).
     let ask: () async -> Void
 
-    static let onNote = "Managed in the Health app: your picture › Privacy › Apps › PlusPlus"
-    static let offNote = onNote
+    static let healthPath = "In Health, tap your picture › Privacy › Apps › PlusPlus"
 
-    private func openHealth() {
-        openURL(Self.healthApp)
+    private func leave(_ title: String) -> SettingRow.Leave {
+        .init(title, note: Self.healthPath) { openURL(Self.healthApp) }
     }
 
     /// The Health app's front page. Apple documents no link into Health; this one opens it on
@@ -156,9 +155,14 @@ struct HealthChoice: View {
         case .notAsked:
             SettingRow("Sync workouts", button: "Turn on") { Task { await ask() } }
         case .on:
-            SettingRow("Sync workouts", value: "On", note: Self.onNote, opens: openHealth)
+            SettingRow("Sync workouts", value: "On", isOn: true, leaves: leave("Manage in Health"))
         default:
-            SettingRow("Sync workouts", value: "Off", note: Self.offNote, opens: openHealth)
+            SettingRow(
+                "Sync workouts",
+                value: "Off",
+                isOn: false,
+                leaves: leave("Turn on in Health"),
+            )
         }
     }
 }

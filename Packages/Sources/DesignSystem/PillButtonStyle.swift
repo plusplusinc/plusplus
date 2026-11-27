@@ -75,6 +75,13 @@ extension ButtonStyle where Self == PillButtonStyle {
         PillButtonStyle()
     }
 
+    /// The pill on a `surface` card, in the gray that stands off it.
+    public static var pillOnSurface: PillButtonStyle {
+        var style = PillButtonStyle()
+        style.fill = .pillOnSurface
+        return style
+    }
+
     /// The pill filling with the done purple from its leading edge as `filling` runs, as the
     /// note's OK on Log.
     public static func pill(filling: KeyFill?) -> PillButtonStyle {

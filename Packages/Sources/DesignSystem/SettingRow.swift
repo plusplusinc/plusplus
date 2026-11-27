@@ -1,19 +1,19 @@
 import SwiftUI
 
 /// A setting the system owns, alone on a Settings card: its name at a row title's size and, on
-/// the right, its value, quieter, or a small green button that starts it (`button`); at
-/// accessibility sizes, these under the name. Not a switch: the value is the system's answer,
-/// which the app only reads, drawn at full strength rather than dimmed. A `note`, when there is
-/// one, sits under a hairline inside the same card, in the secondary text color. VoiceOver reads
-/// the name and the value as one element.
+/// the right, a small green button that starts it (`button`), or its value, quieter, and after
+/// it a green check when it is on or a gray struck circle when it is off. At accessibility
+/// sizes, these under the name. Not a switch: the value is the system's answer, which the app
+/// only reads. An answered row carries, under a hairline in the same card, a button that leaves
+/// for where the setting lives, an arrow after its words saying so (neutral when the setting
+/// is on, green when it is off, the one state with something to do), and under it a line on
+/// where to go from there. VoiceOver reads the name and the value as one element.
 public struct SettingRow: View {
     private let title: String
     private let value: String
-    private let note: String?
+    private let isOn: Bool
+    private let leaves: Leave?
     private let button: (title: String, action: () -> Void)?
-    /// When set, the whole card is a button that leaves for where the setting lives, and an
-    /// arrow after the value says so.
-    private let opens: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
@@ -22,55 +22,64 @@ public struct SettingRow: View {
     /// inside a row that is one.
     private static let buttonHeight: CGFloat = 36
 
-    public init(
-        _ title: String,
-        value: String,
-        note: String? = nil,
-        opens: (() -> Void)? = nil,
-    ) {
+    /// The way out to where the setting lives: the button's words, the line under it on where
+    /// to go from there, and what the button does.
+    public struct Leave {
+        let title: String
+        let note: String
+        let action: () -> Void
+
+        public init(_ title: String, note: String, action: @escaping () -> Void) {
+            self.title = title
+            self.note = note
+            self.action = action
+        }
+    }
+
+    public init(_ title: String, value: String, isOn: Bool, leaves: Leave? = nil) {
         self.title = title
         self.value = value
-        self.note = note
-        self.opens = opens
+        self.isOn = isOn
+        self.leaves = leaves
         button = nil
     }
 
     public init(_ title: String, button: String, action: @escaping () -> Void) {
         self.title = title
         value = ""
-        note = nil
-        opens = nil
+        isOn = false
+        leaves = nil
         self.button = (button, action)
     }
 
     public var body: some View {
-        Group {
-            if let opens {
-                Button(action: opens) { card.contentShape(.rect) }
-                    .buttonStyle(.plain)
-            } else {
-                card
-            }
-        }
-        .settingsCard()
-    }
-
-    private var card: some View {
         VStack(alignment: .leading, spacing: 0) {
             row
-            if let note {
+            if let leaves {
                 Rectangle()
                     .fill(.pp(.separator))
                     .frame(height: 1 / displayScale)
-                Text(note)
-                    .font(.ppRowDetail)
-                    .foregroundStyle(.pp(.textSecondary))
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, Spacing.sm + Spacing.xs)
-                    .padding(.bottom, Spacing.md)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Button(action: leaves.action) {
+                        HStack(spacing: Spacing.sm) {
+                            Text(leaves.title)
+                            Image(systemName: "arrow.up.forward")
+                                .imageScale(.small)
+                                .fontWeight(.semibold)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .buttonStyle(isOn ? .pillOnSurface : .greenPill())
+                    Text(leaves.note)
+                        .font(.ppCaption)
+                        .foregroundStyle(.pp(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, Spacing.sm + Spacing.xs)
+                .padding(.bottom, Spacing.md)
             }
         }
+        .settingsCard()
     }
 
     @ViewBuilder private var row: some View {
@@ -90,14 +99,14 @@ public struct SettingRow: View {
                     .buttonStyle(.greenPill(height: Self.buttonHeight))
                     .padding(.trailing, -Spacing.sm)
             } else {
-                // One text whose words change, so a new value swaps in place.
-                Text(value)
-                    .font(.ppRowTitle)
-                    .foregroundStyle(.pp(.textSecondary))
-                if opens != nil {
-                    Image(systemName: "arrow.up.forward")
-                        .font(.ppRowDetail.weight(.semibold))
+                HStack(spacing: Spacing.sm) {
+                    // One text whose words change, so a new value swaps in place.
+                    Text(value)
+                        .font(.ppRowTitle)
                         .foregroundStyle(.pp(.textSecondary))
+                    Image(systemName: isOn ? "checkmark.circle.fill" : "circle.slash")
+                        .font(.ppRowTitle)
+                        .foregroundStyle(.pp(isOn ? .accent : .textSecondary))
                         .accessibilityHidden(true)
                 }
             }
@@ -109,14 +118,20 @@ public struct SettingRow: View {
 }
 
 #Preview {
+    let note = "In Health, tap your picture › Privacy › Apps › PlusPlus"
     VStack(spacing: Spacing.md) {
         SettingRow("Sync workouts", button: "Turn on") { }
-        SettingRow("Sync workouts", value: "On")
+        SettingRow(
+            "Sync workouts",
+            value: "On",
+            isOn: true,
+            leaves: .init("Manage in Health", note: note) { },
+        )
         SettingRow(
             "Sync workouts",
             value: "Off",
-            note: "To turn it on, open the Health app, tap your picture, then Privacy, Apps, "
-                + "PlusPlus.",
+            isOn: false,
+            leaves: .init("Turn on in Health", note: note) { },
         )
     }
     .padding(Spacing.md)
