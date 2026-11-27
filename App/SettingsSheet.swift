@@ -224,6 +224,9 @@ private struct GroupLabel: View {
             .fontWeight(.semibold)
             .foregroundStyle(.pp(.textSecondary))
             .accessibilityAddTraits(.isHeader)
+            // In by a card's own inset (`settingsCard()`), so it starts where the card's
+            // content does.
+            .padding(.leading, Spacing.md)
             .padding(.bottom, Spacing.sm)
     }
 }
