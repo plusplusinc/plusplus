@@ -111,7 +111,7 @@ extension LogScreen {
         // The app's own Settings, named so it isn't read as the phone's, which has no entry
         // for this; its stops joined by no-break spaces so no line ends on the arrow.
         case .dismissed:
-            "You can turn this on later in PlusPlus\u{A0}Settings\u{A0}›\u{A0}Apple\u{A0}Health."
+            "You can enable sync later in PlusPlus\u{A0}Settings\u{A0}›\u{A0}Apple\u{A0}Health."
         case .denied: "You can enable sync later in Apple\u{A0}Health."
         }
     }
