@@ -13,6 +13,9 @@ public struct SettingRow: View {
     private let button: (title: String, action: () -> Void)?
     /// A button under the note, for the place the note sends the person to.
     private let noteButton: (title: String, action: () -> Void)?
+    /// When set, the whole row is a button that leaves for where the setting lives, and an
+    /// arrow after the value says so.
+    private let opens: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
@@ -26,11 +29,13 @@ public struct SettingRow: View {
         value: String,
         note: String? = nil,
         noteButton: (title: String, action: () -> Void)? = nil,
+        opens: (() -> Void)? = nil,
     ) {
         self.title = title
         self.value = value
         self.note = note
         self.noteButton = noteButton
+        self.opens = opens
         button = nil
     }
 
@@ -39,12 +44,18 @@ public struct SettingRow: View {
         value = ""
         note = nil
         noteButton = nil
+        opens = nil
         self.button = (button, action)
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            row
+            if let opens {
+                Button(action: opens) { row.contentShape(.rect) }
+                    .buttonStyle(.plain)
+            } else {
+                row
+            }
             if let note {
                 Rectangle()
                     .fill(.pp(.separator))
@@ -86,6 +97,12 @@ public struct SettingRow: View {
                 Text(value)
                     .font(.ppRowTitle)
                     .foregroundStyle(.pp(.textSecondary))
+                if opens != nil {
+                    Image(systemName: "arrow.up.forward")
+                        .font(.ppRowDetail.weight(.semibold))
+                        .foregroundStyle(.pp(.textSecondary))
+                        .accessibilityHidden(true)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

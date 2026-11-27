@@ -152,7 +152,7 @@ struct HealthChoice: View {
         case .notAsked:
             SettingRow("Sync workouts", button: "Turn on") { Task { await ask() } }
         case .on:
-            SettingRow("Sync workouts", value: "On")
+            SettingRow("Sync workouts", value: "On", opens: { openURL(Self.healthApp) })
         default:
             SettingRow(
                 "Sync workouts",
