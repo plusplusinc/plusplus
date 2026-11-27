@@ -60,5 +60,51 @@ final nonisolated class RestAfterAddUITests: XCTestCase {
                 "Goblet squat, the next exercise, is under the key: \(next.frame)",
             )
         }
+        XCTContext
+            .runActivity(named: "The rest counts down, +15 s lengthens it, Skip ends it") { _ in
+                Self.runRestKeys(in: app)
+            }
+    }
+
+    /// From the rest after the log, the count on the real clock and its keys' wire to it, which
+    /// only the running app has: the countdown ticks, +15 s puts 15 s back on it, and Skip rest
+    /// ends it on the next exercise's Log set. Their rules are `WorkoutRestTests`'.
+    @MainActor
+    private static func runRestKeys(in app: XCUIApplication) {
+        let count = app.otherElements["Rest"]
+        XCTAssertTrue(count.appears(), "The rest showed no countdown")
+        let start = seconds(count)
+        XCTAssertLessThan(
+            reading(seconds(count), until: { $0 < start }, within: 2),
+            start,
+            "The countdown stood still at \(start) s",
+        )
+        let ticked = seconds(count)
+        app.buttons["Plus 15 seconds"].tap()
+        XCTAssertGreaterThan(
+            reading(seconds(count), until: { $0 > ticked + 10 }, within: 2),
+            ticked + 10,
+            "+15 s left the countdown at \(seconds(count)) s from \(ticked) s",
+        )
+        app.workoutKey.tap()
+        XCTAssertTrue(count.disappears(), "The countdown stayed after Skip rest")
+        // Goblet squat's "Start in" shows no key; Log set comes up after it.
+        let logSet = app.buttons.matching(
+            NSPredicate(format: "identifier == 'workout.key' AND label == 'Log set'"),
+        ).firstMatch
+        XCTAssertTrue(
+            logSet.appears(within: XCUIApplication.startInWait),
+            "Skip rest never brought back Log set",
+        )
+    }
+
+    /// The seconds a countdown reads to VoiceOver, its value: "43 seconds", "1 minute, 5
+    /// seconds", "1 minute"; -1 for none.
+    @MainActor
+    private static func seconds(_ count: XCUIElement) -> Int {
+        let value = count.value as? String ?? ""
+        let numbers = value.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
+        guard let first = numbers.first else { return -1 }
+        return value.contains("minute") ? first * 60 + (numbers.dropFirst().first ?? 0) : first
     }
 }
