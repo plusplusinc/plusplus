@@ -138,8 +138,14 @@ struct HealthChoice: View {
     /// (`AppSession.askToSaveToHealth()`).
     let ask: () async -> Void
 
+    static let onNote =
+        "To change this, open the Health app, tap your picture, then Privacy, Apps, PlusPlus."
     static let offNote =
         "To turn it on, open the Health app, tap your picture, then Privacy, Apps, PlusPlus."
+
+    private func openHealth() {
+        openURL(Self.healthApp)
+    }
 
     /// The Health app's front page. Apple documents no link into Health; this one opens it on
     /// iOS 27, and no deeper page can be reached.
@@ -152,14 +158,9 @@ struct HealthChoice: View {
         case .notAsked:
             SettingRow("Sync workouts", button: "Turn on") { Task { await ask() } }
         case .on:
-            SettingRow("Sync workouts", value: "On", opens: { openURL(Self.healthApp) })
+            SettingRow("Sync workouts", value: "On", note: Self.onNote, opens: openHealth)
         default:
-            SettingRow(
-                "Sync workouts",
-                value: "Off",
-                note: Self.offNote,
-                noteButton: ("Open Health", { openURL(Self.healthApp) }),
-            )
+            SettingRow("Sync workouts", value: "Off", note: Self.offNote, opens: openHealth)
         }
     }
 }

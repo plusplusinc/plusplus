@@ -11,9 +11,7 @@ public struct SettingRow: View {
     private let value: String
     private let note: String?
     private let button: (title: String, action: () -> Void)?
-    /// A button under the note, for the place the note sends the person to.
-    private let noteButton: (title: String, action: () -> Void)?
-    /// When set, the whole row is a button that leaves for where the setting lives, and an
+    /// When set, the whole card is a button that leaves for where the setting lives, and an
     /// arrow after the value says so.
     private let opens: (() -> Void)?
 
@@ -28,13 +26,11 @@ public struct SettingRow: View {
         _ title: String,
         value: String,
         note: String? = nil,
-        noteButton: (title: String, action: () -> Void)? = nil,
         opens: (() -> Void)? = nil,
     ) {
         self.title = title
         self.value = value
         self.note = note
-        self.noteButton = noteButton
         self.opens = opens
         button = nil
     }
@@ -43,19 +39,25 @@ public struct SettingRow: View {
         self.title = title
         value = ""
         note = nil
-        noteButton = nil
         opens = nil
         self.button = (button, action)
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        Group {
             if let opens {
-                Button(action: opens) { row.contentShape(.rect) }
+                Button(action: opens) { card.contentShape(.rect) }
                     .buttonStyle(.plain)
             } else {
-                row
+                card
             }
+        }
+        .settingsCard()
+    }
+
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            row
             if let note {
                 Rectangle()
                     .fill(.pp(.separator))
@@ -63,17 +65,12 @@ public struct SettingRow: View {
                 Text(note)
                     .font(.ppRowDetail)
                     .foregroundStyle(.pp(.textSecondary))
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, Spacing.sm + Spacing.xs)
                     .padding(.bottom, Spacing.md)
-                if let noteButton {
-                    Button(noteButton.title, action: noteButton.action)
-                        .buttonStyle(.greenPill(height: Self.buttonHeight))
-                        .padding(.bottom, Spacing.md)
-                }
             }
         }
-        .settingsCard()
     }
 
     @ViewBuilder private var row: some View {
