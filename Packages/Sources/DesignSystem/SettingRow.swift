@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A setting the system owns, alone on a Settings card: its name at a row title's size and, on
-/// the right, its value, quieter, and after it a green check when it is on or a gray struck
+/// the right, its value, quieter, and after it a green check when it is on or an empty gray
 /// circle when it is off. At accessibility sizes, these under the name. Not a switch: the value
 /// is the system's answer, which the app only reads. Under a hairline in the same card, a
 /// button as wide as the card that changes it (`Change`), neutral when the setting is on and
@@ -94,7 +94,7 @@ public struct SettingRow: View {
                 Text(value)
                     .font(.ppRowTitle)
                     .foregroundStyle(.pp(.textSecondary))
-                Image(systemName: isOn ? "checkmark.circle.fill" : "circle.slash")
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
                     .font(.ppRowTitle)
                     .foregroundStyle(.pp(isOn ? .accent : .textSecondary))
                     .accessibilityHidden(true)
