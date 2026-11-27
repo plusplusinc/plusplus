@@ -67,8 +67,8 @@ Their time is the scarce thing, and it is for the product.
   name a part of the screen by what they see and where, a card by its title, an option by what
   it shows, never an item id, a canvas label, or a platform term. One question to a message,
   the next after their reply; each carries its link and says what a yes does. An unanswered
-  one is not re-sent with each update: settle what follows from what is decided and say so,
-  or ask again when the work stops on it. With a build: what changed, that
+  one is not re-sent, or listed as still open, in later updates: settle what follows from
+  what is decided and say so, or ask again once, when the work stops on it. With a build: what changed, that
   it is unverified, and what to do and what they should see. No time estimates. Text
   before a tool call reaches them as a message, so write none that tells them nothing.
 - **What they decided stays decided.** A choice they made stays in every brief and every later
@@ -152,7 +152,8 @@ Their time is the scarce thing, and it is for the product.
   `post` (`docs/agent-tooling.md`, "Agent records"); lines from before the PR exists go with
   the first post.
 - **While one runs**, it says nothing until it ends, so every 15 minutes read where it
-  is and send the maintainer that line. A wake you
+  is and send the maintainer that line. Several agents handing back get one message, not
+  one each. A wake you
   set says what was true then: cancel it when you stop what it watches, and a check that has
   finished is a result whatever a watch says.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`) whenever a phase

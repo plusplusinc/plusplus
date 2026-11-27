@@ -6,7 +6,7 @@ allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fet
 ---
 
 **With the argument `nightly`, this is the nightly run: skip to "How it runs" and do
-only what it says there.** The retro itself runs in a subagent.
+only what it says there.**
 
 The retro is how the work gets better at what it aims for (`docs/principles.md`). Input: the
 merges to `main` with no retro yet and the conversation since, or a PR number or range on request.
@@ -17,8 +17,7 @@ Output: a short report, a private digest, and one PR when there is something to 
 - **A PR that came out of a retro does not get a retro.** Its title starts with "Retro of".
   The loop ends there.
 - **Nothing found means nothing written.** A one-line report, plus the verifier's record when a
-  covered PR has one, no PR, no memory note, no notification. A night with neither a merge nor
-  a session is the common case and stays silent.
+  covered PR has one, no PR, no memory note, no notification.
 - **A finding back after a fix means the fix did not work.** Say which fix it was, and fix it
   another way, usually at a higher altitude or with a check.
 - **A fix counts when it is on `main`.** A retro PR still open holds a pending fix, not a made
@@ -178,14 +177,14 @@ finding and opens no PR:
 
 - Per covered PR: its runs' findings counted by kind, `new` (the PR missed it) apart from
   `known`, or "no findings".
-- The tally across every PR that has a record, recounted each time from the comments themselves,
-  which outlive the slice's `.slices/` files and need no store of their own. Fetch them in one
-  GraphQL request, not one per PR, so the cost stays flat as records pile up, and count only
+- The tally across every PR that has a record, recounted each time from the comments themselves.
+  Fetch them a hundred PRs to a request, not one per PR, and count only
   comments that start `Verifier record`:
 
   ```sh
-  gh api graphql -f query='{ search(type: ISSUE, first: 100,
-    query: "repo:plusplusinc/plusplus is:pr in:comments \"Verifier record\"") {
+  gh api graphql --paginate -f query='query($endCursor: String) { search(type: ISSUE, first: 100,
+    after: $endCursor, query: "repo:plusplusinc/plusplus is:pr in:comments \"Verifier record\"") {
+    pageInfo { hasNextPage endCursor }
     nodes { ... on PullRequest { number comments(last: 50) { nodes { body } } } } } }'
   ```
 
