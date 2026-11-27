@@ -7,8 +7,8 @@ import UIKit
 @testable import DesignSystem
 
 /// Every row of a workout holds a rest under its label and one above it (`LabelWithRest`), shut
-/// but for the one resting. Shut, a rest draws nothing: no countdown's timeline, counted by
-/// `RestBlock.countdownDraws`, which a hosted window's layout would otherwise draw once a row.
+/// but for the one resting. Shut, a rest runs no countdown timeline, counted by
+/// `RestBlock.countdownDraws`, which a hosted window's layout would otherwise draw for each rest.
 @MainActor
 @Suite("Rest timelines")
 struct RestTimelineTests {
