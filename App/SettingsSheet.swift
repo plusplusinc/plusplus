@@ -141,6 +141,12 @@ struct HealthChoice: View {
     static let offNote =
         "To turn it on, open the Health app, tap your picture, then Privacy, Apps, PlusPlus."
 
+    /// The Health app's front page. Apple documents no link into Health; this one opens it on
+    /// iOS 27, and no deeper page can be reached.
+    private static let healthApp = URL(string: "x-apple-health://")!
+
+    @Environment(\.openURL) private var openURL
+
     var body: some View {
         switch health.access {
         case .notAsked:
@@ -148,7 +154,12 @@ struct HealthChoice: View {
         case .on:
             SettingRow("Sync workouts", value: "On")
         default:
-            SettingRow("Sync workouts", value: "Off", note: Self.offNote)
+            SettingRow(
+                "Sync workouts",
+                value: "Off",
+                note: Self.offNote,
+                noteButton: ("Open Health", { openURL(Self.healthApp) }),
+            )
         }
     }
 }

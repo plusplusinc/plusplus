@@ -11,6 +11,8 @@ public struct SettingRow: View {
     private let value: String
     private let note: String?
     private let button: (title: String, action: () -> Void)?
+    /// A button under the note, for the place the note sends the person to.
+    private let noteButton: (title: String, action: () -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
@@ -19,10 +21,16 @@ public struct SettingRow: View {
     /// inside a row that is one.
     private static let buttonHeight: CGFloat = 36
 
-    public init(_ title: String, value: String, note: String? = nil) {
+    public init(
+        _ title: String,
+        value: String,
+        note: String? = nil,
+        noteButton: (title: String, action: () -> Void)? = nil,
+    ) {
         self.title = title
         self.value = value
         self.note = note
+        self.noteButton = noteButton
         button = nil
     }
 
@@ -30,6 +38,7 @@ public struct SettingRow: View {
         self.title = title
         value = ""
         note = nil
+        noteButton = nil
         self.button = (button, action)
     }
 
@@ -46,6 +55,11 @@ public struct SettingRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, Spacing.sm + Spacing.xs)
                     .padding(.bottom, Spacing.md)
+                if let noteButton {
+                    Button(noteButton.title, action: noteButton.action)
+                        .buttonStyle(.greenPill(height: Self.buttonHeight))
+                        .padding(.bottom, Spacing.md)
+                }
             }
         }
         .settingsCard()
