@@ -145,7 +145,6 @@ struct WorkoutScreen: View {
         _phase = State(initialValue: WorkoutPhase(
             resuming: session.loggedWorkout
                 .map { LiveWorkout(workout: session.opened, loggedWorkout: $0) },
-            restOverride: Self.restOverride,
             at: .now,
         ))
         _footShowsEmpty = State(initialValue: session.opened.exercises.isEmpty)

@@ -46,4 +46,28 @@ struct KeyFillTests {
             == "1 minute, 5 seconds left")
         #expect(KeyFill.over.spokenLeft(at: Self.now, locale: Self.locale) == nil)
     }
+
+    @Test(
+        "A fill redraws as its edge moves a pixel: a long rest's less often, none past 60 a second",
+    )
+    func redrawsByThePixel() {
+        // Skip rest's face on a phone, at 3 pixels a point.
+        let (width, scale): (CGFloat, CGFloat) = (280, 3)
+        let pixel = 1 / (width * scale)
+        for length in [5.0, 30, 90, 300] {
+            let fill = Self.running(length, left: length)
+            let interval = fill.redrawInterval(width: width, scale: scale)
+            let moved = fill.share(at: Self.now.addingTimeInterval(interval))
+                - fill.share(at: Self.now)
+            #expect(interval >= 1.0 / 60, "\(length) s redraws past 60 a second")
+            // A pixel a redraw, or every frame at 60 a second, where a short count moves further.
+            #expect(
+                interval == 1.0 / 60 || abs(moved - pixel) < 1e-9,
+                "\(length) s moves \(moved / pixel) px a redraw",
+            )
+        }
+        let short = Self.running(5, left: 5).redrawInterval(width: width, scale: scale)
+        let long = Self.running(300, left: 300).redrawInterval(width: width, scale: scale)
+        #expect(long > short * 10, "A long rest redraws as often as a short one")
+    }
 }

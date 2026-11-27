@@ -52,15 +52,14 @@ extension AppSession {
         change(.save(live.logging(planned, of: row, at: now)))
     }
 
-    /// Extends the rest running after the last set by `seconds`, unless it is over. `override`,
-    /// for the UI tests, is every rest's length (`LiveWorkout.rest(override:)`).
-    public func extendRest(by seconds: Int, override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.extendingRest(by: seconds, override: override, at: now) }
+    /// Extends the rest running after the last set by `seconds`, unless it is over.
+    public func extendRest(by seconds: Int, at now: Date = .now) {
+        changeLive { $0.extendingRest(by: seconds, at: now) }
     }
 
     /// Ends the rest running after the last set now, unless it is over
-    /// (`LiveWorkout.skippingRest(override:at:)`).
-    public func skipRest(override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.skippingRest(override: override, at: now) }
+    /// (`LiveWorkout.skippingRest(at:)`).
+    public func skipRest(at now: Date = .now) {
+        changeLive { $0.skippingRest(at: now) }
     }
 }

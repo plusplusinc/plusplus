@@ -5,15 +5,15 @@ import WorkoutStore
 /// `change(_:)`.
 extension AppSession {
     /// Begins the current set's count, when it has none and one is due: as a rest before it
-    /// ends, or as the screen lands on it. `override`, for the UI tests, is every rest's length.
-    public func beginCount(override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.beginningCount(at: now, restOverride: override) }
+    /// ends, or as the screen lands on it.
+    public func beginCount(at now: Date = .now) {
+        changeLive { $0.beginningCount(at: now) }
     }
 
     /// Start has landed on the first set: its "Start in" begins now, and the workout's time
-    /// starts as it ends (`LiveWorkout.landingStart(at:restOverride:)`).
-    public func landOnFirstSet(override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.landingStart(at: now, restOverride: override) }
+    /// starts as it ends (`LiveWorkout.landingStart(at:)`).
+    public func landOnFirstSet(at now: Date = .now) {
+        changeLive { $0.landingStart(at: now) }
     }
 
     /// Adds `seconds` to the timed set counting, unless it is over.
@@ -22,8 +22,8 @@ extension AppSession {
     }
 
     /// Logs a count that ran out while the app was away, then begins the next set's count.
-    public func catchUp(override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.caughtUp(at: now, restOverride: override) }
+    public func catchUp(at now: Date = .now) {
+        changeLive { $0.caughtUp(at: now) }
     }
 
     /// Changes the workout through a rule on it, storing only a change.
