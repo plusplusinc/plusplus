@@ -43,26 +43,13 @@ import WorkoutStore
 /// steady green; with Reduce Motion it crossfades in and out.
 ///
 /// A rest runs on the workout's clock from its log, its taps kept with the set logged
-/// (`LiveWorkout.extendingRest(by:override:at:)`, `skippingRest(override:at:)`), so a pause
-/// stops it, and a relaunch or a return from the background opens in it, drawn and settled, at
-/// the time left, or past its end on the next set (`WorkoutPhase(resuming:restOverride:at:)`).
+/// (`LiveWorkout.extendingRest(by:at:)`, `skippingRest(at:)`), so a pause stops it, and a
+/// relaunch or a return from the background opens in it, drawn and settled, at the time left, or
+/// past its end on the next set (`WorkoutPhase(resuming:at:)`).
 /// VoiceOver hears "Rest" and its length as it starts (`announceRest()`), reads the countdown as
 /// its own element, with the time left, and the keys as "Skip rest", its value the time left,
 /// and "Plus 15 seconds". At its end the phone taps once, heavy (`restEnds`).
 extension WorkoutScreen {
-    /// For the UI tests, every rest's length (`-seedRest`); nil in a release build.
-    var restOverride: Int? {
-        Self.restOverride
-    }
-
-    static var restOverride: Int? {
-        #if DEBUG
-        LaunchOptions.restOverride
-        #else
-        nil
-        #endif
-    }
-
     /// Whether the screen rests between exercises.
     var isResting: Bool {
         phase.resting != nil
@@ -70,7 +57,7 @@ extension WorkoutScreen {
 
     /// The rest running after the last set, as stored, while the screen rests.
     var resting: WorkoutRest? {
-        isResting ? live?.rest(override: restOverride) : nil
+        isResting ? live?.rest() : nil
     }
 
     /// The rest as drawn, with the workout it runs on: the one running, or the one End came in
@@ -78,7 +65,7 @@ extension WorkoutScreen {
     /// as at its log: the rest found then was the one before, and Skip rest filled from it.
     var drawnResting: (rest: WorkoutRest, loggedWorkout: LoggedWorkout)? {
         guard let drawn = phase.drawnRest, let shown,
-              let rest = shown.rest(after: drawn.set, override: restOverride)
+              let rest = shown.rest(after: drawn.set)
         else { return nil }
         return (rest, shown.loggedWorkout)
     }
@@ -193,7 +180,7 @@ extension WorkoutScreen {
               resting.map({ loggedWorkout.clock(at: .now) >= $0.leaveClock }) ?? true
         else { return }
         // A timed set next counts from the rest's end, in the same update as the rest ends.
-        session.beginCount(override: restOverride)
+        session.beginCount()
         if rest.isWithinExercise {
             // The next set's figures swap back into their slot as the line rolls on, and Log set
             // comes back in place with them, taking a log once they are up.
@@ -294,7 +281,7 @@ extension WorkoutScreen {
             let last = String(localized: "last set")
             return CaptionEnd(text: last, spoken: last)
         }
-        let length = shown.restLength(after: set, leadingTo: step, override: restOverride)
+        let length = shown.restLength(after: set, leadingTo: step)
         return length > 0 ? thenRest(length) : nil
     }
 

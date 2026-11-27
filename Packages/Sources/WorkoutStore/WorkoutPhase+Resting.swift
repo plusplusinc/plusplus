@@ -28,32 +28,27 @@ extension WorkoutPhase {
         }
     }
 
-    /// At once, as the store stands, as the screen goes away (`init(resuming:restOverride:at:)`).
-    /// What the stopped sequence was playing is dropped, so the phase never says there is a
-    /// workout the store doesn't hold, or none where it holds one.
-    public mutating func settleAtOnce(
-        resuming live: LiveWorkout?,
-        restOverride: Int?,
-        at now: Date,
-    ) {
-        self = Self(resuming: live, restOverride: restOverride, at: now)
+    /// At once, as the store stands, as the screen goes away (`init(resuming:at:)`). What the
+    /// stopped sequence was playing is dropped, so the phase never says there is a workout the
+    /// store doesn't hold, or none where it holds one.
+    public mutating func settleAtOnce(resuming live: LiveWorkout?, at now: Date) {
+        self = Self(resuming: live, at: now)
     }
 
     /// Where a screen opening on `live` is, as after a relaunch: out of a workout with none; in
     /// the rest after its last set, drawn and settled, while one runs at `now`, its hold at 0:00
     /// included (`WorkoutRest.isOver(atClock:)`); else at rest on
-    /// the next set. `restOverride` as `LiveWorkout.rest(override:)`'s.
-    public init(resuming live: LiveWorkout?, restOverride: Int? = nil, at now: Date) {
+    /// the next set.
+    public init(resuming live: LiveWorkout?, at now: Date) {
         guard let live else {
             self = .idle
             return
         }
         self = .atRest(on: live.countStage(at: now))
-        guard let rest = live.rest(override: restOverride),
-              !rest.isOver(atClock: live.loggedWorkout.clock(at: now))
+        guard let rest = live.rest(), !rest.isOver(atClock: live.loggedWorkout.clock(at: now))
         else { return }
         let step = live.hiding([rest.after]).step(logging: rest.after)
-        guard live.rests(after: rest.after, leadingTo: step, override: restOverride) else {
+        guard live.rests(after: rest.after, leadingTo: step) else {
             return
         }
         var isBack = false

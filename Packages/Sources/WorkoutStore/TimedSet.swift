@@ -143,7 +143,7 @@ extension LiveWorkout {
     }
 
     /// The seconds of "Start in" due before the current set, or, with none due, the one a timed
-    /// set opens on after time away (`beginningCount(at:restOverride:)`).
+    /// set opens on after time away (`beginningCount(at:)`).
     public var startInLength: Int {
         let due = currentSet.map { workout.startIn(before: $0) } ?? 0
         return due > 0 ? due : Self.startIn
@@ -174,7 +174,7 @@ extension LiveWorkout {
     /// The logged workout as `edited` replaces the workout: a count kept for a set whose row
     /// changed measure, reps to a time or back, goes, so it never comes back with its old start
     /// and the set opens on the "Start in" due before it from the edit
-    /// (`beginningCount(at:restOverride:)`). Decided as the edit is written, never from a
+    /// (`beginningCount(at:)`). Decided as the edit is written, never from a
     /// reaction to it, which SwiftUI can skip for a second change in one frame.
     public func droppingCount(for edited: Workout) -> LoggedWorkout {
         guard let count = loggedWorkout.count,
@@ -194,15 +194,14 @@ extension LiveWorkout {
     /// Only a workout with nothing logged, never paused, no count yet, and under a second on
     /// its clock, so its time has shown only 0:00 and none of it is lost: any other, as one
     /// whose landing waited on the phone being unlocked, only begins its count.
-    public func landingStart(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
+    public func landingStart(at now: Date) -> LoggedWorkout {
         guard loggedWorkout.isInProgress, loggedWorkout.sets.isEmpty, loggedWorkout.count == nil,
               loggedWorkout.pausedAt == nil, loggedWorkout.pausedSeconds == 0,
               loggedWorkout.clock(at: now) < 1
-        else { return beginningCount(at: now, restOverride: restOverride) }
+        else { return beginningCount(at: now) }
         var landed = loggedWorkout
         landed.startedAt = now
-        let begun = LiveWorkout(workout: workout, loggedWorkout: landed)
-            .beginningCount(at: now, restOverride: restOverride)
+        let begun = LiveWorkout(workout: workout, loggedWorkout: landed).beginningCount(at: now)
         return Self.timeStartingAtCount(begun)
     }
 
@@ -223,7 +222,7 @@ extension LiveWorkout {
     /// else opens on `startIn` from now; a reps set with none due begins nothing. Every "Start
     /// in" holds 0:00 for `startInHold` before the set begins. A count kept for no set goes. The
     /// rest of the workout is unchanged until the rest before the set moves on.
-    public func beginningCount(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
+    public func beginningCount(at now: Date) -> LoggedWorkout {
         guard loggedWorkout.isInProgress, setCount == nil else { return loggedWorkout }
         var begun = loggedWorkout
         begun.count = nil
@@ -232,7 +231,7 @@ extension LiveWorkout {
         var lead = workout.startIn(before: set)
         var base = loggedWorkout.tick(nearest: now)
         var restJustEnded = false
-        if let rest = rest(override: restOverride) {
+        if let rest = rest() {
             guard rest.isOver(atClock: clock) else { return begun }
             restJustEnded = clock - rest.leaveClock <= Self.missedBy
             if restJustEnded {
@@ -257,7 +256,7 @@ extension LiveWorkout {
     /// one would put the time of day late by its length. The key takes no log during a set's
     /// "Start in" (`WorkoutPhase.takesLog`). The next set's count is not begun here: with no rest
     /// before it, its "Start in" begins as the screen lands on it, so all of it is seen
-    /// (`beginningCount(at:restOverride:)`).
+    /// (`beginningCount(at:)`).
     public func logging(_ set: PlannedSet, of row: WorkoutExercise, at now: Date) -> LoggedWorkout {
         let clock = loggedWorkout.clock(at: now)
         let timed = timedSet.flatMap { $0.set == set ? $0 : nil }
@@ -304,7 +303,7 @@ extension LiveWorkout {
 
     /// The workout as a screen opening at `now` finds it: a count that ran out meanwhile
     /// logged at its full time, then the next set's count begun. One set, never a chain.
-    public func caughtUp(at now: Date, restOverride: Int? = nil) -> LoggedWorkout {
+    public func caughtUp(at now: Date) -> LoggedWorkout {
         var live = self
         if let timed = timedSet, timed.isOver(atClock: loggedWorkout.clock(at: now)),
            let row = currentExercise
@@ -314,6 +313,6 @@ extension LiveWorkout {
                 loggedWorkout: logging(timed.set, of: row, at: now),
             )
         }
-        return live.beginningCount(at: now, restOverride: restOverride)
+        return live.beginningCount(at: now)
     }
 }

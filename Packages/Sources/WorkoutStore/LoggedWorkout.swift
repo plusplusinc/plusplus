@@ -82,7 +82,7 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     /// The seconds spent working out at `now`, pauses left out, not rounded: the clock a rest
     /// runs on, so a pause stops it. Below zero only before the workout's time starts, with
     /// nothing logged: through the first set's "Start in", which counts up to zero, where the
-    /// set and the time begin (`LiveWorkout.landingStart(at:restOverride:)`). Once a set is
+    /// set and the time begin (`LiveWorkout.landingStart(at:)`). Once a set is
     /// logged, never below zero, as with a device clock set back.
     public func clock(at now: Date) -> Double {
         let end = endedAt ?? pausedAt ?? now

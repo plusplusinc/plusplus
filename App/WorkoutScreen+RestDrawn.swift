@@ -26,7 +26,7 @@ extension WorkoutScreen {
         // as a rest that ran out is, on an empty rest, it read 0:00 as it went.
         if let move = phase.move, move.isFromRest, let live,
            let skippedAt = live.loggedWorkout.sets.last?.restSkippedAt,
-           let skipped = live.rest(override: restOverride), skipped.after == move.set,
+           let skipped = live.rest(), skipped.after == move.set,
            let row = restRow(after: move.set, isBack: move.isBack, in: live.loggedWorkout)
         {
             // Held as a pause holds it, where the skip came in one: the time left at the tap.
@@ -42,7 +42,7 @@ extension WorkoutScreen {
         if let (rest, loggedWorkout) = phase.restLeft, !rest.isWithinExercise,
            let row = restRow(of: rest, in: loggedWorkout),
            let left = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
-               .rest(override: restOverride)
+               .rest()
         {
             let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)
             let block = RestBlock(
@@ -80,8 +80,7 @@ extension WorkoutScreen {
     /// tall as the rest for every set of an exercise that rests between them. Nil for any other
     /// row, and an exercise with no rest between its sets.
     func setRest(of id: WorkoutExercise.ID, current: WorkoutExercise.ID?) -> SetRest? {
-        guard id == current, let shown, let gap = workout.restBetweenSets(of: id),
-              (restOverride ?? gap) > 0
+        guard id == current, let shown, let gap = workout.restBetweenSets(of: id)
         else { return nil }
         if let within = phase.drawnRest, within.isWithinExercise, within.beat >= .shown,
            let (resting, loggedWorkout) = drawnResting
@@ -98,7 +97,7 @@ extension WorkoutScreen {
                 isPaused: loggedWorkout.isPaused,
             )
         }
-        return SetRest(isRunning: false, length: restOverride ?? gap)
+        return SetRest(isRunning: false, length: gap)
     }
 }
 

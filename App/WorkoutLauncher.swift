@@ -80,7 +80,7 @@ struct WorkoutLauncher: View {
                     )
                     // A timed set that ran out while the app was away is logged, before the
                     // screen opens on the workout.
-                    session.catchUp(override: WorkoutScreen.restOverride)
+                    session.catchUp()
                     let weightUnit = WeightUnit(region: locale)
                     // On the Workouts list, after a finish, the list is read before the first
                     // frame, so it never shows empty and then fills.
