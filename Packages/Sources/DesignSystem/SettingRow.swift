@@ -6,8 +6,10 @@ import SwiftUI
 /// is the system's answer, which the app only reads. Under a hairline in the same card, a
 /// button as wide as the card that changes it (`Change`), neutral when the setting is on and
 /// green when it is off, the state with something to do; an arrow after its words when it
-/// leaves the app for where the setting lives; and under it, then, a line on where to go from
-/// there. VoiceOver reads the name and the value as one element.
+/// opens another app, where the setting lives, which VoiceOver hears in the button's hint; and
+/// under it, then, a line in the caption style on where to go there. With no button that can
+/// take the person there, the line alone. VoiceOver reads the name and the value as one
+/// element, the mark after the value left out.
 public struct SettingRow: View {
     private let title: String
     private let value: String
@@ -17,24 +19,38 @@ public struct SettingRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
 
-    /// The way to change the setting: the button's words, whether it leaves the app, the line
-    /// under it, and what the button does.
+    /// The way to change the setting: the button's words, the app it opens when it leaves this
+    /// one, the line under it, and what the button does; or, where no button can take the
+    /// person there, the line alone (`directions(_:)`).
     public struct Change {
-        let title: String
-        let leavesApp: Bool
+        let title: String?
+        /// The app the button opens, which VoiceOver hears in its hint in place of the arrow.
+        let opens: String?
         let note: String?
         let action: () -> Void
 
         public init(
             _ title: String,
-            leavesApp: Bool,
+            opens: String? = nil,
             note: String? = nil,
             action: @escaping () -> Void,
         ) {
             self.title = title
-            self.leavesApp = leavesApp
+            self.opens = opens
             self.note = note
             self.action = action
+        }
+
+        private init(note: String) {
+            title = nil
+            opens = nil
+            self.note = note
+            action = { }
+        }
+
+        /// No button, only where to go to change it.
+        public static func directions(_ note: String) -> Self {
+            Self(note: note)
         }
     }
 
@@ -52,18 +68,22 @@ public struct SettingRow: View {
                 .fill(.pp(.separator))
                 .frame(height: 1 / displayScale)
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Button(action: change.action) {
-                    HStack(spacing: Spacing.sm) {
-                        Text(change.title)
-                        if change.leavesApp {
-                            Image(systemName: "arrow.up.forward")
-                                .imageScale(.small)
-                                .fontWeight(.semibold)
-                                .accessibilityHidden(true)
+                if let title = change.title {
+                    Button(action: change.action) {
+                        HStack(spacing: Spacing.sm) {
+                            Text(title)
+                            if change.opens != nil {
+                                Image(systemName: "arrow.up.forward")
+                                    .imageScale(.small)
+                                    .fontWeight(.semibold)
+                                    .accessibilityHidden(true)
+                            }
                         }
                     }
+                    .buttonStyle(isOn ? .pillOnSurface(widens: true) : .greenPill(widens: true))
+                    // A hint, not the label: Voice Control finds a button by its visible words.
+                    .accessibilityHint(change.opens.map { "Opens \($0)" } ?? "")
                 }
-                .buttonStyle(isOn ? .pillOnSurface(widens: true) : .greenPill(widens: true))
                 if let note = change.note {
                     Text(note)
                         .font(.ppCaption)
@@ -113,19 +133,19 @@ public struct SettingRow: View {
             "Sync workouts",
             value: "Off",
             isOn: false,
-            change: .init("Sync to Apple Health", leavesApp: false) { },
+            change: .init("Sync to Apple Health") { },
         )
         SettingRow(
             "Sync workouts",
             value: "On",
             isOn: true,
-            change: .init("Manage in Apple Health", leavesApp: true, note: path) { },
+            change: .init("Manage in Apple Health", opens: "Apple Health", note: path) { },
         )
         SettingRow(
             "Sync workouts",
             value: "Off",
             isOn: false,
-            change: .init("Enable in Apple Health", leavesApp: true, note: path) { },
+            change: .init("Enable in Apple Health", opens: "Apple Health", note: path) { },
         )
     }
     .padding(Spacing.md)

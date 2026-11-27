@@ -76,7 +76,7 @@ with the feature.
   `WorkoutsScreen`, `WorkoutRow`, `LengthSheet`, `NeedsHeader`. The drawer's mark and a way through it: `drawerMarks()`, `DrawerWay`,
   `AppSession.show(_:after:throughDrawer:markWait:)`.
 - Log: `LogScreen`, `LogScreen+Tabs.swift`, `LoggedWorkoutScreen`, `DayGrid`, `LogRow`,
-  `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`, `OfferCard`, `CutAway`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
+  `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`, `PromptRow` (`PromptNote`), `CutAway`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
   `ExerciseForm`, `BarSearchField`, `FilterBar`, `ChipSheet`, `FilterButtonRow`, `CreateLabel` (both lists').
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,

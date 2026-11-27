@@ -4,10 +4,10 @@ import SwiftUI
 
 /// How the app looks, a sheet at full height only, opened from the drawer's Settings button over
 /// the drawer, with an inline title and the system's Close leading and the drag indicator, as the
-/// exercise sheet has. One group under its label in the headings' style: Appearance
-/// (`AppearanceChoice`): Light and Dark, Automatic, and Void. A choice takes at once, with no
-/// Save:
-/// the sheet and the app behind it recolor under the finger.
+/// exercise sheet has. Groups under labels in the headings' style, each starting where its
+/// card's content does: Appearance (`AppearanceChoice`): Light and Dark, Automatic, and Void;
+/// then, where the phone has Apple Health, Apple Health (`HealthChoice`). A choice takes at once,
+/// with no Save: the sheet and the app behind it recolor under the finger.
 struct SettingsSheet: View {
     let health: HealthSaving
     let askToSaveToHealth: () async -> Void
@@ -127,12 +127,14 @@ struct AppearanceChoice: View {
     }
 }
 
-/// Apple Health's one row, "Sync workouts", from the system's permission. It is not a switch:
-/// Apple asks apps to leave Health sharing to the system's privacy settings, so nothing here
-/// turns syncing off. Never asked, a green "Sync to Apple Health", Log's prompt's words, brings up
-/// Apple's sheet; allowed, it reads
-/// On, with a button that opens the Health app and where to go in it; denied, Off, with the
-/// same in green. Dismissing Log's prompt changes nothing here.
+/// Apple Health's card, "Sync workouts" (`SettingRow`), from the system's permission. It is not
+/// a switch: Apple asks apps to leave Health sharing to the system's privacy settings, so
+/// nothing here turns syncing off. Never asked, Off, and a green "Sync to Apple Health", Log's
+/// prompt's words, brings up Apple's sheet; allowed, On, with a neutral "Manage in Apple Health"
+/// that opens the Health app, and where to go in it; denied, Off, with a green "Enable in Apple
+/// Health" and the same line. Where the phone can't open the Health app, as with it deleted,
+/// the two that would open it show only the line, saying it is in Apple Health. Dismissing Log's
+/// prompt changes nothing here.
 struct HealthChoice: View {
     let health: HealthSaving
     /// The ask, and once allowed, every workout already in Log synced
@@ -143,9 +145,23 @@ struct HealthChoice: View {
     /// line breaks after "then" and none ends on a stop's arrow.
     static let healthPath =
         "Tap your picture,\u{A0}then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
+    /// The same, alone, with no button to the Health app over it.
+    static let healthPathAlone =
+        "In Apple Health, tap your picture,\u{A0}then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
 
     private func inHealth(_ title: String) -> SettingRow.Change {
-        .init(title, leavesApp: true, note: Self.healthPath) { openURL(Self.healthApp) }
+        guard canOpenHealth else { return .directions(Self.healthPathAlone) }
+        return .init(title, opens: "Apple Health", note: Self.healthPath) {
+            openURL(Self.healthApp)
+        }
+    }
+
+    /// Asked each time the card draws, which includes each return to the app (`scenePhase`),
+    /// so a Health app deleted meanwhile takes the button with it. The scheme is declared in
+    /// `Config/Info.plist`, without which iOS answers false.
+    private var canOpenHealth: Bool {
+        _ = scenePhase
+        return UIApplication.shared.canOpenURL(Self.healthApp)
     }
 
     /// The Health app's front page. Apple documents no link into Health; this one opens it on
@@ -153,6 +169,7 @@ struct HealthChoice: View {
     private static let healthApp = URL(string: "x-apple-health://")!
 
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         switch health.access {
@@ -161,7 +178,7 @@ struct HealthChoice: View {
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                change: .init("Sync to Apple Health", leavesApp: false) {
+                change: .init("Sync to Apple Health") {
                     Task { await ask() }
                 },
             )

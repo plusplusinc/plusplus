@@ -4,7 +4,7 @@ import SwiftUI
 /// `height`, filling the width, and an × trailing it, a tap target wide, in the secondary text
 /// color, read by VoiceOver as "Dismiss". It draws nothing of its coming and going; whoever
 /// shows it closes its room, as Log does with `CutAway`, and swaps it for its note
-/// (`PromptNote`) with `promptSwap(reduceMotion:)`.
+/// (`PromptNote`) with `promptSwap(isNote:reduceMotion:)`.
 public struct PromptRow: View {
     private let title: String
     private let take: () -> Void
@@ -54,12 +54,23 @@ public struct PromptNote: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
-    /// When the fill is full; nil while nothing fills.
-    @State private var fillEnds: Date?
+    /// The fill; nil while nothing fills.
+    @State private var fill: KeyFill?
+    /// Whether it starts its own fill and timer as it shows; not for a fill drawn held.
+    private let isTimed: Bool
 
     public init(_ text: String, end: @escaping () -> Void) {
         self.text = text
         self.end = end
+        isTimed = true
+    }
+
+    /// The note with its fill held at `fill`, or none, and no timer, as a snapshot draws it.
+    init(_ text: String, held fill: KeyFill?) {
+        self.text = text
+        end = { }
+        _fill = State(initialValue: fill)
+        isTimed = false
     }
 
     public var body: some View {
@@ -70,16 +81,14 @@ public struct PromptNote: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
             Button("OK", action: end)
-                .buttonStyle(.pill(filling: fillEnds.map {
-                    KeyFill(length: Self.fillLength, ends: $0)
-                }))
+                .buttonStyle(.pill(filling: fill))
                 .fixedSize()
         }
         .frame(minHeight: PromptRow.height)
         .task {
-            guard !reduceMotion, !voiceOver else { return }
+            guard isTimed, !reduceMotion, !voiceOver else { return }
             let ends = Date.now.addingTimeInterval(Self.fillDelay + Self.fillLength)
-            fillEnds = ends
+            fill = KeyFill(length: Self.fillLength, ends: ends)
             do {
                 try await Task.sleep(for: .seconds(ends.timeIntervalSinceNow), tolerance: .zero)
             } catch {
@@ -99,18 +108,28 @@ extension View {
             reduceMotion
                 ? AnyTransition.opacity.animation(.cardCrossfade)
                 : isNote
-                ? AnyTransition.opacity.combined(with: .scale(scale: 0.97))
-                .animation(.easeOut(duration: 0.3).delay(0.16))
-                : AnyTransition.opacity.combined(with: .scale(scale: 0.96))
-                .animation(.easeIn(duration: 0.22)),
+                ? AnyTransition.opacity.combined(with: .scale(scale: PromptSwap.noteScale))
+                .animation(PromptSwap.noteIn)
+                : AnyTransition.opacity.combined(with: .scale(scale: PromptSwap.rowScale))
+                .animation(PromptSwap.rowOut),
         )
     }
+}
+
+/// The swap's timings (`promptSwap(isNote:reduceMotion:)`).
+private enum PromptSwap {
+    /// The row going: a quick fade as it shrinks to `rowScale`, easing in.
+    static let rowOut = Animation.easeIn(duration: 0.22)
+    static let rowScale = 0.96
+    /// The note coming, from `noteScale`, once the row is most of the way gone, easing out.
+    static let noteIn = Animation.easeOut(duration: 0.3).delay(0.16)
+    static let noteScale = 0.97
 }
 
 #Preview {
     VStack(spacing: Spacing.lg) {
         PromptRow("Sync to Apple Health", take: { }, dismiss: { })
-        PromptNote("You can turn on Apple Health sync later in Settings.", end: { })
+        PromptNote("You can enable sync later in Apple Health.", end: { })
     }
     .padding(Spacing.md)
     .frame(maxHeight: .infinity)
