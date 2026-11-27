@@ -14,18 +14,23 @@ struct SettingRowSnapshotTests {
     @Test("Never asked, on, and off, each on its card")
     func states() {
         let view = VStack(spacing: Spacing.md) {
-            SettingRow("Sync workouts", button: "Turn on") { }
+            SettingRow(
+                "Sync workouts",
+                value: "Off",
+                isOn: false,
+                change: .init("Turn on", leavesApp: false, note: "Syncs each workout") { },
+            )
             SettingRow(
                 "Sync workouts",
                 value: "On",
                 isOn: true,
-                leaves: .init("Manage in Health", note: "In Health, tap your picture") { },
+                change: .init("Manage in Health", leavesApp: true, note: "Tap your picture") { },
             )
             SettingRow(
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                leaves: .init("Turn on in Health", note: "In Health, tap your picture") { },
+                change: .init("Turn on in Health", leavesApp: true, note: "Tap your picture") { },
             )
         }
         .padding(Spacing.md)

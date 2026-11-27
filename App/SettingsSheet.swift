@@ -138,13 +138,15 @@ struct HealthChoice: View {
     /// (`AppSession.askToSaveToHealth()`).
     let ask: () async -> Void
 
+    static let whatSyncs = "Syncs each workout you finish to Apple Health"
+
     /// Where to go in Health. The stops after "then" are joined by no-break spaces, so the
     /// line breaks after "then" and none ends on a stop's arrow.
     static let healthPath =
         "Tap your picture,\u{A0}then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
 
-    private func leave(_ title: String) -> SettingRow.Leave {
-        .init(title, note: Self.healthPath) { openURL(Self.healthApp) }
+    private func inHealth(_ title: String) -> SettingRow.Change {
+        .init(title, leavesApp: true, note: Self.healthPath) { openURL(Self.healthApp) }
     }
 
     /// The Health app's front page. Apple documents no link into Health; this one opens it on
@@ -156,15 +158,27 @@ struct HealthChoice: View {
     var body: some View {
         switch health.access {
         case .notAsked:
-            SettingRow("Sync workouts", button: "Turn on") { Task { await ask() } }
+            SettingRow(
+                "Sync workouts",
+                value: "Off",
+                isOn: false,
+                change: .init("Turn on", leavesApp: false, note: Self.whatSyncs) {
+                    Task { await ask() }
+                },
+            )
         case .on:
-            SettingRow("Sync workouts", value: "On", isOn: true, leaves: leave("Manage in Health"))
+            SettingRow(
+                "Sync workouts",
+                value: "On",
+                isOn: true,
+                change: inHealth("Manage in Health"),
+            )
         default:
             SettingRow(
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                leaves: leave("Turn on in Health"),
+                change: inHealth("Turn on in Health"),
             )
         }
     }
