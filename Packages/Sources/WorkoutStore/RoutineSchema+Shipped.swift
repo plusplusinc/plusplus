@@ -182,7 +182,7 @@ enum RoutineSchemaV4: VersionedSchema {
     }
 }
 
-/// As #97 shipped it, with workouts and before logged sets. Its routines are still today's.
+/// As #97 shipped it, with workouts and before logged sets. Its routines are still V4's.
 enum RoutineSchemaV5: VersionedSchema {
     static let versionIdentifier = Schema.Version(5, 0, 0)
     static var models: [any PersistentModel.Type] {

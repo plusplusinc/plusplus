@@ -1,14 +1,14 @@
 import Foundation
 import SwiftData
 
-/// V7's routines and V6's workouts, with the exercises someone created. Its exercises are still
-/// today's.
+/// V7's routines and V6's workouts, with the exercises someone created. Its exercises stay as
+/// they are through V14.
 enum RoutineSchemaV8: VersionedSchema {
     static let versionIdentifier = Schema.Version(8, 0, 0)
     static var models: [any PersistentModel.Type] {
         [
-            StoredRoutine.self,
-            StoredRoutineExercise.self,
+            RoutineSchemaV7.StoredRoutine.self,
+            RoutineSchemaV7.StoredRoutineExercise.self,
             RoutineSchemaV6.StoredWorkout.self,
             RoutineSchemaV6.StoredSet.self,
             StoredExercise.self,
