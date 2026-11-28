@@ -80,7 +80,12 @@ extension LiveWorkout {
             return setFace(set, locale: locale, middle: startIn(left, locale: locale), key: nil)
         case let .countingIn(count):
             let left = count.startClock - clock - Self.startInHold
-            return setFace(count.set, locale: locale, middle: startIn(left, locale: locale), key: nil)
+            return setFace(
+                count.set,
+                locale: locale,
+                middle: startIn(left, locale: locale),
+                key: nil,
+            )
         case let .doing(set, timed?):
             let left = timed.remaining(atClock: clock)
             let length = Double(timed.length)
