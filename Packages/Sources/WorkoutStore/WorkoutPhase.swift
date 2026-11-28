@@ -55,14 +55,14 @@ public enum WorkoutPhase: Equatable, Sendable {
 
     /// A workout ending, from End's choice until Start comes back.
     public struct Ending: Equatable, Sendable {
-        /// The logged workout as it was, whose time fades out of its key.
-        public let loggedWorkout: LoggedWorkout
+        /// The workout session as it was, whose time fades out of its key.
+        public let workoutSession: WorkoutSession
         /// When End came: the rest drawn holds where it stood then (`drawnEnd`).
         public let date: Date
         /// A set logged but not yet drawn when End came, kept hidden so the screen stays as drawn
         /// until the workout goes.
         public let hidden: PlannedSet?
-        public fileprivate(set) var beat: Beat
+        public fileprivate(set) var beat: Beat = .began
         /// Whether the list still draws the workout as it was: from End's choice, which ends the
         /// stored workout at once, until the list shrinks or crossfades out of it.
         public internal(set) var drawsLiveWorkout = true
@@ -184,7 +184,7 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// shown, so what End moves, it moves from where it is drawn. A rest drawn holds where it
     /// stood at `date`.
     @discardableResult
-    public mutating func end(_ loggedWorkout: LoggedWorkout, at date: Date = .now) -> Bool {
+    public mutating func end(_ workoutSession: WorkoutSession, at date: Date = .now) -> Bool {
         guard canEnd else { return false }
         let hidden: PlannedSet? = switch self {
         case .idle, .starting, .running, .timing, .closing(_, true), .fadingOn(_, true, _), .ending:
@@ -196,7 +196,7 @@ public enum WorkoutPhase: Equatable, Sendable {
         case let .resting(rest):
             rest.beat == .logged ? rest.set : nil
         }
-        var ending = Ending(loggedWorkout: loggedWorkout, date: date, hidden: hidden, beat: .began)
+        var ending = Ending(workoutSession: workoutSession, date: date, hidden: hidden)
         ending.rest = resting.flatMap { $0.beat >= .shown ? $0 : nil }
         ending.count = timing
         self = .ending(ending)

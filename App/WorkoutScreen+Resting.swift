@@ -63,11 +63,11 @@ extension WorkoutScreen {
     /// The rest as drawn, with the workout it runs on: the one running, or the one End came in
     /// until the list leaves it (`WorkoutPhase.drawnRest`). None while its set is not yet drawn,
     /// as at its log: the rest found then was the one before, and Skip rest filled from it.
-    var drawnResting: (rest: WorkoutRest, loggedWorkout: LoggedWorkout)? {
+    var drawnResting: (rest: WorkoutRest, workoutSession: WorkoutSession)? {
         guard let drawn = phase.drawnRest, let shown,
               let rest = shown.rest(after: drawn.set)
         else { return nil }
-        return (rest, shown.loggedWorkout)
+        return (rest, shown.workoutSession)
     }
 
     /// The rest's opening, from the log: the dot leaves now, and as it does the row closes and
@@ -79,7 +79,7 @@ extension WorkoutScreen {
             return startRestBetweenSets()
         }
         guard let rest = phase.resting, let live,
-              let row = restRow(of: rest, in: live.loggedWorkout)
+              let row = restRow(of: rest, in: live.workoutSession)
         else { return }
         // Back up a superset's loop, the round's rest opens above its first member, maybe out of
         // sight: the list scrolls it under the bar from the tap, on the dot's way there. Its pitch
@@ -169,15 +169,15 @@ extension WorkoutScreen {
         guard let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .landed,
               let shown
         else { return nil }
-        return restRow(of: rest, in: shown.loggedWorkout)
+        return restRow(of: rest, in: shown.workoutSession)
     }
 
     /// The rest is over: the move to the next exercise plays as one with no rest from its log,
     /// its pulse setting off from the dot.
     func endRest() {
-        guard let rest = phase.resting, let loggedWorkout = session.loggedWorkout,
+        guard let rest = phase.resting, let workoutSession = session.workoutSession,
               let next = live?.currentSet,
-              resting.map({ loggedWorkout.clock(at: .now) >= $0.leaveClock }) ?? true
+              resting.map({ workoutSession.clock(at: .now) >= $0.leaveClock }) ?? true
         else { return }
         // A timed set next counts from the rest's end, in the same update as the rest ends.
         session.beginCount()
@@ -222,7 +222,7 @@ extension WorkoutScreen {
         withAnimation(SetMotion.aroundRest(.down)) { phase.endRest() }
         withAnimation(SetMotion.moving(.down)) { growthLift = 0 }
         railPulse = RailPulse(
-            from: .rest(in: restRow(of: rest, in: loggedWorkout) ?? rest.set.row),
+            from: .rest(in: restRow(of: rest, in: workoutSession) ?? rest.set.row),
             to: .node(next.row),
             way: .down,
             run: (railPulse?.run ?? 0) + 1,
@@ -250,20 +250,20 @@ extension WorkoutScreen {
         scrollPosition.scrollTo(y: target)
     }
 
-    /// The row a rest between exercises is drawn in, `loggedWorkout` holding the set it follows:
+    /// The row a rest between exercises is drawn in, `workoutSession` holding the set it follows:
     /// the row left, under its label; before a superset's next round, the first member's, above it.
-    func restRow(of rest: WorkoutPhase.Resting, in loggedWorkout: LoggedWorkout)
+    func restRow(of rest: WorkoutPhase.Resting, in workoutSession: WorkoutSession)
         -> WorkoutExercise.ID?
     {
-        restRow(after: rest.set, isBack: rest.isBack, in: loggedWorkout)
+        restRow(after: rest.set, isBack: rest.isBack, in: workoutSession)
     }
 
     /// The same, for the rest after `set`, as a move out of one names it.
-    func restRow(after set: PlannedSet, isBack: Bool, in loggedWorkout: LoggedWorkout)
+    func restRow(after set: PlannedSet, isBack: Bool, in workoutSession: WorkoutSession)
         -> WorkoutExercise.ID?
     {
         isBack
-            ? LiveWorkout(workout: workout, loggedWorkout: loggedWorkout).currentSet?.row
+            ? LiveWorkout(workout: workout, workoutSession: workoutSession).currentSet?.row
             : set.row
     }
 
@@ -297,11 +297,11 @@ extension WorkoutScreen {
 
     /// What the rest's watch waits on: +15 s, a skip, a pause, or a resume starts it again.
     var restWatch: RestWatch? {
-        guard let resting, let loggedWorkout = session.loggedWorkout else { return nil }
+        guard let resting, let workoutSession = session.workoutSession else { return nil }
         return RestWatch(
             endClock: resting.endClock,
             leaveClock: resting.leaveClock,
-            isPaused: loggedWorkout.isPaused,
+            isPaused: workoutSession.isPaused,
         )
     }
 
@@ -314,8 +314,9 @@ extension WorkoutScreen {
     func watchRest() async {
         guard isResting else { return }
         while let resting {
-            guard let loggedWorkout = session.loggedWorkout, !loggedWorkout.isPaused else { return }
-            let left = resting.leaveClock - loggedWorkout.clock(at: .now)
+            guard let workoutSession = session.workoutSession,
+                  !workoutSession.isPaused else { return }
+            let left = resting.leaveClock - workoutSession.clock(at: .now)
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }

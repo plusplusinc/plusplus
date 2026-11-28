@@ -11,7 +11,7 @@ extension TimedSetTests {
         // Counting from 10, +15 s at 12: 18 s done at 28.
         let live = LiveWorkout(
             workout: begun.workout,
-            loggedWorkout: begun.extendingCount(by: 15, at: Self.at(12)),
+            workoutSession: begun.extendingCount(by: 15, at: Self.at(12)),
         )
         let finished = live.finishing(at: Self.at(28))
         #expect(finished.sets.count == 1)
@@ -19,7 +19,7 @@ extension TimedSetTests {
         #expect(set.target == .time(seconds: 18))
         #expect(finished.count == nil)
         #expect(finished.endedAt == Self.at(28))
-        let early = try #require(Self.logged(live, at: 28).loggedWorkout.sets.first)
+        let early = try #require(Self.logged(live, at: 28).workoutSession.sets.first)
         #expect(early.target == set.target)
         #expect(early.timeAdded == set.timeAdded)
         #expect(early.loggedAt == set.loggedAt)
@@ -32,7 +32,7 @@ extension TimedSetTests {
         // Counting from 10, paused at 22 with 12 s done; finished ten minutes on.
         let paused = LiveWorkout(
             workout: live.workout,
-            loggedWorkout: live.loggedWorkout.pausing(at: Self.at(22)),
+            workoutSession: live.workoutSession.pausing(at: Self.at(22)),
         )
         let set = try #require(paused.finishing(at: Self.at(622)).sets.first)
         #expect(set.target == .time(seconds: 12))
@@ -61,10 +61,10 @@ extension TimedSetTests {
         let begun = try Self.started(Self.workout())
         // Paused from 2 to 12 during Start in: the count runs on the clock from 10 to 40, 20 to
         // 50 by the time of day.
-        let paused = begun.loggedWorkout.pausing(at: Self.at(2)).resuming(at: Self.at(12))
-        let live = LiveWorkout(workout: begun.workout, loggedWorkout: paused)
+        let paused = begun.workoutSession.pausing(at: Self.at(2)).resuming(at: Self.at(12))
+        let live = LiveWorkout(workout: begun.workout, workoutSession: paused)
         // The phone woke 18 s after the end.
-        let set = try #require(Self.logged(live, at: 68).loggedWorkout.sets.first)
+        let set = try #require(Self.logged(live, at: 68).workoutSession.sets.first)
         #expect(set.loggedAt == Self.at(50))
         #expect(set.clockWhenLogged == 40, "The rest after it starts where the count ended")
         #expect(set.target == .time(seconds: 30))
@@ -73,9 +73,9 @@ extension TimedSetTests {
     @Test("A set logged by a tap stores the moment of the tap: Log early, and reps")
     func tapTimeOfDay() throws {
         let live = try Self.started(Self.workout())
-        #expect(try Self.logged(live, at: 28).loggedWorkout.sets.first?.loggedAt == Self.at(28))
+        #expect(try Self.logged(live, at: 28).workoutSession.sets.first?.loggedAt == Self.at(28))
         let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }])
         let reps = try Self.logged(Self.started(workout), at: 5)
-        #expect(reps.loggedWorkout.sets.first?.loggedAt == Self.at(5))
+        #expect(reps.workoutSession.sets.first?.loggedAt == Self.at(5))
     }
 }

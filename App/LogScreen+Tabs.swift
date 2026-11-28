@@ -8,7 +8,7 @@ import WorkoutStore
 
 extension LogScreen {
     /// History with nothing logged, under the empty calendar.
-    static let noLoggedWorkoutsText = "Today is a good day to go from 0 to 1."
+    static let noWorkoutSessionsText = "Today is a good day to go from 0 to 1."
     static let goToWorkoutsLabel = "Go to Workouts"
     /// Under Diff's rows, or in their place while it has none.
     static let diffRuleText = "An exercise shows here once it has been done in two workouts."
@@ -27,7 +27,7 @@ extension LogScreen {
                             : AnyTransition(.cutAway),
                     )
             }
-            loggedWorkoutCount(period)
+            workoutSessionCount(period)
                 .padding(.bottom, Spacing.md)
             DayGrid(
                 initials: LogPeriod.weekdayInitials(calendar: calendar),
@@ -36,7 +36,7 @@ extension LogScreen {
                         DayGrid.Square(
                             id: day.date,
                             number: LogPeriod.dayNumber(day, locale: locale, calendar: calendar),
-                            isDone: day.hasLoggedWorkout,
+                            isDone: day.hasWorkoutSession,
                             isToday: day.isToday,
                             isShown: !day.isAfterToday,
                             spoken: LogPeriod.spokenDay(day, locale: locale, calendar: calendar),
@@ -52,9 +52,9 @@ extension LogScreen {
             // does, and never rides up from where the empty part sat. Stacked, not laid over
             // the rows in a ZStack: there, at the largest text sizes, Go to Workouts' label
             // was cut short on one line rather than wrapping.
-            loggedWorkoutRows(log)
-            if log.loggedWorkouts.isEmpty {
-                noLoggedWorkouts
+            workoutSessionRows(log)
+            if log.workoutSessions.isEmpty {
+                noWorkoutSessions
                     .opacity(emptyGivesWay ? 0 : 1)
                     .allowsHitTesting(!emptyGivesWay)
                     .accessibilityHidden(emptyGivesWay)
@@ -117,9 +117,9 @@ extension LogScreen {
     }
 
     /// "9 workouts", its number in purple.
-    private func loggedWorkoutCount(_ period: LogPeriod) -> some View {
-        let text = period.loggedWorkoutCountText(locale: locale)
-        let number = period.loggedWorkoutCount.formatted(.number.locale(locale))
+    private func workoutSessionCount(_ period: LogPeriod) -> some View {
+        let text = period.workoutSessionCountText(locale: locale)
+        let number = period.workoutSessionCount.formatted(.number.locale(locale))
         var attributed = AttributedString.monoNumbers(text, font: .ppRowDetailNumber)
         if let range = attributed.range(of: number) {
             attributed[range].foregroundColor = .pp(.done)
@@ -129,9 +129,9 @@ extension LogScreen {
             .foregroundStyle(.pp(.textSecondary))
     }
 
-    private var noLoggedWorkouts: some View {
+    private var noWorkoutSessions: some View {
         VStack(spacing: Spacing.md) {
-            Text(Self.noLoggedWorkoutsText)
+            Text(Self.noWorkoutSessionsText)
                 .font(.ppRowDetail)
                 .foregroundStyle(.pp(.textSecondary))
                 .multilineTextAlignment(.center)
@@ -145,21 +145,21 @@ extension LogScreen {
     /// Lazy, since History lists every finished workout there is. A row swiped left shows the
     /// system's red Delete, which asks first in a centered alert, "Delete from Log?" over the
     /// name and day (`LogScreen.delete(_:)`).
-    private func loggedWorkoutRows(_ log: WorkoutLog) -> some View {
-        let shown = log.loggedWorkouts.filter { !leaving.contains($0.id) }
+    private func workoutSessionRows(_ log: WorkoutLog) -> some View {
+        let shown = log.workoutSessions.filter { !leaving.contains($0.id) }
         // The system draws a swiped action inset from its row's end, so the row it swipes runs
         // past History's margin to that inset short of the screen's edge, and Delete ends in
         // line with the line under the row, as on Workouts.
         let overhang = Spacing.md - WorkoutsScreen.swipeInset
-        return LazyVStack(alignment: .leading, spacing: 0) { ForEach(shown) { loggedWorkout in
-            let name = Self.name(of: loggedWorkout)
-            let spoken = loggedWorkout.spokenLogLine(locale: locale, calendar: calendar)
+        return LazyVStack(alignment: .leading, spacing: 0) { ForEach(shown) { workoutSession in
+            let name = Self.name(of: workoutSession)
+            let spoken = workoutSession.spokenLogLine(locale: locale, calendar: calendar)
             Button {
-                openLoggedWorkout(loggedWorkout.id)
+                openWorkoutSession(workoutSession.id)
             } label: {
                 LogRow(
                     name,
-                    detail: loggedWorkout.logLine(locale: locale, calendar: calendar),
+                    detail: workoutSession.logLine(locale: locale, calendar: calendar),
                     spoken: "\(name), \(spoken)",
                 )
                 .overlay(alignment: .bottom) { RowLine() }
@@ -169,11 +169,11 @@ extension LogScreen {
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("log.workout")
             .swipeActions(edge: .trailing) {
-                Button("Delete", role: .destructive) { askToDelete(loggedWorkout) }
+                Button("Delete", role: .destructive) { askToDelete(workoutSession) }
             }
             .padding(.trailing, -overhang)
-            .opacity(loggedWorkout.id == fadingIn ? 0 : 1)
-            .onAppear { fadesIn(loggedWorkout.id) }
+            .opacity(workoutSession.id == fadingIn ? 0 : 1)
+            .onAppear { fadesIn(workoutSession.id) }
         } }
         // With Reduce Motion a workout coming in moves nothing: the rows take their places at
         // once, and the new one fades in from its own.
@@ -185,7 +185,7 @@ extension LogScreen {
     }
 
     /// Fades in the workout just finished, with Reduce Motion, once its row is in place.
-    private func fadesIn(_ id: LoggedWorkout.ID) {
+    private func fadesIn(_ id: WorkoutSession.ID) {
         guard id == fadingIn else { return }
         withAnimation(.snappy) { fadingIn = nil }
     }
@@ -245,9 +245,9 @@ extension LogScreen {
         }
     }
 
-    /// A logged workout's name as it was, New workout for an empty one.
-    static func name(of loggedWorkout: LoggedWorkout) -> String {
-        loggedWorkout.workoutName.isEmpty ? WorkoutScreen.defaultName : loggedWorkout.workoutName
+    /// A workout session's name as it was, New workout for an empty one.
+    static func name(of workoutSession: WorkoutSession) -> String {
+        workoutSession.workoutName.isEmpty ? WorkoutScreen.defaultName : workoutSession.workoutName
     }
 
     /// A gain in green; anything else in gray; nothing for a change of measure.

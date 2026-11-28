@@ -5,8 +5,8 @@ import Testing
 
 /// A relaunch is a second store over the same container: it sees only what was saved. Dates are
 /// explicit, so nothing rests on how fast the test runs.
-@Suite("Store logged workouts")
-struct StoreLoggedWorkoutTests {
+@Suite("Store workout sessions")
+struct StoreWorkoutSessionTests {
     private let container: ModelContainer
 
     init() throws {
@@ -21,22 +21,22 @@ struct StoreLoggedWorkoutTests {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    private static func started(_ workout: Workout, at seconds: TimeInterval) -> LoggedWorkout {
-        LoggedWorkout(workoutID: workout.id, workoutName: workout.name, startedAt: at(seconds))
+    private static func started(_ workout: Workout, at seconds: TimeInterval) -> WorkoutSession {
+        WorkoutSession(workoutID: workout.id, workoutName: workout.name, startedAt: at(seconds))
     }
 
     @Test(
-        "A logged workout in progress comes back with its workout, its time counting the time away",
+        "A session in progress comes back with its workout, its time counting the time away",
     )
     func inProgressRelaunch() async throws {
         let workout = Workout(name: "Upper")
-        let loggedWorkout = Self.started(workout, at: 10)
+        let workoutSession = Self.started(workout, at: 10)
         try await relaunch().save(workout, at: Self.at(1))
-        try await relaunch().save(loggedWorkout)
+        try await relaunch().save(workoutSession)
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.workout == workout)
-        #expect(launch.loggedWorkout == loggedWorkout)
-        #expect(launch.loggedWorkout?.elapsed(at: Self.at(100)) == .seconds(90))
+        #expect(launch.workoutSession == workoutSession)
+        #expect(launch.workoutSession?.elapsed(at: Self.at(100)) == .seconds(90))
     }
 
     @Test("Pause, resume, and finish round-trip every field")
@@ -45,20 +45,20 @@ struct StoreLoggedWorkoutTests {
         try await relaunch().save(workout, at: Self.at(1))
         let paused = Self.started(workout, at: 10).pausing(at: Self.at(20))
         try await relaunch().save(paused)
-        #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == paused)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workoutSession == paused)
         #expect(paused.elapsed(at: Self.at(1000)) == .seconds(10))
         let resumed = paused.resuming(at: Self.at(50))
         try await relaunch().save(resumed)
-        #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == resumed)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workoutSession == resumed)
         // Paused again and finished while paused: both pauses and the type kept.
         var finished = resumed.pausing(at: Self.at(60)).finishing(at: Self.at(70))
         finished.healthActivity = .flexibility
         try await relaunch().save(finished)
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
-        #expect(stored.map(\.loggedWorkout) == [finished])
+        #expect(stored.map(\.workoutSession) == [finished])
     }
 
-    @Test("Finished logged workouts read back newest finish first, one in progress left out")
+    @Test("Finished workout sessions read back newest finish first, one in progress left out")
     func finishedNewestFirst() async throws {
         let workout = Workout(name: "Upper")
         let older = Self.started(workout, at: 10).finishing(at: Self.at(20))
@@ -67,7 +67,7 @@ struct StoreLoggedWorkoutTests {
         try await relaunch().save(older)
         try await relaunch().save(newer)
         try await relaunch().save(Self.started(workout, at: 50))
-        #expect(try await relaunch().finishedLoggedWorkouts() == [newer, older])
+        #expect(try await relaunch().finishedWorkoutSessions() == [newer, older])
     }
 
     @Test("A stored set the app can't read is kept through a save, not deleted")
@@ -75,8 +75,8 @@ struct StoreLoggedWorkoutTests {
         let bench = try WorkoutExercise.builtIn("Barbell bench press")
         let workout = Workout(name: "Upper", exercises: [bench])
         try await relaunch().save(workout, at: Self.at(1))
-        let loggedWorkout = Self.started(workout, at: 10)
-        try await relaunch().save(loggedWorkout)
+        let workoutSession = Self.started(workout, at: 10)
+        try await relaunch().save(workoutSession)
         // A set with no row, as a store not written by this build might hold.
         let context = ModelContext(container)
         let stored = try #require(try context.fetch(FetchDescriptor<StoredWorkoutSession>()).first)
@@ -84,7 +84,7 @@ struct StoreLoggedWorkoutTests {
         context.insert(unreadable)
         unreadable.workoutSession = stored
         try context.save()
-        let loaded = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
+        let loaded = try #require(try await relaunch().launch(weightUnit: .pounds).workoutSession)
         #expect(loaded.sets.isEmpty)
         try await relaunch().save(loaded.logging(
             PlannedSet(row: bench.id, round: 1, side: nil),
@@ -105,16 +105,16 @@ struct StoreLoggedWorkoutTests {
         plank.supersetID = superset
         let workout = Workout(name: "Upper", exercises: [rowing, plank])
         try await relaunch().save(workout, at: Self.at(1))
-        var loggedWorkout = Self.started(workout, at: 10)
+        var workoutSession = Self.started(workout, at: 10)
         for seconds in [20.0, 30, 40] {
-            let next = try #require(workout.nextSet(after: loggedWorkout.sets))
+            let next = try #require(workout.nextSet(after: workoutSession.sets))
             let row = try #require(workout.exercises.first { $0.id == next.row })
-            loggedWorkout = loggedWorkout.logging(next, of: row, at: Self.at(seconds))
+            workoutSession = workoutSession.logging(next, of: row, at: Self.at(seconds))
         }
-        loggedWorkout.sets[0].weight = Weight(47.5, .kilograms)
-        try await relaunch().save(loggedWorkout)
-        let launched = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
-        #expect(launched == loggedWorkout)
+        workoutSession.sets[0].weight = Weight(47.5, .kilograms)
+        try await relaunch().save(workoutSession)
+        let launched = try #require(try await relaunch().launch(weightUnit: .pounds).workoutSession)
+        #expect(launched == workoutSession)
         #expect(launched.sets.map(\.side) == [.left, .right, nil])
         #expect(launched.sets[2].target == .time(seconds: 45))
         #expect(workout.nextSet(after: launched.sets) == PlannedSet(
@@ -123,11 +123,11 @@ struct StoreLoggedWorkoutTests {
             side: .left,
         ))
 
-        loggedWorkout.sets.remove(at: 1)
-        let finished = loggedWorkout.finishing(at: Self.at(50))
+        workoutSession.sets.remove(at: 1)
+        let finished = workoutSession.finishing(at: Self.at(50))
         try await relaunch().save(finished)
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
-        #expect(stored.map(\.loggedWorkout) == [finished])
+        #expect(stored.map(\.workoutSession) == [finished])
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredLoggedSet>()) == 2)
     }
 
@@ -137,36 +137,36 @@ struct StoreLoggedWorkoutTests {
         let workout = Workout(name: "Upper", exercises: [row])
         let store = relaunch()
         try await store.save(workout, at: Self.at(1))
-        let loggedWorkout = Self.started(workout, at: 10)
+        let workoutSession = Self.started(workout, at: 10)
             .logging(PlannedSet(row: row.id, round: 1, side: nil), of: row, at: Self.at(20))
-        try await store.save(loggedWorkout)
-        try await store.discardLoggedWorkout(loggedWorkout.id)
+        try await store.save(workoutSession)
+        try await store.discardWorkoutSession(workoutSession.id)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredLoggedSet>()) == 0)
     }
 
-    @Test("After Discard, launch reopens the workout and the store holds no logged workout")
+    @Test("After Discard, launch reopens the workout and the store holds no workout session")
     func afterDiscard() async throws {
         let workout = Workout(name: "Upper")
-        let loggedWorkout = Self.started(workout, at: 10)
+        let workoutSession = Self.started(workout, at: 10)
         let store = relaunch()
         try await store.save(workout, at: Self.at(1))
-        try await store.save(loggedWorkout)
-        try await store.discardLoggedWorkout(loggedWorkout.id)
+        try await store.save(workoutSession)
+        try await store.discardWorkoutSession(workoutSession.id)
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.workout == workout)
-        #expect(launch.loggedWorkout == nil)
+        #expect(launch.workoutSession == nil)
         #expect(try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>()).isEmpty)
-        try await store.discardLoggedWorkout(loggedWorkout.id)
+        try await store.discardWorkoutSession(workoutSession.id)
     }
 
-    @Test("A logged workout whose workout is gone opens an empty one under its id and name")
+    @Test("A workout session whose workout is gone opens an empty one under its id and name")
     func workoutGone() async throws {
         let workout = Workout(name: "Upper")
-        let loggedWorkout = Self.started(workout, at: 10)
-        try await relaunch().save(loggedWorkout)
+        let workoutSession = Self.started(workout, at: 10)
+        try await relaunch().save(workoutSession)
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.workout == Workout(id: workout.id, name: "Upper"))
-        #expect(launch.loggedWorkout == loggedWorkout)
+        #expect(launch.workoutSession == workoutSession)
     }
 
     @Test("Of two workouts in progress, the one started later launches")
@@ -181,8 +181,8 @@ struct StoreLoggedWorkoutTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == "Later")
     }
 
-    @Test("Renaming the workout leaves the name the logged workout stored")
-    func renameLeavesLoggedWorkout() async throws {
+    @Test("Renaming the workout leaves the name the workout session stored")
+    func renameLeavesWorkoutSession() async throws {
         var workout = Workout(name: "Upper")
         let store = relaunch()
         try await store.save(workout, at: Self.at(1))
@@ -191,33 +191,33 @@ struct StoreLoggedWorkoutTests {
         try await store.save(workout, at: Self.at(20))
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.workout?.name == "Push")
-        #expect(launch.loggedWorkout?.workoutName == "Upper")
+        #expect(launch.workoutSession?.workoutName == "Upper")
     }
 
     @Test(
-        "A workout cleared while in progress is kept until a save without the logged workout",
+        "A workout cleared while in progress is kept until a save without the workout session",
     )
     func clearedMidLiveWorkout() async throws {
         let workout = try Workout(exercises: [WorkoutExercise(
             exercise: #require(Exercise.builtIn.first),
             weightUnit: .pounds,
         )])
-        let loggedWorkout = Self.started(workout, at: 10)
+        let workoutSession = Self.started(workout, at: 10)
         let store = relaunch()
         try await store.save(workout, at: Self.at(1))
-        try await store.save(loggedWorkout)
+        try await store.save(workoutSession)
         let cleared = Workout(id: workout.id)
         try await store.save(cleared, at: Self.at(20), keepsEmpty: true)
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.workout == cleared)
-        #expect(launch.loggedWorkout == loggedWorkout)
-        try await store.discardLoggedWorkout(loggedWorkout.id)
+        #expect(launch.workoutSession == workoutSession)
+        try await store.discardWorkoutSession(workoutSession.id)
         try await store.save(cleared, at: Self.at(30))
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds).isEmpty)
     }
 
     @Test(
-        "Ending a logged workout deletes its workout cleared to nothing in the same write",
+        "Ending a workout session deletes its workout cleared to nothing in the same write",
         arguments: [false, true],
     )
     func endDeletesCleared(finishes: Bool) async throws {
@@ -225,27 +225,27 @@ struct StoreLoggedWorkoutTests {
             exercise: #require(Exercise.builtIn.first),
             weightUnit: .pounds,
         )])
-        let loggedWorkout = Self.started(workout, at: 10)
+        let workoutSession = Self.started(workout, at: 10)
         let store = relaunch()
         try await store.save(workout, at: Self.at(1))
-        try await store.save(loggedWorkout)
+        try await store.save(workoutSession)
         try await store.save(Workout(id: workout.id), at: Self.at(20), keepsEmpty: true)
         if finishes {
-            try await store.save(loggedWorkout.finishing(at: Self.at(30)))
+            try await store.save(workoutSession.finishing(at: Self.at(30)))
         } else {
-            try await store.discardLoggedWorkout(loggedWorkout.id)
+            try await store.discardWorkoutSession(workoutSession.id)
         }
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds).isEmpty)
     }
 
-    @Test("Ending a logged workout keeps its workout with exercises")
+    @Test("Ending a workout session keeps its workout with exercises")
     func endKeepsWorkout() async throws {
         let workout = Workout(name: "Upper")
         let store = relaunch()
         try await store.save(workout, at: Self.at(1))
-        let loggedWorkout = Self.started(workout, at: 10)
-        try await store.save(loggedWorkout)
-        try await store.discardLoggedWorkout(loggedWorkout.id)
+        let workoutSession = Self.started(workout, at: 10)
+        try await store.save(workoutSession)
+        try await store.discardWorkoutSession(workoutSession.id)
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds).count == 1)
     }
 
@@ -259,7 +259,7 @@ struct StoreLoggedWorkoutTests {
         try await store.deleteAll()
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.workout == nil)
-        #expect(launch.loggedWorkout == nil)
+        #expect(launch.workoutSession == nil)
     }
     #endif
 }

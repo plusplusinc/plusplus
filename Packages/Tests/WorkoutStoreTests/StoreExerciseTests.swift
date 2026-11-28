@@ -51,7 +51,7 @@ struct StoreExerciseTests {
         #expect(list == ExerciseList(created: [renamed]))
     }
 
-    @Test("A workout and a logged workout in progress reopen with a created exercise's row")
+    @Test("A workout and a workout session in progress reopen with a created exercise's row")
     func workoutReopens() async throws {
         let store = relaunch()
         try await store.save(Self.ringRow)
@@ -64,9 +64,9 @@ struct StoreExerciseTests {
         try await store.save(workout)
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
         try await relaunch()
-            .save(LoggedWorkout(workoutID: workout.id, workoutName: "Day A", startedAt: .now))
+            .save(WorkoutSession(workoutID: workout.id, workoutName: "Day A", startedAt: .now))
         let launch = try await relaunch().launch(weightUnit: .pounds)
-        #expect(launch.loggedWorkout != nil)
+        #expect(launch.workoutSession != nil)
         #expect(launch.workout == workout)
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [workout])
     }

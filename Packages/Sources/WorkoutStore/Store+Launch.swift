@@ -1,11 +1,11 @@
 extension Store {
     /// Where the app opens, which `launch(weightUnit:)` finds.
     public enum Launch: Equatable, Sendable {
-        /// A logged workout in progress, on its workout.
-        case inProgress(Workout, LoggedWorkout)
+        /// A workout session in progress, on its workout.
+        case inProgress(Workout, WorkoutSession)
         /// The workout last opened or edited, with nothing finished since.
         case workout(Workout)
-        /// The Workouts list: a logged workout finished after the last open or edit.
+        /// The Workouts list: a workout session finished after the last open or edit.
         case workouts
         /// A new, empty workout: there is no saved one.
         case newWorkout
@@ -18,10 +18,10 @@ extension Store {
             }
         }
 
-        /// The logged workout in progress, if any.
-        public var loggedWorkout: LoggedWorkout? {
-            if case let .inProgress(_, loggedWorkout) = self {
-                loggedWorkout
+        /// The workout session in progress, if any.
+        public var workoutSession: WorkoutSession? {
+            if case let .inProgress(_, workoutSession) = self {
+                workoutSession
             } else {
                 nil
             }

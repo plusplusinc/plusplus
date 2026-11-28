@@ -9,42 +9,46 @@ extension WorkoutScreen {
     /// the block, open once it shows; worked out once for all the rows. Nil with none drawn.
     func drawnRestBlock() -> DrawnRestBlock? {
         if let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .shown,
-           let (resting, loggedWorkout) = drawnResting,
-           let row = restRow(of: rest, in: loggedWorkout)
+           let (resting, workoutSession) = drawnResting,
+           let row = restRow(of: rest, in: workoutSession)
         {
-            let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
+            let (ends, pausedLeft) = Self.times(
+                of: resting,
+                on: workoutSession,
+                end: phase.drawnEnd,
+            )
             let block = RestBlock(
                 stage: .open,
                 length: resting.length,
                 ends: ends,
                 pausedLeft: pausedLeft,
-                isPaused: loggedWorkout.isPaused,
+                isPaused: workoutSession.isPaused,
             )
             return DrawnRestBlock(row: row, above: rest.isBack, block: block)
         }
         // Skipped, its room closes with the move on showing the time it had at the tap: closed
         // as a rest that ran out is, on an empty rest, it read 0:00 as it went.
         if let move = phase.move, move.isFromRest, let live,
-           let skippedAt = live.loggedWorkout.sets.last?.restSkippedAt,
+           let skippedAt = live.workoutSession.sets.last?.restSkippedAt,
            let skipped = live.rest(), skipped.after == move.set,
-           let row = restRow(after: move.set, isBack: move.isBack, in: live.loggedWorkout)
+           let row = restRow(after: move.set, isBack: move.isBack, in: live.workoutSession)
         {
             // Held as a pause holds it, where the skip came in one: the time left at the tap.
             let block = RestBlock(
                 stage: .none,
                 length: 0,
                 pausedLeft: skipped.remaining(atClock: skippedAt),
-                isPaused: live.loggedWorkout.isPaused,
+                isPaused: live.workoutSession.isPaused,
             )
             return DrawnRestBlock(row: row, above: move.isBack, block: block)
         }
         // Ended mid-rest, its room closes with the list showing the time it had.
-        if let (rest, loggedWorkout) = phase.restLeft, !rest.isWithinExercise,
-           let row = restRow(of: rest, in: loggedWorkout),
-           let left = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
+        if let (rest, workoutSession) = phase.restLeft, !rest.isWithinExercise,
+           let row = restRow(of: rest, in: workoutSession),
+           let left = LiveWorkout(workout: workout, workoutSession: workoutSession)
                .rest()
         {
-            let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)
+            let (ends, pausedLeft) = Self.times(of: left, on: workoutSession, stopped: true)
             let block = RestBlock(
                 stage: .none,
                 length: left.length,
@@ -63,15 +67,15 @@ extension WorkoutScreen {
     /// through the shrink, the count went on with a second's roll as it went.
     static func times(
         of rest: WorkoutRest,
-        on loggedWorkout: LoggedWorkout,
+        on workoutSession: WorkoutSession,
         stopped: Bool = false,
         end: Date? = nil,
     ) -> (ends: Date, pausedLeft: Double?) {
-        let holds = rest.skippedAt != nil || stopped || end != nil || loggedWorkout.isPaused
-            || !loggedWorkout.isInProgress
+        let holds = rest.skippedAt != nil || stopped || end != nil || workoutSession.isPaused
+            || !workoutSession.isInProgress
         return (
-            loggedWorkout.date(ofClock: rest.endClock),
-            holds ? rest.shownLeft(atClock: loggedWorkout.clock(at: end ?? .now)) : nil,
+            workoutSession.date(ofClock: rest.endClock),
+            holds ? rest.shownLeft(atClock: workoutSession.clock(at: end ?? .now)) : nil,
         )
     }
 
@@ -84,10 +88,14 @@ extension WorkoutScreen {
               let gap = workout.restBetweenSets(of: id).map(LiveWorkout.running(rest:)), gap > 0
         else { return nil }
         if let within = phase.drawnRest, within.isWithinExercise, within.beat >= .shown,
-           let (resting, loggedWorkout) = drawnResting
+           let (resting, workoutSession) = drawnResting
         {
             let isOver = within.beat == .returning
-            let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
+            let (ends, pausedLeft) = Self.times(
+                of: resting,
+                on: workoutSession,
+                end: phase.drawnEnd,
+            )
             return SetRest(
                 isRunning: !isOver,
                 length: resting.length,
@@ -95,7 +103,7 @@ extension WorkoutScreen {
                 pausedLeft: pausedLeft,
                 isOver: isOver,
                 turns: within.beat == .settled,
-                isPaused: loggedWorkout.isPaused,
+                isPaused: workoutSession.isPaused,
             )
         }
         return SetRest(isRunning: false, length: gap)

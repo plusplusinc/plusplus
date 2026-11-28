@@ -133,14 +133,14 @@ struct AppSessionTests {
         let workout = try Self.upper()
         let session = session(workout)
         session.start(on: workout.id, at: Self.at(10))
-        let first = try #require(session.loggedWorkout)
+        let first = try #require(session.workoutSession)
         await session.writesLanded()
         session.finish(at: Self.at(20))
         session.start(on: workout.id, at: Self.at(30))
-        let second = try #require(session.loggedWorkout)
+        let second = try #require(session.workoutSession)
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
-            .map(\.loggedWorkout)
+            .map(\.workoutSession)
         #expect(stored.first { $0.id == first.id }?.endedAt == Self.at(20))
         #expect(stored.first { $0.id == second.id }?.isInProgress == true)
     }
@@ -152,13 +152,13 @@ struct AppSessionTests {
         let session = session(workout)
         session.start(on: workout.id)
         let generated = try #require(WorkoutNamer.muscleGroupsOnly.shownName(of: workout))
-        #expect(session.loggedWorkout?.workoutName == generated)
+        #expect(session.workoutSession?.workoutName == generated)
         workout.name = "Push day"
         session.save(workout)
         session.finish()
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
-        #expect(stored.map(\.loggedWorkout.workoutName) == ["Push day"])
+        #expect(stored.map(\.workoutSession.workoutName) == ["Push day"])
     }
 
     @Test("A workout emptied while in progress is kept until it ends, then deleted")
@@ -195,13 +195,13 @@ struct AppSessionTests {
         for step in steps {
             step.change()
             await session.writesLanded()
-            let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
-            #expect(relaunched == session.loggedWorkout, "after \(step.name)")
+            let relaunched = try await relaunch().launch(weightUnit: .pounds).workoutSession
+            #expect(relaunched == session.workoutSession, "after \(step.name)")
         }
-        #expect(session.loggedWorkout == nil)
+        #expect(session.workoutSession == nil)
         // Of the two workouts, only the finished one is kept.
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
-        #expect(stored.map(\.loggedWorkout.startedAt) == [Self.at(10)])
+        #expect(stored.map(\.workoutSession.startedAt) == [Self.at(10)])
     }
 
     @Test("Start pressed on a workout with no exercises starts nothing")
@@ -210,18 +210,18 @@ struct AppSessionTests {
         let session = session(workout)
         #expect(!session.canStart(on: workout.id))
         session.start(on: workout.id)
-        #expect(session.loggedWorkout == nil)
+        #expect(session.workoutSession == nil)
         await session.writesLanded()
-        #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == nil)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workoutSession == nil)
     }
 
     @Test("Start pressed on a workout since switched away from starts nothing")
     func startOnAnotherWorkout() async throws {
         let session = try session(Self.upper())
         session.start(on: Workout().id)
-        #expect(session.loggedWorkout == nil)
+        #expect(session.workoutSession == nil)
         await session.writesLanded()
-        #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == nil)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workoutSession == nil)
     }
 
     @Test("Start pressed on a workout while a switch away from it is under way starts nothing")
@@ -245,11 +245,11 @@ struct AppSessionTests {
         }
         #expect(!session.canStart(on: workout.id))
         session.start(on: workout.id)
-        #expect(session.loggedWorkout == nil)
+        #expect(session.workoutSession == nil)
         releaseRead.yield()
         await switching.value
         #expect(session.current == other)
-        #expect(session.loggedWorkout == nil)
+        #expect(session.workoutSession == nil)
     }
 
     @Test("The drawer opens with no workout, and stays shut while one runs, whoever opens it")
@@ -274,7 +274,7 @@ struct AppSessionTests {
         let set = PlannedSet(row: row.id, round: 1, side: nil)
         session.log(set, of: row)
         await session.writesLanded()
-        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
+        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).workoutSession)
         #expect(stored.sets.map(\.planned) == [set])
         #expect(stored.sets.first?.target == row.plan.target)
         #expect(stored.sets.first?.weight == row.shownWeight)

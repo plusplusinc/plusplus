@@ -77,7 +77,7 @@ extension StoreUpgradeTests {
         try old.write()
 
         let store = try Self.current(at: old.url)
-        let finished = try await store.finishedLoggedWorkouts()
+        let finished = try await store.finishedWorkoutSessions()
         #expect(finished.map(\.id) == [V13Store.paused.id, V13Store.neverPaused.id])
         #expect(finished.map(\.startedAt) == [V13Store.at(100), V13Store.at(10)])
         #expect(finished.map(\.pausedSeconds) == [30, 0])
@@ -85,7 +85,7 @@ extension StoreUpgradeTests {
         #expect(finished.map(\.sets.count) == [1, 1])
         #expect(finished.allSatisfy { $0.pauses.isEmpty })
         #expect(finished.allSatisfy { $0.healthActivity == nil && $0.healthWorkoutID == nil })
-        let running = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
+        let running = try #require(try await store.launch(weightUnit: .pounds).workoutSession)
         #expect(running.id == V13Store.inProgress.id)
         #expect(running.pausedAt == V13Store.at(1100))
         #expect(running.pausedSeconds == 20)
@@ -99,7 +99,7 @@ extension StoreUpgradeTests {
         try old.write()
 
         let store = try Self.current(at: old.url)
-        var running = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
+        var running = try #require(try await store.launch(weightUnit: .pounds).workoutSession)
         running = running.resuming(at: V13Store.at(1150))
             .pausing(at: V13Store.at(1200))
             .resuming(at: V13Store.at(1210))
@@ -108,7 +108,7 @@ extension StoreUpgradeTests {
         try await store.save(running)
 
         // A second container on the file: what a relaunch reads.
-        let reread = try await Self.current(at: old.url).finishedLoggedWorkouts()
+        let reread = try await Self.current(at: old.url).finishedWorkoutSessions()
         #expect(reread.count == 3)
         let kept = try #require(reread.first { $0.id == V13Store.inProgress.id })
         // The pause under way at the update is kept from its start; the time paused before it
@@ -133,7 +133,7 @@ extension StoreUpgradeTests {
         let workout = Workout(name: "Upper")
         try await Self.current(at: url).save(workout, at: V13Store.at(1))
         // Times with no short binary fraction, as a tap's are.
-        let finished = LoggedWorkout(
+        let finished = WorkoutSession(
             workoutID: workout.id,
             workoutName: workout.name,
             startedAt: V13Store.at(784_000_000.123_456_7),
@@ -142,7 +142,7 @@ extension StoreUpgradeTests {
         .pausing(at: V13Store.at(784_000_020.7)).finishing(at: V13Store.at(784_000_029.9))
         try await Self.current(at: url).save(finished)
 
-        let reread = try await Self.current(at: url).finishedLoggedWorkouts()
+        let reread = try await Self.current(at: url).finishedWorkoutSessions()
         #expect(reread == [finished])
         #expect(reread.first?.healthWithheld == nil)
     }

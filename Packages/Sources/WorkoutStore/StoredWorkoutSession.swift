@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 import SwiftData
 
-/// The stored shape of a time through a workout, `LoggedWorkout`, and of its sets. The class
+/// The stored shape of a time through a workout, `WorkoutSession`, and of its sets. The class
 /// names will be CloudKit record types once sync is on.
 typealias StoredWorkoutSession = StoreSchemaV15.StoredWorkoutSession
 typealias StoredLoggedSet = StoreSchemaV15.StoredLoggedSet
@@ -10,26 +10,26 @@ typealias StoredLoggedSet = StoreSchemaV15.StoredLoggedSet
 extension StoredWorkoutSession {
     /// Writes every field, setting only those that differ, so an unchanged session stays clean.
     /// Its sets are written by the store, which diffs them by id.
-    func write(_ loggedWorkout: LoggedWorkout) {
-        update(\.workoutID, to: loggedWorkout.workoutID)
-        update(\.workoutName, to: loggedWorkout.workoutName)
-        update(\.startedAt, to: loggedWorkout.startedAt)
-        update(\.pausedAt, to: loggedWorkout.pausedAt)
-        update(\.pausedSeconds, to: loggedWorkout.pausedSeconds)
-        update(\.endedAt, to: loggedWorkout.endedAt)
-        update(\.countRowID, to: loggedWorkout.count?.set.row)
-        update(\.countRound, to: loggedWorkout.count?.set.round)
-        update(\.countSide, to: loggedWorkout.count?.set.side?.rawValue)
-        update(\.countStartClock, to: loggedWorkout.count?.startClock)
-        update(\.countAdded, to: loggedWorkout.count?.added ?? 0)
+    func write(_ workoutSession: WorkoutSession) {
+        update(\.workoutID, to: workoutSession.workoutID)
+        update(\.workoutName, to: workoutSession.workoutName)
+        update(\.startedAt, to: workoutSession.startedAt)
+        update(\.pausedAt, to: workoutSession.pausedAt)
+        update(\.pausedSeconds, to: workoutSession.pausedSeconds)
+        update(\.endedAt, to: workoutSession.endedAt)
+        update(\.countRowID, to: workoutSession.count?.set.row)
+        update(\.countRound, to: workoutSession.count?.set.round)
+        update(\.countSide, to: workoutSession.count?.set.side?.rawValue)
+        update(\.countStartClock, to: workoutSession.count?.startClock)
+        update(\.countAdded, to: workoutSession.count?.added ?? 0)
         // A stored pause list or type it couldn't read, as from a newer version, read as none
         // and is left as it is, as `healthWorkoutID` is, unless the workout now has its own.
-        if !loggedWorkout.pauses.isEmpty || pauses != nil {
-            let pauseTimes = loggedWorkout.pauses.flatMap { [$0.start, $0.end] }
+        if !workoutSession.pauses.isEmpty || pauses != nil {
+            let pauseTimes = workoutSession.pauses.flatMap { [$0.start, $0.end] }
             update(\.pauseTimes, to: pauseTimes.isEmpty ? nil : pauseTimes)
         }
-        if loggedWorkout.healthActivity != nil || !holdsUnreadActivity {
-            update(\.healthActivity, to: loggedWorkout.healthActivity?.rawValue)
+        if workoutSession.healthActivity != nil || !holdsUnreadActivity {
+            update(\.healthActivity, to: workoutSession.healthActivity?.rawValue)
         }
         // Not `healthWorkoutID`: only `Store.markInHealth` writes it, so a save from a copy
         // read before it was kept never clears it.
@@ -42,7 +42,7 @@ extension StoredWorkoutSession {
 
     /// Each kept pause, none when nothing is stored; nil when the stored times don't pair
     /// up, each pause's start at or before its end. Their order across pauses is
-    /// `LoggedWorkout.healthWithheld`'s to judge.
+    /// `WorkoutSession.healthWithheld`'s to judge.
     private var pauses: [DateInterval]? {
         guard let pauseTimes else { return [] }
         guard pauseTimes.count.isMultiple(of: 2) else { return nil }
@@ -64,9 +64,9 @@ extension StoredWorkoutSession {
         return SetCount(set: set, startClock: countStartClock, added: countAdded)
     }
 
-    /// The logged workout, its sets in the order logged; a set it can't read is left out.
-    var loggedWorkout: LoggedWorkout {
-        var loggedWorkout = LoggedWorkout(
+    /// The workout session, its sets in the order logged; a set it can't read is left out.
+    var workoutSession: WorkoutSession {
+        var workoutSession = WorkoutSession(
             id: id,
             workoutID: workoutID ?? UUID(),
             workoutName: workoutName,
@@ -79,8 +79,8 @@ extension StoredWorkoutSession {
             count: count,
             healthActivity: healthActivity.flatMap(HealthActivity.init(rawValue:)),
         )
-        loggedWorkout.healthWorkoutID = healthWorkoutID
-        return loggedWorkout
+        workoutSession.healthWorkoutID = healthWorkoutID
+        return workoutSession
     }
 }
 

@@ -30,10 +30,10 @@ extension StoreUpgradeTests {
             )
             context.insert(row)
             row.routine = workout
-            let loggedWorkout = RoutineSchemaV11.StoredWorkout(id: UUID())
-            loggedWorkout.routineID = workout.id
-            loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
-            context.insert(loggedWorkout)
+            let workoutSession = RoutineSchemaV11.StoredWorkout(id: UUID())
+            workoutSession.routineID = workout.id
+            workoutSession.startedAt = Date(timeIntervalSinceReferenceDate: 2)
+            context.insert(workoutSession)
             let set = RoutineSchemaV11.StoredSet(id: UUID())
             set.rowID = rowID
             set.exerciseID = "plank"
@@ -41,7 +41,7 @@ extension StoreUpgradeTests {
             set.plannedSeconds = 30
             set.clockWhenLogged = 30
             context.insert(set)
-            set.workout = loggedWorkout
+            set.workout = workoutSession
             try context.save()
         }
 
@@ -51,21 +51,22 @@ extension StoreUpgradeTests {
             configurations: ModelConfiguration(schema: Store.schema, url: url),
         )
         let store = Store(modelContainer: current)
-        var loggedWorkout = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
-        #expect(loggedWorkout.count == nil)
-        #expect(loggedWorkout.sets.map(\.timeAdded) == [0])
-        #expect(loggedWorkout.sets.map(\.clockWhenLogged) == [30])
+        var workoutSession = try #require(try await store.launch(weightUnit: .pounds)
+            .workoutSession)
+        #expect(workoutSession.count == nil)
+        #expect(workoutSession.sets.map(\.timeAdded) == [0])
+        #expect(workoutSession.sets.map(\.clockWhenLogged) == [30])
 
         let count = SetCount(
             set: PlannedSet(row: rowID, round: 2, side: .left),
             startClock: 40,
             added: 15,
         )
-        loggedWorkout.count = count
-        loggedWorkout.sets[0].timeAdded = 15
-        try await store.save(loggedWorkout)
+        workoutSession.count = count
+        workoutSession.sets[0].timeAdded = 15
+        try await store.save(workoutSession)
         let relaunched = try await Store(modelContainer: current)
-            .launch(weightUnit: .pounds).loggedWorkout
+            .launch(weightUnit: .pounds).workoutSession
         #expect(relaunched?.count == count)
         #expect(relaunched?.sets.map(\.timeAdded) == [15])
     }

@@ -141,10 +141,10 @@ struct WorkoutScreen: View {
     ) {
         _finishBeats = finishBeats
         _shownWorkout = State(initialValue: session.opened)
-        _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
+        _opensOnCurrent = State(initialValue: session.workoutSession != nil)
         _phase = State(initialValue: WorkoutPhase(
-            resuming: session.loggedWorkout
-                .map { LiveWorkout(workout: session.opened, loggedWorkout: $0) },
+            resuming: session.workoutSession
+                .map { LiveWorkout(workout: session.opened, workoutSession: $0) },
             at: .now,
         ))
         _footShowsEmpty = State(initialValue: session.opened.exercises.isEmpty)

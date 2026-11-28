@@ -9,32 +9,32 @@ extension AppSession {
         closeDrawer()
     }
 
-    /// Pushes a finished logged workout onto Log, read-only.
-    public func openLoggedWorkout(_ id: LoggedWorkout.ID) {
-        screen = .loggedWorkout(id)
+    /// Pushes a finished workout session onto Log, read-only.
+    public func openWorkoutSession(_ id: WorkoutSession.ID) {
+        screen = .workoutSession(id)
     }
 
-    /// Pops the logged workout pushed onto Log, as its back button and back swipe do.
-    public func popLoggedWorkout() {
-        if case .loggedWorkout = screen {
+    /// Pops the workout session pushed onto Log, as its back button and back swipe do.
+    public func popWorkoutSession() {
+        if case .workoutSession = screen {
             screen = .log
         }
     }
 
-    /// Deletes a finished logged workout and its sets, from Log's History, then reads the log
-    /// again, so its count, calendar, Diff, and Balance follow. Queued behind the logged
-    /// workout's writes, so an End still landing can't bring it back. The store refuses the one
+    /// Deletes a finished workout session and its sets, from Log's History, then reads the log
+    /// again, so its count, calendar, Diff, and Balance follow. Queued behind the workout
+    /// session's writes, so an End still landing can't bring it back. The store refuses the one
     /// in progress. A delete that fails is logged, and the read leaves the workout listed.
     ///
     /// Deleted from Log means removed from Apple Health, and this is where that rule lives:
-    /// `Store.deleteLoggedWorkout(_:)` knows nothing of Health. The removal is owed from before
+    /// `Store.deleteWorkoutSession(_:)` knows nothing of Health. The removal is owed from before
     /// the delete is sent, on the device, so a relaunch still makes it, and a catch-up still to
     /// save the workout skips it; the catch-up asked here makes it, by the workout's tag, or
     /// drops it if the delete never landed. Nothing waits on Health, and nothing it answers
     /// shows.
-    public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) async {
+    public func deleteWorkoutSession(_ id: WorkoutSession.ID) async {
         health.oweRemoval(of: id)
-        loggedWorkoutWrites.yield(.delete(id))
+        workoutSessionWrites.yield(.delete(id))
         catchUpHealth()
         await refreshLog()
     }
@@ -48,7 +48,7 @@ extension AppSession {
         if let note = health.note {
             return .note(note)
         }
-        guard health.isOffered, log?.loggedWorkouts.isEmpty == false else { return nil }
+        guard health.isOffered, log?.workoutSessions.isEmpty == false else { return nil }
         return .ask
     }
 
@@ -67,7 +67,7 @@ extension AppSession {
         justFinished = nil
     }
 
-    /// Reads the finished logged workouts again, for Log, once the logged workout's writes have
+    /// Reads the finished workout sessions again, for Log, once the workout session's writes have
     /// landed, so a Log shown just after a finish lists it. A read that fails leaves the last one.
     public func refreshLog() async {
         guard let store else { return }
@@ -76,9 +76,9 @@ extension AppSession {
         var finishesRead: Int
         repeat {
             finishesRead = finishes
-            await loggedWorkoutWritesLanded()
+            await workoutSessionWritesLanded()
             do {
-                let read = try await WorkoutLog(loggedWorkouts: store.finishedLoggedWorkouts())
+                let read = try await WorkoutLog(workoutSessions: store.finishedWorkoutSessions())
                 if finishesRead == finishes {
                     log = read
                 }

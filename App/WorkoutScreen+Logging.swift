@@ -7,16 +7,16 @@ import WorkoutStore
 extension WorkoutScreen {
     /// The workout in progress as stored, every log in it: what the key's taps read.
     var live: LiveWorkout? {
-        session.loggedWorkout.map { LiveWorkout(workout: workout, loggedWorkout: $0) }
+        session.workoutSession.map { LiveWorkout(workout: workout, workoutSession: $0) }
     }
 
     /// The workout as the screen draws it: `live`, or as End took it from the store until the
-    /// list leaves it (`WorkoutPhase.drawnLoggedWorkout`), less the sets logged and not yet shown
+    /// list leaves it (`WorkoutPhase.drawnWorkoutSession`), less the sets logged and not yet shown
     /// (`WorkoutPhase.hidden`). Everything drawn reads it.
     var shown: LiveWorkout? {
-        let loggedWorkout = session.loggedWorkout ?? phase.drawnLoggedWorkout
-        return loggedWorkout
-            .map { LiveWorkout(workout: workout, loggedWorkout: $0).hiding(phase.hidden) }
+        let workoutSession = session.workoutSession ?? phase.drawnWorkoutSession
+        return workoutSession
+            .map { LiveWorkout(workout: workout, workoutSession: $0).hiding(phase.hidden) }
     }
 
     /// While a step to another exercise, or past the last set, plays: rows' heights are

@@ -62,7 +62,7 @@ enum LaunchOptions {
         )
     }
 
-    /// Empties the store, then saves the workout and the logged workout the launch arguments ask
+    /// Empties the store, then saves the workout and the workout session the launch arguments ask
     /// for.
     static func resetStore(
         _ store: Store,
@@ -80,26 +80,26 @@ enum LaunchOptions {
         let workout = seed.workout(weightUnit: weightUnit)
         try await store.save(workout)
         guard let logged = seed.loggedSets else { return }
-        var loggedWorkout = LoggedWorkout(
+        var workoutSession = WorkoutSession(
             workoutID: workout.id,
             workoutName: namer.shownName(of: workout) ?? "",
             startedAt: .now,
         )
         for set in workout.setOrder.prefix(logged) {
             if let row = workout.exercises.first(where: { $0.id == set.row }) {
-                loggedWorkout = loggedWorkout.logging(set, of: row, at: .now)
+                workoutSession = workoutSession.logging(set, of: row, at: .now)
             }
         }
         // Logged with no time kept, as before a rest's was: the workout opens on its next set,
         // not in the rest after the last one seeded.
-        for index in loggedWorkout.sets.indices {
-            loggedWorkout.sets[index].clockWhenLogged = nil
+        for index in workoutSession.sets.indices {
+            workoutSession.sets[index].clockWhenLogged = nil
         }
-        try await store.save(loggedWorkout)
+        try await store.save(workoutSession)
     }
 }
 
-/// The workout, and the logged workout on it, that `-seedExercises`, `-seedName`,
+/// The workout, and the workout session on it, that `-seedExercises`, `-seedName`,
 /// `-seedSuperset`, `-seedSets`, and `-seedWorkout` ask for.
 struct SeededWorkout {
     let name: String
