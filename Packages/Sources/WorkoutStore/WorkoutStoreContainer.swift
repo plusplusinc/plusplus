@@ -42,4 +42,22 @@ public enum WorkoutStoreContainer {
             configurations: configuration,
         )
     }
+
+    /// Where `.local` mode keeps the store's file.
+    static func localURL(schema: Schema) -> URL {
+        ModelConfiguration(storeName, schema: schema).url
+    }
+
+    /// Opens the store in the file at `url`, configured as `.local` mode's.
+    static func make(
+        at url: URL,
+        schema: Schema,
+        migrationPlan: (any SchemaMigrationPlan.Type)?,
+    ) throws -> ModelContainer {
+        try ModelContainer(
+            for: schema,
+            migrationPlan: migrationPlan,
+            configurations: ModelConfiguration(storeName, schema: schema, url: url),
+        )
+    }
 }

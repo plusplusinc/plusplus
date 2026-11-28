@@ -8,12 +8,22 @@ import SwiftData
 public actor Store {
     static let schema = Schema(versionedSchema: StoreMigrationPlan.current)
 
+    /// On disk, through `StoreRenameBackup`, which keeps a copy of a store under the old names
+    /// until its rename is checked.
     public static func open(_ mode: StorageMode) throws -> Store {
-        try Store(modelContainer: WorkoutStoreContainer.make(
-            mode: mode,
-            schema: schema,
-            migrationPlan: StoreMigrationPlan.self,
-        ))
+        switch mode {
+        case .local:
+            Logger.storage.info("Opening store in local mode")
+            return try Store(modelContainer: StoreRenameBackup.open(
+                at: WorkoutStoreContainer.localURL(schema: schema),
+            ))
+        case .inMemory:
+            return try Store(modelContainer: WorkoutStoreContainer.make(
+                mode: mode,
+                schema: schema,
+                migrationPlan: StoreMigrationPlan.self,
+            ))
+        }
     }
 
     /// What the app opens with (`Launch`). A logged workout in progress opens with its workout,

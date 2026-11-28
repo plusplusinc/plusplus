@@ -21,8 +21,12 @@ struct StoreRenameTests {
         #expect(StoreRenameFixture.counts(before) == [
             "workout": 3, "row": 6, "session": 3, "set": 8, "exercise": 2, "customization": 1,
         ])
-        let container = try Self.openCurrent(at: url)
+        let container = try StoreRenameBackup.open(at: url)
         #expect(try StoreRenameFixture.lines(current: ModelContext(container)) == before)
+        #expect(try StoreRenameFixture.storedEntities(at: url) == [
+            "StoredCustomization", "StoredExercise", "StoredLoggedSet", "StoredWorkout",
+            "StoredWorkoutExercise", "StoredWorkoutSession",
+        ])
 
         // And the store reads it: the session in progress on its workout, with its count,
         // pause, and sets; the finished ones; and the exercises.
@@ -58,5 +62,78 @@ struct StoreRenameTests {
             .counts(StoreRenameFixture.lines(current: ModelContext(Self.openCurrent(at: url))))
         #expect(after["session"] == 2)
         #expect(after["set"] == 6)
+    }
+
+    @Test(
+        "An empty workout, a row and a set with no parent, and two sessions of one id come through",
+    )
+    func oddShapesKept() throws {
+        typealias Fixture = StoreRenameFixture
+        let folder = try Fixture.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "PlusPlus.store")
+        let before: [String]
+        do {
+            let schema = Schema(versionedSchema: RoutineSchemaV14.self)
+            let old = try ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(schema: schema, url: url),
+            )
+            let context = ModelContext(old)
+            context.insert(Fixture.OldWorkout(id: UUID()))
+            let loose = Fixture.OldRow(id: UUID(), exerciseID: "push-up", position: 0)
+            context.insert(loose)
+            Fixture.insertSets(1, in: nil, rows: [loose], context: context)
+            let sharedID = UUID()
+            for start in [1.0, 2.0] {
+                let session = Fixture.OldSession(id: sharedID)
+                session.startedAt = Fixture.at(start)
+                session.endedAt = Fixture.at(start + 1)
+                context.insert(session)
+                Fixture.insertSets(1, in: session, rows: [loose], context: context)
+            }
+            try context.save()
+            before = try Fixture.lines(old: context)
+        }
+        #expect(Fixture.counts(before) == ["workout": 1, "row": 1, "session": 2, "set": 3])
+
+        let container = try StoreRenameBackup.open(at: url)
+        #expect(try Fixture.lines(current: ModelContext(container)) == before)
+    }
+
+    @Test(
+        "A V1 store opens through the backup: brought to V14, counted, renamed, and the copy gone",
+    )
+    func oldestThroughBackup() async throws {
+        let folder = try StoreRenameFixture.folder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "PlusPlus.store")
+        let workoutID = UUID()
+        do {
+            let schema = Schema(versionedSchema: RoutineSchemaV1.self)
+            let old = try ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(schema: schema, url: url),
+            )
+            let context = ModelContext(old)
+            let workout = RoutineSchemaV1.StoredRoutine(id: workoutID)
+            workout.name = "Upper"
+            context.insert(workout)
+            let row = RoutineSchemaV1.StoredRoutineExercise(
+                id: UUID(),
+                exerciseID: "push-up",
+                position: 0,
+            )
+            context.insert(row)
+            row.routine = workout
+            try context.save()
+        }
+
+        let store = try Store(modelContainer: StoreRenameBackup.open(at: url))
+        let workout = try #require(try await store.launch(weightUnit: .pounds).workout)
+        #expect(workout.id == workoutID)
+        #expect(workout.name == "Upper")
+        #expect(workout.exercises.map(\.exercise.id) == ["push-up"])
+        #expect(!FileManager.default.fileExists(atPath: StoreRenameBackup.folder(for: url).path()))
     }
 }
