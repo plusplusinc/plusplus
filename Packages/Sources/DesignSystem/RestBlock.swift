@@ -207,7 +207,8 @@ private struct RestRoom: View, Animatable {
     @Environment(\.restSkips) private var restSkips
 
     private static let defaultCapHeight: CGFloat = {
-        #if canImport(UIKit)
+        // watchOS has UIFont but not text styles read at a given size; it draws no rest block.
+        #if os(iOS)
         UIFont.systemFont(
             ofSize: UIFont.preferredFont(
                 forTextStyle: .body,

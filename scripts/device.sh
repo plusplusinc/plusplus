@@ -1,6 +1,7 @@
 #!/bin/bash
-# Builds the app for a physical iPhone, installs it, and launches it; with no iPhone in reach,
-# makes an install link instead.
+# Builds the app for a physical iPhone, installs it, and launches it, and installs its Watch app
+# on the paired Apple Watch when one is in reach; with no iPhone in reach, makes an install link
+# instead.
 #
 #   scripts/device.sh                                  # the one available iPhone, else a link
 #   PLUSPLUS_DEVICE="<name or UDID>" scripts/device.sh
@@ -109,20 +110,31 @@ behind_main() {
 }
 
 # One line per available iPhone, UDID then name, tab-separated, narrowed to PLUSPLUS_DEVICE
-# when it is set; each paired iPhone out of reach goes to stderr with why. devicectl also lists
-# simulators, watches, and devices it cannot reach. It reads devicectl's `properties`, which
-# replaces the deprecated hardwareProperties, connectionProperties, and deviceProperties, and
-# fails, rather than falling back to a link, when the devices it lists lack the fields it reads:
-# a silent fallback once hid a broken filter for nine installs. Names are compared with
-# typographic apostrophes and spaces made plain, so a typed name matches.
+# when it is set; each paired iPhone out of reach goes to stderr with why.
 available_iphones() {
+    available_devices iPhone "${PLUSPLUS_DEVICE:-}"
+}
+
+# The same for a paired Apple Watch, found by its device type, never stored, as the phone is.
+available_watches() {
+    available_devices appleWatch ""
+}
+
+# One line per available device of a devicectl device type, UDID then name, tab-separated,
+# narrowed to a name or UDID when one is given; each paired one out of reach goes to stderr
+# with why. devicectl also lists simulators and devices it cannot reach. It reads devicectl's
+# `properties`, which replaces the deprecated hardwareProperties, connectionProperties, and
+# deviceProperties, and fails, rather than falling back to a link, when the devices it lists
+# lack the fields it reads: a silent fallback once hid a broken filter for nine installs. Names
+# are compared with typographic apostrophes and spaces made plain, so a typed name matches.
+available_devices() {
     xcrun devicectl list devices --quiet --json-output - | python3 -c '
 import json, sys
 
 def plain(text):
     return text.replace("\u2019", "\x27").replace("\u00a0", " ").casefold()
 
-wanted = plain(sys.argv[1])
+kind, wanted = sys.argv[1], plain(sys.argv[2])
 devices = json.load(sys.stdin)["result"]["devices"]
 if devices and not any(d.get("properties", {}).get("hardware", {}).get("deviceType")
                        for d in devices):
@@ -136,20 +148,45 @@ for device in devices:
     name = properties.get("state", {}).get("name", "")
     if (
         hardware.get("reality") == "simulated"
-        or hardware.get("deviceType") != "iPhone"
+        or hardware.get("deviceType") != kind
         or connection.get("pairingState") != "paired"
         or wanted not in ("", plain(hardware.get("udid", "")), plain(name))
     ):
         continue
     # A phone in reach is on a cable or the local network; one away from the Mac has no
     # transport and its state reads "unavailable". The tunnel opens on demand, so
-    # "disconnected" still means reachable.
+    # "disconnected" still means reachable. A Watch is reached through its phone, so only its
+    # state says whether it is: "unavailable" while asleep, on its charger, or away.
     transport, state = connection.get("transportType"), connection.get("state")
-    if transport in ("wired", "localNetwork") and state != "unavailable":
+    in_reach = state != "unavailable" and (
+        kind != "iPhone" or transport in ("wired", "localNetwork"))
+    if in_reach:
         print(hardware["udid"], name, sep="\t")
     else:
         print(f"{name}: out of reach (transport {transport}, state {state})", file=sys.stderr)
-' "${PLUSPLUS_DEVICE:-}"
+' "$1" "$2"
+}
+
+# Installs the Watch app from inside the phone app's build on the paired Watch in reach. A
+# Watch asleep, on its charger, or away is no failure: the line printed says to wake it and
+# run again, and the phone's Watch app installs it by itself once the two are together.
+install_watch() {
+    local watch_app watches udid name
+    watch_app=$(find "$1/Watch" -maxdepth 1 -name '*.app' -print -quit 2> /dev/null)
+    [ -n "$watch_app" ] || return 0
+    watches=$(available_watches 2> /dev/null) || true
+    if [ -z "$watches" ]; then
+        echo "no Apple Watch in reach, so the Watch app is not installed: wake and unlock the" \
+            "Watch, keep it near the phone, and run scripts/device.sh again"
+        return 0
+    fi
+    IFS=$'\t' read -r udid name <<< "$(head -n 1 <<< "$watches")"
+    if xcrun devicectl device install app --quiet --device "$udid" "$watch_app"; then
+        echo "installed the Watch app on $name"
+    else
+        echo "could not install the Watch app on $name (devicectl says why above): wake and" \
+            "unlock it, and run scripts/device.sh again"
+    fi
 }
 
 # Prints a link setting from the environment, else from the last line setting it in a
@@ -354,6 +391,7 @@ if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP"; then
     exit
 fi
 record_schema
+install_watch "$APP"
 # A locked phone takes the install but refuses the launch. The build is on the phone either way.
 if ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
     "$BUNDLE_ID"; then

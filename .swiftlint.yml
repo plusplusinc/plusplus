@@ -116,8 +116,9 @@ custom_rules:
     severity: error
   health_kit_imports:
     name: "HealthKit imports"
-    # And the one test of what the live client hands HealthKit.
-    excluded: "Packages/(Sources/Health/|Tests/SessionTests/HealthKitTests\\.swift).*"
+    # And the one test of what the live client hands HealthKit, and the Watch app's delegate,
+    # whose `handle(_:)` is how watchOS hands it the workout the phone started.
+    excluded: "(Packages/(Sources/Health/|Tests/SessionTests/HealthKitTests\\.swift)|PlusPlusWatch Watch App/WatchAppDelegate\\.swift).*"
     regex: '^import HealthKit\b'
     message: "Only the Health target talks to HealthKit; everything above it uses HealthClient"
     severity: error
@@ -129,13 +130,13 @@ custom_rules:
     severity: error
   fixed_font_size:
     name: "Fixed font size"
-    included: "App/.*"
+    included: "(App|PlusPlusWatch Watch App)/.*"
     regex: '\.font\(\.system\(size:'
     message: "Use a Font.pp* token so Dynamic Type works"
     severity: error
   literal_color:
     name: "Literal color"
-    included: "App/.*"
+    included: "(App|PlusPlusWatch Watch App)/.*"
     regex: 'Color\((red|hue|white|uiColor|\.sRGB|#)'
     message: "Use Color.pp(.token) from DesignSystem"
     severity: error

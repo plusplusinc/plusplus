@@ -17,10 +17,16 @@ CURRENT_PROJECT_VERSION = 1
 // MARK: - Platform
 
 IPHONEOS_DEPLOYMENT_TARGET = 27.0
-SDKROOT = iphoneos
+// Each target's SDK and platforms, keyed on its name: the phone's here, the Watch app's in
+// Watch.xcconfig. They can't be conditioned on the SDK, which they decide.
+SDKROOT = $(SDKROOT_$(TARGET_NAME:c99extidentifier))
+SDKROOT_PlusPlus = iphoneos
+SDKROOT_PlusPlusUITests = iphoneos
+SUPPORTED_PLATFORMS = $(SUPPORTED_PLATFORMS_$(TARGET_NAME:c99extidentifier))
+SUPPORTED_PLATFORMS_PlusPlus = iphoneos iphonesimulator
+SUPPORTED_PLATFORMS_PlusPlusUITests = iphoneos iphonesimulator
 // iPhone only. Portrait-only apps that also target iPad need full-screen mode or all orientations.
 TARGETED_DEVICE_FAMILY = 1
-SUPPORTED_PLATFORMS = iphoneos iphonesimulator
 // Simulator builds compile only the running Mac's slice; device archives are arm64-only anyway.
 ONLY_ACTIVE_ARCH[sdk=iphonesimulator*] = YES
 
@@ -102,6 +108,8 @@ ENABLE_USER_SCRIPT_SANDBOXING = YES
 // The xcodebuild default is YES, which Xcode warns is a deprecated headermap style.
 ALWAYS_SEARCH_USER_PATHS = NO
 ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES
+
+#include "Watch.xcconfig"
 
 // Optional developer-local overrides (team ID, custom bundle id). Gitignored; absent by default.
 #include? "Local.xcconfig"
