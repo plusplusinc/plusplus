@@ -54,7 +54,7 @@ struct WorkoutKeyTests {
             second = PlannedSet(row: push.id, round: 2, side: nil)
             left = PlannedSet(row: dumbbell.id, round: 1, side: .left)
             right = PlannedSet(row: dumbbell.id, round: 1, side: .right)
-            toRow = .nextExercise(to: left, isBack: false, startsRound: false)
+            toRow = .nextExercise(to: left, way: .onward)
         }
 
         /// The workout with its first `count` sets logged, in order, at their rows' plans, the

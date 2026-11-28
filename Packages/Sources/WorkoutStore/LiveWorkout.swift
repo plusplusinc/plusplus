@@ -63,11 +63,14 @@ public struct LiveWorkout: Equatable, Sendable {
         guard next.row != set.row else { return .nextSet }
         let rows = workout.exercises.map(\.id)
         let isBack = (rows.firstIndex(of: next.row) ?? 0) < (rows.firstIndex(of: set.row) ?? 0)
-        return .nextExercise(
-            to: next,
-            isBack: isBack,
-            startsRound: isBack && next.round != set.round && workout.isInSuperset(next.row),
-        )
+        let way: MoveWay = if !isBack {
+            .onward
+        } else if next.round != set.round, workout.isInSuperset(next.row) {
+            .backIntoLaterRound
+        } else {
+            .back
+        }
+        return .nextExercise(to: next, way: way)
     }
 
     /// The workout as it stood before its newest logged sets, while each is in `unshown`: logged
@@ -88,11 +91,31 @@ extension LiveWorkout {
     public enum Step: Equatable, Sendable {
         /// The next set is on the same exercise.
         case nextSet
-        /// On to another exercise, at `to`. `isBack`: its row is above the one left, round a
-        /// superset's loop or to a row moved above. `startsRound`: back to a superset's member, in
-        /// a later round.
-        case nextExercise(to: PlannedSet, isBack: Bool, startsRound: Bool)
+        /// On to another exercise, at `to`, the way `way` goes.
+        case nextExercise(to: PlannedSet, way: MoveWay)
         /// The last planned set: nothing follows.
         case last
+    }
+}
+
+/// Which way a move from one exercise to another goes. Three cases, not two flags, since a move
+/// that starts a round always goes back.
+public enum MoveWay: Equatable, Sendable {
+    /// To a row below the one left.
+    case onward
+    /// To a row above the one left, round a superset's loop or to a row moved above, in the same
+    /// round.
+    case back
+    /// Back to a superset's member, in a later round.
+    case backIntoLaterRound
+
+    /// Whether the next row is above the one left.
+    public var isBack: Bool {
+        self != .onward
+    }
+
+    /// Whether the move goes back to a superset's member in a later round.
+    public var startsRound: Bool {
+        self == .backIntoLaterRound
     }
 }

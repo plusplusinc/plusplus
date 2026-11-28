@@ -52,8 +52,8 @@ extension WorkoutPhase {
             return
         }
         var isBack = false
-        if case let .nextExercise(_, back, _) = step {
-            isBack = back
+        if case let .nextExercise(_, way) = step {
+            isBack = way.isBack
         }
         self = .resting(Resting(
             set: rest.after,
@@ -116,8 +116,7 @@ extension WorkoutPhase {
         // the next round's green segment for half a second.
         self = .movingOn(Move(
             set: rest.set,
-            isBack: rest.isBack,
-            startsRound: false,
+            way: rest.isBack ? .back : .onward,
             beat: .shown,
             isFromRest: true,
         ))

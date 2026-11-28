@@ -12,13 +12,11 @@ struct WorkoutPhaseTests {
 
     static let down = LiveWorkout.Step.nextExercise(
         to: next,
-        isBack: false,
-        startsRound: false,
+        way: .onward,
     )
     private static let round = LiveWorkout.Step.nextExercise(
         to: PlannedSet(row: other, round: 2, side: nil),
-        isBack: true,
-        startsRound: true,
+        way: .backIntoLaterRound,
     )
 
     /// A beat of a sequence, applied by name.

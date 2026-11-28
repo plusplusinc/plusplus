@@ -149,8 +149,7 @@ struct LiveWorkoutTests {
         let live = live(Workout(exercises: [push, pull]))
         #expect(live.step(logging: PlannedSet(row: push.id, round: 1, side: nil)) == .nextExercise(
             to: PlannedSet(row: pull.id, round: 1, side: nil),
-            isBack: false,
-            startsRound: false,
+            way: .onward,
         ))
     }
 
@@ -161,8 +160,7 @@ struct LiveWorkoutTests {
         let live = try logging([PlannedSet(row: rowA, round: 1, side: nil)], on: live(workout))
         #expect(live.step(logging: PlannedSet(row: rowB, round: 1, side: nil)) == .nextExercise(
             to: PlannedSet(row: rowA, round: 2, side: nil),
-            isBack: true,
-            startsRound: true,
+            way: .backIntoLaterRound,
         ))
     }
 
@@ -177,8 +175,7 @@ struct LiveWorkoutTests {
         )
         #expect(live.step(logging: PlannedSet(row: pull.id, round: 2, side: nil)) == .nextExercise(
             to: PlannedSet(row: push.id, round: 1, side: nil),
-            isBack: true,
-            startsRound: false,
+            way: .back,
         ))
     }
 

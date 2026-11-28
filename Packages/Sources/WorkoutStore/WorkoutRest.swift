@@ -201,7 +201,7 @@ extension LiveWorkout {
     /// promise before the log: `rests(after:leadingTo:)`'s rule.
     public func restLength(after set: PlannedSet, leadingTo step: Step) -> Int {
         let stored = switch step {
-        case let .nextExercise(next, isBack, _) where !isBack || workout.isInSuperset(set.row):
+        case let .nextExercise(next, way) where !way.isBack || workout.isInSuperset(set.row):
             workout.rest(after: set, before: next)
         case .nextSet:
             workout.restBetweenSets(after: set) ?? 0

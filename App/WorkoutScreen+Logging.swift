@@ -203,8 +203,8 @@ extension WorkoutScreen {
         switch step {
         case .nextSet:
             return rollHeldSet()
-        case let .nextExercise(to, back, _):
-            (next, isBack) = (to, back)
+        case let .nextExercise(to, way):
+            (next, isBack) = (to, way.isBack)
         case .last:
             (next, isBack) = (nil, false)
         }
