@@ -42,7 +42,7 @@ struct StoreCustomizeTests {
     }
 
     /// Every workout stored, as a relaunch would read it.
-    private func loggedWorkouts() throws -> [LoggedWorkout] {
+    private func loggedWorkouts() throws -> [WorkoutSession] {
         try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
             .map(\.loggedWorkout)
     }
@@ -79,7 +79,7 @@ struct StoreCustomizeTests {
         try await store.save(Self.curl)
         let workout = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
         try await store.save(workout)
-        var loggedWorkout = LoggedWorkout(
+        var loggedWorkout = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Arms",
             startedAt: Self.at(10),
@@ -104,7 +104,7 @@ struct StoreCustomizeTests {
         try await store.save(Self.curl)
         let workout = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
         try await store.save(workout)
-        var loggedWorkout = LoggedWorkout(
+        var loggedWorkout = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Arms",
             startedAt: Self.at(10),
@@ -161,7 +161,7 @@ struct StoreCustomizeTests {
         for (index, workout) in [named, unnamed, emptiedNamed].enumerated() {
             try await store.save(workout, at: Self.at(TimeInterval(index)))
         }
-        var loggedWorkout = LoggedWorkout(
+        var loggedWorkout = WorkoutSession(
             workoutID: named.id,
             workoutName: "Arms",
             startedAt: Self.at(10),

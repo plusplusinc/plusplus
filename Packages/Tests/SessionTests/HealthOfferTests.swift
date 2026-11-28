@@ -20,7 +20,7 @@ struct HealthOfferTests {
     private func finished(
         _ health: FakeHealth,
         at start: Double = 10,
-    ) async throws -> (session: AppSession, finished: LoggedWorkout.ID) {
+    ) async throws -> (session: AppSession, finished: WorkoutSession.ID) {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         let workout = Workout(
             name: "Upper",
@@ -57,7 +57,7 @@ struct HealthOfferTests {
     func onlyWhileLogHoldsOne() async throws {
         let health = FakeHealth(.notAsked, store: fixture.store())
         let (session, first) = try await finished(health)
-        await session.deleteLoggedWorkout(first)
+        await session.deleteWorkoutSession(first)
         #expect(session.healthPrompt == nil)
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         let workout = Workout(exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)])

@@ -8,7 +8,7 @@ extension WorkoutPhase {
     }
 
     /// The logged workout End took from the store, while the list still draws it.
-    public var drawnLoggedWorkout: LoggedWorkout? {
+    public var drawnWorkoutSession: WorkoutSession? {
         guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }
         return ending.loggedWorkout
     }
@@ -41,7 +41,7 @@ extension WorkoutPhase {
     /// The rest End came in, with the workout as it was, once the list has left it: its room
     /// closes showing the time it had. Gone with the list, its room closed drawing an empty rest,
     /// "0:00".
-    public var restLeft: (rest: Resting, loggedWorkout: LoggedWorkout)? {
+    public var restLeft: (rest: Resting, loggedWorkout: WorkoutSession)? {
         guard case let .ending(ending) = self, !ending.drawsLiveWorkout, let rest = ending.rest
         else { return nil }
         return (rest, ending.loggedWorkout)

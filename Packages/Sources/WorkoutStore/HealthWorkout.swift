@@ -43,7 +43,7 @@ public enum HealthActivity: String, Equatable, Sendable {
 /// which Health leaves out of the length. Nothing else: no calories, none being measured.
 public struct HealthWorkout: Equatable, Sendable {
     /// The logged workout it was made from.
-    public let id: LoggedWorkout.ID
+    public let id: WorkoutSession.ID
     public let activity: HealthActivity
     public let start: Date
     public let end: Date
@@ -51,7 +51,7 @@ public struct HealthWorkout: Equatable, Sendable {
     public let pauses: [DateInterval]
 
     public init(
-        id: LoggedWorkout.ID,
+        id: WorkoutSession.ID,
         activity: HealthActivity,
         start: Date,
         end: Date,
@@ -64,7 +64,7 @@ public struct HealthWorkout: Equatable, Sendable {
         self.pauses = pauses
     }
 
-    /// Why a finished workout goes nowhere (`LoggedWorkout.healthWithheld`).
+    /// Why a finished workout goes nowhere (`WorkoutSession.healthWithheld`).
     public enum Withheld: Error, Equatable, Sendable {
         /// It hasn't ended.
         case notFinished
@@ -77,10 +77,10 @@ public struct HealthWorkout: Equatable, Sendable {
     }
 
     /// The workout for `finished`, from what the store keeps of it alone, when Health can have
-    /// it (`LoggedWorkout.healthWithheld`). Its type is the one worked out at Finish, else, for
+    /// it (`WorkoutSession.healthWithheld`). Its type is the one worked out at Finish, else, for
     /// a workout finished before that was kept, from what it logged as `list` has it now
     /// (`HealthActivity(logged:in:)`).
-    public init(_ finished: LoggedWorkout, in list: ExerciseList) throws(Withheld) {
+    public init(_ finished: WorkoutSession, in list: ExerciseList) throws(Withheld) {
         if let withheld = finished.healthWithheld {
             throw withheld
         }

@@ -104,7 +104,7 @@ extension StoreUpgradeTests {
     }
 
     /// Expects `writeV12`'s two logged workouts as V12 stored them, with no rest skipped.
-    private static func expectAsWritten(running: LoggedWorkout, finished: [LoggedWorkout]) {
+    private static func expectAsWritten(running: WorkoutSession, finished: [WorkoutSession]) {
         #expect(running.startedAt == Date(timeIntervalSinceReferenceDate: 2000))
         #expect(running.count == nil)
         #expect(running.sets.map(\.restSkippedAt) == [nil, nil])
@@ -134,15 +134,15 @@ extension StoreUpgradeTests {
         let url = folder.appending(path: "PlusPlus.store")
         try Self.writeV12(at: url)
 
-        let finishedBefore: [LoggedWorkout]
-        let skipped: LoggedWorkout
+        let finishedBefore: [WorkoutSession]
+        let skipped: WorkoutSession
         let workout: Workout
         do {
             let store = try Self.current(at: url)
             let launch = try await store.launch(weightUnit: .pounds)
             workout = try #require(launch.workout)
             let running = try #require(launch.loggedWorkout)
-            finishedBefore = try await store.finishedLoggedWorkouts()
+            finishedBefore = try await store.finishedWorkoutSessions()
             Self.expectAsWritten(running: running, finished: finishedBefore)
             // Mid-rest still: 60 s and the +15 s tap, from the log at 9, not skipped.
             let live = LiveWorkout(workout: workout, loggedWorkout: running)
@@ -187,6 +187,6 @@ extension StoreUpgradeTests {
             #expect(live.extendingRest(by: 15, at: now) == reopened)
             #expect(live.skippingRest(at: now) == reopened)
         }
-        #expect(try await store.finishedLoggedWorkouts() == finishedBefore)
+        #expect(try await store.finishedWorkoutSessions() == finishedBefore)
     }
 }

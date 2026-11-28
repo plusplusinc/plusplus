@@ -147,13 +147,13 @@ struct StoreUpgradeTests {
     @Test(
         "A store written before logged workouts opens with every workout, then keeps a logged one",
     )
-    func upgradeBeforeLoggedWorkouts() async throws {
+    func upgradeBeforeWorkoutSessions() async throws {
         let folder = FileManager.default.temporaryDirectory
             .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        try Self.writeBeforeLoggedWorkouts(to: url)
+        try Self.writeBeforeWorkoutSessions(to: url)
 
         func open() throws -> Store {
             try Store(modelContainer: ModelContainer(
@@ -172,7 +172,7 @@ struct StoreUpgradeTests {
             #expect(workout.exercises.map(\.plan.target) == [.reps(6), .reps(6)])
             #expect(workout.exercises.allSatisfy { $0.supersetID != nil })
         }
-        let loggedWorkout = LoggedWorkout(
+        let loggedWorkout = WorkoutSession(
             workoutID: workouts[0].id,
             workoutName: workouts[0].name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
@@ -191,7 +191,7 @@ struct StoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        try Self.writeBeforeLoggedWorkouts(to: url)
+        try Self.writeBeforeWorkoutSessions(to: url)
         let loggedWorkoutID = UUID()
         do {
             let schema = Schema(versionedSchema: RoutineSchemaV5.self)
@@ -224,7 +224,7 @@ struct StoreUpgradeTests {
 
     /// Today's workouts as #91 stored them: two, each with a superset of two rows with plans,
     /// one opened after the other's edit.
-    static func writeBeforeLoggedWorkouts(to url: URL) throws {
+    static func writeBeforeWorkoutSessions(to url: URL) throws {
         let schema = Schema([
             RoutineSchemaV4.StoredRoutine.self,
             RoutineSchemaV4.StoredRoutineExercise.self,

@@ -10,12 +10,12 @@ extension AppSession {
     }
 
     /// Pushes a finished logged workout onto Log, read-only.
-    public func openLoggedWorkout(_ id: LoggedWorkout.ID) {
+    public func openWorkoutSession(_ id: WorkoutSession.ID) {
         screen = .loggedWorkout(id)
     }
 
     /// Pops the logged workout pushed onto Log, as its back button and back swipe do.
-    public func popLoggedWorkout() {
+    public func popWorkoutSession() {
         if case .loggedWorkout = screen {
             screen = .log
         }
@@ -27,12 +27,12 @@ extension AppSession {
     /// in progress. A delete that fails is logged, and the read leaves the workout listed.
     ///
     /// Deleted from Log means removed from Apple Health, and this is where that rule lives:
-    /// `Store.deleteLoggedWorkout(_:)` knows nothing of Health. The removal is owed from before
+    /// `Store.deleteWorkoutSession(_:)` knows nothing of Health. The removal is owed from before
     /// the delete is sent, on the device, so a relaunch still makes it, and a catch-up still to
     /// save the workout skips it; the catch-up asked here makes it, by the workout's tag, or
     /// drops it if the delete never landed. Nothing waits on Health, and nothing it answers
     /// shows.
-    public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) async {
+    public func deleteWorkoutSession(_ id: WorkoutSession.ID) async {
         health.oweRemoval(of: id)
         loggedWorkoutWrites.yield(.delete(id))
         catchUpHealth()
@@ -78,7 +78,7 @@ extension AppSession {
             finishesRead = finishes
             await loggedWorkoutWritesLanded()
             do {
-                let read = try await WorkoutLog(loggedWorkouts: store.finishedLoggedWorkouts())
+                let read = try await WorkoutLog(loggedWorkouts: store.finishedWorkoutSessions())
                 if finishesRead == finishes {
                     log = read
                 }

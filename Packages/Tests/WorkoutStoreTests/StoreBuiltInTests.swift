@@ -76,7 +76,7 @@ struct StoreBuiltInTests {
         let store = relaunch()
         let workout = try Workout(name: "Push", exercises: [Self.row()])
         try await store.save(workout)
-        var loggedWorkout = LoggedWorkout(
+        var loggedWorkout = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Push",
             startedAt: Date(timeIntervalSinceReferenceDate: 10),

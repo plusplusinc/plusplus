@@ -14,7 +14,7 @@ public struct LogPeriod: Equatable, Sendable {
         /// The start of the day.
         public let date: Date
         /// A finished logged workout started on it.
-        public let hasLoggedWorkout: Bool
+        public let hasWorkoutSession: Bool
         public let isToday: Bool
         /// After today, in this week's row: not drawn.
         public let isAfterToday: Bool
@@ -36,7 +36,7 @@ public struct LogPeriod: Equatable, Sendable {
 
     /// The period around `now`, with the days on which one of `loggedWorkouts` started. Logged
     /// workouts still in progress don't count.
-    public init(loggedWorkouts: [LoggedWorkout], calendar: Calendar, now: Date) {
+    public init(loggedWorkouts: [WorkoutSession], calendar: Calendar, now: Date) {
         let firstDay = Self.firstDay(calendar: calendar, now: now)
         let today = calendar.startOfDay(for: now)
         let finished = loggedWorkouts.filter { !$0.isInProgress }.map(\.startedAt)
@@ -49,7 +49,7 @@ public struct LogPeriod: Equatable, Sendable {
             let day = calendar.startOfDay(for: date)
             return Day(
                 date: day,
-                hasLoggedWorkout: loggedWorkoutDays.contains(day),
+                hasWorkoutSession: loggedWorkoutDays.contains(day),
                 isToday: day == today,
                 isAfterToday: day > today,
             )

@@ -30,8 +30,8 @@ struct StoreLaunchTests {
         _ workout: Workout,
         from start: TimeInterval,
         to end: TimeInterval,
-    ) -> LoggedWorkout {
-        LoggedWorkout(workoutID: workout.id, workoutName: workout.name, startedAt: at(start))
+    ) -> WorkoutSession {
+        WorkoutSession(workoutID: workout.id, workoutName: workout.name, startedAt: at(start))
             .finishing(at: at(end))
     }
 
@@ -56,7 +56,7 @@ struct StoreLaunchTests {
         let store = relaunch()
         try await store.save(workout, at: Self.at(1))
         try await store.save(Self.finished(workout, from: 10, to: 20))
-        let running = LoggedWorkout(
+        let running = WorkoutSession(
             workoutID: workout.id,
             workoutName: workout.name,
             startedAt: Self.at(30),
@@ -124,7 +124,7 @@ struct StoreLaunchTests {
         try await store.save(Self.finished(workout, from: 10, to: 20))
         let latest = Self.finished(workout, from: 30, to: 40)
         try await store.save(latest)
-        try await store.deleteLoggedWorkout(latest.id)
+        try await store.deleteWorkoutSession(latest.id)
         #expect(try await launch() == .workouts)
     }
 
@@ -138,7 +138,7 @@ struct StoreLaunchTests {
         let latest = Self.finished(workout, from: 40, to: 50)
         try await store.save(latest)
         #expect(try await launch() == .workouts)
-        try await store.deleteLoggedWorkout(latest.id)
+        try await store.deleteWorkoutSession(latest.id)
         #expect(try await launch() == .workout(workout))
     }
 }

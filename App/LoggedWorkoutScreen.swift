@@ -7,8 +7,8 @@ import WorkoutStore
 /// then its exercises in the order done, each with its rounds' figures in purple, the change from
 /// the time before it was done (a gain in green, anything else in gray), and a quiet line for one
 /// done a side at a time or a set short of its plan.
-struct LoggedWorkoutScreen: View {
-    let loggedWorkout: LoggedWorkout
+struct WorkoutSessionScreen: View {
+    let loggedWorkout: WorkoutSession
     let log: WorkoutLog
     let exercises: ExerciseList
 

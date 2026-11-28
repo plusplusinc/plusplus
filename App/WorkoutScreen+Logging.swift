@@ -11,10 +11,10 @@ extension WorkoutScreen {
     }
 
     /// The workout as the screen draws it: `live`, or as End took it from the store until the
-    /// list leaves it (`WorkoutPhase.drawnLoggedWorkout`), less the sets logged and not yet shown
+    /// list leaves it (`WorkoutPhase.drawnWorkoutSession`), less the sets logged and not yet shown
     /// (`WorkoutPhase.hidden`). Everything drawn reads it.
     var shown: LiveWorkout? {
-        let loggedWorkout = session.loggedWorkout ?? phase.drawnLoggedWorkout
+        let loggedWorkout = session.loggedWorkout ?? phase.drawnWorkoutSession
         return loggedWorkout
             .map { LiveWorkout(workout: workout, loggedWorkout: $0).hiding(phase.hidden) }
     }

@@ -89,14 +89,14 @@ extension AppSession {
     /// closed before it, so their workout is saved as owed, and returns those whose delete
     /// landed; nil when the store didn't answer.
     private func settledRemovals(
-        _ removals: [LoggedWorkout.ID],
+        _ removals: [WorkoutSession.ID],
         in store: Store,
-    ) async -> [LoggedWorkout.ID]? {
+    ) async -> [WorkoutSession.ID]? {
         guard !removals.isEmpty else { return [] }
         do {
             return try await health.settle(
                 removals,
-                held: store.heldLoggedWorkouts(among: removals),
+                held: store.heldWorkoutSessions(among: removals),
             )
         } catch {
             Logger.session.error("Which deleted workouts are gone didn't load: \(error)")
@@ -105,7 +105,7 @@ extension AppSession {
     }
 
     /// Makes the removals still owed of `removals`; one Health refuses stays owed for the next.
-    private func makeRemovals(_ removals: [LoggedWorkout.ID]) async {
+    private func makeRemovals(_ removals: [WorkoutSession.ID]) async {
         let owed = removals.filter(health.owesRemoval(of:))
         guard !owed.isEmpty else { return }
         do {
@@ -118,7 +118,7 @@ extension AppSession {
 
     /// The saves of the run, as above.
     private func saveOwed(from store: Store) async {
-        let owed: [LoggedWorkout]
+        let owed: [WorkoutSession]
         do {
             owed = try await store.owedToHealth()
         } catch {

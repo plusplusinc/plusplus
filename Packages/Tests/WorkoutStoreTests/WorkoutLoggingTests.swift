@@ -7,15 +7,15 @@ import Testing
 struct WorkoutLoggingTests {
     private let start = Date(timeIntervalSinceReferenceDate: 1000)
 
-    private func loggedWorkout(_ workout: Workout) -> LoggedWorkout {
-        LoggedWorkout(workoutID: workout.id, workoutName: "Upper", startedAt: start)
+    private func loggedWorkout(_ workout: Workout) -> WorkoutSession {
+        WorkoutSession(workoutID: workout.id, workoutName: "Upper", startedAt: start)
     }
 
     /// Logs the workout's next set, as the key does.
     private func logNext(
-        _ loggedWorkout: LoggedWorkout,
+        _ loggedWorkout: WorkoutSession,
         _ workout: Workout,
-    ) throws -> LoggedWorkout {
+    ) throws -> WorkoutSession {
         let next = try #require(workout.nextSet(after: loggedWorkout.sets))
         let row = try #require(workout.exercises.first { $0.id == next.row })
         return loggedWorkout.logging(next, of: row, at: start.addingTimeInterval(60))

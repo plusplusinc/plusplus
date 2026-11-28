@@ -23,17 +23,17 @@ final class FakeHealth: Sendable {
     private let heldAsks: AsyncStream<Void>
     private let heldAsk: AsyncStream<Void>.Continuation
     /// The logged workouts of each removal.
-    let removals = Mutex<[[LoggedWorkout.ID]]>([])
+    let removals = Mutex<[[WorkoutSession.ID]]>([])
     /// The logged workouts Health holds a workout tagged for, as saves and removals leave them.
-    let inHealth = Mutex<Set<LoggedWorkout.ID>>([])
+    let inHealth = Mutex<Set<WorkoutSession.ID>>([])
     /// Whether removals throw, with access on.
     let refusesRemovals = Mutex(false)
     /// Each workout saved, with the finished logged workouts the store held as it was.
-    let saves = Mutex<[(workout: HealthWorkout, stored: [LoggedWorkout.ID])]>([])
+    let saves = Mutex<[(workout: HealthWorkout, stored: [WorkoutSession.ID])]>([])
     /// Each logged workout a save was tried for, saved or not.
-    let attempts = Mutex<[LoggedWorkout.ID]>([])
+    let attempts = Mutex<[WorkoutSession.ID]>([])
     /// Logged workouts whose saves throw, with access on, for as long as they are here.
-    let fails = Mutex<Set<LoggedWorkout.ID>>([])
+    let fails = Mutex<Set<WorkoutSession.ID>>([])
     /// Whether the next access read, having read the access, waits for `releaseRead()`.
     let holdsNextRead = Mutex(false)
     private let readGate = DispatchSemaphore(value: 0)
@@ -81,7 +81,7 @@ final class FakeHealth: Sendable {
         readGate.signal()
     }
 
-    var savedIDs: [LoggedWorkout.ID] {
+    var savedIDs: [WorkoutSession.ID] {
         saves.withLock { $0.map(\.workout.id) }
     }
 
@@ -160,7 +160,7 @@ final class FakeHealth: Sendable {
                 if self.fails.withLock({ $0.contains(workout.id) }) {
                     throw SaveFailed()
                 }
-                let stored = try await self.store?.finishedLoggedWorkouts() ?? []
+                let stored = try await self.store?.finishedWorkoutSessions() ?? []
                 self.saves.withLock { $0.append((workout, stored.map(\.id))) }
                 self.inHealth.withLock { _ = $0.insert(workout.id) }
                 return self.returnsNoID.withLock { $0 } ? nil : UUID()
@@ -213,8 +213,8 @@ struct HealthFixture {
         _ start: Double,
         _ end: Double,
         pausedSeconds: Double = 0,
-    ) async throws -> LoggedWorkout {
-        let finished = LoggedWorkout(
+    ) async throws -> WorkoutSession {
+        let finished = WorkoutSession(
             workoutID: UUID(),
             workoutName: "Upper",
             startedAt: Self.at(start),

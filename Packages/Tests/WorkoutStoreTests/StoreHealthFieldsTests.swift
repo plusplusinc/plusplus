@@ -25,9 +25,9 @@ struct StoreHealthFieldsTests {
     /// A workout finished and saved, and its stored model in `context`.
     private func savedFinished(
         in context: ModelContext,
-    ) async throws -> (LoggedWorkout, StoredWorkoutSession) {
+    ) async throws -> (WorkoutSession, StoredWorkoutSession) {
         try await relaunch().save(workout, at: Self.at(1))
-        let finished = LoggedWorkout(
+        let finished = WorkoutSession(
             workoutID: workout.id,
             workoutName: workout.name,
             startedAt: Self.at(10),
@@ -47,7 +47,7 @@ struct StoreHealthFieldsTests {
         stored.healthActivity = "swimming"
         stored.pauseTimes = times.map(Self.at)
         try context.save()
-        var read = try #require(try await relaunch().finishedLoggedWorkouts().first)
+        var read = try #require(try await relaunch().finishedWorkoutSessions().first)
         #expect(read.pauses.isEmpty)
         #expect(read.healthActivity == nil)
         // A save of what was read, as a rename makes, leaves both as a newer version wrote them.

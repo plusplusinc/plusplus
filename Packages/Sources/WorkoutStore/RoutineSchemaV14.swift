@@ -35,7 +35,7 @@ enum RoutineSchemaV14: VersionedSchema {
         var countSide: String?
         var countStartClock: Double?
         var countAdded = 0
-        /// `LoggedWorkout.pauses`, each resumed pause's start then end, in order; nil for a
+        /// `WorkoutSession.pauses`, each resumed pause's start then end, in order; nil for a
         /// workout from before V14. An odd count, or a pause ending before it starts, reads as
         /// none, and a save leaves it as it is.
         var pauseTimes: [Date]?

@@ -90,8 +90,8 @@ extension WorkoutScreen {
 
     /// The ending workout's time, stopped at End while a finish holds the screen still, so it
     /// stops counting. One paused keeps its pause, so it looks the same.
-    private var endingTime: LoggedWorkout? {
-        guard var ending = phase.endingLoggedWorkout else { return nil }
+    private var endingTime: WorkoutSession? {
+        guard var ending = phase.endingWorkoutSession else { return nil }
         if phase.isEndBegun, let end = phase.drawnEnd, !ending.isPaused {
             ending.endedAt = end
         }

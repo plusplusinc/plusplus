@@ -156,7 +156,7 @@ extension WorkoutScreen {
         }
         let time = RestBlock.spoken(Double(seconds), locale: locale)
         // The workout with every log, the one drawn hidden included.
-        let logs = (session.loggedWorkout ?? phase.drawnLoggedWorkout).map {
+        let logs = (session.loggedWorkout ?? phase.drawnWorkoutSession).map {
             LiveWorkout(workout: workout, loggedWorkout: $0)
         }
         if let logged = phase.loggedAndDrawn ?? phase.endingHidden, logged.row == id,

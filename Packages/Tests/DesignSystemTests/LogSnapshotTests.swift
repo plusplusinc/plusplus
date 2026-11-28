@@ -7,7 +7,7 @@ import Testing
 @testable import DesignSystem
 
 /// Log's tabs and an opened logged workout, built from the components `LogScreen` and
-/// `LoggedWorkoutScreen` compose them from. The screens live in the app, which has no test
+/// `WorkoutSessionScreen` compose them from. The screens live in the app, which has no test
 /// target; their bars and segmented control are system chrome, checked on the simulator.
 @Suite("Log")
 struct LogSnapshotTests {

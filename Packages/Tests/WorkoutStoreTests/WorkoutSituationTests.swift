@@ -25,7 +25,7 @@ struct WorkoutSituationTests {
     static func started(_ workout: Workout) -> LiveWorkout {
         LiveWorkout(
             workout: workout,
-            loggedWorkout: LoggedWorkout(
+            loggedWorkout: WorkoutSession(
                 workoutID: workout.id,
                 workoutName: "Test",
                 startedAt: start,

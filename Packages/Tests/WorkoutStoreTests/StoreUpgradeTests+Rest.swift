@@ -11,7 +11,7 @@ extension StoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        try Self.writeBeforeLoggedWorkouts(to: url)
+        try Self.writeBeforeWorkoutSessions(to: url)
         do {
             // Touch the store in V6's shape, so the upgrade starts from it.
             let schema = Schema(versionedSchema: RoutineSchemaV6.self)

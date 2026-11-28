@@ -39,21 +39,21 @@ struct LogScreen: View {
     @State var tab = Tab.history
     /// The logged workout Delete last asked about, kept as the alert goes, so its line keeps the
     /// name and day.
-    @State var deleting: LoggedWorkout?
+    @State var deleting: WorkoutSession?
     @State var isAskingToDelete = false
     /// Logged workouts whose delete is confirmed, left out of History from the confirming tap,
     /// before the store has taken the delete.
-    @State var leaving: Set<LoggedWorkout.ID> = []
+    @State var leaving: Set<WorkoutSession.ID> = []
     /// The workout just finished, left out of History until it comes in, a moment after the
     /// drawer has closed over Log (`bringIn()`). Held here, not on the session, so it goes with
     /// the screen and no path can leave the workout missing from History.
-    @State var arriving: LoggedWorkout.ID?
+    @State var arriving: WorkoutSession.ID?
     /// History's empty line and Go to Workouts fading out ahead of the first workout ever, which
     /// comes in only once they have gone, so its text never shows over theirs.
     @State var emptyGivesWay = false
     /// With Reduce Motion, the workout just finished, in History at its place but not yet faded
     /// in: the rows take their new places at once, and only this one fades (`fadesIn(_:)`).
-    @State var fadingIn: LoggedWorkout.ID?
+    @State var fadingIn: WorkoutSession.ID?
     /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
@@ -106,9 +106,9 @@ struct LogScreen: View {
             .swipeActionsContainer()
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
-            .navigationDestination(item: pushedLoggedWorkout) { id in
+            .navigationDestination(item: pushedWorkoutSession) { id in
                 if let log = session.log, let loggedWorkout = log.loggedWorkout(id: id) {
-                    LoggedWorkoutScreen(
+                    WorkoutSessionScreen(
                         loggedWorkout: loggedWorkout,
                         log: log,
                         exercises: session.exercises,
@@ -161,7 +161,7 @@ struct LogScreen: View {
         let closed = start + DrawerWay.arrival(reduceMotion: reduceMotion)
         var due = closed + Self.arrivalDelay
         // Only for a row that will come in: with a log read missing it, the empty part stays.
-        if showsNoLoggedWorkouts, session.log?.loggedWorkout(id: coming) != nil {
+        if showsNoWorkoutSessions, session.log?.loggedWorkout(id: coming) != nil {
             guard await (try? beat(until: closed)) != nil else { return }
             withAnimation(.easeOut(duration: Self.emptyFade / .seconds(1))) {
                 emptyGivesWay = true
@@ -179,19 +179,19 @@ struct LogScreen: View {
         }
     }
 
-    func askToDelete(_ loggedWorkout: LoggedWorkout) {
+    func askToDelete(_ loggedWorkout: WorkoutSession) {
         deleting = loggedWorkout
         isAskingToDelete = true
     }
 
     /// Takes the row out at once, the rows below closing the gap, then deletes the logged
     /// workout; the log read after it moves the count, the calendar, Diff, and Balance.
-    private func delete(_ id: LoggedWorkout.ID) {
+    private func delete(_ id: WorkoutSession.ID) {
         withAnimation(.snappy) {
             _ = leaving.insert(id)
         }
         Task {
-            await session.deleteLoggedWorkout(id)
+            await session.deleteWorkoutSession(id)
             // Gone from the log once stored; back in History if the delete failed.
             withAnimation(.snappy) {
                 _ = leaving.remove(id)
@@ -226,16 +226,16 @@ struct LogScreen: View {
     }
 
     private var isHistoryEmpty: Bool {
-        tab == .history && showsNoLoggedWorkouts
+        tab == .history && showsNoWorkoutSessions
     }
 
     /// Whether History lists nothing, the workout yet to come in left out.
-    private var showsNoLoggedWorkouts: Bool {
+    private var showsNoWorkoutSessions: Bool {
         session.log?.leavingOut(arriving).loggedWorkouts.isEmpty == true
     }
 
     /// The pushed logged workout, which the back button and the back swipe pop.
-    private var pushedLoggedWorkout: Binding<LoggedWorkout.ID?> {
+    private var pushedWorkoutSession: Binding<WorkoutSession.ID?> {
         Binding {
             if case let .loggedWorkout(id) = session.screen {
                 id
@@ -244,15 +244,15 @@ struct LogScreen: View {
             }
         } set: { id in
             if let id {
-                session.openLoggedWorkout(id)
+                session.openWorkoutSession(id)
             } else {
-                session.popLoggedWorkout()
+                session.popWorkoutSession()
             }
         }
     }
 
-    func openLoggedWorkout(_ id: LoggedWorkout.ID) {
-        session.openLoggedWorkout(id)
+    func openWorkoutSession(_ id: WorkoutSession.ID) {
+        session.openWorkoutSession(id)
     }
 
     /// Workouts at the root, never pushed onto Log, by way of the drawer: a quick version of

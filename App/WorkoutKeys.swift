@@ -78,7 +78,7 @@ extension View {
 /// The workout's time, in the bar, which a tap pauses or resumes. It ticks on the elapsed
 /// time's whole seconds while running, and draws once while paused.
 struct WorkoutTimeKey: View {
-    let loggedWorkout: LoggedWorkout
+    let loggedWorkout: WorkoutSession
     /// The screen's pause or resume (`WorkoutScreen.togglePause()`), which animates the key.
     let togglePause: () -> Void
 
@@ -119,12 +119,12 @@ struct WorkoutTimeKey: View {
     private func label(at date: Date) -> some View {
         let elapsed = loggedWorkout.elapsed(at: date)
         return WorkoutTimeLabel(
-            LoggedWorkout.elapsedText(elapsed, locale: locale),
+            WorkoutSession.elapsedText(elapsed, locale: locale),
             isPaused: loggedWorkout.isPaused,
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(loggedWorkout.isPaused ? "Resume" : "Pause")
-        .accessibilityValue(LoggedWorkout.spokenElapsed(elapsed, locale: locale))
+        .accessibilityValue(WorkoutSession.spokenElapsed(elapsed, locale: locale))
     }
 }
 
@@ -134,7 +134,7 @@ private struct Ticking: Equatable {
     let runs: Bool
 }
 
-extension LoggedWorkout {
+extension WorkoutSession {
     /// Whether its time is running on: in progress and not paused.
     fileprivate var runs: Bool {
         isInProgress && !isPaused

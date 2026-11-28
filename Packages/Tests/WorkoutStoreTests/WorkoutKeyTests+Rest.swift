@@ -159,7 +159,7 @@ extension WorkoutKeyTests {
         workout.join(workout.exercises[0].id, .below)
         workout.setRestAfterRound(60, of: workout.exercises[0].id)
         let start = Date(timeIntervalSinceReferenceDate: 1000)
-        let started = LoggedWorkout(workoutID: workout.id, workoutName: "Pull", startedAt: start)
+        let started = WorkoutSession(workoutID: workout.id, workoutName: "Pull", startedAt: start)
         var live = LiveWorkout(workout: workout, loggedWorkout: started)
         let bench = try #require(live.currentSet)
         live.loggedWorkout = try live.loggedWorkout.logging(

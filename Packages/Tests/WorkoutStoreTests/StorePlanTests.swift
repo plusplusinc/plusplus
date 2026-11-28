@@ -55,7 +55,7 @@ struct StorePlanTests {
 
         let next = try #require(reopened.nextSet(after: []))
         let row = try #require(reopened.exercises.first)
-        let loggedWorkout = LoggedWorkout(
+        let loggedWorkout = WorkoutSession(
             workoutID: reopened.id,
             workoutName: reopened.name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),

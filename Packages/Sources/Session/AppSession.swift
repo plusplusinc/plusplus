@@ -50,11 +50,11 @@ public final class AppSession {
     /// Counts the finishes, so a read of the log begun before one reads again (`refreshLog()`).
     @ObservationIgnored var finishes = 0
     /// The logged workout in progress on the open workout, from Start until Finish or Discard.
-    public private(set) var loggedWorkout: LoggedWorkout?
+    public private(set) var loggedWorkout: WorkoutSession?
     /// The workout just finished, which Log has yet to bring into History; taken by Log as it
     /// shows (`takeJustFinished()`). Unobserved: nothing is drawn from it, it only seeds Log's
     /// arrival, and observed, Log taking it redrew the drawer's content as it closed.
-    @ObservationIgnored public internal(set) var justFinished: LoggedWorkout.ID?
+    @ObservationIgnored public internal(set) var justFinished: WorkoutSession.ID?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
     /// The exercises whose delete is confirmed and not yet stored
@@ -82,7 +82,7 @@ public final class AppSession {
     /// waits its turn: one logged workout's end and the next one's start can both be waiting,
     /// and keeping only the newest would drop the end, leaving the first in progress in the store.
     @ObservationIgnored
-    let loggedWorkoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
+    let loggedWorkoutWrites: AsyncStream<WorkoutSessionQueueEntry>.Continuation
     /// Apple Health's catch-ups, one at a time, from the first asked (`catchUpHealth()`), and
     /// whether one is queued and not yet started, which covers any asked meanwhile.
     @ObservationIgnored lazy var healthJobs = startHealthJobs()
@@ -90,7 +90,7 @@ public final class AppSession {
 
     public init(
         workout: Workout,
-        loggedWorkout: LoggedWorkout? = nil,
+        loggedWorkout: WorkoutSession? = nil,
         exercises: ExerciseList = .builtIn,
         store: Store?,
         namer: WorkoutNamer,
@@ -104,7 +104,7 @@ public final class AppSession {
         self.exercises = exercises
         self.store = store
         (saves, saving) = Self.startSaving(to: store)
-        loggedWorkoutWrites = Self.startWritingLoggedWorkouts(to: store)
+        loggedWorkoutWrites = Self.startWritingWorkoutSessions(to: store)
     }
 
     /// Every saved workout, latest first, with the open one first as it is now.
@@ -182,7 +182,7 @@ public final class AppSession {
     /// starts as it ends (`landOnFirstSet`).
     public func start(on workout: Workout.ID, at now: Date = .now) {
         guard canStart(on: workout) else { return }
-        change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
+        change(.save(WorkoutSession(workoutID: workout, workoutName: shownName, startedAt: now)))
         closeDrawer()
     }
 
@@ -204,7 +204,7 @@ public final class AppSession {
     /// The one way the logged workout changes: to what `write` stores, sent to be stored in the
     /// same call, so no change shows that a relaunch would lose. One saved in progress is the
     /// one running; one saved ended, or discarded, leaves none.
-    func change(_ write: LoggedWorkoutWrite) {
+    func change(_ write: WorkoutSessionWrite) {
         switch write {
         case let .save(changed): loggedWorkout = changed.isInProgress ? changed : nil
         case .discard: loggedWorkout = nil

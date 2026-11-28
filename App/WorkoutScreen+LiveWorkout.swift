@@ -191,7 +191,7 @@ extension WorkoutScreen {
     ///
     /// `change`, the store's finish or discard, is made at once, here, on every path: only the
     /// motion is the sequence's, which the screen going away cancels. The list draws the workout
-    /// as it was from the phase (`WorkoutPhase.drawnLoggedWorkout`) until it shrinks or crossfades
+    /// as it was from the phase (`WorkoutPhase.drawnWorkoutSession`) until it shrinks or crossfades
     /// out of it. `change` takes the curve the bar's End and time would have moved on with it.
     ///
     /// `holdingStill`, as after a finish: `change` is made at once, and the screen holds still

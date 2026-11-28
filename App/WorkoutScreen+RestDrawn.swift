@@ -63,7 +63,7 @@ extension WorkoutScreen {
     /// through the shrink, the count went on with a second's roll as it went.
     static func times(
         of rest: WorkoutRest,
-        on loggedWorkout: LoggedWorkout,
+        on loggedWorkout: WorkoutSession,
         stopped: Bool = false,
         end: Date? = nil,
     ) -> (ends: Date, pausedLeft: Double?) {

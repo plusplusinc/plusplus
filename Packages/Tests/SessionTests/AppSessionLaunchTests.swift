@@ -63,7 +63,7 @@ struct AppSessionLaunchTests {
 
     @Test("Every other launch starts on its workout")
     func otherLaunches() {
-        let logged = LoggedWorkout(workoutID: saved.id, workoutName: saved.name, startedAt: .now)
+        let logged = WorkoutSession(workoutID: saved.id, workoutName: saved.name, startedAt: .now)
         let inProgress = session(.inProgress(saved, logged))
         #expect(inProgress.screen == .workout)
         #expect(inProgress.current == saved)

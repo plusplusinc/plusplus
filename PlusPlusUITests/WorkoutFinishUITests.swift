@@ -3,7 +3,7 @@ import XCTest
 /// After the last planned set, the key at the bottom reads Finish workout and finishes with no
 /// "End this workout?" dialog, going to Log by the drawer, where the workout comes into
 /// History; and keeps it: a relaunch then opens the Workouts list, where after Discard it
-/// reopens this one (`StoreLoggedWorkoutTests` holds both launch rules and every saved field).
+/// reopens this one (`StoreWorkoutSessionTests` holds both launch rules and every saved field).
 /// Which set comes next is `WorkoutLoggingTests`', and how the row looks is
 /// `WorkoutRailSnapshotTests`'; this is the key's wire to finishing and to Log. On
 /// the way, it reads where Start leaves the list, which only the running app's scroll view

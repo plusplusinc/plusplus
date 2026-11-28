@@ -69,31 +69,31 @@ struct AppSessionScreenTests {
     }
 
     @Test("A logged workout opened from History is pushed on Log, still marking Log; back pops it")
-    func openLoggedWorkout() {
+    func openWorkoutSession() {
         let session = session()
         session.showLog()
         let id = UUID()
-        session.openLoggedWorkout(id)
+        session.openWorkoutSession(id)
         #expect(session.screen == .loggedWorkout(id))
         #expect(session.screen.isPushed)
         #expect(session.showing == .log)
-        session.popLoggedWorkout()
+        session.popWorkoutSession()
         #expect(session.screen == .log)
         // A pop sent once the place has changed leaves it.
         session.showWorkouts()
-        session.popLoggedWorkout()
+        session.popWorkoutSession()
         #expect(session.screen == .workouts)
     }
 
     @Test("Log reads the finished logged workouts, leaving one in progress out")
     func refreshLog() async throws {
-        let finished = LoggedWorkout(
+        let finished = WorkoutSession(
             workoutID: saved.id,
             workoutName: saved.name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
         ).finishing(at: Date(timeIntervalSinceReferenceDate: 70))
         try await store.save(finished)
-        try await store.save(LoggedWorkout(
+        try await store.save(WorkoutSession(
             workoutID: saved.id,
             workoutName: saved.name,
             startedAt: Date(timeIntervalSinceReferenceDate: 100),

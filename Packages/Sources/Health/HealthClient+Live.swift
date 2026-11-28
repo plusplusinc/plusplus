@@ -66,7 +66,7 @@ extension HealthClient {
     }
 
     /// Every workout the app saved for any of the logged workouts `ids` (`metadata(for:)`).
-    private static func tagged(_ ids: [LoggedWorkout.ID]) -> NSPredicate {
+    private static func tagged(_ ids: [WorkoutSession.ID]) -> NSPredicate {
         HKQuery.predicateForObjects(
             withMetadataKey: HKMetadataKeyExternalUUID,
             allowedValues: ids.map(\.uuidString),

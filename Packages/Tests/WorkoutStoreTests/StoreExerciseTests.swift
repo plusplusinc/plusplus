@@ -64,7 +64,7 @@ struct StoreExerciseTests {
         try await store.save(workout)
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
         try await relaunch()
-            .save(LoggedWorkout(workoutID: workout.id, workoutName: "Day A", startedAt: .now))
+            .save(WorkoutSession(workoutID: workout.id, workoutName: "Day A", startedAt: .now))
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.loggedWorkout != nil)
         #expect(launch.workout == workout)

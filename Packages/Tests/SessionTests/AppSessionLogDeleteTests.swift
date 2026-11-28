@@ -31,9 +31,13 @@ struct AppSessionLogDeleteTests {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    private func finished(at seconds: TimeInterval) -> LoggedWorkout {
-        LoggedWorkout(workoutID: workout.id, workoutName: workout.name, startedAt: Self.at(seconds))
-            .finishing(at: Self.at(seconds + 60))
+    private func finished(at seconds: TimeInterval) -> WorkoutSession {
+        WorkoutSession(
+            workoutID: workout.id,
+            workoutName: workout.name,
+            startedAt: Self.at(seconds),
+        )
+        .finishing(at: Self.at(seconds + 60))
     }
 
     @Test("A finished workout deleted from Log leaves the log, then the store at a relaunch")
@@ -44,9 +48,9 @@ struct AppSessionLogDeleteTests {
         try await relaunch().save(kept)
         let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
         await session.refreshLog()
-        await session.deleteLoggedWorkout(deleted.id)
+        await session.deleteWorkoutSession(deleted.id)
         #expect(session.log?.loggedWorkouts == [kept])
-        #expect(try await relaunch().finishedLoggedWorkouts() == [kept])
+        #expect(try await relaunch().finishedWorkoutSessions() == [kept])
     }
 
     @Test("A delete sent as the workout's Finish is still landing deletes it once it lands")
@@ -55,7 +59,7 @@ struct AppSessionLogDeleteTests {
         session.start(on: workout.id, at: Self.at(10))
         let loggedWorkout = try #require(session.loggedWorkout)
         session.finish(at: Self.at(20))
-        await session.deleteLoggedWorkout(loggedWorkout.id)
+        await session.deleteWorkoutSession(loggedWorkout.id)
         #expect(session.log?.loggedWorkouts == [])
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(stored.isEmpty)
@@ -66,7 +70,7 @@ struct AppSessionLogDeleteTests {
         let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
         session.start(on: workout.id, at: Self.at(10))
         let loggedWorkout = try #require(session.loggedWorkout)
-        await session.deleteLoggedWorkout(loggedWorkout.id)
+        await session.deleteWorkoutSession(loggedWorkout.id)
         await session.writesLanded()
         #expect(session.loggedWorkout == loggedWorkout)
         let launch = try await relaunch().launch(weightUnit: .pounds)
@@ -91,14 +95,14 @@ struct AppSessionLogDeleteTests {
             configurations: ModelConfiguration(schema: Store.schema, url: url, allowsSave: false),
         )
         await #expect(throws: (any Error).self) {
-            try await Store(modelContainer: readOnly).deleteLoggedWorkout(loggedWorkout.id)
+            try await Store(modelContainer: readOnly).deleteWorkoutSession(loggedWorkout.id)
         }
         let session = AppSession(
             workout: workout,
             store: Store(modelContainer: readOnly),
             namer: .muscleGroupsOnly,
         )
-        await session.deleteLoggedWorkout(loggedWorkout.id)
+        await session.deleteWorkoutSession(loggedWorkout.id)
         #expect(session.log?.loggedWorkouts == [loggedWorkout])
     }
 }

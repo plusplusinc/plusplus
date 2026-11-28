@@ -6,7 +6,7 @@ import Foundation
 /// set current. A reps set's holds only its "Start in", whose end is `startClock`.
 public struct SetCount: Equatable, Sendable {
     public let set: PlannedSet
-    /// The workout's clock (`LoggedWorkout.clock(at:)`) as "Start in" ends and a timed set's own
+    /// The workout's clock (`WorkoutSession.clock(at:)`) as "Start in" ends and a timed set's own
     /// count starts: ahead of the clock during "Start in".
     public var startClock: Double
     /// The +15 s taps on this set, in seconds.
@@ -176,7 +176,7 @@ extension LiveWorkout {
     /// and the set opens on the "Start in" due before it from the edit
     /// (`beginningCount(at:)`). Decided as the edit is written, never from a
     /// reaction to it, which SwiftUI can skip for a second change in one frame.
-    public func droppingCount(for edited: Workout) -> LoggedWorkout {
+    public func droppingCount(for edited: Workout) -> WorkoutSession {
         guard let count = loggedWorkout.count,
               let before = workout.exercises.first(where: { $0.id == count.set.row }),
               let after = edited.exercises.first(where: { $0.id == count.set.row }),
@@ -190,11 +190,11 @@ extension LiveWorkout {
     /// The workout as the screen lands on its first set after Start, at `now`: the set's "Start
     /// in" begins there, and the workout's time starts as it ends, where the set begins
     /// (decided 2026-11-23), so the time reads 0:00 through "Start in" and the two turn over
-    /// together. The clock stands below zero until then (`LoggedWorkout.clock(at:)`).
+    /// together. The clock stands below zero until then (`WorkoutSession.clock(at:)`).
     /// Only a workout with nothing logged, never paused, no count yet, and under a second on
     /// its clock, so its time has shown only 0:00 and none of it is lost: any other, as one
     /// whose landing waited on the phone being unlocked, only begins its count.
-    public func landingStart(at now: Date) -> LoggedWorkout {
+    public func landingStart(at now: Date) -> WorkoutSession {
         guard loggedWorkout.isInProgress, loggedWorkout.sets.isEmpty, loggedWorkout.count == nil,
               loggedWorkout.pausedAt == nil, loggedWorkout.pausedSeconds == 0,
               loggedWorkout.clock(at: now) < 1
@@ -207,7 +207,7 @@ extension LiveWorkout {
 
     /// `begun` with its time starting as its count's "Start in" ends: for a workout whose
     /// time hasn't started, its first set's count begun at the landing or again after an edit.
-    private static func timeStartingAtCount(_ begun: LoggedWorkout) -> LoggedWorkout {
+    private static func timeStartingAtCount(_ begun: WorkoutSession) -> WorkoutSession {
         guard let lead = begun.count?.startClock else { return begun }
         var held = begun
         held.startedAt = begun.startedAt.addingTimeInterval(lead)
@@ -222,7 +222,7 @@ extension LiveWorkout {
     /// else opens on `startIn` from now; a reps set with none due begins nothing. Every "Start
     /// in" holds 0:00 for `startInHold` before the set begins. A count kept for no set goes. The
     /// rest of the workout is unchanged until the rest before the set moves on.
-    public func beginningCount(at now: Date) -> LoggedWorkout {
+    public func beginningCount(at now: Date) -> WorkoutSession {
         guard loggedWorkout.isInProgress, setCount == nil else { return loggedWorkout }
         var begun = loggedWorkout
         begun.count = nil
@@ -257,7 +257,11 @@ extension LiveWorkout {
     /// "Start in" (`WorkoutPhase.takesLog`). The next set's count is not begun here: with no rest
     /// before it, its "Start in" begins as the screen lands on it, so all of it is seen
     /// (`beginningCount(at:)`).
-    public func logging(_ set: PlannedSet, of row: WorkoutExercise, at now: Date) -> LoggedWorkout {
+    public func logging(
+        _ set: PlannedSet,
+        of row: WorkoutExercise,
+        at now: Date,
+    ) -> WorkoutSession {
         let clock = loggedWorkout.clock(at: now)
         let timed = timedSet.flatMap { $0.set == set ? $0 : nil }
         let endClock = timed.flatMap { $0.isOver(atClock: clock) ? $0.endClock : nil }
@@ -279,11 +283,11 @@ extension LiveWorkout {
         return logged
     }
 
-    /// The workout finished at `now` (`LoggedWorkout.finishing(at:)`), a set counting logged first
+    /// The workout finished at `now` (`WorkoutSession.finishing(at:)`), a set counting logged first
     /// at the time done, as a log at that moment logs it, and one whose count ran out at its full
     /// time. A timed set still in "Start in" logs nothing: it never began. Paused, the set is
     /// logged as the pause began, where its count stopped, so its time of day and its clock agree.
-    public func finishing(at now: Date) -> LoggedWorkout {
+    public func finishing(at now: Date) -> WorkoutSession {
         guard countStage(at: now) == .counting, let timed = timedSet, let row = currentExercise
         else { return loggedWorkout.finishing(at: now) }
         return logging(timed.set, of: row, at: loggedWorkout.pausedAt ?? now).finishing(at: now)
@@ -291,7 +295,7 @@ extension LiveWorkout {
 
     /// The workout with `seconds` added to the set counting, as a +15 s tap does. Unchanged
     /// during "Start in" or once over, so a tap landing as it ends brings nothing back.
-    public func extendingCount(by seconds: Int, at now: Date) -> LoggedWorkout {
+    public func extendingCount(by seconds: Int, at now: Date) -> WorkoutSession {
         let clock = loggedWorkout.clock(at: now)
         guard loggedWorkout.isInProgress, let timed = timedSet, timed.startIn(atClock: clock) == 0,
               !timed.isOver(atClock: clock)
@@ -303,7 +307,7 @@ extension LiveWorkout {
 
     /// The workout as a screen opening at `now` finds it: a count that ran out meanwhile
     /// logged at its full time, then the next set's count begun. One set, never a chain.
-    public func caughtUp(at now: Date) -> LoggedWorkout {
+    public func caughtUp(at now: Date) -> WorkoutSession {
         var live = self
         if let timed = timedSet, timed.isOver(atClock: loggedWorkout.clock(at: now)),
            let row = currentExercise

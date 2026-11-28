@@ -36,7 +36,7 @@ extension TimedSetTests {
     func timeStartsWithFirstSet() throws {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
         let workout = Workout(exercises: [push])
-        let made = LoggedWorkout(workoutID: workout.id, workoutName: "Test", startedAt: Self.at(0))
+        let made = WorkoutSession(workoutID: workout.id, workoutName: "Test", startedAt: Self.at(0))
         let lead = Self.lead
         let landed = LiveWorkout(workout: workout, loggedWorkout: made)
             .landingStart(at: Self.at(0.5))
@@ -76,7 +76,7 @@ extension TimedSetTests {
 
         // Under way, a landing only begins a count: the clock is never set back.
         #expect(logged.landingStart(at: Self.at(30)).startedAt == Self.at(2.5))
-        let resumed = LoggedWorkout(
+        let resumed = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Test",
             startedAt: Self.at(0),

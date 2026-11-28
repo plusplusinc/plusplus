@@ -45,7 +45,7 @@ struct WorkoutRestTests {
         logged count: Int,
         every: Double = 10,
     ) throws -> LiveWorkout {
-        var loggedWorkout = LoggedWorkout(
+        var loggedWorkout = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Test",
             startedAt: start,

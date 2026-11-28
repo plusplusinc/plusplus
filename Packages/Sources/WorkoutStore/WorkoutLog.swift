@@ -7,9 +7,9 @@ import Foundation
 /// the start of today.
 public struct WorkoutLog: Equatable, Sendable {
     /// Finished logged workouts, the latest finish first.
-    public let loggedWorkouts: [LoggedWorkout]
+    public let loggedWorkouts: [WorkoutSession]
 
-    public init(loggedWorkouts: [LoggedWorkout]) {
+    public init(loggedWorkouts: [WorkoutSession]) {
         self.loggedWorkouts = loggedWorkouts
             .filter { !$0.isInProgress }
             .sorted { one, other in
@@ -24,19 +24,19 @@ public struct WorkoutLog: Equatable, Sendable {
 
     /// The log without `id`'s logged workout, as History shows it until a workout just finished
     /// comes in; the whole log with none.
-    public func leavingOut(_ id: LoggedWorkout.ID?) -> Self {
+    public func leavingOut(_ id: WorkoutSession.ID?) -> Self {
         guard let id else { return self }
         return Self(loggedWorkouts: loggedWorkouts.filter { $0.id != id })
     }
 
-    public func loggedWorkout(id: LoggedWorkout.ID) -> LoggedWorkout? {
+    public func loggedWorkout(id: WorkoutSession.ID) -> WorkoutSession? {
         loggedWorkouts.first { $0.id == id }
     }
 
     /// The logged workout's exercises in the order done, each with the change from the newest
     /// logged workout that finished before this one started and has a set of the same exercise.
     public func exercises(
-        of loggedWorkout: LoggedWorkout,
+        of loggedWorkout: WorkoutSession,
         in list: ExerciseList,
     ) -> [(exercise: LoggedExercise, change: Change)] {
         let before = loggedWorkouts.filter {
@@ -55,14 +55,14 @@ public struct WorkoutLog: Equatable, Sendable {
     }
 
     /// How many days before `now` the logged workout started, in `calendar`'s days.
-    static func daysAgo(_ loggedWorkout: LoggedWorkout, now: Date, calendar: Calendar) -> Int {
+    static func daysAgo(_ loggedWorkout: WorkoutSession, now: Date, calendar: Calendar) -> Int {
         let start = calendar.startOfDay(for: loggedWorkout.startedAt)
         let today = calendar.startOfDay(for: now)
         return calendar.dateComponents([.day], from: start, to: today).day ?? 0
     }
 
     /// The logged workouts started in the period around `now`, newest first.
-    func inPeriod(now: Date, calendar: Calendar) -> [LoggedWorkout] {
+    func inPeriod(now: Date, calendar: Calendar) -> [WorkoutSession] {
         let firstDay = LogPeriod.firstDay(calendar: calendar, now: now)
         // Bounded by `now` as History's count and calendar are (`LogPeriod`).
         return loggedWorkouts.filter { $0.startedAt >= firstDay && $0.startedAt <= now }
@@ -75,7 +75,7 @@ public struct WorkoutLog: Equatable, Sendable {
 
     /// Every exercise in the logged workouts, by id, with its top set in each, oldest logged
     /// workout first, and the name and sides the newest logged it with.
-    func history(of loggedWorkouts: [LoggedWorkout], in list: ExerciseList) -> [ExerciseHistory] {
+    func history(of loggedWorkouts: [WorkoutSession], in list: ExerciseList) -> [ExerciseHistory] {
         var order: [String] = []
         var byID: [String: ExerciseHistory] = [:]
         for loggedWorkout in loggedWorkouts.reversed() {

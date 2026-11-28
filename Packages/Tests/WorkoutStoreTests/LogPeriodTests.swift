@@ -17,7 +17,7 @@ struct LogPeriodTests {
     private static let mondayFirst = calendar(firstWeekday: 2)
 
     private func period(
-        _ loggedWorkouts: [LoggedWorkout] = [],
+        _ loggedWorkouts: [WorkoutSession] = [],
         calendar: Calendar = sundayFirst,
     ) -> LogPeriod {
         LogPeriod(loggedWorkouts: loggedWorkouts, calendar: calendar, now: Fixture.now)
@@ -53,7 +53,7 @@ struct LogPeriodTests {
 
     @Test("A workout finished at 11:59 pm marks its day; one before the first day is out")
     func beforeMidnight() {
-        let late = LoggedWorkout(
+        let late = WorkoutSession(
             workoutID: UUID(),
             workoutName: "Late",
             startedAt: Fixture.date(day: 20, hour: 23),
@@ -61,7 +61,7 @@ struct LogPeriodTests {
         )
         let before = Fixture.loggedWorkout(daysAgo: 28, [])
         let period = period([late, before])
-        let marked = period.weeks.joined().filter(\.hasLoggedWorkout).map(\.date)
+        let marked = period.weeks.joined().filter(\.hasWorkoutSession).map(\.date)
         #expect(marked == [Fixture.calendar.startOfDay(for: Fixture.date(day: 20))])
         #expect(period.loggedWorkoutCount == 1)
         #expect(period.loggedWorkoutCountText(locale: Fixture.locale) == "1 workout")
@@ -69,22 +69,22 @@ struct LogPeriodTests {
 
     @Test("A workout across midnight marks the day it started, the day its row reads")
     func acrossMidnight() {
-        let late = LoggedWorkout(
+        let late = WorkoutSession(
             workoutID: UUID(),
             workoutName: "Late",
             startedAt: Fixture.date(day: 19, hour: 23, minute: 30),
             endedAt: Fixture.date(day: 20, hour: 0, minute: 40),
         )
         let period = period([late])
-        let marked = period.weeks.joined().filter(\.hasLoggedWorkout).map(\.date)
+        let marked = period.weeks.joined().filter(\.hasWorkoutSession).map(\.date)
         #expect(marked == [Fixture.calendar.startOfDay(for: Fixture.date(day: 19))])
         #expect(late.logLine(locale: Fixture.locale, calendar: Fixture.calendar)
             .hasPrefix("Thu, Nov 19"))
     }
 
     @Test("Two workouts on one day mark one square and count two; one in progress counts none")
-    func countsLoggedWorkouts() {
-        let inProgress = LoggedWorkout(
+    func countsWorkoutSessions() {
+        let inProgress = WorkoutSession(
             workoutID: UUID(),
             workoutName: "Now",
             startedAt: Fixture.now,
@@ -94,7 +94,7 @@ struct LogPeriodTests {
             Fixture.loggedWorkout(daysAgo: 2, []),
             inProgress,
         ])
-        #expect(period.weeks.joined().filter(\.hasLoggedWorkout).count == 1)
+        #expect(period.weeks.joined().filter(\.hasWorkoutSession).count == 1)
         #expect(period.loggedWorkoutCount == 2)
     }
 
@@ -106,7 +106,7 @@ struct LogPeriodTests {
         let log = WorkoutLog(loggedWorkouts: [earlier, today])
         let without = log.leavingOut(today.id)
         #expect(without.loggedWorkouts == [earlier])
-        let marked = period(without.loggedWorkouts).weeks.joined().filter(\.hasLoggedWorkout)
+        let marked = period(without.loggedWorkouts).weeks.joined().filter(\.hasWorkoutSession)
         #expect(marked.count == 1, "today's square fills only once the workout comes in")
         #expect(period(without.loggedWorkouts).loggedWorkoutCount == 1)
         #expect(log.leavingOut(nil) == log)

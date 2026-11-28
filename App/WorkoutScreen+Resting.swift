@@ -63,7 +63,7 @@ extension WorkoutScreen {
     /// The rest as drawn, with the workout it runs on: the one running, or the one End came in
     /// until the list leaves it (`WorkoutPhase.drawnRest`). None while its set is not yet drawn,
     /// as at its log: the rest found then was the one before, and Skip rest filled from it.
-    var drawnResting: (rest: WorkoutRest, loggedWorkout: LoggedWorkout)? {
+    var drawnResting: (rest: WorkoutRest, loggedWorkout: WorkoutSession)? {
         guard let drawn = phase.drawnRest, let shown,
               let rest = shown.rest(after: drawn.set)
         else { return nil }
@@ -252,14 +252,14 @@ extension WorkoutScreen {
 
     /// The row a rest between exercises is drawn in, `loggedWorkout` holding the set it follows:
     /// the row left, under its label; before a superset's next round, the first member's, above it.
-    func restRow(of rest: WorkoutPhase.Resting, in loggedWorkout: LoggedWorkout)
+    func restRow(of rest: WorkoutPhase.Resting, in loggedWorkout: WorkoutSession)
         -> WorkoutExercise.ID?
     {
         restRow(after: rest.set, isBack: rest.isBack, in: loggedWorkout)
     }
 
     /// The same, for the rest after `set`, as a move out of one names it.
-    func restRow(after set: PlannedSet, isBack: Bool, in loggedWorkout: LoggedWorkout)
+    func restRow(after set: PlannedSet, isBack: Bool, in loggedWorkout: WorkoutSession)
         -> WorkoutExercise.ID?
     {
         isBack

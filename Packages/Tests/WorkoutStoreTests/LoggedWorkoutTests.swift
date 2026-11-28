@@ -3,17 +3,17 @@ import Testing
 @testable import WorkoutStore
 
 @Suite("Logged workout")
-struct LoggedWorkoutTests {
+struct WorkoutSessionTests {
     private let start = Date(timeIntervalSinceReferenceDate: 1000)
 
     private func at(_ seconds: Double) -> Date {
         start.addingTimeInterval(seconds)
     }
 
-    private let loggedWorkout: LoggedWorkout
+    private let loggedWorkout: WorkoutSession
 
     init() {
-        loggedWorkout = LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: start)
+        loggedWorkout = WorkoutSession(workoutID: UUID(), workoutName: "Upper", startedAt: start)
     }
 
     @Test("Running, the time is the time since Start, never below zero")
@@ -70,7 +70,7 @@ struct LoggedWorkoutTests {
     }
 
     /// Started at 0 with its time due at 10, as through the first set's "Start in".
-    private var startingIn: LoggedWorkout {
+    private var startingIn: WorkoutSession {
         var early = loggedWorkout
         early.startedAt = at(10)
         return early
@@ -152,7 +152,7 @@ struct LoggedWorkoutTests {
 }
 
 @Suite("Logged workout text")
-struct LoggedWorkoutTextTests {
+struct WorkoutSessionTextTests {
     private let locale = Locale(identifier: "en_US")
 
     @Test(
@@ -163,7 +163,7 @@ struct LoggedWorkoutTextTests {
         ],
     )
     func elapsedText(seconds: Int, text: String) {
-        #expect(LoggedWorkout.elapsedText(.seconds(seconds), locale: locale) == text)
+        #expect(WorkoutSession.elapsedText(.seconds(seconds), locale: locale) == text)
     }
 
     @Test(
@@ -174,6 +174,6 @@ struct LoggedWorkoutTextTests {
         ],
     )
     func spokenElapsed(seconds: Int, text: String) {
-        #expect(LoggedWorkout.spokenElapsed(.seconds(seconds), locale: locale) == text)
+        #expect(WorkoutSession.spokenElapsed(.seconds(seconds), locale: locale) == text)
     }
 }

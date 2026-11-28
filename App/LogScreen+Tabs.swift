@@ -8,7 +8,7 @@ import WorkoutStore
 
 extension LogScreen {
     /// History with nothing logged, under the empty calendar.
-    static let noLoggedWorkoutsText = "Today is a good day to go from 0 to 1."
+    static let noWorkoutSessionsText = "Today is a good day to go from 0 to 1."
     static let goToWorkoutsLabel = "Go to Workouts"
     /// Under Diff's rows, or in their place while it has none.
     static let diffRuleText = "An exercise shows here once it has been done in two workouts."
@@ -36,7 +36,7 @@ extension LogScreen {
                         DayGrid.Square(
                             id: day.date,
                             number: LogPeriod.dayNumber(day, locale: locale, calendar: calendar),
-                            isDone: day.hasLoggedWorkout,
+                            isDone: day.hasWorkoutSession,
                             isToday: day.isToday,
                             isShown: !day.isAfterToday,
                             spoken: LogPeriod.spokenDay(day, locale: locale, calendar: calendar),
@@ -54,7 +54,7 @@ extension LogScreen {
             // was cut short on one line rather than wrapping.
             loggedWorkoutRows(log)
             if log.loggedWorkouts.isEmpty {
-                noLoggedWorkouts
+                noWorkoutSessions
                     .opacity(emptyGivesWay ? 0 : 1)
                     .allowsHitTesting(!emptyGivesWay)
                     .accessibilityHidden(emptyGivesWay)
@@ -129,9 +129,9 @@ extension LogScreen {
             .foregroundStyle(.pp(.textSecondary))
     }
 
-    private var noLoggedWorkouts: some View {
+    private var noWorkoutSessions: some View {
         VStack(spacing: Spacing.md) {
-            Text(Self.noLoggedWorkoutsText)
+            Text(Self.noWorkoutSessionsText)
                 .font(.ppRowDetail)
                 .foregroundStyle(.pp(.textSecondary))
                 .multilineTextAlignment(.center)
@@ -155,7 +155,7 @@ extension LogScreen {
             let name = Self.name(of: loggedWorkout)
             let spoken = loggedWorkout.spokenLogLine(locale: locale, calendar: calendar)
             Button {
-                openLoggedWorkout(loggedWorkout.id)
+                openWorkoutSession(loggedWorkout.id)
             } label: {
                 LogRow(
                     name,
@@ -185,7 +185,7 @@ extension LogScreen {
     }
 
     /// Fades in the workout just finished, with Reduce Motion, once its row is in place.
-    private func fadesIn(_ id: LoggedWorkout.ID) {
+    private func fadesIn(_ id: WorkoutSession.ID) {
         guard id == fadingIn else { return }
         withAnimation(.snappy) { fadingIn = nil }
     }
@@ -246,7 +246,7 @@ extension LogScreen {
     }
 
     /// A logged workout's name as it was, New workout for an empty one.
-    static func name(of loggedWorkout: LoggedWorkout) -> String {
+    static func name(of loggedWorkout: WorkoutSession) -> String {
         loggedWorkout.workoutName.isEmpty ? WorkoutScreen.defaultName : loggedWorkout.workoutName
     }
 

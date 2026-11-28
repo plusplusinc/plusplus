@@ -206,7 +206,7 @@ public struct WorkoutKey: Sendable {
     /// Whether Skip rest has cut `rest`, as the workout drawn stores it
     /// (`LoggedSet.restSkippedAt`): the one in progress, or the one End took.
     private func isSkipped(_ rest: WorkoutPhase.Resting) -> Bool {
-        guard let last = (stored?.loggedWorkout ?? phase.drawnLoggedWorkout)?.sets.last
+        guard let last = (stored?.loggedWorkout ?? phase.drawnWorkoutSession)?.sets.last
         else { return false }
         return last.planned == rest.set && last.restSkippedAt != nil
     }

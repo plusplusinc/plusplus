@@ -16,7 +16,7 @@ struct WorkoutKeyCountTests {
         var second = try WorkoutExercise.builtIn("Plank") { $0.sets = 1 }
         second.plan.target = .time(seconds: 30)
         let workout = Workout(exercises: [plank, second])
-        let loggedWorkout = LoggedWorkout(
+        let loggedWorkout = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Test",
             startedAt: start,
@@ -179,7 +179,7 @@ struct WorkoutKeyCountTests {
         let workout = Workout(exercises: timedFirst ? [plank, pushUp] : [pushUp, plank])
         var begun = LiveWorkout(
             workout: workout,
-            loggedWorkout: LoggedWorkout(
+            loggedWorkout: WorkoutSession(
                 workoutID: workout.id,
                 workoutName: "Test",
                 startedAt: start,
@@ -240,7 +240,7 @@ struct WorkoutKeyCountTests {
     @Test("Ended mid-Start in on a reps set, its key stays away until the workout goes")
     func endedMidRepsStartIn() throws {
         let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
-        let loggedWorkout = LoggedWorkout(
+        let loggedWorkout = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Test",
             startedAt: Self.start,
@@ -270,7 +270,7 @@ struct WorkoutKeyCountTests {
     @Test("A reps set's key is Log set, and logs, once its Start in is over; none through it")
     func reps() throws {
         let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
-        let loggedWorkout = LoggedWorkout(
+        let loggedWorkout = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Test",
             startedAt: Self.start,

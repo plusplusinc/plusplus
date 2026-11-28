@@ -43,7 +43,7 @@ private enum LogSeed {
 
     /// A workout name, days ago, minutes long, and each exercise's sets in order, by id; an id no
     /// exercise has is logged under `orphanName`.
-    static func loggedWorkouts(now: Date) -> [LoggedWorkout] {
+    static func loggedWorkouts(now: Date) -> [WorkoutSession] {
         let bench = "dumbbell-bench-press"
         let orphan = "landmine-press-retired"
         return [
@@ -105,7 +105,7 @@ private enum LogSeed {
         minutes: Int,
         now: Date,
         _ exercises: [(id: String, sets: [Done])],
-    ) -> LoggedWorkout {
+    ) -> WorkoutSession {
         let end = now.addingTimeInterval(-Double(daysAgo) * 86400 - 3600)
         let start = end.addingTimeInterval(-Double(minutes) * 60)
         var sets: [LoggedSet] = []
@@ -132,7 +132,7 @@ private enum LogSeed {
                 ))
             }
         }
-        return LoggedWorkout(
+        return WorkoutSession(
             workoutID: UUID(),
             workoutName: name,
             startedAt: start,

@@ -11,15 +11,15 @@ extension AppSession {
         let keepsEmpty: Bool
     }
 
-    enum LoggedWorkoutWrite {
-        case save(LoggedWorkout)
-        case discard(LoggedWorkout.ID)
+    enum WorkoutSessionWrite {
+        case save(WorkoutSession)
+        case discard(WorkoutSession.ID)
     }
 
-    enum LoggedWorkoutQueueEntry {
-        case write(LoggedWorkoutWrite)
+    enum WorkoutSessionQueueEntry {
+        case write(WorkoutSessionWrite)
         /// A finished logged workout deleted from Log, after any write of it still on its way.
-        case delete(LoggedWorkout.ID)
+        case delete(WorkoutSession.ID)
         /// Every write before it has landed.
         case landed(CheckedContinuation<Void, Never>)
     }
@@ -43,11 +43,11 @@ extension AppSession {
         return (continuation, task)
     }
 
-    static func startWritingLoggedWorkouts(
+    static func startWritingWorkoutSessions(
         to store: Store?,
-    ) -> AsyncStream<LoggedWorkoutQueueEntry>.Continuation {
+    ) -> AsyncStream<WorkoutSessionQueueEntry>.Continuation {
         let (stream, continuation) = AsyncStream.makeStream(
-            of: LoggedWorkoutQueueEntry.self,
+            of: WorkoutSessionQueueEntry.self,
             bufferingPolicy: .unbounded,
         )
         Task {
@@ -55,8 +55,8 @@ extension AppSession {
                 do {
                     switch entry {
                     case let .write(.save(loggedWorkout)): try await store?.save(loggedWorkout)
-                    case let .write(.discard(id)): try await store?.discardLoggedWorkout(id)
-                    case let .delete(id): try await store?.deleteLoggedWorkout(id)
+                    case let .write(.discard(id)): try await store?.discardWorkoutSession(id)
+                    case let .delete(id): try await store?.deleteWorkoutSession(id)
                     case let .landed(done): done.resume()
                     }
                 } catch {

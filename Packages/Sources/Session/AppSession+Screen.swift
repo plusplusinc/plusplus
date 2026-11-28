@@ -12,7 +12,7 @@ extension AppSession {
         /// Log, its tabs showing.
         case log
         /// A finished logged workout, pushed onto Log from its History tab.
-        case loggedWorkout(LoggedWorkout.ID)
+        case loggedWorkout(WorkoutSession.ID)
 
         /// Whether something is pushed, so the edge swipe goes back rather than opening the
         /// drawer.

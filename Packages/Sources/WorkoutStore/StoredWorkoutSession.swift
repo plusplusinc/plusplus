@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 import SwiftData
 
-/// The stored shape of a time through a workout, `LoggedWorkout`, and of its sets. The class
+/// The stored shape of a time through a workout, `WorkoutSession`, and of its sets. The class
 /// names will be CloudKit record types once sync is on.
 typealias StoredWorkoutSession = StoreSchemaV15.StoredWorkoutSession
 typealias StoredLoggedSet = StoreSchemaV15.StoredLoggedSet
@@ -10,7 +10,7 @@ typealias StoredLoggedSet = StoreSchemaV15.StoredLoggedSet
 extension StoredWorkoutSession {
     /// Writes every field, setting only those that differ, so an unchanged session stays clean.
     /// Its sets are written by the store, which diffs them by id.
-    func write(_ loggedWorkout: LoggedWorkout) {
+    func write(_ loggedWorkout: WorkoutSession) {
         update(\.workoutID, to: loggedWorkout.workoutID)
         update(\.workoutName, to: loggedWorkout.workoutName)
         update(\.startedAt, to: loggedWorkout.startedAt)
@@ -42,7 +42,7 @@ extension StoredWorkoutSession {
 
     /// Each kept pause, none when nothing is stored; nil when the stored times don't pair
     /// up, each pause's start at or before its end. Their order across pauses is
-    /// `LoggedWorkout.healthWithheld`'s to judge.
+    /// `WorkoutSession.healthWithheld`'s to judge.
     private var pauses: [DateInterval]? {
         guard let pauseTimes else { return [] }
         guard pauseTimes.count.isMultiple(of: 2) else { return nil }
@@ -65,8 +65,8 @@ extension StoredWorkoutSession {
     }
 
     /// The logged workout, its sets in the order logged; a set it can't read is left out.
-    var loggedWorkout: LoggedWorkout {
-        var loggedWorkout = LoggedWorkout(
+    var loggedWorkout: WorkoutSession {
+        var loggedWorkout = WorkoutSession(
             id: id,
             workoutID: workoutID ?? UUID(),
             workoutName: workoutName,

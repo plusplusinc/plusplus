@@ -6,9 +6,9 @@ import Foundation
 /// included, so a row added, moved, or deleted mid-workout counts at once.
 public struct LiveWorkout: Equatable, Sendable {
     public var workout: Workout
-    public var loggedWorkout: LoggedWorkout
+    public var loggedWorkout: WorkoutSession
 
-    public init(workout: Workout, loggedWorkout: LoggedWorkout) {
+    public init(workout: Workout, loggedWorkout: WorkoutSession) {
         self.workout = workout
         self.loggedWorkout = loggedWorkout
     }

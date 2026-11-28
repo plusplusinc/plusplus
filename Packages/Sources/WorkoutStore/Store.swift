@@ -67,8 +67,8 @@ public actor Store {
 
     /// Saves the logged workout as it is now, every field. Once it has ended, its workout, if
     /// cleared to nothing while it ran, goes in the same save.
-    public func save(_ loggedWorkout: LoggedWorkout) throws {
-        let target = try storedLoggedWorkout(id: loggedWorkout.id) ?? {
+    public func save(_ loggedWorkout: WorkoutSession) throws {
+        let target = try storedWorkoutSession(id: loggedWorkout.id) ?? {
             let new = StoredWorkoutSession(id: loggedWorkout.id)
             modelContext.insert(new)
             return new
@@ -105,7 +105,7 @@ public actor Store {
 
     /// Every finished logged workout, the latest finish first, a tie by id. All of them, not a
     /// window: an opened logged workout compares with the time before, however long ago.
-    public func finishedLoggedWorkouts() throws -> [LoggedWorkout] {
+    public func finishedWorkoutSessions() throws -> [WorkoutSession] {
         let finished = FetchDescriptor<StoredWorkoutSession>(
             predicate: #Predicate { $0.endedAt != nil },
             sortBy: [SortDescriptor(\.endedAt, order: .reverse), SortDescriptor(\.id)],
@@ -116,8 +116,8 @@ public actor Store {
     /// Deletes the logged workout, keeping nothing of it, its sets with it, and its workout if
     /// cleared to nothing while it ran, in one save; nothing if there is none. A discard that
     /// doesn't save is undone, all of it (`saveOrRollback()`).
-    public func discardLoggedWorkout(_ id: LoggedWorkout.ID) throws {
-        guard let stored = try storedLoggedWorkout(id: id) else { return }
+    public func discardWorkoutSession(_ id: WorkoutSession.ID) throws {
+        guard let stored = try storedWorkoutSession(id: id) else { return }
         if let workoutID = stored.workoutID {
             try deleteIfCleared(workoutID: workoutID)
         }
@@ -128,17 +128,17 @@ public actor Store {
     /// Deletes a finished logged workout and its sets; nothing if there is none, or if it is still
     /// in progress, which only Discard ends without keeping. Its workout stays, as it holds no
     /// link to it. A delete that doesn't save is undone (`saveOrRollback()`). Its removal from
-    /// Apple Health is `AppSession.deleteLoggedWorkout(_:)`'s, the one caller.
-    public func deleteLoggedWorkout(_ id: LoggedWorkout.ID) throws {
-        guard let stored = try storedLoggedWorkout(id: id), stored.endedAt != nil else { return }
+    /// Apple Health is `AppSession.deleteWorkoutSession(_:)`'s, the one caller.
+    public func deleteWorkoutSession(_ id: WorkoutSession.ID) throws {
+        guard let stored = try storedWorkoutSession(id: id), stored.endedAt != nil else { return }
         modelContext.delete(stored)
         try saveOrRollback()
     }
 
     /// Saves the context, or, when the save fails, undoes every change since the last save and
     /// rethrows: reads still return what a delete would have deleted, and no later save of
-    /// something else lands it unasked. Called by `deleteWorkout`, `discardLoggedWorkout`,
-    /// `deleteLoggedWorkout`, and `deleteExercise`; the store's other writes save plainly.
+    /// something else lands it unasked. Called by `deleteWorkout`, `discardWorkoutSession`,
+    /// `deleteWorkoutSession`, and `deleteExercise`; the store's other writes save plainly.
     func saveOrRollback() throws {
         do {
             try modelContext.save()
@@ -269,7 +269,7 @@ public actor Store {
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
     }
 
-    func storedLoggedWorkout(id: UUID) throws -> StoredWorkoutSession? {
+    func storedWorkoutSession(id: UUID) throws -> StoredWorkoutSession? {
         var descriptor =
             FetchDescriptor<StoredWorkoutSession>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1

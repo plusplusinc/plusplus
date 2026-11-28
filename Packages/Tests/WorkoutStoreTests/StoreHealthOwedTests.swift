@@ -14,8 +14,8 @@ struct StoreHealthOwedTests {
         _ start: Double,
         _ end: Double,
         pausedSeconds: Double = 0,
-    ) -> LoggedWorkout {
-        LoggedWorkout(
+    ) -> WorkoutSession {
+        WorkoutSession(
             workoutID: UUID(),
             workoutName: "Upper",
             startedAt: at(start),
@@ -35,7 +35,11 @@ struct StoreHealthOwedTests {
         // Paused before the store kept a pause's times: withheld.
         let pausedBefore = Self.finished(700, 800, pausedSeconds: 30)
         let noLength = Self.finished(900, 900)
-        let inProgress = LoggedWorkout(workoutID: UUID(), workoutName: "", startedAt: Self.at(1000))
+        let inProgress = WorkoutSession(
+            workoutID: UUID(),
+            workoutName: "",
+            startedAt: Self.at(1000),
+        )
         for workout in [later, earlier, marked, pausedBefore, noLength, inProgress] {
             try await store.save(workout)
         }
@@ -75,7 +79,7 @@ struct StoreHealthOwedTests {
             try await store.save(older)
         }
         let relaunched = try StoreUpgradeTests.current(at: url)
-        let read = try #require(try await relaunched.finishedLoggedWorkouts().first)
+        let read = try #require(try await relaunched.finishedWorkoutSessions().first)
         #expect(read.workoutName == "Upper body")
         #expect(read.healthWorkoutID == healthID)
         #expect(try await relaunched.owedToHealth().isEmpty)

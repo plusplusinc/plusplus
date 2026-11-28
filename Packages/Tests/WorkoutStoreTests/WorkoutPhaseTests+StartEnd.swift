@@ -3,7 +3,7 @@ import Testing
 @testable import WorkoutStore
 
 extension WorkoutPhaseTests {
-    static let loggedWorkout = LoggedWorkout(workoutID: UUID(), workoutName: "", startedAt: .now)
+    static let loggedWorkout = WorkoutSession(workoutID: UUID(), workoutName: "", startedAt: .now)
 
     /// A transition of Start's or End's, by name.
     enum Step {
@@ -141,7 +141,7 @@ extension WorkoutPhaseTests {
             } else {
                 #expect(applied, "\(phase)")
                 #expect(Self.isEnding(ended))
-                #expect(ended.endingLoggedWorkout == Self.loggedWorkout)
+                #expect(ended.endingWorkoutSession == Self.loggedWorkout)
                 #expect(!ended.takesLog)
                 #expect(!ended.isMovingOn)
                 #expect(ended.move == nil)
@@ -191,24 +191,24 @@ extension WorkoutPhaseTests {
     func drawnUntilTheListLeaves() {
         let notEnding = Self.everyPhase + Self.startAndEnd.filter { !Self.isEnding($0) }
         for phase in notEnding {
-            #expect(phase.drawnLoggedWorkout == nil, "\(phase)")
+            #expect(phase.drawnWorkoutSession == nil, "\(phase)")
         }
         var phase = Self.ending(from: Self.logging(.nextSet))
-        #expect(phase.drawnLoggedWorkout == Self.loggedWorkout)
+        #expect(phase.drawnWorkoutSession == Self.loggedWorkout)
         #expect(
             phase.hidden == [Self.logged],
             "Drawn as it was, the set not yet shown stays hidden",
         )
         _ = Self.applying([.keyLeaves], to: &phase)
         #expect(
-            phase.drawnLoggedWorkout == Self.loggedWorkout,
+            phase.drawnWorkoutSession == Self.loggedWorkout,
             "The key's beats leave the list as it is",
         )
         let left = phase.listLeaves()
         #expect(left)
-        #expect(phase.drawnLoggedWorkout == nil)
+        #expect(phase.drawnWorkoutSession == nil)
         #expect(
-            phase.endingLoggedWorkout == Self.loggedWorkout,
+            phase.endingWorkoutSession == Self.loggedWorkout,
             "The bar's time stays until it fades",
         )
         let leftAgain = phase.listLeaves()
@@ -238,9 +238,9 @@ extension WorkoutPhaseTests {
     func endingBeats() {
         var phase = Self.ending(from: .running)
         #expect(Self.applying([.timeFades, .rest, .keyLeaves], to: &phase) == [false, false, true])
-        #expect(phase.endingLoggedWorkout == Self.loggedWorkout)
+        #expect(phase.endingWorkoutSession == Self.loggedWorkout)
         #expect(Self.applying([.keyLeaves, .rest, .timeFades], to: &phase) == [false, false, true])
-        #expect(phase.endingLoggedWorkout == nil)
+        #expect(phase.endingWorkoutSession == nil)
         #expect(Self.applying([.rest], to: &phase) == [true])
         #expect(phase == .idle)
     }
@@ -255,7 +255,7 @@ extension WorkoutPhaseTests {
         var phase = Self.ending(from: Self.logging(.nextSet))
         #expect(phase.isEndBegun)
         #expect(phase.keyGone == nil, "the key stays up")
-        #expect(phase.drawnLoggedWorkout == Self.loggedWorkout)
+        #expect(phase.drawnWorkoutSession == Self.loggedWorkout)
         _ = Self.applying([.keyLeaves], to: &phase)
         #expect(!phase.isEndBegun)
     }

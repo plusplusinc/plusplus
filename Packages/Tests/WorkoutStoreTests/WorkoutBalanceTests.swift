@@ -7,14 +7,14 @@ struct WorkoutBalanceTests {
     private typealias Fixture = LogFixture
 
     private func balance(
-        _ loggedWorkouts: [LoggedWorkout],
+        _ loggedWorkouts: [WorkoutSession],
         in list: ExerciseList = .builtIn,
     ) -> Balance {
         WorkoutLog(loggedWorkouts: loggedWorkouts)
             .balance(in: list, now: Fixture.now, calendar: Fixture.calendar)
     }
 
-    private func core(_ daysAgo: Int) -> LoggedWorkout {
+    private func core(_ daysAgo: Int) -> WorkoutSession {
         Fixture.loggedWorkout(daysAgo: daysAgo, [Fixture.set("plank", .time(seconds: 30))])
     }
 

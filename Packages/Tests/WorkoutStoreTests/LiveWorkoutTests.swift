@@ -10,7 +10,7 @@ struct LiveWorkoutTests {
     private func live(_ workout: Workout) -> LiveWorkout {
         LiveWorkout(
             workout: workout,
-            loggedWorkout: LoggedWorkout(
+            loggedWorkout: WorkoutSession(
                 workoutID: workout.id,
                 workoutName: "Upper",
                 startedAt: start,
