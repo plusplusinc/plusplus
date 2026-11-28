@@ -38,7 +38,7 @@ public actor Store {
             return .inProgress(workout, loggedWorkout)
         }
         // Picked here, as the list sorts, so launch opens the workout the list puts first.
-        guard let latest = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+        guard let latest = try modelContext.fetch(FetchDescriptor<StoredWorkout>())
             .min(by: Self.isMoreRecent(_:than:))
         else { return .newWorkout }
         var finished = FetchDescriptor<StoredWorkoutSession>(
@@ -175,7 +175,7 @@ public actor Store {
     /// stable. Sorted here: a sort descriptor can't take the later of two dates.
     public func workoutsByRecency(weightUnit: WeightUnit) throws -> [Workout] {
         let exercises = try exercises()
-        return try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+        return try modelContext.fetch(FetchDescriptor<StoredWorkout>())
             .sorted(by: Self.isMoreRecent(_:than:))
             .map { Self.workout(from: $0, exercises: exercises, weightUnit: weightUnit) }
     }
@@ -190,7 +190,7 @@ public actor Store {
             return
         }
         let target = stored ?? {
-            let new = StoredRoutine(id: workout.id)
+            let new = StoredWorkout(id: workout.id)
             modelContext.insert(new)
             return new
         }()
@@ -242,7 +242,7 @@ public actor Store {
         for customization in try modelContext.fetch(FetchDescriptor<StoredCustomization>()) {
             modelContext.delete(customization)
         }
-        for workout in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
+        for workout in try modelContext.fetch(FetchDescriptor<StoredWorkout>()) {
             modelContext.delete(workout)
         }
         for loggedWorkout in try modelContext.fetch(FetchDescriptor<StoredWorkoutSession>()) {
@@ -254,7 +254,7 @@ public actor Store {
 
     /// Recency, the later of a workout's last edit and last open; a tie by id, so the order is
     /// stable and launch opens the workout listed first.
-    private static func isMoreRecent(_ one: StoredRoutine, than other: StoredRoutine) -> Bool {
+    private static func isMoreRecent(_ one: StoredWorkout, than other: StoredWorkout) -> Bool {
         let (oneRecency, otherRecency) = (one.recency, other.recency)
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
     }
@@ -266,8 +266,8 @@ public actor Store {
         return try modelContext.fetch(descriptor).first
     }
 
-    private func stored(id: UUID) throws -> StoredRoutine? {
-        var descriptor = FetchDescriptor<StoredRoutine>(predicate: #Predicate { $0.id == id })
+    private func stored(id: UUID) throws -> StoredWorkout? {
+        var descriptor = FetchDescriptor<StoredWorkout>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
     }
@@ -276,7 +276,7 @@ public actor Store {
     /// exercise this build can't read, is left out rather than failing the workout, and kept in
     /// the store by its saves (`writeRows`). Supersets come back whole, as the rules keep them.
     static func workout(
-        from stored: StoredRoutine,
+        from stored: StoredWorkout,
         exercises list: ExerciseList,
         weightUnit: WeightUnit,
     ) -> Workout {

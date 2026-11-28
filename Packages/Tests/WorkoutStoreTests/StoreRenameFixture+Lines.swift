@@ -62,12 +62,12 @@ extension StoreRenameFixture {
 
     /// The store's lines under today's names, in the same text as V14's.
     static func lines(current context: ModelContext) throws -> [String] {
-        let workouts = try context.fetch(FetchDescriptor<StoredRoutine>()).map {
+        let workouts = try context.fetch(FetchDescriptor<StoredWorkout>()).map {
             text("workout", [$0.id, $0.name, $0.editedAt, $0.openedAt])
         }
-        let rows = try context.fetch(FetchDescriptor<StoredRoutineExercise>()).map {
+        let rows = try context.fetch(FetchDescriptor<StoredWorkoutExercise>()).map {
             text("row", [
-                $0.id, $0.routine?.id, $0.exerciseID, $0.position, $0.sets, $0.reps,
+                $0.id, $0.workout?.id, $0.exerciseID, $0.position, $0.sets, $0.reps,
                 $0.seconds, $0.weight, $0.weightUnit, $0.supersetID, $0.rest, $0.isRestAuto,
                 $0.roundRest, $0.isRoundRestAuto,
             ])

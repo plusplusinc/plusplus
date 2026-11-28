@@ -70,4 +70,51 @@ extension StoreMigrationPlan {
             "Moved \(oldSessions.count) sessions and \(oldSets.count) sets to their new names",
         )
     }
+
+    /// In a V16 store: every `StoredRoutine`, a workout, and its rows, under their new names,
+    /// before the next stage drops the old ones.
+    static func moveWorkouts(in context: ModelContext) throws {
+        typealias Old = RoutineSchemaV7
+        typealias New = StoreSchemaV16
+        let oldWorkouts = try context.fetch(FetchDescriptor<Old.StoredRoutine>())
+        var moved: [PersistentIdentifier: New.StoredWorkout] = [:]
+        for old in oldWorkouts {
+            let new = New.StoredWorkout(id: old.id)
+            new.name = old.name
+            new.editedAt = old.editedAt
+            new.openedAt = old.openedAt
+            context.insert(new)
+            moved[old.persistentModelID] = new
+        }
+        let oldRows = try context.fetch(FetchDescriptor<Old.StoredRoutineExercise>())
+        for old in oldRows {
+            let new = New.StoredWorkoutExercise(
+                id: old.id,
+                exerciseID: old.exerciseID,
+                position: old.position,
+            )
+            new.sets = old.sets
+            new.reps = old.reps
+            new.seconds = old.seconds
+            new.weight = old.weight
+            new.weightUnit = old.weightUnit
+            new.supersetID = old.supersetID
+            new.rest = old.rest
+            new.isRestAuto = old.isRestAuto
+            new.roundRest = old.roundRest
+            new.isRoundRestAuto = old.isRoundRestAuto
+            context.insert(new)
+            new.workout = old.routine.flatMap { moved[$0.persistentModelID] }
+        }
+        for old in oldRows {
+            context.delete(old)
+        }
+        for old in oldWorkouts {
+            context.delete(old)
+        }
+        try context.save()
+        Logger.storage.info(
+            "Moved \(oldWorkouts.count) workouts and \(oldRows.count) rows to their new names",
+        )
+    }
 }

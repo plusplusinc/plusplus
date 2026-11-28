@@ -30,7 +30,7 @@ struct StoreDeleteTests {
         try await relaunch().save(upper, at: Self.at(2))
         try await relaunch().deleteWorkout(upper.id)
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [lower])
-        let rows = try ModelContext(container).fetch(FetchDescriptor<StoredRoutineExercise>())
+        let rows = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutExercise>())
         #expect(rows.isEmpty)
     }
 

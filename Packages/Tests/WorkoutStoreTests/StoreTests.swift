@@ -27,14 +27,14 @@ struct StoreTests {
     @Test("An untouched store opens nothing")
     func untouched() async throws {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
-        #expect(try count(StoredRoutine.self) == 0)
+        #expect(try count(StoredWorkout.self) == 0)
     }
 
     @Test("A new workout with nothing in it is never stored")
     func emptyNotStored() async throws {
         try await relaunch().save(Workout())
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
-        #expect(try count(StoredRoutine.self) == 0)
+        #expect(try count(StoredWorkout.self) == 0)
     }
 
     @Test("A named workout with no exercises reopens")
@@ -65,7 +65,7 @@ struct StoreTests {
         try await store.save(workout)
 
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
-        #expect(try count(StoredRoutineExercise.self) == 2)
+        #expect(try count(StoredWorkoutExercise.self) == 2)
     }
 
     @Test("A reordered workout reopens in its new order")
@@ -79,7 +79,7 @@ struct StoreTests {
         try await store.save(workout)
 
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
-        #expect(try count(StoredRoutineExercise.self) == 3)
+        #expect(try count(StoredWorkoutExercise.self) == 3)
     }
 
     @Test("A workout cleared to nothing is deleted, rows and all")
@@ -92,8 +92,8 @@ struct StoreTests {
         try await store.save(workout)
 
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
-        #expect(try count(StoredRoutine.self) == 0)
-        #expect(try count(StoredRoutineExercise.self) == 0)
+        #expect(try count(StoredWorkout.self) == 0)
+        #expect(try count(StoredWorkoutExercise.self) == 0)
     }
 
     @Test("The workout edited last is the one that opens")
@@ -116,10 +116,10 @@ struct StoreTests {
         let plank = try Self.row("Plank")
         try await relaunch().save(Workout(exercises: [plank]))
         let context = ModelContext(container)
-        let stored = try #require(try context.fetch(FetchDescriptor<StoredRoutine>()).first)
-        let unknown = StoredRoutineExercise(id: UUID(), exerciseID: "not-built-in", position: 1)
+        let stored = try #require(try context.fetch(FetchDescriptor<StoredWorkout>()).first)
+        let unknown = StoredWorkoutExercise(id: UUID(), exerciseID: "not-built-in", position: 1)
         context.insert(unknown)
-        unknown.routine = stored
+        unknown.workout = stored
         try context.save()
 
         #expect(try await relaunch().launch(weightUnit: .pounds).workout?.exercises == [plank])

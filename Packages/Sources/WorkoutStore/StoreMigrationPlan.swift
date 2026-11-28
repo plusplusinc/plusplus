@@ -22,6 +22,7 @@ enum StoreMigrationPlan: SchemaMigrationPlan {
             RoutineSchemaV14.self,
             StoreSchemaV15.self,
             StoreSchemaV16.self,
+            StoreSchemaV17.self,
         ]
     }
 
@@ -47,9 +48,15 @@ enum StoreMigrationPlan: SchemaMigrationPlan {
                 willMigrate: moveSessions(in:),
                 didMigrate: nil,
             ),
+            .custom(
+                fromVersion: StoreSchemaV16.self,
+                toVersion: StoreSchemaV17.self,
+                willMigrate: moveWorkouts(in:),
+                didMigrate: nil,
+            ),
         ]
     }
 
     /// The current shape, the plan's last.
-    static let current = StoreSchemaV16.self
+    static let current = StoreSchemaV17.self
 }

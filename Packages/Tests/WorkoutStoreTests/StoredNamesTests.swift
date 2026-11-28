@@ -28,6 +28,7 @@ struct StoredNamesTests {
         14: RoutineSchemaV14.self,
         15: StoreSchemaV15.self,
         16: StoreSchemaV16.self,
+        17: StoreSchemaV17.self,
     ]
 
     /// Every stored entity's properties and the version each first shipped in, written down from

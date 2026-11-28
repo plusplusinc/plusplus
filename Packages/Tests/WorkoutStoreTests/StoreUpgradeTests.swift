@@ -201,7 +201,7 @@ struct StoreUpgradeTests {
             )
             let context = ModelContext(old)
             let workout = try #require(try context
-                .fetch(FetchDescriptor<StoredRoutine>())
+                .fetch(FetchDescriptor<RoutineSchemaV4.StoredRoutine>())
                 .first { $0.name == "Older" })
             let loggedWorkout = RoutineSchemaV5.StoredWorkout(id: loggedWorkoutID)
             loggedWorkout.routineID = workout.id

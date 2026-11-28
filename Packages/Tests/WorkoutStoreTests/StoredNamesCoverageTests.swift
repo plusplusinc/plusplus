@@ -11,7 +11,7 @@ struct StoredNamesCoverageTests {
     func planMatchesPin() {
         let opened = StoreMigrationPlan.schemas.map { $0.versionIdentifier }
         #expect(
-            opened == (1 ... 16).map { Schema.Version($0, 0, 0) },
+            opened == (1 ... 17).map { Schema.Version($0, 0, 0) },
             "Pin the new version's names in StoredNamesTests, then add it here",
         )
     }

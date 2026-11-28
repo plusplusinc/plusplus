@@ -121,8 +121,8 @@ struct StoreExerciseTests {
 
     /// The stored rows of the workout `id`, by position, as their exercises' ids.
     private func storedRows(of id: Workout.ID) throws -> [String] {
-        try ModelContext(container).fetch(FetchDescriptor<StoredRoutineExercise>(
-            predicate: #Predicate { $0.routine?.id == id },
+        try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutExercise>(
+            predicate: #Predicate { $0.workout?.id == id },
             sortBy: [SortDescriptor(\.position)],
         )).map(\.exerciseID)
     }
