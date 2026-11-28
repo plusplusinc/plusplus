@@ -51,6 +51,9 @@ let package = Package(
         .testTarget(
             name: "WorkoutStoreTests",
             dependencies: ["WorkoutStore"],
+            // A store written by a shipped build, in the bundle for the same reason as the
+            // snapshots' references below.
+            resources: [.copy("Fixtures")],
             swiftSettings: strict,
         ),
         .testTarget(
