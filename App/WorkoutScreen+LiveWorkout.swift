@@ -171,7 +171,7 @@ extension WorkoutScreen {
     /// workout shorter than the screen, and SwiftUI logged a scroll geometry changing twice in
     /// that frame. Not in a beat: there the room animates from `landingRoomTop`. The mark's top
     /// in the room is the row's `CurrentPlace.landingY`: the list's top padding, outside the
-    /// room, is the row's label inset, `RailRowMetrics.verticalInset`.
+    /// room, is the row's label inset.
     var landsOnMark: Bool {
         closingRoomTop == nil && (phase.isAtRest || phase.resting?.beat == .settled)
     }

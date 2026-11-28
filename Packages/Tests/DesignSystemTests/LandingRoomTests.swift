@@ -97,7 +97,7 @@ struct LandingRoomTests {
     }
 
     @Test(
-        "A marked row gives the landing's room in the pass that lays it out, with no top read back",
+        "A marked row in a stack gives the landing's room with no top given",
         arguments: [true, false],
     )
     func markGivesTheRoom(isMarked: Bool) throws {
@@ -108,7 +108,6 @@ struct LandingRoomTests {
         let scroll = try #require(window.firstScrollView, "No scroll view hosted")
         let visible = scroll.bounds.height - scroll.adjustedContentInset.top
             - scroll.adjustedContentInset.bottom
-        // The room is there from the first layout: no later pass changes the content's height.
         #expect(
             (scroll.contentSize.height >= Self.landing + visible - 0.5) == isMarked,
             "Content \(scroll.contentSize.height), visible \(visible)",
