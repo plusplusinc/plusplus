@@ -52,33 +52,16 @@ enum StoreRenameBackup {
     /// The store in the file at `url`, migrated under `plan`, which a test replaces.
     static func open(
         at url: URL,
-        schema: Schema = Store.schema,
         plan: any SchemaMigrationPlan.Type = StoreMigrationPlan.self,
     ) throws -> ModelContainer {
-        let backup = folder(for: url)
-        let countsURL = backup.appending(path: "counts.json")
-        let files = FileManager.default
-        let before: Counts?
-        if let saved = try? Data(contentsOf: countsURL) {
-            before = try JSONDecoder().decode(Counts.self, from: saved)
-            try restore(url, from: backup)
-            Logger.storage.notice("Put the store back from its copy before the rename")
-        } else {
-            if files.fileExists(atPath: backup.path(percentEncoded: false)) {
-                try files.removeItem(at: backup)
-            }
-            if try holdsOldNames(url) {
-                try copy(url, to: backup)
-                let counts = try countOld(at: url)
-                try JSONEncoder().encode(counts).write(to: countsURL, options: .atomic)
-                before = counts
-            } else {
-                before = nil
-            }
-        }
+        let before = try prepare(url)
         let container: ModelContainer
         do {
-            container = try WorkoutStoreContainer.make(at: url, schema: schema, migrationPlan: plan)
+            container = try WorkoutStoreContainer.make(
+                at: url,
+                schema: Store.schema,
+                migrationPlan: plan,
+            )
         } catch {
             if let before {
                 Logger.storage
@@ -95,13 +78,44 @@ enum StoreRenameBackup {
             """)
             throw CountsDiffer(before: before, after: after)
         }
-        try files.removeItem(at: countsURL)
-        try files.removeItem(at: backup)
+        // Once `counts.json` is gone the copy is no longer whole, so a later open never puts it
+        // back over what is saved from now on. A folder left behind is tidied at the next open.
+        let backup = folder(for: url)
+        try FileManager.default.removeItem(at: backup.appending(path: "counts.json"))
+        do {
+            try FileManager.default.removeItem(at: backup)
+        } catch {
+            Logger.storage.fault("The rename's copy wasn't removed: \(error, privacy: .public)")
+        }
         Logger.storage.notice("""
         Renamed the store; before: \(before, privacy: .public); \
         after: \(after, privacy: .public); backup removed
         """)
         return container
+    }
+
+    /// Gets the copy ready, and returns the counts the migration must keep: the whole copy's,
+    /// put back first, or a new copy's, counted under the old names; nil when there is nothing
+    /// to rename.
+    private static func prepare(_ url: URL) throws -> Counts? {
+        let backup = folder(for: url)
+        let countsURL = backup.appending(path: "counts.json")
+        let files = FileManager.default
+        if files.fileExists(atPath: countsURL.path(percentEncoded: false)) {
+            // A read that fails throws, keeping the copy, rather than taking it as no copy.
+            let counts = try JSONDecoder().decode(Counts.self, from: Data(contentsOf: countsURL))
+            try restore(url, from: backup)
+            Logger.storage.notice("Put the store back from its copy before the rename")
+            return counts
+        }
+        if files.fileExists(atPath: backup.path(percentEncoded: false)) {
+            try files.removeItem(at: backup)
+        }
+        guard try holdsOldNames(url) else { return nil }
+        try copy(url, to: backup)
+        let counts = try countOld(at: url)
+        try JSONEncoder().encode(counts).write(to: countsURL, options: .atomic)
+        return counts
     }
 
     /// The copy's folder, beside the store.
@@ -113,16 +127,20 @@ enum StoreRenameBackup {
     /// Whether the file at `url` is a store under the names before V15; false when there is
     /// none. Read from its metadata, without opening it, which would migrate it.
     static func holdsOldNames(_ url: URL) throws -> Bool {
-        // Not `path()`, which escapes the space in `Application Support` and finds no file.
         guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
             return false
         }
+        return try storedEntities(at: url).contains("StoredRoutine")
+    }
+
+    /// The entities the store at `url` holds, from its metadata.
+    static func storedEntities(at url: URL) throws -> [String] {
         let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
             type: .sqlite,
             at: url,
         )
         let hashes = metadata[NSStoreModelVersionHashesKey] as? [String: Any] ?? [:]
-        return hashes["StoredRoutine"] != nil
+        return hashes.keys.sorted()
     }
 
     /// The store's files: the store and SQLite's own beside it, its write-ahead log and index.
@@ -201,10 +219,22 @@ enum StoreRenameBackup {
 /// under before it is renamed.
 enum StoreMigrationPlanBeforeRename: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        StoreMigrationPlan.schemas.filter { $0.versionIdentifier.major <= 14 }
+        StoreMigrationPlan.schemas(through: 14)
     }
 
     static var stages: [MigrationStage] {
-        Array(StoreMigrationPlan.stages.prefix(schemas.count - 1))
+        StoreMigrationPlan.stages(through: 14)
+    }
+}
+
+extension StoreMigrationPlan {
+    /// The plan's versions up to major version `last`.
+    static func schemas(through last: Int) -> [any VersionedSchema.Type] {
+        schemas.filter { $0.versionIdentifier.major <= last }
+    }
+
+    /// The stages between those versions, one per step.
+    static func stages(through last: Int) -> [MigrationStage] {
+        Array(stages.prefix(schemas(through: last).count - 1))
     }
 }

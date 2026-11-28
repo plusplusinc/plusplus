@@ -20,11 +20,7 @@ struct StoreRenameBackupTests {
     )
 
     static func exists(_ url: URL) -> Bool {
-        FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
-    }
-
-    static func currentLines(at url: URL) throws -> [String] {
-        try StoreRenameFixture.lines(current: ModelContext(StoreRenameTests.openCurrent(at: url)))
+        StoreRenameFixture.exists(url)
     }
 
     @Test("A store under old names is copied aside to rename, the copy removed once counts match")
@@ -125,14 +121,32 @@ struct StoreRenameBackupTests {
         #expect(try StoreRenameFixture.lines(current: ModelContext(container)) == before)
     }
 
-    @Test("A new install makes no copy")
+    @Test("A new install, its folder not made yet, opens a store and makes no copy")
     func newInstall() throws {
         let folder = try StoreRenameFixture.folder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let url = folder.appending(path: "PlusPlus.store")
+        let url = folder.appending(path: "Application Support/PlusPlus.store")
         _ = try StoreRenameBackup.open(at: url)
         #expect(Self.exists(url))
         #expect(!Self.exists(StoreRenameBackup.folder(for: url)))
+    }
+
+    @Test("A copy whose counts can't be read is kept, and nothing is migrated")
+    func unreadableCountsKept() throws {
+        let (url, _) = try StoreRenameFixture.copyCommitted()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let backup = StoreRenameBackup.folder(for: url)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: false)
+        try FileManager.default.copyItem(at: url, to: backup.appending(path: "PlusPlus.store"))
+        // A folder where the file should be: there, but reading it fails.
+        try FileManager.default.createDirectory(
+            at: backup.appending(path: "counts.json"),
+            withIntermediateDirectories: false,
+        )
+
+        #expect(throws: (any Error).self) { try StoreRenameBackup.open(at: url) }
+        #expect(Self.exists(backup.appending(path: "PlusPlus.store")))
+        #expect(try StoreRenameBackup.holdsOldNames(url))
     }
 
     @Test("A store already renamed opens as it is, read as holding no old names")

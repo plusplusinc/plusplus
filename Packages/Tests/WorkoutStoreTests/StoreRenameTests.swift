@@ -7,11 +7,7 @@ import Testing
 @Suite("Store rename")
 struct StoreRenameTests {
     static func openCurrent(at url: URL) throws -> ModelContainer {
-        try ModelContainer(
-            for: Store.schema,
-            migrationPlan: StoreMigrationPlan.self,
-            configurations: ModelConfiguration(schema: Store.schema, url: url),
-        )
+        try StoreRenameFixture.open(at: url, plan: StoreMigrationPlan.self)
     }
 
     @Test("A V14 store written by a shipped build opens renamed, every row, field, and link kept")
@@ -23,7 +19,7 @@ struct StoreRenameTests {
         ])
         let container = try StoreRenameBackup.open(at: url)
         #expect(try StoreRenameFixture.lines(current: ModelContext(container)) == before)
-        #expect(try StoreRenameFixture.storedEntities(at: url) == [
+        #expect(try StoreRenameBackup.storedEntities(at: url) == [
             "StoredCustomization", "StoredExercise", "StoredLoggedSet", "StoredWorkout",
             "StoredWorkoutExercise", "StoredWorkoutSession",
         ])
@@ -53,13 +49,11 @@ struct StoreRenameTests {
         let (url, before) = try StoreRenameFixture.copyCommitted()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         _ = try Self.openCurrent(at: url)
-        #expect(try StoreRenameFixture.lines(current: ModelContext(Self.openCurrent(at: url)))
-            == before)
+        #expect(try StoreRenameFixture.currentLines(at: url) == before)
         let store = try Store(modelContainer: Self.openCurrent(at: url))
         let running = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
         try await store.discardLoggedWorkout(running.id)
-        let after = try StoreRenameFixture
-            .counts(StoreRenameFixture.lines(current: ModelContext(Self.openCurrent(at: url))))
+        let after = try StoreRenameFixture.counts(StoreRenameFixture.currentLines(at: url))
         #expect(after["session"] == 2)
         #expect(after["set"] == 6)
     }
@@ -134,7 +128,6 @@ struct StoreRenameTests {
         #expect(workout.id == workoutID)
         #expect(workout.name == "Upper")
         #expect(workout.exercises.map(\.exercise.id) == ["push-up"])
-        #expect(!FileManager.default.fileExists(atPath: StoreRenameBackup.folder(for: url)
-                .path(percentEncoded: false)))
+        #expect(!StoreRenameFixture.exists(StoreRenameBackup.folder(for: url)))
     }
 }

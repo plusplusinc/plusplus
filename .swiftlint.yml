@@ -139,3 +139,8 @@ custom_rules:
     regex: 'Color\((red|hue|white|uiColor|\.sRGB|#)'
     message: "Use Color.pp(.token) from DesignSystem"
     severity: error
+  escaped_file_path:
+    name: "Escaped file path"
+    regex: '\.path\(\)'
+    message: "path() escapes a space, as in Application Support, so a file API finds nothing; use path(percentEncoded: false)"
+    severity: error

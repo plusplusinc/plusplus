@@ -98,7 +98,7 @@ extension Store {
         }
         var touched: [StoredWorkout] = []
         for row in rows {
-            if let workout = row.workout,!touched.contains(where: { $0 === workout }) {
+            if let workout = row.workout, !touched.contains(where: { $0 === workout }) {
                 touched.append(workout)
             }
             modelContext.delete(row)

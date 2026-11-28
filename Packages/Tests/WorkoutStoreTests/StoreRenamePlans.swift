@@ -32,11 +32,6 @@ enum StoreRenamePlans {
         ]
     }
 
-    /// The plan's versions up to `last`, and the stages between them, as the app's.
-    static func schemas(through last: Int) -> [any VersionedSchema.Type] {
-        StoreMigrationPlan.schemas.filter { $0.versionIdentifier.major <= last }
-    }
-
     /// The store's file, from a stage's context.
     static func url(of context: ModelContext) throws -> URL {
         try #require(context.container.configurations.first?.url)
@@ -123,21 +118,21 @@ enum SeesTheCopy: SchemaMigrationPlan {
 /// The app's plan up to V15, so a test can run the sessions move on a V15 store itself.
 enum PlanToV15: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        StoreRenamePlans.schemas(through: 15)
+        StoreMigrationPlan.schemas(through: 15)
     }
 
     static var stages: [MigrationStage] {
-        Array(StoreMigrationPlan.stages.prefix(schemas.count - 1))
+        StoreMigrationPlan.stages(through: 15)
     }
 }
 
 /// The app's plan up to V16, so a test can run the workouts move on a V16 store itself.
 enum PlanToV16: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        StoreRenamePlans.schemas(through: 16)
+        StoreMigrationPlan.schemas(through: 16)
     }
 
     static var stages: [MigrationStage] {
-        Array(StoreMigrationPlan.stages.prefix(schemas.count - 1))
+        StoreMigrationPlan.stages(through: 16)
     }
 }

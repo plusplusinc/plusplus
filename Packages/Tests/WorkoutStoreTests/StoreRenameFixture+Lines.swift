@@ -1,4 +1,3 @@
-import CoreData
 import Foundation
 import SwiftData
 import Testing
@@ -114,15 +113,24 @@ extension StoreRenameFixture {
         Dictionary(grouping: lines) { String($0.prefix { $0 != "|" }) }.mapValues(\.count)
     }
 
-    /// The entities a store on disk holds, read from its metadata without opening it, which
-    /// would migrate it.
-    static func storedEntities(at url: URL) throws -> [String] {
-        let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
-            type: .sqlite,
+    /// Whether a file or folder is at `url`, read as a file path, as the app reads it.
+    static func exists(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
+    }
+
+    /// The store's lines under today's names, opened under the app's plan.
+    static func currentLines(at url: URL) throws -> [String] {
+        try lines(current: ModelContext(open(at: url, plan: StoreMigrationPlan.self)))
+    }
+
+    /// The store at `url` under `plan`'s last version, configured as the app's.
+    static func open(at url: URL, plan: any SchemaMigrationPlan.Type) throws -> ModelContainer {
+        let last = try #require(plan.schemas.last)
+        return try WorkoutStoreContainer.make(
             at: url,
+            schema: Schema(versionedSchema: last),
+            migrationPlan: plan,
         )
-        let hashes = metadata[NSStoreModelVersionHashesKey] as? [String: Any] ?? [:]
-        return hashes.keys.sorted()
     }
 
     /// A copy of the committed V14 store in a new folder, and the lines it was written with.

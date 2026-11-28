@@ -17,15 +17,15 @@ time. Every `@Model` follows these from the start:
 - Store enums as raw strings with computed accessors, and decode unknown values to a fallback,
   so a row written by a newer app version degrades instead of crashing.
 
-`Store` is the one `@ModelActor`, opened through
-`WorkoutStoreContainer.make(mode:schema:migrationPlan:)` with its own schema, versioned: every
+`Store` is the one `@ModelActor`, opened by `Store.open` with its own schema, versioned: every
 stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V14`, then
 `StoreSchemaV15` to `V17`), and `StoreMigrationPlan` runs a lightweight stage between each but
-the two moving rows to renamed models, since a plain rename drops them silently. Staged migration refuses a store whose
-shape matches none of the plan's versions, so a shipped version never changes: a stored change
-is a new version, a new stage, and a test that opens the last shape, written on disk, under it
-(`StoreUpgradeTests`). Its `Stored…` models are internal: `Workout`, a value, crosses the boundary, and the store diffs its rows by id rather
-than replacing them, so a row's identity, and later its sync record, is stable. A row carries its
+the two moving rows to renamed models, since a plain rename drops them silently. Staged
+migration refuses a store whose shape matches none of the plan's versions, so a shipped version
+never changes: a stored change is a new version, a new stage, and a test that opens the last
+shape, written on disk, under it (`StoreUpgradeTests`). Its `Stored…` models are internal:
+`Workout`, a value, crosses the boundary, and the store diffs its rows by id rather than
+replacing them, so a row's identity, and later its sync record, is stable. A row carries its
 `position`, since a relationship is unordered, and its plan: `sets`, `reps` or `seconds` (apart,
 so a stored number never changes meaning if an exercise's measure does), and `weight` with
 `weightUnit`, the unit's raw string. Each is optional, and nil means never stored: a row saved

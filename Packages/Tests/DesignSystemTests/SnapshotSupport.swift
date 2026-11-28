@@ -92,7 +92,8 @@ func snapshotDirectory(forSuite name: String, sourceRoot: URL = targetRoot) -> S
         ? inSourceTree
         : Bundle.module.url(forResource: "__Snapshots__", withExtension: nil)
     guard let root else {
-        fatalError("__Snapshots__ is neither in \(sourceRoot.path()) nor bundled with the tests")
+        let source = sourceRoot.path(percentEncoded: false)
+        fatalError("__Snapshots__ is neither in \(source) nor bundled with the tests")
     }
     return root.appending(path: name).path(percentEncoded: false)
 }

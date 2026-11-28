@@ -8,7 +8,7 @@ import Testing
 @Suite("Store rename cut short")
 struct StoreRenameStopTests {
     static func exists(_ url: URL) -> Bool {
-        FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
+        StoreRenameFixture.exists(url)
     }
 
     @Test(
@@ -54,11 +54,9 @@ struct StoreRenameStopTests {
             try? FileManager.default.removeItem(at: sessionsURL.deletingLastPathComponent())
             try? FileManager.default.removeItem(at: workoutsURL.deletingLastPathComponent())
         }
-        let v15 = Schema(versionedSchema: StoreSchemaV15.self)
-        let sessions = try ModelContext(ModelContainer(
-            for: v15,
-            migrationPlan: PlanToV15.self,
-            configurations: ModelConfiguration(schema: v15, url: sessionsURL),
+        let sessions = try ModelContext(StoreRenameFixture.open(
+            at: sessionsURL,
+            plan: PlanToV15.self,
         ))
         func movedSessions() throws -> [Int] {
             try [
@@ -71,11 +69,9 @@ struct StoreRenameStopTests {
         try StoreMigrationPlan.moveSessions(in: sessions)
         #expect(try movedSessions() == [3, 8])
 
-        let v16 = Schema(versionedSchema: StoreSchemaV16.self)
-        let workouts = try ModelContext(ModelContainer(
-            for: v16,
-            migrationPlan: PlanToV16.self,
-            configurations: ModelConfiguration(schema: v16, url: workoutsURL),
+        let workouts = try ModelContext(StoreRenameFixture.open(
+            at: workoutsURL,
+            plan: PlanToV16.self,
         ))
         func movedWorkouts() throws -> [Int] {
             try [
