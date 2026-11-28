@@ -14,6 +14,8 @@ struct WorkoutLauncher: View {
     let resetsStore: Bool
 
     @State private var session: AppSession?
+    /// The link to the Watch, beside the session it follows.
+    @State private var link: PhoneLink?
     /// A finish's two impacts, held here so they outlive the workout screen, which a finish
     /// with VoiceOver takes away at once.
     @State private var finishBeats = FinishBeats()
@@ -81,6 +83,7 @@ struct WorkoutLauncher: View {
                     // A timed set that ran out while the app was away is logged, before the
                     // screen opens on the workout.
                     session.catchUp()
+                    link = PhoneLink(session: session, mirror: .live)
                     let weightUnit = WeightUnit(region: locale)
                     // On the Workouts list, after a finish, the list is read before the first
                     // frame, so it never shows empty and then fills.

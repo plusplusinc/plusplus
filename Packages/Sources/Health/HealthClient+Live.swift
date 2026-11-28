@@ -29,8 +29,9 @@ extension HealthClient {
         },
     )
 
-    /// A static, so it is made on first use.
-    private static let store = HKHealthStore()
+    /// A static, so it is made on first use; the link's workout sessions use it too
+    /// (`WorkoutMirror.live`).
+    static let store = HKHealthStore()
 
     private static func save(
         _ workout: HealthWorkout,

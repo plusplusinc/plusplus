@@ -41,6 +41,11 @@ extension WorkoutScreen {
     /// A row's sheet still set closes: with no screen to show it, it kept the drawer shut.
     func stopSequence() {
         session.closeRowSheet()
+        settleAtOnce()
+    }
+
+    /// Stops any motion and draws what the store holds, as a relaunch opens: a sheet up stays.
+    func settleAtOnce() {
         sequence.cancel()
         // A timed set the stopped sequence was landing on counts from now; stopped within
         // Start, the first set's "Start in" begins here, as at Start's landing.

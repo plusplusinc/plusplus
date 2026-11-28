@@ -60,6 +60,11 @@ public final class AppSession {
     /// The exercises whose delete is confirmed and not yet stored
     /// (`deleteExercise(_:weightUnit:once:)`). Read only by taps, never by a view's body.
     @ObservationIgnored var deleting: Set<Exercise.ID> = []
+    /// Called after every change to the workout or its session, at the write: how the link to
+    /// the Watch hears of it (`PhoneLink`).
+    @ObservationIgnored public var onWorkoutChange: (() -> Void)?
+    /// The workout screen's way to play the Watch's action as a tap would (`receive(_:at:)`).
+    @ObservationIgnored public var outsidePlayer: ((WorkoutAction, Date) -> Void)?
 
     /// The saved workouts, latest first, as of the last read, with each workout left since.
     private var saved: [Workout] = []
@@ -117,6 +122,7 @@ public final class AppSession {
         changeLive { $0.droppingCount(for: workout) }
         current = workout
         saves.yield(WorkoutSave(workout: workout, keepsEmpty: workoutSession != nil))
+        onWorkoutChange?()
     }
 
     /// Opens the drawer, unless one in progress keeps it shut or a row's sheet has been asked for.
@@ -210,6 +216,7 @@ public final class AppSession {
         case .discard: workoutSession = nil
         }
         workoutSessionWrites.yield(.write(write))
+        onWorkoutChange?()
     }
 
     /// A workout cleared to nothing while in progress was kept; once it ends, it is deleted, as

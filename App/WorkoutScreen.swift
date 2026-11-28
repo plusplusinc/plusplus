@@ -338,7 +338,11 @@ struct WorkoutScreen: View {
         } floating: {
             addButton
         }
-        .onDisappear { stopSequence() }
+        .onAppear { session.outsidePlayer = { perform(outside: $0, at: $1) } }
+        .onDisappear {
+            session.outsidePlayer = nil
+            stopSequence()
+        }
         .modifier(AddExerciseOnArrival(session: session))
         // Cancelled as the screen goes, so the wait never outlives it.
         .task(id: createdWait) { await showCreated() }

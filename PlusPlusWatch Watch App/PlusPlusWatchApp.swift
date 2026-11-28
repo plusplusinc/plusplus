@@ -1,4 +1,5 @@
 #if canImport(Session)
+import Session
 import SwiftUI
 import WorkoutStore
 
@@ -7,16 +8,20 @@ import WorkoutStore
 /// reach it yet.
 @main
 struct PlusPlusWatchApp: App {
+    @WKApplicationDelegateAdaptor private var delegate: WatchAppDelegate
+
     var body: some Scene {
         WindowGroup {
-            WatchRoot()
+            WatchRoot(workout: delegate.workout)
                 .preferredColorScheme(.dark)
         }
     }
 }
 
-/// The idle page with no workout, else the workout's pages.
+/// The idle page with no workout, the workout's pages while one runs, and the finished page
+/// after.
 struct WatchRoot: View {
+    let workout: WatchWorkout
     private let options = WatchLaunchOptions.current
 
     var body: some View {
@@ -26,11 +31,40 @@ struct WatchRoot: View {
             WorkoutPages(live: live, frozenAt: options.freeze ? at : nil) { _ in }
                 .environment(\.isLuminanceReduced, options.dim)
         } else {
-            IdlePage()
+            running
+                .onAppear {
+                    if options.state == "demo", workout.live == nil {
+                        workout.runAlone(WatchFixture.demo)
+                    }
+                }
         }
         #else
-        IdlePage()
+        running
         #endif
+    }
+
+    @ViewBuilder
+    private var running: some View {
+        if let live = workout.live, live.workoutSession.isInProgress {
+            WorkoutPages(live: live, isPhoneAway: !workout.isPhoneInReach) { tap in
+                workout.tap(tap.action(on: live))
+            }
+        } else {
+            IdlePage()
+        }
+    }
+}
+
+extension SetPageTap {
+    /// The action the key asks of `live`.
+    func action(on live: LiveWorkout) -> WorkoutAction {
+        switch self {
+        case .log, .logEarly: live.currentSet.map(WorkoutAction.log) ?? .resume
+        case .skipRest: .skipRest
+        case .extendRest: .extendRest(by: 15)
+        case .finish: .finish
+        case .resume: .resume
+        }
     }
 }
 
@@ -38,6 +72,7 @@ struct WatchRoot: View {
 struct WorkoutPages: View {
     let live: LiveWorkout
     var frozenAt: Date?
+    var isPhoneAway = false
     let tap: (SetPageTap) -> Void
 
     var body: some View {
@@ -53,7 +88,7 @@ struct WorkoutPages: View {
     @ViewBuilder
     private func page(at date: Date) -> some View {
         if let face = live.watchFace(at: date) {
-            SetPage(face: face, tap: tap)
+            SetPage(face: face, isPhoneAway: isPhoneAway, tap: tap)
         } else {
             IdlePage()
         }

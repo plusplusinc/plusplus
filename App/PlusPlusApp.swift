@@ -1,4 +1,5 @@
 import DesignSystem
+import Health
 import OSLog
 import Session
 import SwiftUI
@@ -43,6 +44,9 @@ struct PlusPlusApp: App {
         resetsStore = false
         #endif
         _look = State(initialValue: Look())
+        // At launch, before anything else, so a mirrored session the Watch starts is never
+        // missed (Apple's `workoutSessionMirroringStartHandler`).
+        WorkoutMirror.listen()
     }
 
     var body: some Scene {
