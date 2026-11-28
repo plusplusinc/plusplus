@@ -1,5 +1,6 @@
 #if os(watchOS)
 import SwiftUI
+import UIKit
 
 /// The Watch's type, sized to its boards (2x pictures of a 211 by 257 pt screen) and scaled with
 /// the wrist's text size from there: each is a point size read relative to a text style, so a
@@ -45,7 +46,8 @@ public enum WatchType: CaseIterable, Sendable {
         case .textButton: 13
         case .rowName: 14
         case .rowDetail: 11
-        case .time: 34
+        // The largest "00:00" fits on one line across the SE's 40 mm screen.
+        case .time: 40
         }
     }
 
@@ -76,23 +78,86 @@ public enum WatchType: CaseIterable, Sendable {
 }
 
 extension View {
-    /// `Text("Rest").ppWatchFont(.label)`: the Watch's type, never a size at the call site.
-    public func ppWatchFont(_ type: WatchType) -> some View {
-        modifier(WatchFont(type: type))
+    /// `Text("Rest").ppWatchFont(.label)`: the Watch's type, never a size at the call site. A
+    /// `scale` under 1 shrinks it to fit, as figures too wide for the screen do, all by the same.
+    public func ppWatchFont(_ type: WatchType, scale: CGFloat = 1) -> some View {
+        modifier(WatchFont(type: type, scale: scale))
     }
 }
 
 private struct WatchFont: ViewModifier {
     let type: WatchType
+    let scale: CGFloat
     @ScaledMetric private var size: CGFloat
 
-    init(type: WatchType) {
+    init(type: WatchType, scale: CGFloat) {
         self.type = type
+        self.scale = scale
         _size = ScaledMetric(wrappedValue: type.size, relativeTo: type.textStyle)
     }
 
     func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: type.weight, design: type.design))
+        content.font(.system(size: size * scale, weight: type.weight, design: type.design))
+    }
+}
+
+extension View {
+    /// Digits in the Watch's type with the room above their tops and under their baseline cut
+    /// away, so the frame is the digits' own height: figures centered between two edges look
+    /// centered, with no line's leading above them. For one line of digits, which have no
+    /// descenders: the figures and counts.
+    public func ppWatchDigits(_ type: WatchType, scale: CGFloat = 1) -> some View {
+        modifier(WatchDigits(type: type, scale: scale))
+    }
+}
+
+private struct WatchDigits: ViewModifier {
+    let type: WatchType
+    let scale: CGFloat
+    @ScaledMetric private var size: CGFloat
+
+    init(type: WatchType, scale: CGFloat) {
+        self.type = type
+        self.scale = scale
+        _size = ScaledMetric(wrappedValue: type.size, relativeTo: type.textStyle)
+    }
+
+    func body(content: Content) -> some View {
+        DigitsOnly(capHeight: capHeight) {
+            content.font(.system(size: size * scale, weight: type.weight, design: type.design))
+        }
+    }
+
+    /// The height of the digits' tops over their baseline, the font's cap height.
+    private var capHeight: CGFloat {
+        let weight: UIFont.Weight = type.weight == .bold ? .bold : .regular
+        let font = type.design == .monospaced
+            ? UIFont.monospacedSystemFont(ofSize: size * scale, weight: weight)
+            : UIFont.systemFont(ofSize: size * scale, weight: weight)
+        return font.capHeight
+    }
+}
+
+/// Its one line of text as tall as `capHeight`, from its first baseline up.
+private struct DigitsOnly: Layout {
+    let capHeight: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        guard let text = subviews.first else { return .zero }
+        let width = text.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)).width
+        return CGSize(width: width, height: capHeight)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout (),
+    ) {
+        guard let text = subviews.first else { return }
+        let free = ProposedViewSize(width: proposal.width, height: nil)
+        let above = text.dimensions(in: free)[.firstTextBaseline] - capHeight
+        text.place(at: CGPoint(x: bounds.minX, y: bounds.minY - above), proposal: free)
     }
 }
 #endif

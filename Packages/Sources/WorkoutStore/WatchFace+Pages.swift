@@ -45,7 +45,7 @@ extension LiveWorkout {
         let finished = finishedRows
         let current = currentSet
         return workout.exercises.map { row in
-            let plan = row.detailParts(locale: locale).joined(separator: " × ")
+            let plan = row.compactPlan(locale: locale)
             if finished.contains(row.id) {
                 return WatchListRow(
                     id: row.id,
@@ -72,6 +72,19 @@ extension LiveWorkout {
     /// The name the workout session keeps, else the workout's.
     var workoutName: String {
         workoutSession.workoutName.isEmpty ? workout.name : workoutSession.workoutName
+    }
+}
+
+extension WorkoutExercise {
+    /// The plan in one short line for the Watch's list, its values as its sheet reads them
+    /// (`value(of:locale:)`) joined by "×": "3 × 12", "3 × 10 × 25 lb/side", "3 × 1m".
+    func compactPlan(locale: Locale) -> String {
+        var parts: [PlanPart] = [.sets, .target]
+        if shownWeight != nil {
+            parts.append(.weight)
+        }
+        return parts.map { value(of: $0, locale: locale) }
+            .joined(separator: "\(noBreakSpace)× ")
     }
 }
 

@@ -102,6 +102,22 @@ struct WatchFaceTests {
         #expect(face.isQuiet)
     }
 
+    @Test("The list's rows read their plans in one short line, as the sheet reads each value")
+    func listDetails() {
+        let (live, _) = WatchFixture.chestDay.live
+        let details = live.watchList(locale: Self.locale).map { $0.detail.replacing(
+            "\u{00A0}",
+            with: " ",
+        ) }
+        #expect(details == [
+            "3 × 12 · done",
+            "Set 2 of 3",
+            "3 × 10 per side × 25 lb",
+            "3 × 1m",
+            "3 × 8",
+        ])
+    }
+
     @Test("No workout in progress has no set page")
     func notStarted() {
         var (live, now) = WatchFixture.set.live

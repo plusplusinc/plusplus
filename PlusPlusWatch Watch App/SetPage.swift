@@ -3,12 +3,6 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// What every page of the Watch app shares.
-enum WatchPage {
-    /// The room between the screen's sides and a page's text, as the boards draw it.
-    static let sideInset: CGFloat = 18
-}
-
 /// What a key on the set page asks for. The page only reports it; the app turns it into an
 /// action on the workout.
 enum SetPageTap: Equatable {
@@ -29,37 +23,37 @@ struct SetPage: View {
     let tap: (SetPageTap) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(dotColor)
-                    .frame(width: 7, height: 7)
-                Text(face.name)
-                    .ppWatchFont(.title)
-                    .foregroundStyle(Color.pp(.textPrimary))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            WatchBars(bars: face.bars)
-                .padding(.top, 8)
-            HStack(spacing: 3) {
-                if isPhoneAway {
-                    Image(systemName: "iphone.slash")
-                        .accessibilityLabel("iPhone out of reach")
+        WatchScreen {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(dotColor)
+                        .frame(width: 7, height: 7)
+                    Text(face.name)
+                        .ppWatchFont(.title)
+                        .foregroundStyle(Color.pp(.textPrimary))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
-                Text(face.caption)
+                .clearOfClock()
+                WatchBars(bars: face.bars)
+                    .padding(.top, 7)
+                HStack(spacing: 3) {
+                    if isPhoneAway {
+                        Image(systemName: "iphone.slash")
+                            .accessibilityLabel("iPhone out of reach")
+                    }
+                    Text(face.caption)
+                }
+                .ppWatchFont(.caption)
+                .foregroundStyle(Color.pp(.textSecondary))
+                .padding(.top, 5)
             }
-            .ppWatchFont(.caption)
-            .foregroundStyle(Color.pp(.textSecondary))
-            .padding(.top, 5)
-            Spacer(minLength: 6)
+        } middle: {
             WatchMiddle(middle: face.middle, isQuiet: face.isQuiet)
-            Spacer(minLength: 6)
+        } keys: {
             WatchKeys(key: face.key, tap: tap)
-                .padding(.horizontal, 4)
         }
-        .padding(.horizontal, WatchPage.sideInset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var dotColor: Color {
@@ -99,42 +93,50 @@ struct WatchBars: View {
     }
 }
 
-/// The big middle: the set's numbers over what they count, or a count with its label.
+/// The big middle: the set's numbers over what they count, or a count with its label, at the
+/// figure's full size where it fits and shrunk together to fit where it does not
+/// (`ShrunkToFit`), a number never cut short.
 struct WatchMiddle: View {
     let middle: WatchFace.Middle
     var isQuiet = false
     @Environment(\.isLuminanceReduced) private var isWristDown
     @Environment(\.forcesDim) private var forcesDim
 
+    /// Between two figures side by side.
+    private static let figureGap: CGFloat = 28
+    /// Between the digits, cut to their own height (`ppWatchDigits`), and the words over or
+    /// under them.
+    private static let wordGap: CGFloat = 7
+
     private var isDimmed: Bool {
         isWristDown || forcesDim
     }
 
     var body: some View {
-        Group {
+        ShrunkToFit { scale in
             switch middle {
             case let .figures(figures):
-                HStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: Self.figureGap * scale) {
                     ForEach(figures, id: \.self) { figure in
-                        VStack(alignment: .leading, spacing: 0) {
-                            big(figure.number)
+                        VStack(alignment: .leading, spacing: Self.wordGap) {
+                            big(figure.number, scale: scale)
                             small(figure.unit)
                         }
                     }
                 }
             case let .count(label, time):
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: Self.wordGap) {
                     small(label)
-                    big(time)
+                    big(time, scale: scale)
                 }
             case let .timed(time, of):
-                VStack(alignment: .leading, spacing: 0) {
-                    big(time)
+                VStack(alignment: .leading, spacing: Self.wordGap) {
+                    big(time, scale: scale)
                     small(of)
                 }
             case let .allLogged(count, detail):
-                VStack(alignment: .leading, spacing: 0) {
-                    big(count)
+                VStack(alignment: .leading, spacing: Self.wordGap) {
+                    big(count, scale: scale)
                     small(detail)
                 }
             }
@@ -142,18 +144,38 @@ struct WatchMiddle: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func big(_ text: String) -> some View {
+    private func big(_ text: String, scale: CGFloat) -> some View {
         Text(text)
-            .ppWatchFont(.figure)
+            .ppWatchDigits(.figure, scale: scale)
             .foregroundStyle(Color.pp(isQuiet || isDimmed ? .textSecondary : .textPrimary))
             .lineLimit(1)
-            .minimumScaleFactor(0.6)
+            .minimumScaleFactor(0.5)
     }
 
     private func small(_ text: String) -> some View {
         Text(text)
             .ppWatchFont(.unit)
             .foregroundStyle(Color.pp(.textSecondary))
+            .lineLimit(1)
+    }
+}
+
+/// `content` drawn at the largest of a few steps down from its full size that fits the width it
+/// is given, so figures side by side shrink by the same; past the last step, each text shrinks
+/// on its own (`minimumScaleFactor`) rather than be cut short.
+struct ShrunkToFit<Content: View>: View {
+    private static var steps: [CGFloat] {
+        [1, 0.92, 0.84, 0.76, 0.68, 0.6]
+    }
+
+    @ViewBuilder let content: (CGFloat) -> Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            ForEach(Self.steps, id: \.self) { scale in
+                content(scale)
+            }
+        }
     }
 }
 
@@ -161,93 +183,25 @@ struct WatchMiddle: View {
 struct WatchKeys: View {
     let key: WatchFace.Key?
     let tap: (SetPageTap) -> Void
+    @Environment(\.watchKeyHeight) private var height
 
     var body: some View {
-        Group {
-            switch key {
-            case let .log(text): WatchKey("\(text)", isPrimary: true) { tap(.log) }
-            case .finish: WatchKey("Finish", isPrimary: true) { tap(.finish) }
-            case .resume: WatchKey("Continue", isPrimary: true) { tap(.resume) }
-            case let .logEarly(fill): WatchKey("Log early", fill: fill) { tap(.logEarly) }
-            case let .rest(fill):
-                GeometryReader { proxy in
-                    HStack(spacing: 6) {
-                        WatchKey("Skip", fill: fill, isSmall: true) { tap(.skipRest) }
-                        WatchKey("+15", isSmall: true) { tap(.extendRest) }
-                            .frame(width: (proxy.size.width - 6) * 0.45)
-                    }
+        switch key {
+        case let .log(text): WatchKey("\(text)", isPrimary: true) { tap(.log) }
+        case .finish: WatchKey("Finish", isPrimary: true) { tap(.finish) }
+        case .resume: WatchKey("Continue", isPrimary: true) { tap(.resume) }
+        case let .logEarly(fill): WatchKey("Log early", fill: fill) { tap(.logEarly) }
+        case let .rest(fill):
+            GeometryReader { proxy in
+                HStack(spacing: 5) {
+                    WatchKey("Skip", fill: fill, isSmall: true) { tap(.skipRest) }
+                    WatchKey("+15", isSmall: true) { tap(.extendRest) }
+                        .frame(width: (proxy.size.width - 5) * 0.45)
                 }
-            case nil: Color.clear
             }
+            .frame(height: height)
+        case nil: Color.clear.frame(height: height)
         }
-        .frame(height: WatchKey.height)
-    }
-}
-
-/// A key: a pill, cream for the one primary key, dark otherwise, with the share of a count run
-/// filling it purple from its leading edge.
-struct WatchKey: View {
-    static let height: CGFloat = 52
-
-    let title: LocalizedStringKey
-    var fill: Double?
-    var isPrimary = false
-    var isSmall = false
-    let action: () -> Void
-    @Environment(\.isLuminanceReduced) private var isWristDown
-    @Environment(\.forcesDim) private var forcesDim
-
-    private var isDimmed: Bool {
-        isWristDown || forcesDim
-    }
-
-    init(
-        _ title: LocalizedStringKey,
-        fill: Double? = nil,
-        isPrimary: Bool = false,
-        isSmall: Bool = false,
-        action: @escaping () -> Void,
-    ) {
-        self.title = title
-        self.fill = fill
-        self.isPrimary = isPrimary
-        self.isSmall = isSmall
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .ppWatchFont(isSmall ? .pairKey : .key)
-                .foregroundStyle(Color.pp(textColor))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background {
-                    if isDimmed {
-                        // Wrist down: an outline, with no fill and no purple.
-                        Capsule().strokeBorder(Color.pp(.borderStrong), lineWidth: 1.5)
-                    } else {
-                        Capsule().fill(Color.pp(isPrimary ? .primaryKey : .surface))
-                    }
-                    if let fill, !isDimmed {
-                        GeometryReader { proxy in
-                            Rectangle()
-                                .fill(Color.pp(.done))
-                                .frame(width: proxy.size.width * fill)
-                                .animation(.linear(duration: 1), value: fill)
-                        }
-                        .clipShape(Capsule())
-                    }
-                }
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var textColor: ColorToken {
-        if isDimmed {
-            return .textSecondary
-        }
-        return isPrimary ? .onPrimaryKey : .textPrimary
     }
 }
 

@@ -10,79 +10,92 @@ struct TimePage: View {
     let end: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(page.name)
-                .ppWatchFont(.caption)
-                .foregroundStyle(Color.pp(.textSecondary))
-                .lineLimit(1)
-            Text(page.time)
-                .ppWatchFont(.time)
-                .foregroundStyle(Color.pp(page.isPaused ? .textSecondary : .textPrimary))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .padding(.top, 2)
-            Text(page.progress)
-                .ppWatchFont(.body)
-                .foregroundStyle(Color.pp(.textSecondary))
-            Spacer(minLength: 6)
-            HStack(spacing: 6) {
+        WatchScreen {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(page.name)
+                    .ppWatchFont(.caption)
+                    .foregroundStyle(Color.pp(.textSecondary))
+                    .lineLimit(1)
+                    .clearOfClock()
+                ShrunkToFit { scale in
+                    Text(page.time)
+                        .ppWatchDigits(.time, scale: scale)
+                        .foregroundStyle(Color.pp(page.isPaused ? .textSecondary : .textPrimary))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                }
+                .padding(.top, 15)
+                .padding(.bottom, 7)
+                Text(page.progress)
+                    .ppWatchFont(.unit)
+                    .foregroundStyle(Color.pp(.textSecondary))
+                    .lineLimit(1)
+            }
+        } keys: {
+            HStack(spacing: 5) {
                 WatchKey(page.isPaused ? "Continue" : "Pause", isSmall: true, action: pause)
                 WatchKey("End", isSmall: true, action: end)
             }
-            .frame(height: WatchKey.height)
-            .padding(.horizontal, 4)
         }
-        .padding(.horizontal, WatchPage.sideInset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
-/// End's choice: Finish as the key, Discard quieter in red; with nothing logged, Discard alone,
-/// as on the phone (`WorkoutSession.offersFinish`). Swiping to another page puts it away.
+/// End's choice: Finish as the key, Discard quieter in red over it; with nothing logged, Discard
+/// alone, as on the phone (`WorkoutSession.offersFinish`). Swiping to another page puts it away.
 struct EndChoicePage: View {
     let offersFinish: Bool
     let finish: () -> Void
     let discard: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("End workout?")
-                .ppWatchFont(.title)
-                .foregroundStyle(Color.pp(.textPrimary))
-            Text(offersFinish ? "Finish keeps what you logged." : "Nothing is logged yet.")
-                .ppWatchFont(.body)
-                .foregroundStyle(Color.pp(.textSecondary))
-                .padding(.top, 2)
-            Spacer(minLength: 6)
-            Button("Discard workout", role: .destructive, action: discard)
-                .buttonStyle(.plain)
-                .ppWatchFont(.textButton)
-                .foregroundStyle(.red)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 6)
-            if offersFinish {
-                WatchKey("Finish", isPrimary: true, action: finish)
-                    .frame(height: WatchKey.height)
-                    .padding(.horizontal, 4)
+        WatchScreen {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("End workout?")
+                    .ppWatchFont(.title)
+                    .foregroundStyle(Color.pp(.textPrimary))
+                    .clearOfClock()
+                Text(offersFinish ? "Finish keeps what you logged." : "Nothing is logged yet.")
+                    .ppWatchFont(.body)
+                    .foregroundStyle(Color.pp(.textSecondary))
+            }
+        } keys: {
+            VStack(spacing: 0) {
+                Button("Discard workout", role: .destructive, action: discard)
+                    .buttonStyle(.plain)
+                    .ppWatchFont(.textButton)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                if offersFinish {
+                    WatchKey("Finish", isPrimary: true, action: finish)
+                }
             }
         }
-        .padding(.horizontal, WatchPage.sideInset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
-/// The right page: the whole workout, scrolled with the crown, opening on the current row.
+/// The right page: the whole workout, scrolled with the crown, opening on the current row. Each
+/// row's detail is one line, its plan as its values read (`WorkoutExercise.value(of:locale:)`),
+/// cut short at its end if it must be.
 struct ListPage: View {
     let name: String
     let rows: [WatchListRow]
 
     var body: some View {
+        WholeScreen { _, _ in
+            rowList
+        }
+    }
+
+    private var rowList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 9) {
                     Text(name)
                         .ppWatchFont(.caption)
                         .foregroundStyle(Color.pp(.textSecondary))
+                        .lineLimit(1)
+                        .clearOfClock()
                     ForEach(rows) { row in
                         HStack(alignment: .firstTextBaseline, spacing: 7) {
                             Circle()
@@ -94,15 +107,20 @@ struct ListPage: View {
                                     .foregroundStyle(Color.pp(
                                         row.dot == .done ? .textSecondary : .textPrimary,
                                     ))
+                                    .lineLimit(1)
                                 Text(row.detail)
-                                    .ppWatchFont(.caption)
+                                    .ppWatchFont(.rowDetail)
                                     .foregroundStyle(Color.pp(.textSecondary))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
                             }
                         }
                         .id(row.id)
                     }
                 }
                 .padding(.horizontal, WatchPage.sideInset)
+                .padding(.top, WatchPage.topInset)
+                .padding(.bottom, WatchPage.listFoot)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .onAppear {
@@ -128,26 +146,25 @@ struct FinishedPage: View {
     let done: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(verbatim: "++")
-                .ppWatchFont(.mark)
-                .foregroundStyle(Color.pp(.accent))
-                .accessibilityHidden(true)
-            Text(end.name)
-                .ppWatchFont(.title)
-                .foregroundStyle(Color.pp(.textPrimary))
-                .padding(.top, 6)
-            Text(end.summary())
-                .ppWatchFont(.caption)
-                .foregroundStyle(Color.pp(.textSecondary))
-                .padding(.top, 2)
-            Spacer(minLength: 6)
+        WatchScreen {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(verbatim: "++")
+                    .ppWatchFont(.mark)
+                    .foregroundStyle(Color.pp(.accent))
+                    .accessibilityHidden(true)
+                Text(end.name)
+                    .ppWatchFont(.title)
+                    .foregroundStyle(Color.pp(.textPrimary))
+                    .lineLimit(1)
+                    .padding(.top, 6)
+                Text(end.summary())
+                    .ppWatchFont(.caption)
+                    .foregroundStyle(Color.pp(.textSecondary))
+                    .padding(.top, 2)
+            }
+        } keys: {
             WatchKey("Done", isPrimary: true, action: done)
-                .frame(height: WatchKey.height)
-                .padding(.horizontal, 4)
         }
-        .padding(.horizontal, WatchPage.sideInset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 #endif
