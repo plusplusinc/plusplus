@@ -1,4 +1,5 @@
 import DesignSystem
+import Session
 import SwiftUI
 import WorkoutStore
 
@@ -14,7 +15,18 @@ extension LogScreen {
 
     func historyTab(_ log: WorkoutLog) -> some View {
         let period = log.period(now: now, calendar: calendar)
+        let healthPrompt = session.healthPrompt
+        let showsHealthPrompt = healthPrompt != nil
         return VStack(alignment: .leading, spacing: 0) {
+            if let healthPrompt {
+                healthPromptSlot(healthPrompt)
+                    .padding(.bottom, Spacing.lg)
+                    .transition(
+                        reduceMotion
+                            ? AnyTransition.cardCrossfade
+                            : AnyTransition(.cutAway),
+                    )
+            }
             loggedWorkoutCount(period)
                 .padding(.bottom, Spacing.md)
             DayGrid(
@@ -49,6 +61,58 @@ extension LogScreen {
                     // Gone at once once faded: its fade is `emptyGivesWay`'s.
                     .transition(.asymmetric(insertion: .opacity, removal: .identity))
             }
+        }
+        // The card's room closes as it fades, cut off where the calendar and rows have risen
+        // to (`CutAway`). With Reduce Motion nothing rises: the card fades with its room kept,
+        // then the room closes in one step (`afterCardCrossfade`); coming in, the room opens
+        // at once and the card fades in over it.
+        .animation(healthOfferAnimation(showing: showsHealthPrompt), value: showsHealthPrompt)
+    }
+
+    private func healthOfferAnimation(showing: Bool) -> Animation? {
+        guard reduceMotion else { return .snappy }
+        return showing ? nil : .afterCardCrossfade
+    }
+
+    /// The ask to sync to Apple Health, first in History above the count, once a workout has
+    /// been finished, whenever Health reads as never asked and Log holds a finished workout,
+    /// until its × dismisses it for good (`AppSession.healthPrompt`). "Sync to Apple Health" is
+    /// the session's one ask (`AppSession.syncFromPrompt()`): Apple's sheet, then every workout
+    /// in Log sent once it allows, and the prompt goes as the answer is read; answered Don't
+    /// Allow, a note says the Health app can turn it on. The × leaves a note that Settings can.
+    /// The row gives way to a note in place (`promptSwap(isNote:reduceMotion:)`); the note goes
+    /// on its OK, its fill run out, or Log left, by the leave the row takes after Allow. It is
+    /// in Log's first frame after a finish, the access read since launch, so it doesn't come in
+    /// over the workout arriving; only a read landing while Log is open, as with Log opened
+    /// moments after a launch, brings it in, on its leave run backward.
+    private func healthPromptSlot(_ prompt: HealthPrompt) -> some View {
+        let health = session.health
+        return ZStack {
+            switch prompt {
+            case .ask:
+                PromptRow(
+                    "Sync to Apple Health",
+                    take: { Task { await session.syncFromPrompt() } },
+                    dismiss: { health.declineOffer() },
+                )
+                .promptSwap(isNote: false, reduceMotion: reduceMotion)
+            case let .note(note):
+                PromptNote(Self.healthNoteText(note), end: { health.endNote() })
+                    .id(note)
+                    .onDisappear { health.endNote() }
+                    .promptSwap(isNote: true, reduceMotion: reduceMotion)
+            }
+        }
+        .animation(reduceMotion ? .cardCrossfade : .snappy, value: prompt)
+    }
+
+    static func healthNoteText(_ note: HealthSaving.Note) -> String {
+        switch note {
+        // The app's own Settings, named so it isn't read as the phone's, which has no entry
+        // for this; its stops joined by no-break spaces so no line ends on the arrow.
+        case .dismissed:
+            "You can enable sync later in PlusPlus\u{A0}Settings\u{A0}›\u{A0}Apple\u{A0}Health."
+        case .denied: "You can enable sync later in Apple\u{A0}Health."
         }
     }
 

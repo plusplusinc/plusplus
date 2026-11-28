@@ -44,8 +44,11 @@ public final class AppSession {
     @ObservationIgnored var beatClock: any Clock<Duration> = ContinuousClock()
     /// Where the app is, under the drawer (`Screen`).
     public internal(set) var screen = Screen.workout
-    /// The finished logged workouts as of the last read (`refreshLog()`); nil until the first.
+    /// The finished logged workouts as of the last read (`refreshLog()`), with any finished since
+    /// (`finish(at:)`); nil until the first read.
     public internal(set) var log: WorkoutLog?
+    /// Counts the finishes, so a read of the log begun before one reads again (`refreshLog()`).
+    @ObservationIgnored var finishes = 0
     /// The logged workout in progress on the open workout, from Start until Finish or Discard.
     public private(set) var loggedWorkout: LoggedWorkout?
     /// The workout just finished, which Log has yet to bring into History; taken by Log as it

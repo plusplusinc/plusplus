@@ -31,9 +31,10 @@ Leaf views take plain values and closures so they preview and snapshot without a
 - Prefer stock components for navigation, toolbars, and sheets; the system applies Liquid Glass
   there. Do not set `UIDesignRequiresCompatibility`.
 - Anything that shows and hides beside or above other content (a tag, a line, a control) keeps
-  its room laid out and fades, so nothing near it moves or rewraps as it comes and goes. Before
-  a slice's "When it works" pass, step through the slice's state changes and look at what
-  moves.
+  its room laid out and fades, so nothing near it moves or rewraps as it comes and goes. A card
+  leaving for good closes its room by `CutAway`; with Reduce Motion, fades, then closes
+  unanimated (`afterCardCrossfade`). Before "When it works", step through a slice's changes
+  and look at what moves.
 - Every tappable element other than a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`, but a view already `.hidden()` gets nothing more: the modifier
@@ -75,14 +76,14 @@ with the feature.
   `WorkoutsScreen`, `WorkoutRow`, `LengthSheet`, `NeedsHeader`. The drawer's mark and a way through it: `drawerMarks()`, `DrawerWay`,
   `AppSession.show(_:after:throughDrawer:markWait:)`.
 - Log: `LogScreen`, `LogScreen+Tabs.swift`, `LoggedWorkoutScreen`, `DayGrid`, `LogRow`,
-  `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
+  `CountRow`, `PillButtonStyle`, `WorkoutLog`, `LogPeriod`, `PromptRow`, `CutAway`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
   `ExerciseForm`, `BarSearchField`, `FilterBar`, `ChipSheet`, `FilterButtonRow`, `CreateLabel` (both lists').
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
   `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by
   `CurrentFigure`.
 - Settings: `SettingsSheet` (`AppearanceChoice`, `HealthChoice`), `SettingRow`, `AppearancePicture`, `PhoneScheme`,
-  `Appearance`, `Look`, `Palette`, `sheetGround(filled:)`, `SideDrawer`.
+  `Appearance`, `Look`, `Palette`, `sheetGround(filled:)`.
 
 ## Pitfalls
 
@@ -113,11 +114,10 @@ Each of these cost a round; the code at the named spot works around it.
   one that a disabled transaction ahead of the motion changes the phase under: derived,
   `isMakingRoom` flipped in End's disabled set-back, not in its shrink, and an End that took over
   a sequence lost its room for a frame.
-- Never clear state that must hold for a motion from `withAnimation`'s completion: in about 2 of
-  50 of Start's grows SwiftUI ran it 12 to 28 ms in, before the first frame. Change a count on the motion's own animation
+- Never clear state that must hold for a motion from `withAnimation`'s completion: SwiftUI
+  sometimes runs it before the first frame. Change a count on the motion's own animation
   and read the animated value against its target (`listResizes(_:)`).
-- Compare recordings frame by frame from the second run after an install: the first's ran
-  0.42 s late.
+- Compare recordings frame by frame from the second run after an install: the first runs late.
 - A `keyframeAnimator` whose initial value follows its trigger runs from the new value to the
   new value, and the view snaps. Animate a state that flips with its trigger with
   `.animation(_:body:)` on the view that draws it. A keyframe timeline ending on a

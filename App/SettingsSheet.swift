@@ -1,13 +1,14 @@
 import DesignSystem
+import Health
 import Session
 import SwiftUI
 
 /// How the app looks, a sheet at full height only, opened from the drawer's Settings button over
 /// the drawer, with an inline title and the system's Close leading and the drag indicator, as the
-/// exercise sheet has. One group under its label in the headings' style: Appearance
-/// (`AppearanceChoice`): Light and Dark, Automatic, and Void. A choice takes at once, with no
-/// Save:
-/// the sheet and the app behind it recolor under the finger.
+/// exercise sheet has. Groups under labels in the headings' style, each starting where its
+/// card's content does: Appearance (`AppearanceChoice`): Light and Dark, Automatic, and Void;
+/// then, where the phone has Apple Health, Apple Health (`HealthChoice`). A choice takes at once,
+/// with no Save: the sheet and the app behind it recolor under the finger.
 struct SettingsSheet: View {
     let health: HealthSaving
     let askToSaveToHealth: () async -> Void
@@ -16,6 +17,9 @@ struct SettingsSheet: View {
     @Environment(\.scenePhase) private var scenePhase
     /// The phone's own light or dark, once read.
     @State private var phone: ColorScheme?
+    /// Whether the phone can open the Health app (`HealthChoice.healthApp`), read with Health's
+    /// access.
+    @State private var opensHealth = true
 
     var body: some View {
         NavigationStack {
@@ -26,7 +30,11 @@ struct SettingsSheet: View {
                     if let access = health.access, access != .unavailable {
                         GroupLabel("Apple Health")
                             .padding(.top, Spacing.lg)
-                        HealthChoice(health: health, ask: askToSaveToHealth)
+                        HealthChoice(
+                            access: access,
+                            opensHealth: opensHealth,
+                            ask: askToSaveToHealth,
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -44,11 +52,12 @@ struct SettingsSheet: View {
             }
         }
         // Read here, not at launch, so HealthKit stays off the way to the first frame; again
-        // back from the system's settings, so the row shows what was changed there.
-        .onAppear { health.refresh() }
+        // back from the system's settings or the Health app, so the card shows what was changed
+        // there, and a Health app deleted meanwhile takes its button with it.
+        .onAppear(perform: readHealth)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                health.refresh()
+                readHealth()
             }
         }
         // A sheet is a presentation of its own: the window's held scheme reached it as it
@@ -62,6 +71,12 @@ struct SettingsSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .sheetGround()
+    }
+
+    private func readHealth() {
+        health.refresh()
+        // Answers false unless the scheme is declared, in `Config/Info.plist`.
+        opensHealth = UIApplication.shared.canOpenURL(HealthChoice.healthApp)
     }
 }
 
@@ -116,7 +131,7 @@ struct AppearanceChoice: View {
             }
         }
         .settingsCard()
-        .animation(reduceMotion ? Self.crossfade : .snappy, value: look.offersVoid)
+        .animation(reduceMotion ? .cardCrossfade : .snappy, value: look.offersVoid)
     }
 
     /// A Settings group's divider, as the exercise sheet's are (`ValueRow`): two pixels thick.
@@ -125,27 +140,51 @@ struct AppearanceChoice: View {
             .fill(.pp(.separator))
             .frame(height: 2 / displayScale)
     }
-
-    /// Void's row coming and going with Reduce Motion: a fade, as the search field's is.
-    private static let crossfade = Animation.easeInOut(duration: 0.2)
 }
 
-/// Apple Health's one row, "Save workouts", reading On or Off from the system's permission. It
-/// is not a switch: Apple asks apps to leave Health sharing to the system's privacy settings.
-/// Never asked, a tap brings up Apple's sheet; once answered, the row only shows the answer.
+/// Apple Health's card, "Sync workouts" (`SettingRow`), from the system's permission. It is not
+/// a switch: Apple asks apps to leave Health sharing to the system's privacy settings, so
+/// nothing here turns syncing off. Never asked, Off, and a green "Sync to Apple Health", Log's
+/// prompt's words, brings up Apple's sheet; allowed, On, with a neutral "Manage in Apple Health"
+/// that opens the Health app, and where to go in it; denied, Off, with a green "Enable in Apple
+/// Health" and the same line. Where the phone can't open the Health app (`opensHealth`), as with
+/// it deleted, the two that would open it show only the line, saying it is in Apple Health. One
+/// card whose words change, so an answer from its button changes them in place. Dismissing Log's
+/// prompt changes nothing here.
 struct HealthChoice: View {
-    let health: HealthSaving
-    /// The ask, and once allowed, every workout already in Log saved
+    let access: HealthAccess
+    let opensHealth: Bool
+    /// The ask, and once allowed, every workout already in Log synced
     /// (`AppSession.askToSaveToHealth()`).
     let ask: () async -> Void
 
+    /// The Health app's front page. Apple documents no link into Health; this one opens it on
+    /// iOS 27, and no deeper page can be reached.
+    static let healthApp = URL(string: "x-apple-health://")!
+
+    /// Where to go in Health. The stops after "then" are joined by no-break spaces, so the
+    /// line breaks after "then" and none ends on a stop's arrow.
+    private static let stops = "then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
+
+    @Environment(\.openURL) private var openURL
+
     var body: some View {
-        SettingRow(
-            "Save workouts",
-            value: health.access == .on ? "On" : "Off",
-            hint: "Asks to save workouts to Apple Health",
-            action: health.access == .notAsked ? { Task { await ask() } } : nil,
-        )
+        let isOn = access == .on
+        SettingRow("Sync workouts", value: isOn ? "On" : "Off", isOn: isOn, change: change)
+    }
+
+    private var change: SettingRow.Change {
+        if access == .notAsked {
+            return .button("Sync to Apple Health") { Task { await ask() } }
+        }
+        guard opensHealth else {
+            return .directions("In Apple Health, tap your picture,\u{A0}\(Self.stops)")
+        }
+        return .button(
+            access == .on ? "Manage in Apple Health" : "Enable in Apple Health",
+            opens: "Apple Health",
+            note: "Tap your picture,\u{A0}\(Self.stops)",
+        ) { openURL(Self.healthApp) }
     }
 }
 
@@ -206,6 +245,9 @@ private struct GroupLabel: View {
             .fontWeight(.semibold)
             .foregroundStyle(.pp(.textSecondary))
             .accessibilityAddTraits(.isHeader)
+            // In by a card's own inset (`settingsCard()`), so it starts where the card's
+            // content does.
+            .padding(.leading, Spacing.md)
             .padding(.bottom, Spacing.sm)
     }
 }

@@ -25,9 +25,10 @@ extension AppSession {
     }
 
     /// Brings up Apple's sheet, then, once it is answered, catches up: allowed, every workout
-    /// already in Log goes, each with its own dates.
+    /// already in Log goes, each with its own dates. One asked while another is out, as from a
+    /// double tap on Log's prompt or Settings' button, does nothing.
     public func askToSaveToHealth() async {
-        await health.ask()
+        guard await health.ask() else { return }
         catchUpHealth()
     }
 

@@ -26,10 +26,11 @@ struct PlusPlusApp: App {
         namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .standard
         resetsStore = LaunchOptions.resetsStore
         // A fresh start forgets the appearance chosen too, before it is read, and the removals
-        // Health is owed, so a UI test's never reach a later launch. A launch argument
-        // (`-appearance light`) still answers, from its own domain.
+        // Health is owed and the offer of Log's prompt to sync, so a UI test's never reach a later
+        // launch.
+        // A launch argument (`-appearance light`) still answers, from its own domain.
         if resetsStore {
-            for key in Look.keys + [HealthSaving.removalsKey] {
+            for key in Look.keys + HealthSaving.keys {
                 UserDefaults.standard.removeObject(forKey: key)
             }
         }

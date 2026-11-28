@@ -30,6 +30,26 @@ extension WorkoutFinishUITests {
             XCTAssertFalse(app.buttons["log.goToWorkouts"].exists, "Go to Workouts stayed")
             XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")
         }
+        // When the prompt shows, and that its × is for good, are `HealthOfferTests`'; its look and
+        // the note's are `PromptRowSnapshotTests`'. This is Log drawing them from the session,
+        // and the × and OK's wires to it.
+        XCTContext
+            .runActivity(named: "Log asks to sync to Apple Health; × leaves a note, OK ends it")
+            { _ in
+                let dismiss = app.buttons["Dismiss"]
+                XCTAssertTrue(
+                    dismiss.appears(),
+                    "Log showed no Apple Health prompt after the finish",
+                )
+                XCTAssertTrue(dismiss.settles(), "The Apple Health prompt kept moving")
+                dismiss.tap()
+                let ok = app.buttons["OK"]
+                XCTAssertTrue(ok.appears(), "The × left no note in the prompt's place")
+                XCTAssertTrue(dismiss.disappears(), "The × left the prompt on Log")
+                // At once, not after `settles()`: the note ends itself 5.4 s after it shows.
+                ok.tap()
+                XCTAssertTrue(ok.disappears(), "OK left the note on Log")
+            }
     }
 
     func relaunchKeepsIt(named name: String, title: XCUIElement, in app: XCUIApplication) {

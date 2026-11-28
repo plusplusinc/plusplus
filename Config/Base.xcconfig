@@ -57,8 +57,9 @@ CODE_SIGN_ENTITLEMENTS_PlusPlus = Config/PlusPlus.entitlements
 
 // MARK: - Info.plist
 //
-// Generated from these settings, plus Config/LaunchScreen.plist for the one key with no
-// INFOPLIST_KEY_ setting (below).
+// Generated from these settings, plus Config/Info.plist for the keys with no INFOPLIST_KEY_
+// setting: the launch screen's (below), and the Health app's link scheme, declared so Settings
+// can ask whether the phone opens it (`canOpenURL`) and hide its button when not.
 
 GENERATE_INFOPLIST_FILE = YES
 // App Store Connect refuses a build with no app icon, so this is required for TestFlight. The
@@ -68,16 +69,16 @@ ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 INFOPLIST_KEY_CFBundleDisplayName = PlusPlus
 // The launch screen is black whatever the phone's appearance, as the app opens on Dark by
 // default and a launch screen cannot read the stored choice. Its color is the app's
-// LaunchBackground colorset, named in the one key the generated Info.plist has no setting for.
+// LaunchBackground colorset, named in a key the generated Info.plist has no setting for.
 INFOPLIST_FILE = $(INFOPLIST_FILE_$(TARGET_NAME))
-INFOPLIST_FILE_PlusPlus = Config/LaunchScreen.plist
+INFOPLIST_FILE_PlusPlus = Config/Info.plist
 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
 INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait
 // Apple's sheet shows this when the app asks to save workouts.
-INFOPLIST_KEY_NSHealthUpdateUsageDescription = PlusPlus saves each workout you finish to Apple Health, with its type and how long it took.
+INFOPLIST_KEY_NSHealthUpdateUsageDescription = PlusPlus syncs each workout you finish to Apple Health, with its type and how long it took.
 // Nothing is read from Health and the app never asks to, so no sheet shows this. App Store
 // Connect refuses an upload without it (ITMS-90683) once the app has the HealthKit entitlement.
-INFOPLIST_KEY_NSHealthShareUsageDescription = PlusPlus does not read from Apple Health. It only saves the workouts you finish.
+INFOPLIST_KEY_NSHealthShareUsageDescription = PlusPlus does not read from Apple Health. It only syncs the workouts you finish.
 // Declared here so App Store Connect stops asking on every upload. Revisit if the app ever
 // ships its own cryptography beyond standard HTTPS.
 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO

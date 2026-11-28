@@ -37,7 +37,8 @@ nonisolated struct Palette: Sendable {
 
     /// Every neutral is mixed in OKLab from the ground toward the white text, so it carries the
     /// ground's tint, as far from the ground as PlusPlus dark's own gray for that job stands from
-    /// its ground in WCAG 2 contrast: the card 1.13, the chip 1.29, the lines 1.89 to 2.24, a set
+    /// its ground in WCAG 2 contrast: the card 1.13, the chip 1.29, a pill on a card 1.69, the
+    /// lines 1.89 to 2.24, a set
     /// to do 3.14, the rail 3.95, the quieter text 5.93. Contrast, not a share of the way to the
     /// text, as near black a share is too small to see: a share made the card `010101`. The well
     /// sinks below the ground, as PlusPlus dark's does, where the ground has room below it, and
@@ -68,6 +69,7 @@ nonisolated struct Palette: Sendable {
             .surface: surface.resolved(),
             .surfaceRaised: raised.resolved(),
             .selectionFill: raised.resolved(),
+            .pillOnSurface: stepped(1.69).resolved(),
             .borderStrong: stepped(1.89).resolved(),
             .separator: stepped(2.24).resolved(),
             .toDo: stepped(3.14).resolved(),

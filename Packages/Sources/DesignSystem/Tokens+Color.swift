@@ -28,6 +28,10 @@ public nonisolated enum ColorToken: String, CaseIterable, Sendable {
     /// that marks a group of rows, a superset. At least 3:1 on `background` and on `well`, where a
     /// held superset's loop and line show.
     case rail = "ppRail"
+    /// The fill of a neutral pill on a `surface` card, as Settings' "Manage in Apple Health": about
+    /// 1.5:1 from the card in both appearances, where `surfaceRaised`, the pill's fill on the
+    /// screen, stood 1.14:1 from it and barely read as a button.
+    case pillOnSurface = "ppPillOnSurface"
     /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
     /// settles to `rail`; a group's loop as a drop makes the group, then settling to
     /// `rail`. Never at rest, and never the line.

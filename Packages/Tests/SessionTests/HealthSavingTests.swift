@@ -1,5 +1,7 @@
 import Foundation
 import Health
+import Observation
+import Synchronization
 import Testing
 @testable import Session
 @testable import WorkoutStore
@@ -107,6 +109,25 @@ struct HealthSavingTests {
         await saving.ask()
         #expect(health.asks.withLock { $0 } == 1)
         #expect(saving.access == .on)
+    }
+
+    @Test("A read that finds the same answer tells no view the access changed, as a catch-up's")
+    func sameAnswerUnchanged() async {
+        let health = FakeHealth(.notAsked)
+        let saving = HealthSaving(client: health.client)
+        saving.refresh()
+        let changes = Mutex(0)
+        withObservationTracking {
+            _ = saving.access
+        } onChange: {
+            changes.withLock { $0 += 1 }
+        }
+        saving.refresh()
+        await saving.refreshed()
+        #expect(changes.withLock { $0 } == 0)
+        health.access.withLock { $0 = .on }
+        await saving.refreshed()
+        #expect(changes.withLock { $0 } == 1)
     }
 
     @Test("A slow read that began before the person allowed saving doesn't show it off after")
