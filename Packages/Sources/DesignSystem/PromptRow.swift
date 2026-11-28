@@ -23,7 +23,7 @@ public struct PromptRow: View {
     public var body: some View {
         HStack(spacing: Spacing.xs) {
             Button(title, action: take)
-                .buttonStyle(.greenPill(height: Self.height, widens: true))
+                .buttonStyle(.greenPill(height: Self.height))
             Button(action: dismiss) {
                 Image(systemName: "xmark")
                     .font(.ppRowDetail)
@@ -85,8 +85,15 @@ public struct PromptNote: View {
                 .fixedSize()
         }
         .frame(minHeight: PromptRow.height)
-        .task {
-            guard isTimed, !reduceMotion, !voiceOver else { return }
+        // Again as Reduce Motion or VoiceOver changes: turned on mid-fill, the fill and its timer
+        // stop and the note stays until OK.
+        .task(id: isTimed && !reduceMotion && !voiceOver) {
+            guard isTimed, !reduceMotion, !voiceOver else {
+                if isTimed {
+                    fill = nil
+                }
+                return
+            }
             let ends = Date.now.addingTimeInterval(Self.fillDelay + Self.fillLength)
             fill = KeyFill(length: Self.fillLength, ends: ends)
             do {
@@ -106,7 +113,7 @@ extension View {
     public func promptSwap(isNote: Bool, reduceMotion: Bool) -> some View {
         transition(
             reduceMotion
-                ? AnyTransition.opacity.animation(.cardCrossfade)
+                ? AnyTransition.cardCrossfade
                 : isNote
                 ? AnyTransition.opacity.combined(with: .scale(scale: PromptSwap.noteScale))
                 .animation(PromptSwap.noteIn)

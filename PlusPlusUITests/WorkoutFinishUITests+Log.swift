@@ -46,7 +46,7 @@ extension WorkoutFinishUITests {
                 let ok = app.buttons["OK"]
                 XCTAssertTrue(ok.appears(), "The × left no note in the prompt's place")
                 XCTAssertTrue(dismiss.disappears(), "The × left the prompt on Log")
-                XCTAssertTrue(ok.settles(), "The note kept moving")
+                // At once, not after `settles()`: the note ends itself 5.4 s after it shows.
                 ok.tap()
                 XCTAssertTrue(ok.disappears(), "OK left the note on Log")
             }

@@ -61,17 +61,7 @@ extension AppSession {
             health.noteDenied()
         }
     }
-}
 
-/// Log's Apple Health line above its calendar (`AppSession.healthPrompt`).
-public enum HealthPrompt: Equatable, Sendable {
-    /// "Sync to Apple Health", with its ×.
-    case ask
-    /// Where syncing can be turned on later, until OK.
-    case note(HealthSaving.Note)
-}
-
-extension AppSession {
     /// Log has taken the workout just finished, to bring it into History itself.
     public func takeJustFinished() {
         justFinished = nil
@@ -80,12 +70,30 @@ extension AppSession {
     /// Reads the finished logged workouts again, for Log, once the logged workout's writes have
     /// landed, so a Log shown just after a finish lists it. A read that fails leaves the last one.
     public func refreshLog() async {
-        await loggedWorkoutWritesLanded()
         guard let store else { return }
-        do {
-            log = try await WorkoutLog(loggedWorkouts: store.finishedLoggedWorkouts())
-        } catch {
-            Logger.session.error("The log didn't load: \(error)")
-        }
+        // A finish while the store is read puts its workout in the log at once (`finish(at:)`),
+        // which the read, begun before its write, would take back out: read again after it.
+        var finishesRead: Int
+        repeat {
+            finishesRead = finishes
+            await loggedWorkoutWritesLanded()
+            do {
+                let read = try await WorkoutLog(loggedWorkouts: store.finishedLoggedWorkouts())
+                if finishesRead == finishes {
+                    log = read
+                }
+            } catch {
+                Logger.session.error("The log didn't load: \(error)")
+                return
+            }
+        } while finishesRead != finishes
     }
+}
+
+/// Log's Apple Health line above its calendar (`AppSession.healthPrompt`).
+public enum HealthPrompt: Equatable, Sendable {
+    /// "Sync to Apple Health", with its ×.
+    case ask
+    /// Where syncing can be turned on later, until OK.
+    case note(HealthSaving.Note)
 }

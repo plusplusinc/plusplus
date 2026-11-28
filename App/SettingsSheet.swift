@@ -1,4 +1,5 @@
 import DesignSystem
+import Health
 import Session
 import SwiftUI
 
@@ -16,6 +17,9 @@ struct SettingsSheet: View {
     @Environment(\.scenePhase) private var scenePhase
     /// The phone's own light or dark, once read.
     @State private var phone: ColorScheme?
+    /// Whether the phone can open the Health app (`HealthChoice.healthApp`), read with Health's
+    /// access.
+    @State private var opensHealth = true
 
     var body: some View {
         NavigationStack {
@@ -26,7 +30,11 @@ struct SettingsSheet: View {
                     if let access = health.access, access != .unavailable {
                         GroupLabel("Apple Health")
                             .padding(.top, Spacing.lg)
-                        HealthChoice(health: health, ask: askToSaveToHealth)
+                        HealthChoice(
+                            access: access,
+                            opensHealth: opensHealth,
+                            ask: askToSaveToHealth,
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -44,11 +52,12 @@ struct SettingsSheet: View {
             }
         }
         // Read here, not at launch, so HealthKit stays off the way to the first frame; again
-        // back from the system's settings, so the row shows what was changed there.
-        .onAppear { health.refresh() }
+        // back from the system's settings or the Health app, so the card shows what was changed
+        // there, and a Health app deleted meanwhile takes its button with it.
+        .onAppear(perform: readHealth)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                health.refresh()
+                readHealth()
             }
         }
         // A sheet is a presentation of its own: the window's held scheme reached it as it
@@ -62,6 +71,12 @@ struct SettingsSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .sheetGround()
+    }
+
+    private func readHealth() {
+        health.refresh()
+        // Answers false unless the scheme is declared, in `Config/Info.plist`.
+        opensHealth = UIApplication.shared.canOpenURL(HealthChoice.healthApp)
     }
 }
 
@@ -132,71 +147,44 @@ struct AppearanceChoice: View {
 /// nothing here turns syncing off. Never asked, Off, and a green "Sync to Apple Health", Log's
 /// prompt's words, brings up Apple's sheet; allowed, On, with a neutral "Manage in Apple Health"
 /// that opens the Health app, and where to go in it; denied, Off, with a green "Enable in Apple
-/// Health" and the same line. Where the phone can't open the Health app, as with it deleted,
-/// the two that would open it show only the line, saying it is in Apple Health. Dismissing Log's
+/// Health" and the same line. Where the phone can't open the Health app (`opensHealth`), as with
+/// it deleted, the two that would open it show only the line, saying it is in Apple Health. One
+/// card whose words change, so an answer from its button changes them in place. Dismissing Log's
 /// prompt changes nothing here.
 struct HealthChoice: View {
-    let health: HealthSaving
+    let access: HealthAccess
+    let opensHealth: Bool
     /// The ask, and once allowed, every workout already in Log synced
     /// (`AppSession.askToSaveToHealth()`).
     let ask: () async -> Void
 
-    /// Where to go in Health. The stops after "then" are joined by no-break spaces, so the
-    /// line breaks after "then" and none ends on a stop's arrow.
-    static let healthPath =
-        "Tap your picture,\u{A0}then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
-    /// The same, alone, with no button to the Health app over it.
-    static let healthPathAlone =
-        "In Apple Health, tap your picture,\u{A0}then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
-
-    private func inHealth(_ title: String) -> SettingRow.Change {
-        guard canOpenHealth else { return .directions(Self.healthPathAlone) }
-        return .init(title, opens: "Apple Health", note: Self.healthPath) {
-            openURL(Self.healthApp)
-        }
-    }
-
-    /// Asked each time the card draws, which includes each return to the app (`scenePhase`),
-    /// so a Health app deleted meanwhile takes the button with it. The scheme is declared in
-    /// `Config/Info.plist`, without which iOS answers false.
-    private var canOpenHealth: Bool {
-        _ = scenePhase
-        return UIApplication.shared.canOpenURL(Self.healthApp)
-    }
-
     /// The Health app's front page. Apple documents no link into Health; this one opens it on
     /// iOS 27, and no deeper page can be reached.
-    private static let healthApp = URL(string: "x-apple-health://")!
+    static let healthApp = URL(string: "x-apple-health://")!
+
+    /// Where to go in Health. The stops after "then" are joined by no-break spaces, so the
+    /// line breaks after "then" and none ends on a stop's arrow.
+    private static let stops = "then Privacy\u{A0}›\u{A0}Apps\u{A0}›\u{A0}PlusPlus"
 
     @Environment(\.openURL) private var openURL
-    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        switch health.access {
-        case .notAsked:
-            SettingRow(
-                "Sync workouts",
-                value: "Off",
-                isOn: false,
-                change: .init("Sync to Apple Health") {
-                    Task { await ask() }
-                },
-            )
-        case .on:
-            SettingRow(
-                "Sync workouts",
-                value: "On",
-                isOn: true,
-                change: inHealth("Manage in Apple Health"),
-            )
-        default:
-            SettingRow(
-                "Sync workouts",
-                value: "Off",
-                isOn: false,
-                change: inHealth("Enable in Apple Health"),
-            )
+        let isOn = access == .on
+        SettingRow("Sync workouts", value: isOn ? "On" : "Off", isOn: isOn, change: change)
+    }
+
+    private var change: SettingRow.Change {
+        if access == .notAsked {
+            return .button("Sync to Apple Health") { Task { await ask() } }
         }
+        guard opensHealth else {
+            return .directions("In Apple Health, tap your picture,\u{A0}\(Self.stops)")
+        }
+        return .button(
+            access == .on ? "Manage in Apple Health" : "Enable in Apple Health",
+            opens: "Apple Health",
+            note: "Tap your picture,\u{A0}\(Self.stops)",
+        ) { openURL(Self.healthApp) }
     }
 }
 

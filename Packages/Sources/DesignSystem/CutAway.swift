@@ -39,6 +39,13 @@ extension Animation {
     private static let cardCrossfadeDuration = 0.2
 }
 
+extension AnyTransition {
+    /// A fade on `Animation.cardCrossfade`, a card's or its row's going with Reduce Motion.
+    public static var cardCrossfade: AnyTransition {
+        .opacity.animation(.cardCrossfade)
+    }
+}
+
 /// No change for `duration`, then the whole change at once.
 private struct HoldThenStep: CustomAnimation {
     let duration: TimeInterval

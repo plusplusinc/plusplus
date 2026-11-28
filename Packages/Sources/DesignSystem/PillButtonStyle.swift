@@ -15,15 +15,14 @@ public struct PillButtonStyle: ButtonStyle {
     fileprivate var labelColor: ColorToken = .textPrimary
     fileprivate var filling: KeyFill?
     fileprivate var widens = false
-    /// Its least height at the default text size.
+    /// Its least height at the default text size, never under a tap target's.
     fileprivate var height = Self.touchHeight
-    /// How the body style scales at the text size now, which the height and insets scale by.
+    /// How the body style scales at the text size now, which the height and inset scale by.
     @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
 
-    /// Above and below the label; less on a pill shorter than a tap target, so one line still
-    /// fits its height.
+    /// Above and below the label.
     private var labelInset: CGFloat {
-        (Self.labelInset - max(0, Self.touchHeight - height) / 2) * scale
+        Self.labelInset * scale
     }
 
     private var minHeight: CGFloat {
@@ -75,12 +74,11 @@ extension ButtonStyle where Self == PillButtonStyle {
         PillButtonStyle()
     }
 
-    /// The pill on a `surface` card, in the gray that stands off it, as wide as it is given
-    /// when it `widens`.
-    public static func pillOnSurface(widens: Bool = false) -> PillButtonStyle {
+    /// The pill on a `surface` card, in the gray that stands off it, as wide as it is given.
+    public static var pillOnSurface: PillButtonStyle {
         var style = PillButtonStyle()
         style.fill = .pillOnSurface
-        style.widens = widens
+        style.widens = true
         return style
     }
 
@@ -93,15 +91,13 @@ extension ButtonStyle where Self == PillButtonStyle {
     }
 
     /// The pill in green, the + that adds an exercise's fill and its label's color, `height`
-    /// tall at the default text size and as wide as it is given when it `widens`.
-    public static func greenPill(height: CGFloat? = nil, widens: Bool = false) -> PillButtonStyle {
+    /// tall at the default text size, at least a tap target, and as wide as it is given.
+    public static func greenPill(height: CGFloat = 0) -> PillButtonStyle {
         var style = PillButtonStyle()
         style.fill = .accent
         style.labelColor = .onPrimaryKey
-        style.widens = widens
-        if let height {
-            style.height = height
-        }
+        style.widens = true
+        style.height = max(height, PillButtonStyle.touchHeight)
         return style
     }
 }
@@ -111,7 +107,7 @@ extension ButtonStyle where Self == PillButtonStyle {
         Button("Go to Workouts") { }
             .buttonStyle(.pill)
         Button("Sync to Apple Health") { }
-            .buttonStyle(.greenPill(height: 50, widens: true))
+            .buttonStyle(.greenPill(height: 50))
         Button("OK") { }
             .buttonStyle(.pill(filling: KeyFill(length: 5, ends: .now.addingTimeInterval(3))))
     }

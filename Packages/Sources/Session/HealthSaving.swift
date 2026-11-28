@@ -57,7 +57,7 @@ public final class HealthSaving {
 
     /// The key the removals owed are kept under, for a reset.
     public static let removalsKey = "healthRemovalsOwed"
-    /// The key the card's offer is kept under.
+    /// The key Log's prompt's offer is kept under.
     static let offerKey = "healthOffer"
     /// Every key this keeps on the device, for a reset.
     public static let keys = [removalsKey, offerKey]
@@ -70,16 +70,16 @@ public final class HealthSaving {
         offer = defaults.string(forKey: Self.offerKey).flatMap(Offer.init(rawValue:))
     }
 
-    /// Whether the card that asks to save to Apple Health is offered: a finish has made the
-    /// offer, its × hasn't dismissed it, and the system reads Health as never asked. While
-    /// Apple's sheet is answered, from the card or Settings, or with Health unavailable, it is
+    /// Whether Log's prompt to sync to Apple Health is offered: a finish has made the offer, its
+    /// × hasn't dismissed it, and the system reads Health as never asked. While Apple's sheet
+    /// is answered, from the prompt or Settings, or with Health unavailable, it is
     /// not, with nothing more stored: it is the access read that takes it back. Log shows it
     /// only while it holds a finished workout (`AppSession.healthPrompt`).
     var isOffered: Bool {
         offer == .offered && access == .notAsked
     }
 
-    /// Makes the card's offer at a finish, the first since the app kept one, whatever the access
+    /// Makes the prompt's offer at a finish, the first since the app kept one, whatever the access
     /// then. Whether it shows is the access's to say (`isOffered`): not while Health is
     /// answered or not on the device.
     func offerAtFinish() {

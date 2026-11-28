@@ -23,7 +23,7 @@ extension LogScreen {
                     .padding(.bottom, Spacing.lg)
                     .transition(
                         reduceMotion
-                            ? AnyTransition.opacity.animation(.cardCrossfade)
+                            ? AnyTransition.cardCrossfade
                             : AnyTransition(.cutAway),
                     )
             }

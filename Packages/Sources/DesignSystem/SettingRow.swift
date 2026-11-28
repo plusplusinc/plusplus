@@ -19,39 +19,13 @@ public struct SettingRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
 
-    /// The way to change the setting: the button's words, the app it opens when it leaves this
-    /// one, the line under it, and what the button does; or, where no button can take the
-    /// person there, the line alone (`directions(_:)`).
-    public struct Change {
-        let title: String?
-        /// The app the button opens, which VoiceOver hears in its hint in place of the arrow.
-        let opens: String?
-        let note: String?
-        let action: () -> Void
-
-        public init(
-            _ title: String,
-            opens: String? = nil,
-            note: String? = nil,
-            action: @escaping () -> Void,
-        ) {
-            self.title = title
-            self.opens = opens
-            self.note = note
-            self.action = action
-        }
-
-        private init(note: String) {
-            title = nil
-            opens = nil
-            self.note = note
-            action = { }
-        }
-
-        /// No button, only where to go to change it.
-        public static func directions(_ note: String) -> Self {
-            Self(note: note)
-        }
+    /// The way to change the setting.
+    public enum Change {
+        /// A button: its words, the app it opens when it leaves this one, which VoiceOver hears
+        /// in its hint in place of the arrow, the line under it, and what it does.
+        case button(String, opens: String? = nil, note: String? = nil, action: () -> Void)
+        /// No button can take the person there: only the line on where to go.
+        case directions(String)
     }
 
     public init(_ title: String, value: String, isOn: Bool, change: Change) {
@@ -68,11 +42,12 @@ public struct SettingRow: View {
                 .fill(.pp(.separator))
                 .frame(height: 1 / displayScale)
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                if let title = change.title {
-                    Button(action: change.action) {
+                switch change {
+                case let .button(title, opens, note, action):
+                    Button(action: action) {
                         HStack(spacing: Spacing.sm) {
                             Text(title)
-                            if change.opens != nil {
+                            if opens != nil {
                                 Image(systemName: "arrow.up.forward")
                                     .imageScale(.small)
                                     .fontWeight(.semibold)
@@ -80,21 +55,25 @@ public struct SettingRow: View {
                             }
                         }
                     }
-                    .buttonStyle(isOn ? .pillOnSurface(widens: true) : .greenPill(widens: true))
+                    .buttonStyle(isOn ? .pillOnSurface : .greenPill())
                     // A hint, not the label: Voice Control finds a button by its visible words.
-                    .accessibilityHint(change.opens.map { "Opens \($0)" } ?? "")
-                }
-                if let note = change.note {
-                    Text(note)
-                        .font(.ppCaption)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityHint(opens.map { "Opens \($0)" } ?? "")
+                    note.map(line)
+                case let .directions(note):
+                    line(note)
                 }
             }
             .padding(.top, Spacing.sm + Spacing.xs)
             .padding(.bottom, Spacing.md)
         }
         .settingsCard()
+    }
+
+    private func line(_ note: String) -> some View {
+        Text(note)
+            .font(.ppCaption)
+            .foregroundStyle(.pp(.textSecondary))
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder private var row: some View {
@@ -133,19 +112,19 @@ public struct SettingRow: View {
             "Sync workouts",
             value: "Off",
             isOn: false,
-            change: .init("Sync to Apple Health") { },
+            change: .button("Sync to Apple Health") { },
         )
         SettingRow(
             "Sync workouts",
             value: "On",
             isOn: true,
-            change: .init("Manage in Apple Health", opens: "Apple Health", note: path) { },
+            change: .button("Manage in Apple Health", opens: "Apple Health", note: path) { },
         )
         SettingRow(
             "Sync workouts",
             value: "Off",
             isOn: false,
-            change: .init("Enable in Apple Health", opens: "Apple Health", note: path) { },
+            change: .button("Enable in Apple Health", opens: "Apple Health", note: path) { },
         )
     }
     .padding(Spacing.md)

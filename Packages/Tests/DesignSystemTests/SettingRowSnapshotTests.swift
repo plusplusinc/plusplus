@@ -22,19 +22,19 @@ struct SettingRowSnapshotTests {
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                change: .init("Sync to Apple Health") { },
+                change: .button("Sync to Apple Health") { },
             )
             SettingRow(
                 "Sync workouts",
                 value: "On",
                 isOn: true,
-                change: .init("Manage in Apple Health", opens: "Apple Health", note: path) { },
+                change: .button("Manage in Apple Health", opens: "Apple Health", note: path) { },
             )
             SettingRow(
                 "Sync workouts",
                 value: "Off",
                 isOn: false,
-                change: .init("Enable in Apple Health", opens: "Apple Health", note: path) { },
+                change: .button("Enable in Apple Health", opens: "Apple Health", note: path) { },
             )
             SettingRow(
                 "Sync workouts",
