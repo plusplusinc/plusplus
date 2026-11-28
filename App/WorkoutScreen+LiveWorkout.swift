@@ -164,6 +164,18 @@ extension WorkoutScreen {
         return closingRoomTop ?? (isLanding ? place?.landingY : nil)
     }
 
+    /// Whether the landing room is worked out from the current exercise's row as the list lays
+    /// out (`roomToLand(top:fromMark:)`), not from `landingRoomTop`: while the workout is at rest
+    /// on a set or in a settled rest, where the two are the same place. Read back from the
+    /// row, the room came a pass after the scroll view's size as the app reopened into a
+    /// workout shorter than the screen, and SwiftUI logged a scroll geometry changing twice in
+    /// that frame. Not in a beat: there the room animates from `landingRoomTop`. The mark's top
+    /// in the room is the row's `CurrentPlace.landingY`: the list's top padding, outside the
+    /// room, is the row's label inset.
+    var landsOnMark: Bool {
+        closingRoomTop == nil && (phase.isAtRest || phase.resting?.beat == .settled)
+    }
+
     /// Takes away the screen's room under the list's end once Start or a move to the next
     /// exercise is over. It can go at any moment: `landingRoomTop` holds the landing.
     func letRoomGo() {

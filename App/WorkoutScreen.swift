@@ -276,13 +276,15 @@ struct WorkoutScreen: View {
                 .padding(.bottom, Spacing.md)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
-                .roomToLand(top: landingRoomTop)
+                .roomToLand(top: landingRoomTop, fromMark: landsOnMark)
                 .roomBelow(isMakingRoom)
                 // Outside the rail and the room under the list, which both read it.
                 .listResizes(resizes)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
-                // below the top of the visible area. Starting there keeps the title still.
-                .padding(.top, Spacing.sm)
+                // below the top of the visible area. Starting there keeps the title still. As
+                // tall as a row's label inset, so a row's top in the room above is where the list
+                // lands it (`landsOnMark`).
+                .padding(.top, RailRowMetrics.verticalInset)
                 // Inside the lift, so a row's place is where it lies in the content, as a scroll
                 // position counts, and not where it is drawn as Start's grow runs the lift down.
                 .coordinateSpace(.list)

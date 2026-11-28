@@ -76,6 +76,47 @@ struct LandingRoomTests {
     func noRoomClamps() throws {
         #expect(try restingOffset(landing: nil, height: 40) < Self.landing)
     }
+
+    /// A short list with a row marked at `landing`, in a stack, with no `top` known: as the app
+    /// reopens into a workout, before the row has reported its place.
+    private struct MarkedHost: View {
+        @Bindable var list: Content
+        let isMarked: Bool
+
+        var body: some View {
+            ScrollView {
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: LandingRoomTests.landing)
+                    Color.clear.frame(height: 40).landingMark(isMarked)
+                }
+                .frame(maxWidth: .infinity)
+                .roomToLand(top: nil, fromMark: true)
+            }
+            .scrollPosition($list.position)
+        }
+    }
+
+    @Test(
+        "A marked row in a stack gives the landing's room with no top given",
+        arguments: [true, false],
+    )
+    func markGivesTheRoom(isMarked: Bool) throws {
+        let list = Content()
+        let host = UIHostingController(rootView: MarkedHost(list: list, isMarked: isMarked))
+        let window = UIWindow.sceneless(hosting: host, at: .large)
+        window.settle()
+        let scroll = try #require(window.firstScrollView, "No scroll view hosted")
+        let visible = scroll.bounds.height - scroll.adjustedContentInset.top
+            - scroll.adjustedContentInset.bottom
+        #expect(
+            (scroll.contentSize.height >= Self.landing + visible - 0.5) == isMarked,
+            "Content \(scroll.contentSize.height), visible \(visible)",
+        )
+        list.position.scrollTo(y: Self.landing)
+        window.settle()
+        let resting = scroll.contentOffset.y + scroll.adjustedContentInset.top
+        #expect((abs(resting - Self.landing) < 0.5) == isMarked, "Rests at \(resting)")
+    }
 }
 
 #endif
