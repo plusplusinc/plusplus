@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-@Suite("Logged workout")
+@Suite("Workout session")
 struct WorkoutSessionTests {
     private let start = Date(timeIntervalSinceReferenceDate: 1000)
 
@@ -151,7 +151,7 @@ struct WorkoutSessionTests {
     }
 }
 
-@Suite("Logged workout text")
+@Suite("Workout session text")
 struct WorkoutSessionTextTests {
     private let locale = Locale(identifier: "en_US")
 

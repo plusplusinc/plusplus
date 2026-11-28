@@ -16,7 +16,7 @@ public final class HealthSaving {
     /// Counts the reads begun, so a read that comes back after a later one began is dropped.
     @ObservationIgnored private var readsBegun = 0
     @ObservationIgnored private var isAsking = false
-    /// The logged workouts deleted from Log whose Health workout is owed a removal, the oldest
+    /// The workout sessions deleted from Log whose Health workout is owed a removal, the oldest
     /// first, kept in `defaults` as their uuids so a relaunch still makes them. None is ever
     /// dropped unmade: a dropped one would leave its workout in Health for good.
     @ObservationIgnored private(set) var removalsOwed: [WorkoutSession.ID]
@@ -154,17 +154,17 @@ public final class HealthSaving {
         return true
     }
 
-    /// Removes every workout the app saved for the logged workouts `ids` (`HealthClient.remove`).
+    /// Removes every workout the app saved for the workout sessions `ids` (`HealthClient.remove`).
     func remove(_ ids: [WorkoutSession.ID]) async throws {
         try await client.remove(ids)
     }
 
-    /// Whether a removal is owed for the logged workout `id`: deleted from Log, so never saved.
+    /// Whether a removal is owed for the workout session `id`: deleted from Log, so never saved.
     func owesRemoval(of id: WorkoutSession.ID) -> Bool {
         removalsOwed.contains(id)
     }
 
-    /// Keeps a removal owed for the logged workout `id`, on the device, before its delete is
+    /// Keeps a removal owed for the workout session `id`, on the device, before its delete is
     /// sent; none while Health was never asked or isn't on the device, as nothing of it can be
     /// there. With the access not yet read, one is kept.
     func oweRemoval(of id: WorkoutSession.ID) {

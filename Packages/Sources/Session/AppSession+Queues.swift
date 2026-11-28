@@ -2,7 +2,7 @@ import OSLog
 import WorkoutStore
 
 /// The queues the session writes to the store through, each landing its writes in order: the
-/// open workout's saves, newest only, and a logged workout's writes, every one. Apple Health's
+/// open workout's saves, newest only, and a workout session's writes, every one. Apple Health's
 /// queue, which follows the second's shape, is in `AppSession+Health.swift`.
 extension AppSession {
     /// A workout to save, and whether to keep it once it is empty, as while it is in progress.
@@ -18,7 +18,7 @@ extension AppSession {
 
     enum WorkoutSessionQueueEntry {
         case write(WorkoutSessionWrite)
-        /// A finished logged workout deleted from Log, after any write of it still on its way.
+        /// A finished workout session deleted from Log, after any write of it still on its way.
         case delete(WorkoutSession.ID)
         /// Every write before it has landed.
         case landed(CheckedContinuation<Void, Never>)
@@ -60,14 +60,14 @@ extension AppSession {
                     case let .landed(done): done.resume()
                     }
                 } catch {
-                    Logger.session.error("A logged workout's write didn't land: \(error)")
+                    Logger.session.error("A workout session's write didn't land: \(error)")
                 }
             }
         }
         return continuation
     }
 
-    /// Returns once every logged workout write sent so far has landed, or failed.
+    /// Returns once every workout session write sent so far has landed, or failed.
     func workoutSessionWritesLanded() async {
         await withCheckedContinuation { done in workoutSessionWrites.yield(.landed(done)) }
     }

@@ -171,7 +171,7 @@ extension LiveWorkout {
         return workout.startIn(before: set) > 0 || isOnTimedSet
     }
 
-    /// The logged workout as `edited` replaces the workout: a count kept for a set whose row
+    /// The workout session as `edited` replaces the workout: a count kept for a set whose row
     /// changed measure, reps to a time or back, goes, so it never comes back with its old start
     /// and the set opens on the "Start in" due before it from the edit
     /// (`beginningCount(at:)`). Decided as the edit is written, never from a

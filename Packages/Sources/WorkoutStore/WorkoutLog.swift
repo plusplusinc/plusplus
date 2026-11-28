@@ -1,12 +1,12 @@
 import Foundation
 
-/// The record of finished logged workouts, newest first, and its readings: an opened logged
-/// workout's exercises against the time before, the diff over the period (`LogPeriod`), and what
-/// has been left alone. Days are calendar days, and a logged workout's day is the one it started
+/// The record of finished workout sessions, newest first, and its readings: an opened workout
+/// session's exercises against the time before, the diff over the period (`LogPeriod`), and what
+/// has been left alone. Days are calendar days, and a workout session's day is the one it started
 /// on, as its row reads: it is `n` days ago when `n` days lie between the start of that day and
 /// the start of today.
 public struct WorkoutLog: Equatable, Sendable {
-    /// Finished logged workouts, the latest finish first.
+    /// Finished workout sessions, the latest finish first.
     public let workoutSessions: [WorkoutSession]
 
     public init(workoutSessions: [WorkoutSession]) {
@@ -22,7 +22,7 @@ public struct WorkoutLog: Equatable, Sendable {
             }
     }
 
-    /// The log without `id`'s logged workout, as History shows it until a workout just finished
+    /// The log without `id`'s workout session, as History shows it until a workout just finished
     /// comes in; the whole log with none.
     public func leavingOut(_ id: WorkoutSession.ID?) -> Self {
         guard let id else { return self }
@@ -33,8 +33,8 @@ public struct WorkoutLog: Equatable, Sendable {
         workoutSessions.first { $0.id == id }
     }
 
-    /// The logged workout's exercises in the order done, each with the change from the newest
-    /// logged workout that finished before this one started and has a set of the same exercise.
+    /// The workout session's exercises in the order done, each with the change from the newest
+    /// workout session that finished before this one started and has a set of the same exercise.
     public func exercises(
         of workoutSession: WorkoutSession,
         in list: ExerciseList,
@@ -54,27 +54,27 @@ public struct WorkoutLog: Equatable, Sendable {
         }
     }
 
-    /// How many days before `now` the logged workout started, in `calendar`'s days.
+    /// How many days before `now` the workout session started, in `calendar`'s days.
     static func daysAgo(_ workoutSession: WorkoutSession, now: Date, calendar: Calendar) -> Int {
         let start = calendar.startOfDay(for: workoutSession.startedAt)
         let today = calendar.startOfDay(for: now)
         return calendar.dateComponents([.day], from: start, to: today).day ?? 0
     }
 
-    /// The logged workouts started in the period around `now`, newest first.
+    /// The workout sessions started in the period around `now`, newest first.
     func inPeriod(now: Date, calendar: Calendar) -> [WorkoutSession] {
         let firstDay = LogPeriod.firstDay(calendar: calendar, now: now)
         // Bounded by `now` as History's count and calendar are (`LogPeriod`).
         return workoutSessions.filter { $0.startedAt >= firstDay && $0.startedAt <= now }
     }
 
-    /// The period around `now`, with the days a logged workout started on.
+    /// The period around `now`, with the days a workout session started on.
     public func period(now: Date, calendar: Calendar) -> LogPeriod {
         LogPeriod(workoutSessions: workoutSessions, calendar: calendar, now: now)
     }
 
-    /// Every exercise in the logged workouts, by id, with its top set in each, oldest logged
-    /// workout first, and the name and sides the newest logged it with.
+    /// Every exercise in the workout sessions, by id, with its top set in each, oldest workout
+    /// session first, and the name and sides the newest logged it with.
     func history(of workoutSessions: [WorkoutSession], in list: ExerciseList) -> [ExerciseHistory] {
         var order: [String] = []
         var byID: [String: ExerciseHistory] = [:]
@@ -99,14 +99,14 @@ public struct WorkoutLog: Equatable, Sendable {
     }
 }
 
-/// One exercise across several logged workouts.
+/// One exercise across several workout sessions.
 struct ExerciseHistory {
     let id: String
     var name: String
     let exercise: Exercise?
     /// As the newest logged it, as `name` is.
     var isPerSide: Bool
-    /// Oldest logged workout first.
+    /// Oldest workout session first.
     var topSets: [TopSet] = []
     var lastDone = Date.distantPast
 }

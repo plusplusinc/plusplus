@@ -245,7 +245,7 @@ extension LogScreen {
         }
     }
 
-    /// A logged workout's name as it was, New workout for an empty one.
+    /// A workout session's name as it was, New workout for an empty one.
     static func name(of workoutSession: WorkoutSession) -> String {
         workoutSession.workoutName.isEmpty ? WorkoutScreen.defaultName : workoutSession.workoutName
     }

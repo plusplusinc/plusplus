@@ -19,7 +19,7 @@ extension LaunchOptions {
     }
 }
 
-/// The finished logged workouts `-seedLog` saves.
+/// The finished workout sessions `-seedLog` saves.
 private enum LogSeed {
     /// What one set is, as done and as planned.
     struct Done {

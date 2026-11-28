@@ -2,7 +2,7 @@ import Health
 import WorkoutStore
 
 extension AppSession {
-    /// A session where the app opens (`Store.Launch`): on its workout, the logged workout in
+    /// A session where the app opens (`Store.Launch`): on its workout, the workout session in
     /// progress with it, or on the Workouts screen over a new workout after a finish. A new
     /// workout otherwise.
     public convenience init(

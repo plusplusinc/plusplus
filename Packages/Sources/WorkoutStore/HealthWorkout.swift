@@ -42,7 +42,7 @@ public enum HealthActivity: String, Equatable, Sendable {
 /// What Apple Health gets for a finished workout: its type, its start and end, and its pauses,
 /// which Health leaves out of the length. Nothing else: no calories, none being measured.
 public struct HealthWorkout: Equatable, Sendable {
-    /// The logged workout it was made from.
+    /// The workout session it was made from.
     public let id: WorkoutSession.ID
     public let activity: HealthActivity
     public let start: Date

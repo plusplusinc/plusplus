@@ -1,7 +1,7 @@
 import Foundation
 
 /// The situation a workout is in, as the person doing it would say it. Worked out from the
-/// stored logged workout and the moment (`LiveWorkout.situation(at:)`), never
+/// stored workout session and the moment (`LiveWorkout.situation(at:)`), never
 /// stored. Paused is not a case: every case is read on the workout's clock, which stands still
 /// while paused, so a pause keeps the situation under it.
 ///

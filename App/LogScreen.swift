@@ -15,7 +15,7 @@ import WorkoutStore
 /// History opens on a green button to sync workouts there (`healthPromptSlot`), until its ×
 /// dismisses it for good.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
-/// logged workout's row pushes it, read-only, with the system push, as a saved workout is
+/// workout session's row pushes it, read-only, with the system push, as a saved workout is
 /// pushed on Workouts, and swiped left offers Delete, as a saved workout's row does there.
 struct LogScreen: View {
     @Bindable var session: AppSession
@@ -37,11 +37,11 @@ struct LogScreen: View {
     /// View state: it starts on History each time Log opens from the drawer, and holds across a
     /// push and pop, since the stack keeps its root.
     @State var tab = Tab.history
-    /// The logged workout Delete last asked about, kept as the alert goes, so its line keeps the
+    /// The workout session Delete last asked about, kept as the alert goes, so its line keeps the
     /// name and day.
     @State var deleting: WorkoutSession?
     @State var isAskingToDelete = false
-    /// Logged workouts whose delete is confirmed, left out of History from the confirming tap,
+    /// Workout sessions whose delete is confirmed, left out of History from the confirming tap,
     /// before the store has taken the delete.
     @State var leaving: Set<WorkoutSession.ID> = []
     /// The workout just finished, left out of History until it comes in, a moment after the
@@ -184,8 +184,8 @@ struct LogScreen: View {
         isAskingToDelete = true
     }
 
-    /// Takes the row out at once, the rows below closing the gap, then deletes the logged
-    /// workout; the log read after it moves the count, the calendar, Diff, and Balance.
+    /// Takes the row out at once, the rows below closing the gap, then deletes the workout
+    /// session; the log read after it moves the count, the calendar, Diff, and Balance.
     private func delete(_ id: WorkoutSession.ID) {
         withAnimation(.snappy) {
             _ = leaving.insert(id)
@@ -234,7 +234,7 @@ struct LogScreen: View {
         session.log?.leavingOut(arriving).workoutSessions.isEmpty == true
     }
 
-    /// The pushed logged workout, which the back button and the back swipe pop.
+    /// The pushed workout session, which the back button and the back swipe pop.
     private var pushedWorkoutSession: Binding<WorkoutSession.ID?> {
         Binding {
             if case let .workoutSession(id) = session.screen {

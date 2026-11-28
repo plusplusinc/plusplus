@@ -4,7 +4,7 @@ import SwiftData
 
 /// What Apple Health is owed, read from the stored workouts alone: no list is kept beside them.
 extension Store {
-    /// Every finished logged workout Health has no id for and can have as it is
+    /// Every finished workout session Health has no id for and can have as it is
     /// (`WorkoutSession.healthWithheld`), the earliest finish first, a tie by id. Each withheld
     /// one stays stored without an id, so every catch-up looks at it again. The sets come in the
     /// same fetch: a workout with no stored type takes its type from them.
@@ -22,7 +22,7 @@ extension Store {
         return owed
     }
 
-    /// Which of the logged workouts `ids` the store still holds: a delete of one of these never
+    /// Which of the workout sessions `ids` the store still holds: a delete of one of these never
     /// landed.
     public func heldWorkoutSessions(among ids: [WorkoutSession.ID]) throws
         -> Set<WorkoutSession.ID>
@@ -32,8 +32,8 @@ extension Store {
         return try Set(modelContext.fetch(held).map(\.id))
     }
 
-    /// Keeps `healthID` as the Health workout saved for the logged workout `id`; nothing if it
-    /// is gone. The one write of the id: a save of a logged workout never changes it.
+    /// Keeps `healthID` as the Health workout saved for the workout session `id`; nothing if it
+    /// is gone. The one write of the id: a save of a workout session never changes it.
     public func markInHealth(_ id: WorkoutSession.ID, as healthID: UUID) throws {
         guard let stored = try storedWorkoutSession(id: id) else { return }
         stored.update(\.healthWorkoutID, to: healthID)

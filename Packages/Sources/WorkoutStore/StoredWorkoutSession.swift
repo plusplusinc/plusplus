@@ -64,7 +64,7 @@ extension StoredWorkoutSession {
         return SetCount(set: set, startClock: countStartClock, added: countAdded)
     }
 
-    /// The logged workout, its sets in the order logged; a set it can't read is left out.
+    /// The workout session, its sets in the order logged; a set it can't read is left out.
     var workoutSession: WorkoutSession {
         var workoutSession = WorkoutSession(
             id: id,

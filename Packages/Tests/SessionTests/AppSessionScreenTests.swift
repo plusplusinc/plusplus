@@ -68,7 +68,7 @@ struct AppSessionScreenTests {
         #expect(!session.isDrawerOpen)
     }
 
-    @Test("A logged workout opened from History is pushed on Log, still marking Log; back pops it")
+    @Test("A workout session opened from History is pushed on Log, still marking Log; back pops it")
     func openWorkoutSession() {
         let session = session()
         session.showLog()
@@ -85,7 +85,7 @@ struct AppSessionScreenTests {
         #expect(session.screen == .workouts)
     }
 
-    @Test("Log reads the finished logged workouts, leaving one in progress out")
+    @Test("Log reads the finished workout sessions, leaving one in progress out")
     func refreshLog() async throws {
         let finished = WorkoutSession(
             workoutID: saved.id,

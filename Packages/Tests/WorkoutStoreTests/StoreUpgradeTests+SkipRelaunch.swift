@@ -103,7 +103,7 @@ extension StoreUpgradeTests {
         ))
     }
 
-    /// Expects `writeV12`'s two logged workouts as V12 stored them, with no rest skipped.
+    /// Expects `writeV12`'s two workout sessions as V12 stored them, with no rest skipped.
     private static func expectAsWritten(running: WorkoutSession, finished: [WorkoutSession]) {
         #expect(running.startedAt == Date(timeIntervalSinceReferenceDate: 2000))
         #expect(running.count == nil)

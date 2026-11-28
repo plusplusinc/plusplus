@@ -10,7 +10,7 @@ extension TitleWrappingUITests {
     /// equipment, seeded, since adding is the later checks', and pushes it from the Workouts
     /// screen: Start and a relaunch land on the current exercise, and a workout's bar, paused,
     /// and End's dialog pass the audit. Running, the bar differs only in its key's shorter
-    /// Pause. Leaves the workout showing, the logged workout discarded.
+    /// Pause. Leaves the workout showing, the workout session discarded.
     func liveWorkoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
             .runActivity(named: "A workout at AX5 lands, and its bar passes the audit") { _ in

@@ -145,7 +145,7 @@ struct StoreUpgradeTests {
     }
 
     @Test(
-        "A store written before logged workouts opens with every workout, then keeps a logged one",
+        "A store written before workout sessions opens with every workout, then keeps a session",
     )
     func upgradeBeforeWorkoutSessions() async throws {
         let folder = FileManager.default.temporaryDirectory

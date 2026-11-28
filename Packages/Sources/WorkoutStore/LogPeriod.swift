@@ -3,7 +3,7 @@ import Foundation
 /// The days Log reads over: four full calendar weeks ending with this week, each starting on the
 /// calendar's first weekday, so the period's first day is the first day of the week three weeks
 /// before this one, and its last day is today. History, Diff, and Balance all read from the
-/// first day. A logged workout belongs to the day it started, in the calendar's time zone, as
+/// first day. A workout session belongs to the day it started, in the calendar's time zone, as
 /// its row's date reads: one that runs past midnight marks the day it began.
 public struct LogPeriod: Equatable, Sendable {
     /// The weeks the period spans, this week's included.
@@ -13,7 +13,7 @@ public struct LogPeriod: Equatable, Sendable {
     public struct Day: Identifiable, Equatable, Sendable {
         /// The start of the day.
         public let date: Date
-        /// A finished logged workout started on it.
+        /// A finished workout session started on it.
         public let hasWorkoutSession: Bool
         public let isToday: Bool
         /// After today, in this week's row: not drawn.
@@ -31,11 +31,11 @@ public struct LogPeriod: Equatable, Sendable {
     /// `weekCount` weeks of seven days, oldest first, each starting on the calendar's first
     /// weekday.
     public let weeks: [[Day]]
-    /// The finished logged workouts that started in the period, up to `now`.
+    /// The finished workout sessions that started in the period, up to `now`.
     public let workoutSessionCount: Int
 
-    /// The period around `now`, with the days on which one of `workoutSessions` started. Logged
-    /// workouts still in progress don't count.
+    /// The period around `now`, with the days on which one of `workoutSessions` started. Workout
+    /// sessions still in progress don't count.
     public init(workoutSessions: [WorkoutSession], calendar: Calendar, now: Date) {
         let firstDay = Self.firstDay(calendar: calendar, now: now)
         let today = calendar.startOfDay(for: now)

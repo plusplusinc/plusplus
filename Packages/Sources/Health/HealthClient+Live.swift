@@ -65,7 +65,7 @@ extension HealthClient {
         return try await builder.finishWorkout()?.uuid
     }
 
-    /// Every workout the app saved for any of the logged workouts `ids` (`metadata(for:)`).
+    /// Every workout the app saved for any of the workout sessions `ids` (`metadata(for:)`).
     private static func tagged(_ ids: [WorkoutSession.ID]) -> NSPredicate {
         HKQuery.predicateForObjects(
             withMetadataKey: HKMetadataKeyExternalUUID,
@@ -81,7 +81,7 @@ extension HealthClient {
         return configuration
     }
 
-    /// Indoors, for Health's "Indoor Workout" row, and the logged workout's own id, by which the
+    /// Indoors, for Health's "Indoor Workout" row, and the workout session's own id, by which the
     /// app can find the Health workout it saved for one.
     static func metadata(for workout: HealthWorkout) -> [String: Any] {
         [

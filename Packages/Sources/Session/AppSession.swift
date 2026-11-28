@@ -5,7 +5,7 @@ import OSLog
 import WorkoutStore
 
 /// The workout open on screen, which screen shows, the switch to another workout, and the
-/// logged workout in progress on it.
+/// workout session in progress on it.
 ///
 /// It owns saving, so a switch waits for the last edit to land before opening the next workout:
 /// an edit just before a switch is never lost, and the workout opened is newer than the one left.
@@ -44,12 +44,12 @@ public final class AppSession {
     @ObservationIgnored var beatClock: any Clock<Duration> = ContinuousClock()
     /// Where the app is, under the drawer (`Screen`).
     public internal(set) var screen = Screen.workout
-    /// The finished logged workouts as of the last read (`refreshLog()`), with any finished since
+    /// The finished workout sessions as of the last read (`refreshLog()`), with any finished since
     /// (`finish(at:)`); nil until the first read.
     public internal(set) var log: WorkoutLog?
     /// Counts the finishes, so a read of the log begun before one reads again (`refreshLog()`).
     @ObservationIgnored var finishes = 0
-    /// The logged workout in progress on the open workout, from Start until Finish or Discard.
+    /// The workout session in progress on the open workout, from Start until Finish or Discard.
     public private(set) var workoutSession: WorkoutSession?
     /// The workout just finished, which Log has yet to bring into History; taken by Log as it
     /// shows (`takeJustFinished()`). Unobserved: nothing is drawn from it, it only seeds Log's
@@ -72,14 +72,14 @@ public final class AppSession {
     public let health: HealthSaving
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
     @ObservationIgnored let store: Store?
-    /// Names a logged workout after its workout, at Start and again at Finish.
+    /// Names a workout session after its workout, at Start and again at Finish.
     @ObservationIgnored private let namer: WorkoutNamer
     /// Where every change to the workout goes, to be saved one at a time in the order they
     /// happened, so an older version can never land last. Only the newest unsaved one waits.
     @ObservationIgnored private var saves: AsyncStream<WorkoutSave>.Continuation
     @ObservationIgnored private var saving: Task<Void, Never>
-    /// Where every change to a logged workout goes, saved in the order they happened. Each
-    /// waits its turn: one logged workout's end and the next one's start can both be waiting,
+    /// Where every change to a workout session goes, saved in the order they happened. Each
+    /// waits its turn: one workout session's end and the next one's start can both be waiting,
     /// and keeping only the newest would drop the end, leaving the first in progress in the store.
     @ObservationIgnored
     let workoutSessionWrites: AsyncStream<WorkoutSessionQueueEntry>.Continuation
@@ -171,7 +171,7 @@ public final class AppSession {
         isDrawerOpen = false
     }
 
-    /// Starts a logged workout on `workout`, named as the workout shows now, when
+    /// Starts a workout session on `workout`, named as the workout shows now, when
     /// `canStart(on:)` allows it, on the screen showing it, at the root or pushed on the
     /// Workouts screen, so that screen's own Start plays: a pushed workout swapped for a fresh
     /// screen at the root cut to it, with none of Start's motion. Until the workout ends,
@@ -196,12 +196,12 @@ public final class AppSession {
             && !current.exercises.isEmpty
     }
 
-    /// The name the open workout shows, which its logged workout keeps: empty for New workout.
+    /// The name the open workout shows, which its workout session keeps: empty for New workout.
     var shownName: String {
         namer.shownName(of: current) ?? ""
     }
 
-    /// The one way the logged workout changes: to what `write` stores, sent to be stored in the
+    /// The one way the workout session changes: to what `write` stores, sent to be stored in the
     /// same call, so no change shows that a relaunch would lose. One saved in progress is the
     /// one running; one saved ended, or discarded, leaves none.
     func change(_ write: WorkoutSessionWrite) {
@@ -329,7 +329,7 @@ public final class AppSession {
     }
 
     /// Returns once every change sent so far has landed in the store: the workout's edits, as a
-    /// switch lets them land, then the logged workout's writes, in their order. For tests, which
+    /// switch lets them land, then the workout session's writes, in their order. For tests, which
     /// wait on it rather than on time.
     func writesLanded() async {
         await finishSaving()
@@ -367,7 +367,7 @@ extension AppSession {
 }
 
 extension AppSession {
-    /// Deletes a saved workout, its logged workouts staying stored. For the open one, its last
+    /// Deletes a saved workout, its workout sessions staying stored. For the open one, its last
     /// edit lands and the session takes a new, empty workout and shows Workouts, whether the
     /// deleted one was pushed or at the root, before the store deletes it, so no save can bring
     /// it back. Refused for a workout in progress, and while a switch is under way. A

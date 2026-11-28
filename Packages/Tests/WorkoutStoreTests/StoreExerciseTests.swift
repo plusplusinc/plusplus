@@ -51,7 +51,7 @@ struct StoreExerciseTests {
         #expect(list == ExerciseList(created: [renamed]))
     }
 
-    @Test("A workout and a logged workout in progress reopen with a created exercise's row")
+    @Test("A workout and a workout session in progress reopen with a created exercise's row")
     func workoutReopens() async throws {
         let store = relaunch()
         try await store.save(Self.ringRow)

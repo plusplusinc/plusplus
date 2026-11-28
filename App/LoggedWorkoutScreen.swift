@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A finished logged workout, pushed onto Log, read-only: its workout's name as it was, centered
+/// A finished workout session, pushed onto Log, read-only: its workout's name as it was, centered
 /// in the bar as its inline title beside the system's back button; its day, length, and sets,
 /// then its exercises in the order done, each with its rounds' figures in purple, the change from
 /// the time before it was done (a gain in green, anything else in gray), and a quiet line for one

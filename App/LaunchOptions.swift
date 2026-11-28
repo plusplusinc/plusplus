@@ -62,7 +62,7 @@ enum LaunchOptions {
         )
     }
 
-    /// Empties the store, then saves the workout and the logged workout the launch arguments ask
+    /// Empties the store, then saves the workout and the workout session the launch arguments ask
     /// for.
     static func resetStore(
         _ store: Store,
@@ -99,7 +99,7 @@ enum LaunchOptions {
     }
 }
 
-/// The workout, and the logged workout on it, that `-seedExercises`, `-seedName`,
+/// The workout, and the workout session on it, that `-seedExercises`, `-seedName`,
 /// `-seedSuperset`, `-seedSets`, and `-seedWorkout` ask for.
 struct SeededWorkout {
     let name: String

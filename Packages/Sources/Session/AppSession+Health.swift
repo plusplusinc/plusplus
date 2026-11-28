@@ -14,7 +14,7 @@ extension AppSession {
         case landed(CheckedContinuation<Void, Never>)
     }
 
-    /// Saves to Health what it is owed, with saving on, once every logged workout write sent
+    /// Saves to Health what it is owed, with saving on, once every workout session write sent
     /// before it has landed: at launch, after a finish, after the person allows it, and as the
     /// app comes back to the front. One already queued and not yet started covers this ask, so
     /// nothing more is queued.

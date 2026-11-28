@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 import SwiftData
 
-/// Saves workouts and logged workouts, and finds what the app opens with. Values in, values out:
+/// Saves workouts and workout sessions, and finds what the app opens with. Values in, values out:
 /// the stored models never leave the actor.
 @ModelActor
 public actor Store {
@@ -26,10 +26,10 @@ public actor Store {
         }
     }
 
-    /// What the app opens with (`Launch`). A logged workout in progress opens with its workout,
+    /// What the app opens with (`Launch`). A workout session in progress opens with its workout,
     /// or, if that is gone, an empty one under its id and name; with more than one, as sync could
-    /// leave, the latest started. Otherwise the workout last opened or edited, unless a logged
-    /// workout finished after that, which opens the Workouts list; with no saved workout, a new
+    /// leave, the latest started. Otherwise the workout last opened or edited, unless a workout
+    /// session finished after that, which opens the Workouts list; with no saved workout, a new
     /// one. Every stored workout has been edited, since an untouched one is never saved and a
     /// cleared one is deleted. A weight never saved reads as its exercise's default in
     /// `weightUnit`.
@@ -65,7 +65,7 @@ public actor Store {
         ))
     }
 
-    /// Saves the logged workout as it is now, every field. Once it has ended, its workout, if
+    /// Saves the workout session as it is now, every field. Once it has ended, its workout, if
     /// cleared to nothing while it ran, goes in the same save.
     public func save(_ workoutSession: WorkoutSession) throws {
         let target = try storedWorkoutSession(id: workoutSession.id) ?? {
@@ -81,7 +81,7 @@ public actor Store {
         try modelContext.save()
     }
 
-    /// Diffs the logged workout's stored sets against `sets` by id: a set gone is deleted, a
+    /// Diffs the workout session's stored sets against `sets` by id: a set gone is deleted, a
     /// new one inserted, and each written at its place in the order logged. A stored set this build
     /// can't read, never in `sets`, is kept rather than taken for one gone.
     private func writeSets(_ sets: [LoggedSet], of workoutSession: StoredWorkoutSession) {
@@ -103,8 +103,8 @@ public actor Store {
         }
     }
 
-    /// Every finished logged workout, the latest finish first, a tie by id. All of them, not a
-    /// window: an opened logged workout compares with the time before, however long ago.
+    /// Every finished workout session, the latest finish first, a tie by id. All of them, not a
+    /// window: an opened workout session compares with the time before, however long ago.
     public func finishedWorkoutSessions() throws -> [WorkoutSession] {
         let finished = FetchDescriptor<StoredWorkoutSession>(
             predicate: #Predicate { $0.endedAt != nil },
@@ -113,7 +113,7 @@ public actor Store {
         return try modelContext.fetch(finished).map(\.workoutSession)
     }
 
-    /// Deletes the logged workout, keeping nothing of it, its sets with it, and its workout if
+    /// Deletes the workout session, keeping nothing of it, its sets with it, and its workout if
     /// cleared to nothing while it ran, in one save; nothing if there is none. A discard that
     /// doesn't save is undone, all of it (`saveOrRollback()`).
     public func discardWorkoutSession(_ id: WorkoutSession.ID) throws {
@@ -125,7 +125,7 @@ public actor Store {
         try saveOrRollback()
     }
 
-    /// Deletes a finished logged workout and its sets; nothing if there is none, or if it is still
+    /// Deletes a finished workout session and its sets; nothing if there is none, or if it is still
     /// in progress, which only Discard ends without keeping. Its workout stays, as it holds no
     /// link to it. A delete that doesn't save is undone (`saveOrRollback()`). Its removal from
     /// Apple Health is `AppSession.deleteWorkoutSession(_:)`'s, the one caller.
@@ -148,8 +148,8 @@ public actor Store {
         }
     }
 
-    /// A workout cleared to nothing is kept only while it is in progress; ending the logged
-    /// workout deletes it in the same save, so no empty workout outlives one cut short between
+    /// A workout cleared to nothing is kept only while it is in progress; ending the workout
+    /// session deletes it in the same save, so no empty workout outlives one cut short between
     /// two writes.
     private func deleteIfCleared(workoutID: UUID) throws {
         guard let workout = try stored(id: workoutID),
@@ -158,7 +158,7 @@ public actor Store {
         modelContext.delete(workout)
     }
 
-    /// Deletes the workout and its rows; nothing if there is none. Its logged workouts hold its id
+    /// Deletes the workout and its rows; nothing if there is none. Its workout sessions hold its id
     /// and name, not a relationship, so they stay stored. A delete that doesn't save is undone
     /// (`saveOrRollback()`).
     public func deleteWorkout(_ id: Workout.ID) throws {
@@ -243,7 +243,7 @@ public actor Store {
     }
 
     #if DEBUG
-    /// Empties the store, so a UI test starts from a new workout, no logged workout, and no
+    /// Empties the store, so a UI test starts from a new workout, no workout session, and no
     /// exercise anyone created or customized.
     public func deleteAll() throws {
         for exercise in try modelContext.fetch(FetchDescriptor<StoredExercise>()) {

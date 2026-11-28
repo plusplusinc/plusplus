@@ -143,7 +143,7 @@ extension WorkoutPhase {
         return set
     }
 
-    /// As a logged workout ends, the one ending, as it was, until its time has faded: the time
+    /// As a workout session ends, the one ending, as it was, until its time has faded: the time
     /// key's glass stays in the bar while the time fades out of it.
     public var endingWorkoutSession: WorkoutSession? {
         guard case let .ending(ending) = self, ending.beat < .timeGone else { return nil }

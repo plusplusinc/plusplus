@@ -7,7 +7,7 @@ extension WorkoutPhase {
         return ending.beat == .began
     }
 
-    /// The logged workout End took from the store, while the list still draws it.
+    /// The workout session End took from the store, while the list still draws it.
     public var drawnWorkoutSession: WorkoutSession? {
         guard case let .ending(ending) = self, ending.drawsLiveWorkout else { return nil }
         return ending.workoutSession

@@ -22,17 +22,17 @@ final class FakeHealth: Sendable {
     private let heldAskDone = Mutex<CheckedContinuation<Void, Never>?>(nil)
     private let heldAsks: AsyncStream<Void>
     private let heldAsk: AsyncStream<Void>.Continuation
-    /// The logged workouts of each removal.
+    /// The workout sessions of each removal.
     let removals = Mutex<[[WorkoutSession.ID]]>([])
-    /// The logged workouts Health holds a workout tagged for, as saves and removals leave them.
+    /// The workout sessions Health holds a workout tagged for, as saves and removals leave them.
     let inHealth = Mutex<Set<WorkoutSession.ID>>([])
     /// Whether removals throw, with access on.
     let refusesRemovals = Mutex(false)
-    /// Each workout saved, with the finished logged workouts the store held as it was.
+    /// Each workout saved, with the finished workout sessions the store held as it was.
     let saves = Mutex<[(workout: HealthWorkout, stored: [WorkoutSession.ID])]>([])
-    /// Each logged workout a save was tried for, saved or not.
+    /// Each workout session a save was tried for, saved or not.
     let attempts = Mutex<[WorkoutSession.ID]>([])
-    /// Logged workouts whose saves throw, with access on, for as long as they are here.
+    /// Workout sessions whose saves throw, with access on, for as long as they are here.
     let fails = Mutex<Set<WorkoutSession.ID>>([])
     /// Whether the next access read, having read the access, waits for `releaseRead()`.
     let holdsNextRead = Mutex(false)

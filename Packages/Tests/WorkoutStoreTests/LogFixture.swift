@@ -50,7 +50,7 @@ enum LogFixture {
         )
     }
 
-    /// A logged workout of 51 minutes, finished `daysAgo` calendar days before `now` at 11 am.
+    /// A workout session of 51 minutes, finished `daysAgo` calendar days before `now` at 11 am.
     static func workoutSession(
         daysAgo: Int,
         _ sets: [LoggedSet],

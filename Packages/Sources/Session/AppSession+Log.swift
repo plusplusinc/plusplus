@@ -9,21 +9,21 @@ extension AppSession {
         closeDrawer()
     }
 
-    /// Pushes a finished logged workout onto Log, read-only.
+    /// Pushes a finished workout session onto Log, read-only.
     public func openWorkoutSession(_ id: WorkoutSession.ID) {
         screen = .workoutSession(id)
     }
 
-    /// Pops the logged workout pushed onto Log, as its back button and back swipe do.
+    /// Pops the workout session pushed onto Log, as its back button and back swipe do.
     public func popWorkoutSession() {
         if case .workoutSession = screen {
             screen = .log
         }
     }
 
-    /// Deletes a finished logged workout and its sets, from Log's History, then reads the log
-    /// again, so its count, calendar, Diff, and Balance follow. Queued behind the logged
-    /// workout's writes, so an End still landing can't bring it back. The store refuses the one
+    /// Deletes a finished workout session and its sets, from Log's History, then reads the log
+    /// again, so its count, calendar, Diff, and Balance follow. Queued behind the workout
+    /// session's writes, so an End still landing can't bring it back. The store refuses the one
     /// in progress. A delete that fails is logged, and the read leaves the workout listed.
     ///
     /// Deleted from Log means removed from Apple Health, and this is where that rule lives:
@@ -67,7 +67,7 @@ extension AppSession {
         justFinished = nil
     }
 
-    /// Reads the finished logged workouts again, for Log, once the logged workout's writes have
+    /// Reads the finished workout sessions again, for Log, once the workout session's writes have
     /// landed, so a Log shown just after a finish lists it. A read that fails leaves the last one.
     public func refreshLog() async {
         guard let store else { return }

@@ -78,7 +78,7 @@ final class StoreFailedDeleteTests {
         #expect(try await relaunch().workout(upper.id, weightUnit: .pounds) == upper)
     }
 
-    @Test("A discard that fails leaves the logged workout, its sets, and its cleared workout")
+    @Test("A discard that fails leaves the workout session, its sets, and its cleared workout")
     func discardWorkoutSession() async throws {
         let row = try WorkoutExercise.builtIn("Push-up")
         // Cleared to nothing while it runs: the discard would delete it in the same save.

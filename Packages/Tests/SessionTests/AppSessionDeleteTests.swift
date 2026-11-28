@@ -109,7 +109,7 @@ struct AppSessionDeleteTests {
         #expect(try await storedIDs().contains(upper.id))
     }
 
-    @Test("A finished logged workout of the deleted workout is still stored")
+    @Test("A finished workout session of the deleted workout is still stored")
     func workoutSessionKept() async throws {
         let upper = try Self.upper()
         let session = session(upper)

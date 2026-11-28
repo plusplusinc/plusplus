@@ -4,7 +4,7 @@ import WorkoutStore
 /// The workout in progress: a pause, a set logged, the rest after it, and its end, each through
 /// `change(_:)`.
 extension AppSession {
-    /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
+    /// Finishes the workout session, keeping it with the name the workout shows now, and a timed
     /// set counting logged at the time done (`LiveWorkout.finishing(at:)`), and names it as the
     /// one Log has yet to bring into History (`justFinished`), with its Apple Health type as
     /// what it logged makes it now. With Apple Health on, the catch-up after its write has

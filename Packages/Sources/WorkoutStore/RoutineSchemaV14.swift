@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// As #301 shipped it: V13's, with a logged workout keeping each pause's times, its Apple Health
+/// As #301 shipped it: V13's, with a workout session keeping each pause's times, its Apple Health
 /// type as worked out at Finish, and the id of the workout Health saved for it.
 enum RoutineSchemaV14: VersionedSchema {
     static let versionIdentifier = Schema.Version(14, 0, 0)

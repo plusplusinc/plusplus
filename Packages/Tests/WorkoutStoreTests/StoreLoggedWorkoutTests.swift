@@ -5,7 +5,7 @@ import Testing
 
 /// A relaunch is a second store over the same container: it sees only what was saved. Dates are
 /// explicit, so nothing rests on how fast the test runs.
-@Suite("Store logged workouts")
+@Suite("Store workout sessions")
 struct StoreWorkoutSessionTests {
     private let container: ModelContainer
 
@@ -26,7 +26,7 @@ struct StoreWorkoutSessionTests {
     }
 
     @Test(
-        "A logged workout in progress comes back with its workout, its time counting the time away",
+        "A session in progress comes back with its workout, its time counting the time away",
     )
     func inProgressRelaunch() async throws {
         let workout = Workout(name: "Upper")
@@ -58,7 +58,7 @@ struct StoreWorkoutSessionTests {
         #expect(stored.map(\.workoutSession) == [finished])
     }
 
-    @Test("Finished logged workouts read back newest finish first, one in progress left out")
+    @Test("Finished workout sessions read back newest finish first, one in progress left out")
     func finishedNewestFirst() async throws {
         let workout = Workout(name: "Upper")
         let older = Self.started(workout, at: 10).finishing(at: Self.at(20))
@@ -144,7 +144,7 @@ struct StoreWorkoutSessionTests {
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredLoggedSet>()) == 0)
     }
 
-    @Test("After Discard, launch reopens the workout and the store holds no logged workout")
+    @Test("After Discard, launch reopens the workout and the store holds no workout session")
     func afterDiscard() async throws {
         let workout = Workout(name: "Upper")
         let workoutSession = Self.started(workout, at: 10)
@@ -159,7 +159,7 @@ struct StoreWorkoutSessionTests {
         try await store.discardWorkoutSession(workoutSession.id)
     }
 
-    @Test("A logged workout whose workout is gone opens an empty one under its id and name")
+    @Test("A workout session whose workout is gone opens an empty one under its id and name")
     func workoutGone() async throws {
         let workout = Workout(name: "Upper")
         let workoutSession = Self.started(workout, at: 10)
@@ -181,7 +181,7 @@ struct StoreWorkoutSessionTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == "Later")
     }
 
-    @Test("Renaming the workout leaves the name the logged workout stored")
+    @Test("Renaming the workout leaves the name the workout session stored")
     func renameLeavesWorkoutSession() async throws {
         var workout = Workout(name: "Upper")
         let store = relaunch()
@@ -195,7 +195,7 @@ struct StoreWorkoutSessionTests {
     }
 
     @Test(
-        "A workout cleared while in progress is kept until a save without the logged workout",
+        "A workout cleared while in progress is kept until a save without the workout session",
     )
     func clearedMidLiveWorkout() async throws {
         let workout = try Workout(exercises: [WorkoutExercise(
@@ -217,7 +217,7 @@ struct StoreWorkoutSessionTests {
     }
 
     @Test(
-        "Ending a logged workout deletes its workout cleared to nothing in the same write",
+        "Ending a workout session deletes its workout cleared to nothing in the same write",
         arguments: [false, true],
     )
     func endDeletesCleared(finishes: Bool) async throws {
@@ -238,7 +238,7 @@ struct StoreWorkoutSessionTests {
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds).isEmpty)
     }
 
-    @Test("Ending a logged workout keeps its workout with exercises")
+    @Test("Ending a workout session keeps its workout with exercises")
     func endKeepsWorkout() async throws {
         let workout = Workout(name: "Upper")
         let store = relaunch()

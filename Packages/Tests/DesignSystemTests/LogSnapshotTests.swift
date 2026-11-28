@@ -6,7 +6,7 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// Log's tabs and an opened logged workout, built from the components `LogScreen` and
+/// Log's tabs and an opened workout session, built from the components `LogScreen` and
 /// `WorkoutSessionScreen` compose them from. The screens live in the app, which has no test
 /// target; their bars and segmented control are system chrome, checked on the simulator.
 @Suite("Log")
