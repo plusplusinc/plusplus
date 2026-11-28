@@ -27,7 +27,7 @@ extension LaunchOptions {
             last = workout
         }
         guard let last else { return }
-        var finished = LoggedWorkout(
+        var finished = WorkoutSession(
             workoutID: last.id,
             workoutName: last.name,
             startedAt: now.addingTimeInterval(1),

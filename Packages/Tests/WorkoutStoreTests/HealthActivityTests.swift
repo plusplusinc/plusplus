@@ -54,7 +54,7 @@ struct HealthActivityTests {
         // Counted once per exercise, this would be strength: Push-up and Pull-up against Burpee.
         let names = ["Burpee", "Burpee", "Burpee", "Push-up", "Pull-up"]
         let workout = try Workout(exercises: names.map { try WorkoutExercise.builtIn($0) })
-        let logged = LogFixture.loggedWorkout(daysAgo: 0, workout.exercises.map {
+        let logged = LogFixture.workoutSession(daysAgo: 0, workout.exercises.map {
             LogFixture.set($0.exercise.id, .reps(10), row: $0.id)
         })
         #expect(workout.summary?.kind == .conditioning)
@@ -70,7 +70,7 @@ struct HealthActivityTests {
         // traditional. Counted by set it would be functional. The deleted exercise would tip
         // it either way.
         let pushUps = UUID()
-        let logged = LogFixture.loggedWorkout(daysAgo: 0, [
+        let logged = LogFixture.workoutSession(daysAgo: 0, [
             set("push-up", round: 1, row: pushUps),
             set("push-up", round: 2, row: pushUps),
             set("push-up", round: 3, row: pushUps),

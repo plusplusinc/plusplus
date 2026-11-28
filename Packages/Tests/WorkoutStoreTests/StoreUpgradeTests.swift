@@ -145,15 +145,15 @@ struct StoreUpgradeTests {
     }
 
     @Test(
-        "A store written before logged workouts opens with every workout, then keeps a logged one",
+        "A store written before workout sessions opens with every workout, then keeps one",
     )
-    func upgradeBeforeLoggedWorkouts() async throws {
+    func upgradeBeforeWorkoutSessions() async throws {
         let folder = FileManager.default.temporaryDirectory
             .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        try Self.writeBeforeLoggedWorkouts(to: url)
+        try Self.writeBeforeWorkoutSessions(to: url)
 
         func open() throws -> Store {
             try Store(modelContainer: ModelContainer(
@@ -172,15 +172,15 @@ struct StoreUpgradeTests {
             #expect(workout.exercises.map(\.plan.target) == [.reps(6), .reps(6)])
             #expect(workout.exercises.allSatisfy { $0.supersetID != nil })
         }
-        let loggedWorkout = LoggedWorkout(
+        let workoutSession = WorkoutSession(
             workoutID: workouts[0].id,
             workoutName: workouts[0].name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
         )
-        try await store.save(loggedWorkout)
+        try await store.save(workoutSession)
 
         let launch = try await open().launch(weightUnit: .pounds)
-        #expect(launch.loggedWorkout == loggedWorkout)
+        #expect(launch.workoutSession == workoutSession)
         #expect(launch.workout?.name == "Older")
     }
 
@@ -191,8 +191,8 @@ struct StoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        try Self.writeBeforeLoggedWorkouts(to: url)
-        let loggedWorkoutID = UUID()
+        try Self.writeBeforeWorkoutSessions(to: url)
+        let workoutSessionID = UUID()
         do {
             let schema = Schema(versionedSchema: RoutineSchemaV5.self)
             let old = try ModelContainer(
@@ -203,11 +203,11 @@ struct StoreUpgradeTests {
             let workout = try #require(try context
                 .fetch(FetchDescriptor<RoutineSchemaV4.StoredRoutine>())
                 .first { $0.name == "Older" })
-            let loggedWorkout = RoutineSchemaV5.StoredWorkout(id: loggedWorkoutID)
-            loggedWorkout.routineID = workout.id
-            loggedWorkout.routineName = "Older"
-            loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 10)
-            context.insert(loggedWorkout)
+            let workoutSession = RoutineSchemaV5.StoredWorkout(id: workoutSessionID)
+            workoutSession.routineID = workout.id
+            workoutSession.routineName = "Older"
+            workoutSession.startedAt = Date(timeIntervalSinceReferenceDate: 10)
+            context.insert(workoutSession)
             try context.save()
         }
 
@@ -217,14 +217,14 @@ struct StoreUpgradeTests {
             configurations: ModelConfiguration(schema: Store.schema, url: url),
         )
         let launch = try await Store(modelContainer: current).launch(weightUnit: .pounds)
-        #expect(launch.loggedWorkout?.id == loggedWorkoutID)
-        #expect(launch.loggedWorkout?.sets == [])
+        #expect(launch.workoutSession?.id == workoutSessionID)
+        #expect(launch.workoutSession?.sets == [])
         #expect(launch.workout?.name == "Older")
     }
 
     /// Today's workouts as #91 stored them: two, each with a superset of two rows with plans,
     /// one opened after the other's edit.
-    static func writeBeforeLoggedWorkouts(to url: URL) throws {
+    static func writeBeforeWorkoutSessions(to url: URL) throws {
         let schema = Schema([
             RoutineSchemaV4.StoredRoutine.self,
             RoutineSchemaV4.StoredRoutineExercise.self,

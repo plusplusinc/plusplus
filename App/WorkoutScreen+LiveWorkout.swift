@@ -167,12 +167,12 @@ extension WorkoutScreen {
     /// Takes away the screen's room under the list's end once Start or a move to the next
     /// exercise is over. It can go at any moment: `landingRoomTop` holds the landing.
     func letRoomGo() {
-        guard isMakingRoom, !isStarting, !isMovingOn, !isResting, session.loggedWorkout != nil
+        guard isMakingRoom, !isStarting, !isMovingOn, !isResting, session.workoutSession != nil
         else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
 
-    /// Ends the logged workout with `change`, Start's grow in reverse, in one motion: the current
+    /// Ends the workout session with `change`, Start's grow in reverse, in one motion: the current
     /// exercise shrinks back to a resting row as the rows below close up, and the list scrolls
     /// back to its top. Once that lands, Start comes up on its own from below the screen's edge,
     /// a short beat with no overshoot. The scroll is animated, not lifted
@@ -191,7 +191,7 @@ extension WorkoutScreen {
     ///
     /// `change`, the store's finish or discard, is made at once, here, on every path: only the
     /// motion is the sequence's, which the screen going away cancels. The list draws the workout
-    /// as it was from the phase (`WorkoutPhase.drawnLoggedWorkout`) until it shrinks or crossfades
+    /// as it was from the phase (`WorkoutPhase.drawnWorkoutSession`) until it shrinks or crossfades
     /// out of it. `change` takes the curve the bar's End and time would have moved on with it.
     ///
     /// `holdingStill`, as after a finish: `change` is made at once, and the screen holds still
@@ -204,7 +204,7 @@ extension WorkoutScreen {
     func end(holdingStill: Bool = false, _ change: () -> Void) -> Bool {
         // Once only: a second End is refused.
         var ended = phase
-        guard let loggedWorkout = session.loggedWorkout, ended.end(loggedWorkout) else {
+        guard let workoutSession = session.workoutSession, ended.end(workoutSession) else {
             return false
         }
         sequence.cancel()

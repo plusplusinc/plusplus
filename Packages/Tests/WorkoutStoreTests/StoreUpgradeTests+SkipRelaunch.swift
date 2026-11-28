@@ -103,8 +103,8 @@ extension StoreUpgradeTests {
         ))
     }
 
-    /// Expects `writeV12`'s two logged workouts as V12 stored them, with no rest skipped.
-    private static func expectAsWritten(running: LoggedWorkout, finished: [LoggedWorkout]) {
+    /// Expects `writeV12`'s two workout sessions as V12 stored them, with no rest skipped.
+    private static func expectAsWritten(running: WorkoutSession, finished: [WorkoutSession]) {
         #expect(running.startedAt == Date(timeIntervalSinceReferenceDate: 2000))
         #expect(running.count == nil)
         #expect(running.sets.map(\.restSkippedAt) == [nil, nil])
@@ -134,18 +134,18 @@ extension StoreUpgradeTests {
         let url = folder.appending(path: "PlusPlus.store")
         try Self.writeV12(at: url)
 
-        let finishedBefore: [LoggedWorkout]
-        let skipped: LoggedWorkout
+        let finishedBefore: [WorkoutSession]
+        let skipped: WorkoutSession
         let workout: Workout
         do {
             let store = try Self.current(at: url)
             let launch = try await store.launch(weightUnit: .pounds)
             workout = try #require(launch.workout)
-            let running = try #require(launch.loggedWorkout)
-            finishedBefore = try await store.finishedLoggedWorkouts()
+            let running = try #require(launch.workoutSession)
+            finishedBefore = try await store.finishedWorkoutSessions()
             Self.expectAsWritten(running: running, finished: finishedBefore)
             // Mid-rest still: 60 s and the +15 s tap, from the log at 9, not skipped.
-            let live = LiveWorkout(workout: workout, loggedWorkout: running)
+            let live = LiveWorkout(workout: workout, workoutSession: running)
             let rest = try #require(live.rest())
             #expect(rest.length == 75)
             #expect(rest.startClock == 9)
@@ -158,13 +158,13 @@ extension StoreUpgradeTests {
 
         // A second launch, on a new container over the same file.
         let store = try Self.current(at: url)
-        let reopened = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
+        let reopened = try #require(try await store.launch(weightUnit: .pounds).workoutSession)
         #expect(reopened == skipped)
         #expect(reopened.sets.map(\.restAdjustment) == [-56, 15], "The skip cut nothing")
         #expect(reopened.sets.first?.restSkippedAt == nil, "V12's skip stays a cut")
         let tap = try #require(reopened.sets.last?.restSkippedAt)
         #expect(abs(tap - 44.5) < 1e-6)
-        let live = LiveWorkout(workout: workout, loggedWorkout: reopened)
+        let live = LiveWorkout(workout: workout, workoutSession: reopened)
         let rest = try #require(live.rest())
         #expect(rest.length == 75)
         #expect(rest.leaveClock == tap + LiveWorkout.skipHold)
@@ -174,7 +174,7 @@ extension StoreUpgradeTests {
         #expect(count.startClock == tap + LiveWorkout.skipHold + lead)
 
         // One answer for where the workout is, from the file as from the screen that skipped.
-        let before = LiveWorkout(workout: workout, loggedWorkout: skipped)
+        let before = LiveWorkout(workout: workout, workoutSession: skipped)
         for clock in [tap, tap + 0.1, rest.leaveClock, rest.leaveClock + 3, count.startClock] {
             let now = reopened.date(ofClock: clock)
             #expect(live.situation(at: now) == before.situation(at: now), "At \(clock)")
@@ -187,6 +187,6 @@ extension StoreUpgradeTests {
             #expect(live.extendingRest(by: 15, at: now) == reopened)
             #expect(live.skippingRest(at: now) == reopened)
         }
-        #expect(try await store.finishedLoggedWorkouts() == finishedBefore)
+        #expect(try await store.finishedWorkoutSessions() == finishedBefore)
     }
 }

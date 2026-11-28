@@ -6,17 +6,17 @@ import Foundation
 /// included, so a row added, moved, or deleted mid-workout counts at once.
 public struct LiveWorkout: Equatable, Sendable {
     public var workout: Workout
-    public var loggedWorkout: LoggedWorkout
+    public var workoutSession: WorkoutSession
 
-    public init(workout: Workout, loggedWorkout: LoggedWorkout) {
+    public init(workout: Workout, workoutSession: WorkoutSession) {
         self.workout = workout
-        self.loggedWorkout = loggedWorkout
+        self.workoutSession = workoutSession
     }
 
     /// The set it does next: the first in the workout's order not yet logged. None once every
     /// one is.
     public var currentSet: PlannedSet? {
-        workout.nextSet(after: loggedWorkout.sets)
+        workout.nextSet(after: workoutSession.sets)
     }
 
     /// The exercise it is on: the row of the set it does next.
@@ -34,7 +34,7 @@ public struct LiveWorkout: Equatable, Sendable {
     /// planned.
     public var finishedRows: Set<WorkoutExercise.ID> {
         Set(workout.exercises.lazy.map(\.id).filter { id in
-            let progress = workout.progress(of: id, logged: loggedWorkout.sets)
+            let progress = workout.progress(of: id, logged: workoutSession.sets)
             return progress.total > 0 && progress.done == progress.total
         })
     }
@@ -42,9 +42,9 @@ public struct LiveWorkout: Equatable, Sendable {
     /// The set bars a row shows: on the current exercise always, from its first set; on any other
     /// only once started and until finished, where its node shows it done. Nil for none.
     public func bars(of id: WorkoutExercise.ID) -> RowProgress? {
-        let progress = workout.progress(of: id, logged: loggedWorkout.sets)
+        let progress = workout.progress(of: id, logged: workoutSession.sets)
         guard id == currentSet?.row
-            || workout.isStarted(id, logged: loggedWorkout.sets) && progress.done < progress.total
+            || workout.isStarted(id, logged: workoutSession.sets) && progress.done < progress.total
         else { return nil }
         return progress
     }
@@ -52,13 +52,13 @@ public struct LiveWorkout: Equatable, Sendable {
     /// What the key that logs the current set says ("Log set", "Log left", "Log last set"). None
     /// once every set is logged.
     public var logText: String? {
-        currentSet.map { workout.logText(for: $0, after: loggedWorkout.sets) }
+        currentSet.map { workout.logText(for: $0, after: workoutSession.sets) }
     }
 
     /// What logging `set` leads to, from where the workout is, with `earlier` logged first, as a
     /// set's first side is before its second.
     public func step(logging set: PlannedSet, after earlier: [PlannedSet] = []) -> Step {
-        let done = Set(loggedWorkout.sets.map(\.planned)).union(earlier).union([set])
+        let done = Set(workoutSession.sets.map(\.planned)).union(earlier).union([set])
         guard let next = workout.nextSet(notIn: done) else { return .last }
         guard next.row != set.row else { return .nextSet }
         let rows = workout.exercises.map(\.id)
@@ -76,8 +76,8 @@ public struct LiveWorkout: Equatable, Sendable {
     public func hiding(_ unshown: [PlannedSet]) -> Self {
         guard !unshown.isEmpty else { return self }
         var hidden = self
-        while let last = hidden.loggedWorkout.sets.last, unshown.contains(last.planned) {
-            hidden.loggedWorkout.sets.removeLast()
+        while let last = hidden.workoutSession.sets.last, unshown.contains(last.planned) {
+            hidden.workoutSession.sets.removeLast()
         }
         return hidden
     }

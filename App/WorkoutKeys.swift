@@ -5,7 +5,7 @@ import WorkoutStore
 
 /// End, in the bar while a workout is in progress, and held there, asking nothing, while a
 /// finish holds the screen still; it only asks: the screen presents its dialog, whose choices
-/// are to finish the logged workout or discard it.
+/// are to finish the workout session or discard it.
 struct EndButton: View {
     let action: () -> Void
 
@@ -59,14 +59,14 @@ extension View {
             titleVisibility: .visible,
         ) {
             // Only with something to keep: until a set is done, it can only be discarded.
-            if session.loggedWorkout?.offersFinish == true {
+            if session.workoutSession?.offersFinish == true {
                 Button("Finish workout", action: finish)
             }
             Button("Discard workout", role: .destructive, action: discard)
             Button("Keep going", role: .cancel) { }
         } message: {
             // Read with the buttons: it names Finish only when Finish shows.
-            if session.loggedWorkout?.offersFinish == true {
+            if session.workoutSession?.offersFinish == true {
                 Text("Finish keeps what you logged; Discard deletes the workout.")
             } else {
                 Text("Nothing has been logged yet.")
@@ -78,7 +78,7 @@ extension View {
 /// The workout's time, in the bar, which a tap pauses or resumes. It ticks on the elapsed
 /// time's whole seconds while running, and draws once while paused.
 struct WorkoutTimeKey: View {
-    let loggedWorkout: LoggedWorkout
+    let workoutSession: WorkoutSession
     /// The screen's pause or resume (`WorkoutScreen.togglePause()`), which animates the key.
     let togglePause: () -> Void
 
@@ -88,11 +88,11 @@ struct WorkoutTimeKey: View {
 
     var body: some View {
         Button(action: togglePause) {
-            label(at: loggedWorkout.pausedAt ?? shownAt)
+            label(at: workoutSession.pausedAt ?? shownAt)
         }
         .hiddenBehindDrawer()
         .accessibilityIdentifier("workout.time")
-        .task(id: Ticking(clockStart: loggedWorkout.clockStart, runs: loggedWorkout.runs)) {
+        .task(id: Ticking(clockStart: workoutSession.clockStart, runs: workoutSession.runs)) {
             await tick()
         }
     }
@@ -103,9 +103,9 @@ struct WorkoutTimeKey: View {
     /// tick, the time showing late (UIKit's layout feedback loop debugger).
     private func tick() async {
         shownAt = .now
-        guard loggedWorkout.runs else { return }
+        guard workoutSession.runs else { return }
         while true {
-            let next = loggedWorkout.nextSecond(after: shownAt)
+            let next = workoutSession.nextSecond(after: shownAt)
             let wait = next.timeIntervalSinceNow
             if wait > 0 {
                 guard await (try? Task.sleep(for: .seconds(wait), tolerance: .zero)) != nil
@@ -117,14 +117,14 @@ struct WorkoutTimeKey: View {
     }
 
     private func label(at date: Date) -> some View {
-        let elapsed = loggedWorkout.elapsed(at: date)
+        let elapsed = workoutSession.elapsed(at: date)
         return WorkoutTimeLabel(
-            LoggedWorkout.elapsedText(elapsed, locale: locale),
-            isPaused: loggedWorkout.isPaused,
+            WorkoutSession.elapsedText(elapsed, locale: locale),
+            isPaused: workoutSession.isPaused,
         )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(loggedWorkout.isPaused ? "Resume" : "Pause")
-        .accessibilityValue(LoggedWorkout.spokenElapsed(elapsed, locale: locale))
+        .accessibilityLabel(workoutSession.isPaused ? "Resume" : "Pause")
+        .accessibilityValue(WorkoutSession.spokenElapsed(elapsed, locale: locale))
     }
 }
 
@@ -134,7 +134,7 @@ private struct Ticking: Equatable {
     let runs: Bool
 }
 
-extension LoggedWorkout {
+extension WorkoutSession {
     /// Whether its time is running on: in progress and not paused.
     fileprivate var runs: Bool {
         isInProgress && !isPaused

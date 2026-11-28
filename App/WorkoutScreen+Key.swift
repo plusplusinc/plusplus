@@ -108,8 +108,8 @@ extension WorkoutScreen {
     /// takes no taps (`WorkoutRest.takesTaps(atClock:)`), as the store skips nothing then.
     private func skipRest() {
         let now = Date.now
-        guard let resting, let loggedWorkout = session.loggedWorkout,
-              resting.takesTaps(atClock: loggedWorkout.clock(at: now))
+        guard let resting, let workoutSession = session.workoutSession,
+              resting.takesTaps(atClock: workoutSession.clock(at: now))
         else { return }
         // Before `endRest()`'s animated swap: a new figure put in during the swap stood where it
         // ends from its first frame.
@@ -135,18 +135,18 @@ extension WorkoutScreen {
     /// runs past its end in its hold while its count holds the time at the tap, so the fill
     /// reads what the count shows, not what is left.
     var restKeyFill: KeyFill {
-        if let (_, loggedWorkout) = phase.restLeft,
-           let left = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
+        if let (_, workoutSession) = phase.restLeft,
+           let left = LiveWorkout(workout: workout, workoutSession: workoutSession)
                .rest()
         {
-            let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)
+            let (ends, pausedLeft) = Self.times(of: left, on: workoutSession, stopped: true)
             return KeyFill(length: Double(left.length), ends: ends, pausedLeft: pausedLeft)
         }
         guard let rest = phase.drawnRest, rest.beat < .returning,
-              let (resting, loggedWorkout) = drawnResting,
-              resting.shownLeft(atClock: loggedWorkout.clock(at: .now)) > 0
+              let (resting, workoutSession) = drawnResting,
+              resting.shownLeft(atClock: workoutSession.clock(at: .now)) > 0
         else { return .over }
-        let (ends, pausedLeft) = Self.times(of: resting, on: loggedWorkout, end: phase.drawnEnd)
+        let (ends, pausedLeft) = Self.times(of: resting, on: workoutSession, end: phase.drawnEnd)
         return KeyFill(length: Double(resting.length), ends: ends, pausedLeft: pausedLeft)
     }
 
@@ -171,7 +171,7 @@ extension WorkoutScreen {
             session.extendCount(by: seconds)
         case .continueWorkout:
             // As the time key at the top resumes it; only ever a resume.
-            if session.loggedWorkout?.isPaused == true {
+            if session.workoutSession?.isPaused == true {
                 togglePause()
             }
         case .nothing:

@@ -10,8 +10,8 @@ struct HealthWorkoutTests {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    private static func started() -> LoggedWorkout {
-        LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: at(100))
+    private static func started() -> WorkoutSession {
+        WorkoutSession(workoutID: UUID(), workoutName: "Upper", startedAt: at(100))
     }
 
     /// Health's length for `workout`: start to end, its pauses left out.
@@ -68,7 +68,7 @@ struct HealthWorkoutTests {
         ] as [(Double, [(Double, Double)])],
     )
     func timesNotKept(pausedSeconds: Double, pauses: [(Double, Double)]) {
-        let finished = LoggedWorkout(
+        let finished = WorkoutSession(
             workoutID: UUID(),
             workoutName: "Upper",
             startedAt: Self.at(100),
@@ -86,7 +86,7 @@ struct HealthWorkoutTests {
         arguments: [90.0, 100],
     )
     func endNotAfterStart(end: Double) {
-        let finished = LoggedWorkout(
+        let finished = WorkoutSession(
             workoutID: UUID(),
             workoutName: "Upper",
             startedAt: Self.at(100),

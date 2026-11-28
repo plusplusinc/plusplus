@@ -48,12 +48,12 @@ struct AppSessionCountTests {
         await session.open(workout.id, weightUnit: .pounds)
         session.start(on: workout.id, at: Self.at(10))
         #expect(session.screen == .pushedWorkout)
-        #expect(session.loggedWorkout?.count == nil)
+        #expect(session.workoutSession?.count == nil)
         // Its screen's Start landing on the first set, as at the root.
         session.landOnFirstSet(at: Self.at(10.5))
-        let loggedWorkout = try #require(session.loggedWorkout)
-        #expect(loggedWorkout.count != nil)
-        #expect(loggedWorkout.clock(at: Self.at(10.5 + Self.lead)) == 0)
+        let workoutSession = try #require(session.workoutSession)
+        #expect(workoutSession.count != nil)
+        #expect(workoutSession.clock(at: Self.at(10.5 + Self.lead)) == 0)
     }
 
     @Test("Start, +15 s, and the log are each stored as the session shows them")
@@ -72,14 +72,14 @@ struct AppSessionCountTests {
         for step in steps {
             step.change()
             await session.writesLanded()
-            let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
-            #expect(relaunched == session.loggedWorkout, "after \(step.name)")
+            let relaunched = try await relaunch().launch(weightUnit: .pounds).workoutSession
+            #expect(relaunched == session.workoutSession, "after \(step.name)")
         }
-        let set = try #require(session.loggedWorkout?.sets.first)
+        let set = try #require(session.workoutSession?.sets.first)
         #expect(set.target == .time(seconds: 18))
         #expect(set.timeAdded == 15)
         // The next set's "Start in" waits for the screen to land on it.
-        #expect(session.loggedWorkout?.count == nil)
+        #expect(session.workoutSession?.count == nil)
     }
 
     @Test("+15 s and Skip rest on a rest are each stored; reopened, it moves on as the skip held")
@@ -101,11 +101,11 @@ struct AppSessionCountTests {
         for step in steps {
             step.change()
             await session.writesLanded()
-            let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
-            #expect(relaunched == session.loggedWorkout, "after \(step.name)")
+            let relaunched = try await relaunch().launch(weightUnit: .pounds).workoutSession
+            #expect(relaunched == session.workoutSession, "after \(step.name)")
         }
-        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
-        let live = LiveWorkout(workout: workout, loggedWorkout: stored)
+        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).workoutSession)
+        let live = LiveWorkout(workout: workout, workoutSession: stored)
         let rest = try #require(live.rest())
         // +15 s on the 30 s rest; the skip, stored as its tap, keeps the length.
         #expect(rest.length == 45)
@@ -131,7 +131,7 @@ struct AppSessionCountTests {
         session.finish(at: Self.at(lead + 18))
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
-            .map(\.loggedWorkout)
+            .map(\.workoutSession)
         #expect(stored.first?.sets.map(\.target) == [.time(seconds: 18)])
     }
 
@@ -144,18 +144,18 @@ struct AppSessionCountTests {
         first.beginCount(at: Self.at(0))
         await first.writesLanded()
 
-        let stored = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
+        let stored = try await relaunch().launch(weightUnit: .pounds).workoutSession
         let second = AppSession(
             workout: workout,
-            loggedWorkout: stored,
+            workoutSession: stored,
             store: relaunch(),
             namer: .muscleGroupsOnly,
         )
         second.catchUp(at: Self.at(300))
-        #expect(second.loggedWorkout?.sets.map(\.target) == [.time(seconds: 30)])
+        #expect(second.workoutSession?.sets.map(\.target) == [.time(seconds: 30)])
         let lead = Self.lead
-        #expect(second.loggedWorkout?.sets.first?.clockWhenLogged == lead + 30)
-        #expect(second.loggedWorkout?.count?.startClock == 300 + lead)
+        #expect(second.workoutSession?.sets.first?.clockWhenLogged == lead + 30)
+        #expect(second.workoutSession?.count?.startClock == 300 + lead)
     }
 
     @Test("A set's measure flipped twice in a row drops its count at the save, stored")
@@ -168,17 +168,17 @@ struct AppSessionCountTests {
         var longer = workout
         longer.exercises[0].plan.target = .time(seconds: 45)
         session.save(longer)
-        #expect(session.loggedWorkout?.count != nil, "A time changed keeps the count")
+        #expect(session.workoutSession?.count != nil, "A time changed keeps the count")
         // Two saves with nothing between, as two edits in one frame: no reaction to either.
         var asReps = longer
         asReps.exercises[0].plan.target = .reps(10)
         session.save(asReps)
         session.save(longer)
-        #expect(session.loggedWorkout?.count == nil)
+        #expect(session.workoutSession?.count == nil)
         await session.writesLanded()
-        let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
+        let relaunched = try await relaunch().launch(weightUnit: .pounds).workoutSession
         #expect(relaunched?.count == nil)
         session.beginCount(at: Self.at(20))
-        #expect(session.loggedWorkout?.count?.startClock == 20 + Self.lead)
+        #expect(session.workoutSession?.count?.startClock == 20 + Self.lead)
     }
 }

@@ -59,7 +59,7 @@ extension Workout {
     }
 }
 
-/// The rest running after a set, on the workout's clock (`LoggedWorkout.clock(at:)`), so a pause
+/// The rest running after a set, on the workout's clock (`WorkoutSession.clock(at:)`), so a pause
 /// stops it. It holds no date: it changes only with a log, a +15 s tap, a skip, or an edit to
 /// the workout. Its count runs from the log to 0:00 at `endClock`, holds 0:00 for
 /// `LiveWorkout.restHold`, and the screen moves on at `leaveClock` (decided 2026-11-23). Skipped,
@@ -126,7 +126,7 @@ extension LiveWorkout {
     /// logged before its clock was kept, or nothing left to do. Whether it is over is the
     /// caller's, at its moment.
     public func rest() -> WorkoutRest? {
-        guard let last = loggedWorkout.sets.last, let start = last.clockWhenLogged,
+        guard let last = workoutSession.sets.last, let start = last.clockWhenLogged,
               let next = currentSet
         else { return nil }
         let gap = Self.running(rest: workout.rest(after: last.planned, before: next))
@@ -156,11 +156,11 @@ extension LiveWorkout {
     /// The workout with the rest running after the last set made longer by `seconds`, as a +15 s
     /// tap does, at `now`. Unchanged with no rest running, or once it takes no taps
     /// (`WorkoutRest.takesTaps(atClock:)`), or once the next set's count has begun.
-    public func extendingRest(by seconds: Int, at now: Date) -> LoggedWorkout {
-        guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(),
-              rest.takesTaps(atClock: loggedWorkout.clock(at: now))
-        else { return loggedWorkout }
-        var extended = loggedWorkout
+    public func extendingRest(by seconds: Int, at now: Date) -> WorkoutSession {
+        guard workoutSession.isInProgress, setCount == nil, let rest = rest(),
+              rest.takesTaps(atClock: workoutSession.clock(at: now))
+        else { return workoutSession }
+        var extended = workoutSession
         extended.sets[extended.sets.count - 1].restAdjustment += seconds
         return extended
     }
@@ -172,14 +172,14 @@ extension LiveWorkout {
     /// set has a count due, a "Start in" or a timed set's own, it is begun here, from that move,
     /// so a relaunch finds the count where the screen had it. Unchanged with no rest running, or
     /// once it takes no taps (`WorkoutRest.takesTaps(atClock:)`).
-    public func skippingRest(at now: Date) -> LoggedWorkout {
-        let clock = loggedWorkout.clock(at: now)
+    public func skippingRest(at now: Date) -> WorkoutSession {
+        let clock = workoutSession.clock(at: now)
         // A count begun once the rest moved on is its set's, though an edit that lengthens the
         // rest runs it again: a skip then would begin the set over. +15 s refuses it alike.
-        guard loggedWorkout.isInProgress, setCount == nil, var rest = rest(),
+        guard workoutSession.isInProgress, setCount == nil, var rest = rest(),
               rest.takesTaps(atClock: clock)
-        else { return loggedWorkout }
-        var skipped = loggedWorkout
+        else { return workoutSession }
+        var skipped = workoutSession
         skipped.sets[skipped.sets.count - 1].restSkippedAt = clock
         rest.skippedAt = clock
         if isCountDue {

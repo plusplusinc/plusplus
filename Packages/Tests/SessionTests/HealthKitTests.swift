@@ -35,7 +35,7 @@ struct HealthKitTests {
         #expect(HealthClient.metadata(for: typed)[HKMetadataKeyIndoorWorkout] as? Bool == true)
     }
 
-    @Test("A workout carries its logged workout's id, and nothing more")
+    @Test("A workout carries its workout session's id, and nothing more")
     func externalID() {
         let metadata = HealthClient.metadata(for: workout)
         #expect(metadata[HKMetadataKeyExternalUUID] as? String == workout.id.uuidString)

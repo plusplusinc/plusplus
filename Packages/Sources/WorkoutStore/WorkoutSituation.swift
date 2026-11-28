@@ -1,7 +1,7 @@
 import Foundation
 
 /// The situation a workout is in, as the person doing it would say it. Worked out from the
-/// stored logged workout and the moment (`LiveWorkout.situation(at:)`), never
+/// stored workout session and the moment (`LiveWorkout.situation(at:)`), never
 /// stored. Paused is not a case: every case is read on the workout's clock, which stands still
 /// while paused, so a pause keeps the situation under it.
 ///
@@ -40,9 +40,9 @@ extension LiveWorkout {
     /// The workout's situation at `now`, read on its clock. A rest running wins over a count
     /// Skip rest begun for the next set, which starts only as the rest moves on.
     public func situation(at now: Date) -> WorkoutSituation {
-        guard loggedWorkout.isInProgress else { return .notStarted }
+        guard workoutSession.isInProgress else { return .notStarted }
         guard let set = currentSet else { return isDone ? .allLogged : .nothingToDo }
-        let clock = loggedWorkout.clock(at: now)
+        let clock = workoutSession.clock(at: now)
         if let rest = rest(), !rest.isOver(atClock: clock) {
             return .resting(rest)
         }

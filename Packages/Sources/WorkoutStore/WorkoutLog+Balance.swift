@@ -40,8 +40,8 @@ extension WorkoutLog {
         let recent = inPeriod(now: now, calendar: calendar)
         let recentExercises = recent.flatMap { $0.loggedExercises(in: list) }
         let groups = MuscleGroup.allCases.enumerated().map { index, group in
-            let newest = loggedWorkouts.first { loggedWorkout in
-                loggedWorkout.sets.contains {
+            let newest = workoutSessions.first { workoutSession in
+                workoutSession.sets.contains {
                     list.exercise(id: $0.exerciseID)?.muscleGroups.contains(group) ?? false
                 }
             }
