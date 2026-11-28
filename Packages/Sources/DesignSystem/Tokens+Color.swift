@@ -79,10 +79,14 @@ nonisolated struct TokenColor: ShapeStyle, Hashable {
     let token: ColorToken
 
     func resolve(in environment: EnvironmentValues) -> Color.Resolved {
+        #if os(watchOS)
+        return WatchPalette[token]
+        #else
         guard environment.drawsVoid else {
             return Color(token.rawValue, bundle: .module).resolve(in: environment)
         }
         return (environment.isOnSheet ? Palette.voidSheet : .void)[token]
+        #endif
     }
 }
 
