@@ -23,8 +23,9 @@ let package = Package(
     name: "PlusPlusKit",
     platforms: [.iOS(.v27), .watchOS(.v27), .macOS(.v27)],
     products: [
-        // `Session` rides in this product, so the app links it with no change to the project.
-        .library(name: "WorkoutStore", targets: ["WorkoutStore", "Session"]),
+        // `Session` and `Health` ride in this product, so the app links them with no change to
+        // the project.
+        .library(name: "WorkoutStore", targets: ["WorkoutStore", "Health", "Session"]),
         .library(name: "DesignSystem", targets: ["DesignSystem"]),
     ],
     dependencies: [
@@ -32,9 +33,16 @@ let package = Package(
     ],
     targets: [
         .target(name: "WorkoutStore", swiftSettings: strict),
+        // Apple Health, the one target that imports HealthKit, so everything above it is tested
+        // with no Health store.
+        .target(name: "Health", dependencies: ["WorkoutStore"], swiftSettings: strict),
         // Observable state over the store, with no UI framework: the workout open and its
         // logged sets. Main-actor, as the screens that read it are.
-        .target(name: "Session", dependencies: ["WorkoutStore"], swiftSettings: mainActorByDefault),
+        .target(
+            name: "Session",
+            dependencies: ["Health", "WorkoutStore"],
+            swiftSettings: mainActorByDefault,
+        ),
         .target(
             name: "DesignSystem",
             resources: [.process("Resources")],
@@ -47,7 +55,7 @@ let package = Package(
         ),
         .testTarget(
             name: "SessionTests",
-            dependencies: ["Session", "WorkoutStore"],
+            dependencies: ["Health", "Session", "WorkoutStore"],
             swiftSettings: mainActorByDefault,
         ),
         .testTarget(

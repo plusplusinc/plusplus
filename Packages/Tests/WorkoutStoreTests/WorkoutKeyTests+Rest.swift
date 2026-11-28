@@ -113,10 +113,9 @@ extension WorkoutKeyTests {
             (logged: 1, phase: Self.resting(on.first, leadingTo: .nextSet, to: .settled)),
             (logged: 2, phase: Self.resting(on.second, leadingTo: on.toRow, to: .settled)),
         ]
-        for (logged, rest) in rests {
-            var phase = rest
-            phase.skipRest(left: 20, leave: 100)
-            let key = on.key(logged: logged, phase: phase)
+        for (logged, phase) in rests {
+            #expect(on.key(logged: logged, phase: phase).role == .rest, "before, \(logged)")
+            let key = on.key(logged: logged, phase: phase, skipped: true)
             #expect(key.role != .rest, "after \(logged)")
             #expect(key.waitsToStart, "after \(logged)")
             #expect(key.tap == .nothing, "after \(logged)")

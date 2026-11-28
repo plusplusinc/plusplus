@@ -67,13 +67,23 @@ struct WorkoutLoggingTests {
         var loggedWorkout = loggedWorkout(workout)
         loggedWorkout = try logNext(loggedWorkout, workout)
         #expect(loggedWorkout.sets.map(\.side) == [.left])
-        #expect(workout.progress(of: row.id, logged: loggedWorkout.sets) == (0, 3))
+        #expect(workout.progress(of: row.id, logged: loggedWorkout.sets)
+            == RowProgress(done: 0, total: 3, sidesDone: 1))
+        #expect(
+            RowProgress(done: 0, total: 3, sidesDone: 1).afterSet
+                == RowProgress(done: 1, total: 3, sidesDone: 0),
+            "The set done, so are both its sides",
+        )
         #expect(workout.isStarted(row.id, logged: loggedWorkout.sets))
         #expect(workout.nextSet(after: loggedWorkout.sets)
             == PlannedSet(row: row.id, round: 1, side: .right))
         loggedWorkout = try logNext(loggedWorkout, workout)
         #expect(loggedWorkout.sets.map(\.side) == [.left, .right])
-        #expect(workout.progress(of: row.id, logged: loggedWorkout.sets) == (1, 3))
+        #expect(
+            workout.progress(of: row.id, logged: loggedWorkout.sets)
+                == RowProgress(done: 1, total: 3, sidesDone: 0),
+            "The next set, neither side done",
+        )
     }
 
     @Test("The key reads Log set, Log left then Log right, and Log last set on the last set")
@@ -107,14 +117,17 @@ struct WorkoutLoggingTests {
         loggedWorkout = try logNext(loggedWorkout, workout)
         loggedWorkout = try logNext(loggedWorkout, workout)
         #expect(workout.nextSet(after: loggedWorkout.sets) == nil)
-        #expect(workout.progress(of: row.id, logged: loggedWorkout.sets) == (2, 2))
+        #expect(workout.progress(of: row.id, logged: loggedWorkout.sets) == RowProgress(
+            done: 2,
+            total: 2,
+        ))
     }
 
     @Test("A row not started has no progress and isn't started")
     func notStarted() throws {
         let row = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
         let workout = Workout(exercises: [row])
-        #expect(workout.progress(of: row.id, logged: []) == (0, 2))
+        #expect(workout.progress(of: row.id, logged: []) == RowProgress(done: 0, total: 2))
         #expect(!workout.isStarted(row.id, logged: []))
     }
 

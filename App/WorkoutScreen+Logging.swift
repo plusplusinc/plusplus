@@ -140,16 +140,22 @@ extension WorkoutScreen {
         guard let shown else { return [:] }
         let restingTo = phase.drawnRest.flatMap { $0.beat > .logged ? shown.currentSet?.row : nil }
         return workout.exercises.reduce(into: [:]) { bars, item in
-            guard let (done, total) = shown.bars(of: item.id),
+            guard let progress = shown.bars(of: item.id),
                   // Resting, the next exercise is a row like any other until it grows.
-                  item.id != restingTo || done > 0
+                  item.id != restingTo || progress.done > 0
             else { return }
-            bars[item.id] = SetProgress(
-                done: done,
-                total: total,
-                spoken: spokenProgress(done: done, total: total, locale: locale),
-            )
+            bars[item.id] = setProgress(progress)
         }
+    }
+
+    /// A row's progress as its bars draw it and VoiceOver says it.
+    func setProgress(_ progress: RowProgress) -> SetProgress {
+        SetProgress(
+            done: progress.done,
+            total: progress.total,
+            sidesDone: progress.sidesDone,
+            spoken: spokenProgress(done: progress.done, total: progress.total, locale: locale),
+        )
     }
 
     /// The row that grows, or stands grown, with `shown` and `current` as read for the pass: the
@@ -185,7 +191,7 @@ extension WorkoutScreen {
         guard phase.log(
             set,
             leadingTo: step,
-            rests: live?.rests(after: set, leadingTo: step, override: restOverride) ?? false,
+            rests: live?.rests(after: set, leadingTo: step) ?? false,
             moves: !reduceMotion,
         )
         else { return }

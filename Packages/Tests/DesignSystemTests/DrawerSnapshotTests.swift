@@ -90,6 +90,17 @@ struct DrawerSnapshotTests {
         assertThemedSnapshots(of: drawer(showing: .log), width: Self.screenWidth)
     }
 
+    /// In Void the dimmed sliver was as black as the drawer; it stands on its own lifted
+    /// ground, the dimmed rows on it. Colors only: the layout at AX5 is `workoutsShowing`'s.
+    @Test("In Void the sliver stands lifted off the black drawer")
+    func voidShowing() {
+        assertThemedSnapshots(
+            of: drawer(showing: .workouts).environment(\.isVoid, true),
+            width: Self.screenWidth,
+            atLargestSize: false,
+        )
+    }
+
     /// The Workouts screen's content as `WorkoutsScreen` lays it out, under its bar.
     private func workoutsList(_ names: [String]) -> some View {
         VStack(alignment: .leading, spacing: 0) {

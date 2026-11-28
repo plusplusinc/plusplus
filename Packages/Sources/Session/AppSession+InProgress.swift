@@ -6,15 +6,26 @@ import WorkoutStore
 extension AppSession {
     /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
     /// set counting logged at the time done (`LiveWorkout.finishing(at:)`), and names it as the
-    /// one Log has yet to bring into History (`justFinished`).
+    /// one Log has yet to bring into History (`justFinished`), with its Apple Health type as
+    /// what it logged makes it now. With Apple Health on, the catch-up after its write has
+    /// landed saves it there from what the store keeps (`catchUpHealth()`); whether the system
+    /// lets the app is read then, not in the Finish tap's turn.
     public func finish(at now: Date = .now) {
         guard let loggedWorkout else { return }
         var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
             .finishing(at: now)
         finished.workoutName = shownName
+        finished.healthActivity = HealthActivity(logged: finished.sets, in: exercises)
         change(.save(finished))
+        // In the log from the finish, not from the read after its write lands, so Log's first
+        // frame after it already holds it, and the Health prompt is there with it
+        // (`healthPrompt`); History leaves it out until it comes in (`justFinished`).
+        log = log.map { WorkoutLog(loggedWorkouts: $0.loggedWorkouts + [finished]) }
+        finishes += 1
         justFinished = finished.id
         deleteIfCleared()
+        health.offerAtFinish()
+        catchUpHealth()
     }
 
     /// Ends the workout keeping nothing of it, as if Start never ran: Log has nothing to bring in.
@@ -42,15 +53,14 @@ extension AppSession {
         change(.save(live.logging(planned, of: row, at: now)))
     }
 
-    /// Extends the rest running after the last set by `seconds`, unless it is over. `override`,
-    /// for the UI tests, is every rest's length (`LiveWorkout.rest(override:)`).
-    public func extendRest(by seconds: Int, override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.extendingRest(by: seconds, override: override, at: now) }
+    /// Extends the rest running after the last set by `seconds`, unless it is over.
+    public func extendRest(by seconds: Int, at now: Date = .now) {
+        changeLive { $0.extendingRest(by: seconds, at: now) }
     }
 
     /// Ends the rest running after the last set now, unless it is over
-    /// (`LiveWorkout.skippingRest(override:at:)`).
-    public func skipRest(override: Int? = nil, at now: Date = .now) {
-        changeLive { $0.skippingRest(override: override, at: now) }
+    /// (`LiveWorkout.skippingRest(at:)`).
+    public func skipRest(at now: Date = .now) {
+        changeLive { $0.skippingRest(at: now) }
     }
 }

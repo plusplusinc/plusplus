@@ -14,8 +14,10 @@ planning work in it), and in `docs/`. If this file and a rules file disagree, th
 **Status.** The app is one screen and its drawer: a workout built from built-in and created exercises, each
 with its sets, reps or time, weight, and rest, some joined into supersets, saved on the phone as
 it is edited, and logged set by set on that same screen; a Workouts screen listing and
-filtering the saved ones; and Log, the finished ones. It shows only in dark appearance (`Config/Base.xcconfig`); the light palette is seen
-only in snapshots. Nothing syncs yet, and there is no watch app yet.
+filtering the saved ones; and Log, the finished ones. Settings, from the drawer, picks Light,
+Dark, or the phone's, Void makes dark true black, and Apple Health gets finished workouts once
+allowed there. Nothing syncs yet, and there is no
+watch app yet.
 
 This file does not say how a feature looks or behaves. That is in the doc comments of the types
 that draw it, which `.claude/rules/swiftui.md` maps, and, as designed, in the board README
@@ -31,17 +33,21 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 ```
 App ──> DesignSystem   (SwiftUI only, no domain code)
  ├────> Session ──> WorkoutStore   (the open workout and its logged sets, observable; no UI)
+ │         └────> Health ──> WorkoutStore   (Apple Health, via HealthKit)
+ ├────> Health
  └────> WorkoutStore   (domain types, SwiftData, and workout naming; no UI)
 ```
 
-`Session` ships inside the `WorkoutStore` product, so the app links it with no project change.
+`Session` and `Health` ship inside the `WorkoutStore` product, so the app links them with no
+project change.
 
 **These arrows are the rule, not a description.** New code goes in the lowest layer that can
 hold it, and a new layer gets a target when it has code. Nothing imports `App`.
 
 Plain SwiftUI, no view-model layer: views hold presentation logic, `@Observable` stores hold
 state, stateless services hold side effects, free functions hold the math. The app,
-`DesignSystem`, and `Session` are main-actor by default; `WorkoutStore` is nonisolated.
+`DesignSystem`, and `Session` are main-actor by default; `WorkoutStore` and `Health` are
+nonisolated.
 
 ## How we work
 
@@ -82,17 +88,17 @@ state, stateless services hold side effects, free functions hold the math. The a
 The main session leads a slice, as `/onward` describes: it writes the spec and acceptance
 criteria, makes the technical calls, and hands each phase, in order, to a subagent defined in
 `.claude/agents/`: planner, builder, and, for a card that touches stored data or the live
-workout's state, verifier. It reads their summaries and screenshots, not their work, and itself
-makes a round's small changes. A subagent follows its definition, answers only to the lead, and
-never merges.
+workout's state, verifier. It reads their summaries, screenshots, and each change's shape, and
+itself makes a round's small changes. A subagent follows its definition, answers only to the
+lead, and never merges.
 
 The maintainer owns the product. The lead goes to them to align on a card before it starts, for
 a product call, or to put a build in their hands, and they try every slice before it merges. A
 slice with something to see goes on their phone as soon as their feedback would help, then in
-rounds; a round is shown, not done, and the thorough checks run once, after they say it's right.
-Anything they throw out, or the lead finds along the way, becomes a card through `/brief`; a
-small tooling or process change the lead recommends in answer to their question is made then,
-in its own PR.
+rounds; a round is shown, not done, and the thorough checks run behind it, finishing after they
+say it's right. Anything they throw out, or the lead finds along the way, becomes a card through
+`/brief`; a small tooling or process change the lead recommends in answer to their question is
+made then, in its own PR.
 
 The maintainer's time is for the product. Tooling, CI, tests, process, the nightly retro's PR,
 and a bug whose right behavior is settled are the lead's to find, card, build, verify, and merge
@@ -108,8 +114,8 @@ deleting what isn't the lead's.
 - **Never hand-edit `project.pbxproj`, and keep it free of build settings.** Settings live in
   `Config/*.xcconfig` and `scripts/lint.sh` fails if one lands in the project, which Xcode's
   wizards occasionally do. Dependencies go in `Packages/Package.swift`.
-- `App/` is a buildable folder: a file on disk is in the target. Anything in it ships inside the
-  app bundle, so never leave notes or scratch files there.
+- `App/` is a buildable folder: a file on disk is in the target. Anything in it ships, so leave
+  no notes there.
 - The package appears in the project both as a package reference and as a folder reference. The
   folder reference is what lets the app scheme run the package's test targets; remove it and
   `xcodebuild test` finds no test bundles.
@@ -120,7 +126,7 @@ The scripts are the single source of truth; the `/build`, `/test`, `/lint`, `/ru
 `/onward`, `/pr`, and `/retro` skills wrap them, and Xcode Cloud runs the same lint script.
 
 ```sh
-scripts/test.sh              # package and script tests on macOS, no simulator, seconds
+scripts/test.sh              # package and script tests on macOS, no simulator
 scripts/build.sh             # app for the simulator, compact diagnostics
 scripts/test.sh sim          # everything on the simulator, including snapshots
 scripts/run.sh [name]        # build, install, launch, screenshot to .build/screenshots/
@@ -133,11 +139,10 @@ scripts/pr-media.sh <pr> <file>... # put screenshots and recordings in a PR's bo
 ```
 
 Reach an external service through its own CLI (`gh`, `asc`). A wrapper script or MCP server
-has to earn its place; `docs/agent-tooling.md` says when, and how to build a script agents call.
+has to earn its place (`docs/agent-tooling.md`).
 
-Apple documentation: the `sosumi` MCP server works with Xcode closed. The `xcode` MCP server
-gives live diagnostics and preview rendering, and on Xcode 27 runs headless with Xcode closed.
-See `docs/agent-tooling.md`.
+Apple documentation: the `sosumi` MCP server. The `xcode` MCP server gives live diagnostics and
+preview rendering, headless on Xcode 27. See `docs/agent-tooling.md`.
 
 ## Branching
 

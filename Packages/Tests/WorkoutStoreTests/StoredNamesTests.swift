@@ -22,6 +22,8 @@ struct StoredNamesTests {
         10: RoutineSchemaV10.self,
         11: RoutineSchemaV11.self,
         12: RoutineSchemaV12.self,
+        13: RoutineSchemaV13.self,
+        14: RoutineSchemaV14.self,
     ]
 
     /// Every stored entity's properties and the version each first shipped in, written down from
@@ -83,6 +85,7 @@ struct StoredNamesTests {
             "position": 6,
             "reps": 6,
             "restAdjustment": 11,
+            "restSkippedAt": 13,
             "round": 6,
             "rowID": 6,
             "seconds": 6,
@@ -99,7 +102,10 @@ struct StoredNamesTests {
             "countSide": 12,
             "countStartClock": 12,
             "endedAt": 5,
+            "healthActivity": 14,
+            "healthWorkoutID": 14,
             "id": 5,
+            "pauseTimes": 14,
             "pausedAt": 5,
             "pausedSeconds": 5,
             "routineID": 5,

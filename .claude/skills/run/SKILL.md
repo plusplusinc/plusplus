@@ -49,8 +49,8 @@ relative to the repo (`App/PlusPlusApp.swift`), and set `previewVariantOverrides
 checks; the result lists every supported variant. Setup is in `docs/agent-tooling.md`. The
 scripts above remain the check for the app as a whole.
 
-What to check in the dark and XXXL images before declaring UI work done (the app shows only in
-dark, so `<name>.light.png` shows the same as `<name>.dark.png`):
+What to check in the dark and XXXL images before declaring UI work done (on Dark, the app's
+default, `<name>.light.png` matches `<name>.dark.png`):
 - Touch targets look at least 44pt, nothing important hidden under system bars.
 - No placeholder text, no labels clipped or truncated at XXXL, no glass stacked on glass.
 
@@ -69,7 +69,7 @@ the frames or by logging its frame during the move.
 
 - Content size is a device setting, so it survives relaunches and reboots of the simulator: a
   session that ended at the largest text size makes the next `run.sh` screenshot that size.
-  Appearance is one too, but the app ignores it and shows only in dark (`Config/Base.xcconfig`).
+  Appearance is one too, which the app follows only with Automatic on.
   Use `shots`, or `reset` when finished. A UI test that fails with nothing wrong in the app is
   often the simulator: `docs/agent-tooling.md` lists the symptoms seen so far and their fixes.
 - `sim.sh` has no tap layer. Taps and the accessibility tree come from

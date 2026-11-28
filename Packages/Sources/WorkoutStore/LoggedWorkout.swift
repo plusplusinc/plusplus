@@ -14,13 +14,23 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     /// When the pause in progress began; nil while running.
     public var pausedAt: Date?
     /// The length of every pause already resumed.
-    public var pausedSeconds: Double
+    public private(set) var pausedSeconds: Double
+    /// Every pause already resumed, from when it began to when it ended, in order; a pause in
+    /// progress at Finish is one. Empty for those resumed before the store kept their times
+    /// (V14), whose length `pausedSeconds` still holds.
+    public private(set) var pauses: [DateInterval]
     /// When it finished; nil while in progress.
     public var endedAt: Date?
     /// Every set done in it, in the order logged.
     public var sets: [LoggedSet]
     /// The timed set whose turn has come, until it is logged; nil for none.
     public var count: SetCount?
+    /// Its type in Apple Health, worked out at Finish from what was done then; nil while in
+    /// progress, and for a workout finished before the store kept it (V14).
+    public var healthActivity: HealthActivity?
+    /// The workout Apple Health saved for it, as the store holds it; nil while owed. Only
+    /// `Store.markInHealth(_:as:)` writes it: a save of this value never changes it.
+    public internal(set) var healthWorkoutID: UUID?
 
     public init(
         id: UUID = UUID(),
@@ -29,9 +39,11 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
         startedAt: Date,
         pausedAt: Date? = nil,
         pausedSeconds: Double = 0,
+        pauses: [DateInterval] = [],
         endedAt: Date? = nil,
         sets: [LoggedSet] = [],
         count: SetCount? = nil,
+        healthActivity: HealthActivity? = nil,
     ) {
         self.count = count
         self.id = id
@@ -40,8 +52,10 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
         self.startedAt = startedAt
         self.pausedAt = pausedAt
         self.pausedSeconds = pausedSeconds
+        self.pauses = pauses
         self.endedAt = endedAt
         self.sets = sets
+        self.healthActivity = healthActivity
     }
 
     public var isPaused: Bool {
@@ -68,7 +82,7 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     /// The seconds spent working out at `now`, pauses left out, not rounded: the clock a rest
     /// runs on, so a pause stops it. Below zero only before the workout's time starts, with
     /// nothing logged: through the first set's "Start in", which counts up to zero, where the
-    /// set and the time begin (`LiveWorkout.landingStart(at:restOverride:)`). Once a set is
+    /// set and the time begin (`LiveWorkout.landingStart(at:)`). Once a set is
     /// logged, never below zero, as with a device clock set back.
     public func clock(at now: Date) -> Double {
         let end = endedAt ?? pausedAt ?? now
@@ -126,13 +140,37 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
         return paused
     }
 
-    /// Running again, the pause added to the time paused; unchanged if not paused.
+    /// Running again, the pause added to the time paused and kept with its times; unchanged if
+    /// not paused. A pause before the time has started, through the first set's "Start in",
+    /// moves the start on by its length instead: a pause holds the clock, so all of it falls
+    /// before the start, and none of it is the workout's, in the app or in Apple Health.
     public func resuming(at now: Date) -> Self {
         guard isInProgress, let pausedAt else { return self }
         var resumed = self
-        resumed.pausedSeconds += max(0, now.timeIntervalSince(pausedAt))
         resumed.pausedAt = nil
+        let pause = DateInterval(start: pausedAt, end: max(now, pausedAt))
+        if sets.isEmpty, clock(at: pausedAt) < 0 {
+            resumed.startedAt += pause.duration
+        } else {
+            resumed.pausedSeconds += pause.duration
+            resumed.pauses.append(pause)
+        }
         return resumed
+    }
+
+    /// Why Apple Health can't have it as it is, or nil when it can: finished, its end after
+    /// its start, and its pauses kept with their times, in order, each inside its start and
+    /// end, adding up to its time paused, so its length in Health equals its time in the app.
+    public var healthWithheld: HealthWorkout.Withheld? {
+        guard let endedAt else { return .notFinished }
+        guard endedAt > startedAt else { return .noLength }
+        var earliest = startedAt
+        for pause in pauses {
+            guard pause.start >= earliest, pause.end <= endedAt else { return .timesNotKept }
+            earliest = pause.end
+        }
+        let total = pauses.reduce(0) { $0 + $1.duration }
+        return total == pausedSeconds ? nil : .timesNotKept
     }
 
     /// With `planned` logged at `now`, at the numbers `row` plans now, done as planned.

@@ -1,4 +1,5 @@
 import DesignSystem
+import Health
 import OSLog
 import Session
 import SwiftUI
@@ -56,10 +57,13 @@ struct WorkoutLauncher: View {
             // A binding, so a finish redraws only the haptics, not this whole view.
             .finishHaptics($finishBeats)
             // A way through the drawer that the app leaves mid-way lands where it was going,
-            // closed.
+            // closed. Back at the front, Apple Health gets what it is owed, for saving turned
+            // on in the Health app or the system's settings meanwhile.
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active {
                     session.finishThroughDrawer()
+                } else {
+                    session.catchUpHealth()
                 }
             }
         } else {
@@ -72,10 +76,11 @@ struct WorkoutLauncher: View {
                         exercises: exercises(),
                         store: store,
                         namer: namer,
+                        health: HealthSaving(client: healthClient),
                     )
                     // A timed set that ran out while the app was away is logged, before the
                     // screen opens on the workout.
-                    session.catchUp(override: WorkoutScreen.restOverride)
+                    session.catchUp()
                     let weightUnit = WeightUnit(region: locale)
                     // On the Workouts list, after a finish, the list is read before the first
                     // frame, so it never shows empty and then fills.
@@ -88,8 +93,19 @@ struct WorkoutLauncher: View {
                         await session.refreshRecent(weightUnit: weightUnit)
                     }
                     await session.refreshLog()
+                    // After the first frame, so HealthKit stays off the way to it: a finish
+                    // whose save never happened, as with the app closed right after, goes now.
+                    session.catchUpHealth()
                 }
         }
+    }
+
+    private var healthClient: HealthClient {
+        #if DEBUG
+        LaunchOptions.healthClient ?? .live
+        #else
+        .live
+        #endif
     }
 
     /// Read after `launch()`, which may reset the store first.

@@ -194,7 +194,8 @@ public struct ChipSheet<Item: Hashable>: View {
 /// broke mid-word.
 ///
 /// The sheet is the screen's own color (`background`), as the exercise sheet and Add exercise
-/// are: an unchosen chip's `surfaceRaised` stands 1.29:1 from it, and 1.14:1 from `surface`.
+/// are: an unchosen chip's `surfaceRaised` stands 1.29:1 from it, and 1.14:1 from `surface`. In
+/// Void `sheetGround()` lifts it to a gray over the black screen.
 struct FilterSheetFrame<Content: View>: View {
     let title: String
     let onDone: () -> Void
@@ -235,7 +236,7 @@ struct FilterSheetFrame<Content: View>: View {
             selection: $detent,
         )
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.pp(.background))
+        .sheetGround()
     }
 
     private var header: some View {

@@ -3,7 +3,7 @@ import WorkoutStore
 extension AppSession {
     /// Where the app is, under the drawer.
     public enum Screen: Equatable {
-        /// The open workout, at the root: as launched, and once it starts.
+        /// The open workout, at the root, as launched.
         case workout
         /// The Workouts screen, its list showing.
         case workouts
@@ -22,6 +22,12 @@ extension AppSession {
             case .workout, .workouts, .log: false
             }
         }
+    }
+
+    /// While a workout is in progress, and through a way's lead, as a finish's before Log
+    /// (`isLeadPending`), the drawer stays shut: neither ++ nor a swipe opens it, only the way.
+    public var isDrawerLocked: Bool {
+        loggedWorkout != nil || isLeadPending
     }
 
     /// Shows the Workouts screen and closes the drawer. A finish's way to Log that this cuts
@@ -176,8 +182,9 @@ extension AppSession {
     /// button and back swipe do. A push goes through `open` or `startNew`. Add exercise goes
     /// with the workout, and so does New's ask to open it: a sheet set as a back swipe ends,
     /// with nothing left to show it, would otherwise come up over the next workout shown.
+    /// Refused while a workout is in progress, which nothing leaves until it ends.
     public func popWorkout() {
-        if screen == .pushedWorkout {
+        if screen == .pushedWorkout, loggedWorkout == nil {
             screen = .workouts
             opensAddExerciseOnShow = false
             addExercise = nil
@@ -213,5 +220,11 @@ extension AppSession {
         case workouts
         case log
         case workout
+    }
+
+    /// Whether the open workout has anything to delete, for the workout screen's Delete: one
+    /// with nothing saved has none, and one in progress is not deleted (`delete(_:)`).
+    public var canDeleteOpen: Bool {
+        !current.isEmpty && loggedWorkout == nil
     }
 }

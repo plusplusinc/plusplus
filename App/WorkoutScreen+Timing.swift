@@ -36,14 +36,14 @@ extension WorkoutScreen {
     /// `lead`, the seconds the slot takes to come in from here: "Start in" counts from then, so
     /// its 0:05 shows a full second at full strength.
     func arrivingCount(lead: Double = 0) -> CountStage? {
-        session.beginCount(override: restOverride, at: .now.addingTimeInterval(lead))
+        session.beginCount(at: .now.addingTimeInterval(lead))
         return live?.countStage(at: .now)
     }
 
     /// As `arrivingCount()`, for Start's landing on the first set: the workout's time holds at
     /// 0:00 through its "Start in" and starts as the set begins, so the two tick together.
     func startingCount() -> CountStage? {
-        session.landOnFirstSet(override: restOverride)
+        session.landOnFirstSet()
         return live?.countStage(at: .now)
     }
 
@@ -314,7 +314,7 @@ extension WorkoutScreen {
     /// length follows the row, its start kept, and its watch wakes to the new end.
     func settleCountAfterEdit() {
         guard phase.isAtRest else { return }
-        session.beginCount(override: restOverride)
+        session.beginCount()
         withAnimation(SetMotion.restSwap) {
             phase.settleCount(on: live?.countStage(at: .now))
         }

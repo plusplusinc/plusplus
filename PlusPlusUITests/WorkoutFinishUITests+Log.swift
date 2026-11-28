@@ -30,6 +30,26 @@ extension WorkoutFinishUITests {
             XCTAssertFalse(app.buttons["log.goToWorkouts"].exists, "Go to Workouts stayed")
             XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")
         }
+        // When the prompt shows, and that its × is for good, are `HealthOfferTests`'; its look and
+        // the note's are `PromptRowSnapshotTests`'. This is Log drawing them from the session,
+        // and the × and OK's wires to it.
+        XCTContext
+            .runActivity(named: "Log asks to sync to Apple Health; × leaves a note, OK ends it")
+            { _ in
+                let dismiss = app.buttons["Dismiss"]
+                XCTAssertTrue(
+                    dismiss.appears(),
+                    "Log showed no Apple Health prompt after the finish",
+                )
+                XCTAssertTrue(dismiss.settles(), "The Apple Health prompt kept moving")
+                dismiss.tap()
+                let ok = app.buttons["OK"]
+                XCTAssertTrue(ok.appears(), "The × left no note in the prompt's place")
+                XCTAssertTrue(dismiss.disappears(), "The × left the prompt on Log")
+                // At once, not after `settles()`: the note ends itself 5.4 s after it shows.
+                ok.tap()
+                XCTAssertTrue(ok.disappears(), "OK left the note on Log")
+            }
     }
 
     func relaunchKeepsIt(named name: String, title: XCUIElement, in app: XCUIApplication) {
@@ -119,10 +139,10 @@ extension WorkoutFinishUITests {
     }
 
     /// Run last, from the empty History the delete leaves. That a finish goes to Log by the
-    /// drawer and that a started workout is at the root are `AppSessionDrawerWayTests`' and
-    /// `AppSessionScreenTests`'; this is the wire from the system dialog's Finish workout, which
-    /// only the running app composes, to the same finish as the key's, on a workout opened from
-    /// the Workouts list.
+    /// drawer and that a workout started from the list stays on it are
+    /// `AppSessionDrawerWayTests`' and `AppSessionScreenTests`'; this is the wire from the system
+    /// dialog's Finish workout, which only the running app composes, to the same finish as the
+    /// key's, on a workout opened from the Workouts list.
     func dialogFinishGoesToLog(named name: String, in app: XCUIApplication) {
         XCTContext
             .runActivity(named: "End's Finish, on a workout from the list, goes to Log") { _ in

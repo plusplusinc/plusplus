@@ -11,19 +11,6 @@ extension WorkoutPhase {
         public let isBack: Bool
         public let isWithinExercise: Bool
         public internal(set) var beat: Beat
-        /// Cut by Skip rest, the seconds it had left at the tap, which its count holds as it
-        /// goes (`skipRest(left:)`); nil for a rest that runs to 0:00.
-        public internal(set) var skippedLeft: Double?
-        /// Cut by Skip rest, the workout's clock as the screen moves on, its time held
-        /// (`LiveWorkout.skipHold`). Here, with the rest it belongs to: kept by the screen, the
-        /// last skip's clock outlived its workout, and a rest in the next one waited for it.
-        public internal(set) var skipLeave: Double?
-
-        /// Whether Skip rest and +15 s are its keys: until it ends, or is skipped, where they
-        /// go at the tap, for the moment its count holds.
-        public var hasKeys: Bool {
-            beat < .returning && skippedLeft == nil
-        }
 
         public enum Beat: Comparable, Sendable {
             /// Logged, and not yet drawn.
@@ -41,32 +28,27 @@ extension WorkoutPhase {
         }
     }
 
-    /// At once, as the store stands, as the screen goes away (`init(resuming:restOverride:at:)`).
-    /// What the stopped sequence was playing is dropped, so the phase never says there is a
-    /// workout the store doesn't hold, or none where it holds one.
-    public mutating func settleAtOnce(
-        resuming live: LiveWorkout?,
-        restOverride: Int?,
-        at now: Date,
-    ) {
-        self = Self(resuming: live, restOverride: restOverride, at: now)
+    /// At once, as the store stands, as the screen goes away (`init(resuming:at:)`). What the
+    /// stopped sequence was playing is dropped, so the phase never says there is a workout the
+    /// store doesn't hold, or none where it holds one.
+    public mutating func settleAtOnce(resuming live: LiveWorkout?, at now: Date) {
+        self = Self(resuming: live, at: now)
     }
 
     /// Where a screen opening on `live` is, as after a relaunch: out of a workout with none; in
     /// the rest after its last set, drawn and settled, while one runs at `now`, its hold at 0:00
     /// included (`WorkoutRest.isOver(atClock:)`); else at rest on
-    /// the next set. `restOverride` as `LiveWorkout.rest(override:)`'s.
-    public init(resuming live: LiveWorkout?, restOverride: Int? = nil, at now: Date) {
+    /// the next set.
+    public init(resuming live: LiveWorkout?, at now: Date) {
         guard let live else {
             self = .idle
             return
         }
         self = .atRest(on: live.countStage(at: now))
-        guard let rest = live.rest(override: restOverride),
-              !rest.isOver(atClock: live.loggedWorkout.clock(at: now))
+        guard let rest = live.rest(), !rest.isOver(atClock: live.loggedWorkout.clock(at: now))
         else { return }
         let step = live.hiding([rest.after]).step(logging: rest.after)
-        guard live.rests(after: rest.after, leadingTo: step, override: restOverride) else {
+        guard live.rests(after: rest.after, leadingTo: step) else {
             return
         }
         var isBack = false
@@ -110,28 +92,6 @@ extension WorkoutPhase {
         return true
     }
 
-    /// Skip rest cuts the rest with `left` seconds to go: its count holds them from here until
-    /// the screen moves on at `leave` (`LiveWorkout.skipHold` after the tap), then through the
-    /// swap back or the move on (`Move.skippedLeft`), and goes with the phase. Its keys go at the
-    /// tap. Stored as cut at the tap, the rest drawn from the store read 0:00 on its way out.
-    @discardableResult
-    public mutating func skipRest(left: Double, leave: Double? = nil) -> Bool {
-        guard case var .resting(rest) = self, rest.beat < .returning else { return false }
-        rest.skippedLeft = left
-        rest.skipLeave = leave
-        self = .resting(rest)
-        return true
-    }
-
-    /// The clock as the screen moves on from `rest`, the stored rest running: its own
-    /// (`WorkoutRest.leaveClock`), or, skipped, never before the skip's hold is up. A skip with
-    /// no count stored is timed by the phase alone: the rest's own leave, a whole second past
-    /// its stored end, came up to three quarters of a second after the hold.
-    public func leaveClock(of rest: WorkoutRest) -> Double {
-        guard let skip = resting?.skipLeave else { return rest.leaveClock }
-        return rest.skipLeaveClock == nil ? skip : max(rest.leaveClock, skip)
-    }
-
     /// A rest is over: the move to the next exercise plays from the rest as a move with no rest
     /// does from its log, or with no motion (`moves`), fades on, called inside the fade: the set
     /// stays shown, as the rest drew it. Hidden again, the finished exercise stood grown as the
@@ -160,7 +120,6 @@ extension WorkoutPhase {
             startsRound: false,
             beat: .shown,
             isFromRest: true,
-            skippedLeft: rest.skippedLeft,
         ))
         return true
     }

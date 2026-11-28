@@ -176,7 +176,7 @@ struct AppSessionDrawerWayTests {
         await clock.sleeper()
         clock.advance(by: lead - .milliseconds(1))
         #expect(!session.isDrawerOpen)
-        #expect(session.screen == .workout)
+        #expect(session.screen == .pushedWorkout)
 
         clock.advance(by: .milliseconds(1))
         await clock.sleeper()

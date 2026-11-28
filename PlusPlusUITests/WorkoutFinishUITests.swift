@@ -21,7 +21,10 @@ import XCTest
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class WorkoutFinishUITests: XCTestCase {
     /// One set of 8 s.
-    private static let oneTimedSet = ["-seedSets", "1", "-seedTime", "8"]
+    /// With a Health never asked, so the finish brings Log's prompt to sync to it.
+    private static let oneTimedSet = [
+        "-seedSets", "1", "-seedTime", "8", "-seedHealth", "notAsked",
+    ]
 
     @MainActor
     func testFinishKeyKeepsTheWorkout() {

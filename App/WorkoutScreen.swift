@@ -15,8 +15,13 @@ struct WorkoutScreen: View {
     /// Saves every change, and opens the drawer.
     let session: AppSession
     let namer: WorkoutNamer
-    /// Pushed onto the Workouts screen, with a back button where ++ otherwise is.
-    let isPushed: Bool
+    /// Pushed onto the Workouts screen, with a back button where ++ otherwise is: where that
+    /// screen shows End's dialog for this one (`askToEnd()`). None at the root.
+    let pushedEnd: Binding<EndChoices?>?
+    var isPushed: Bool {
+        pushedEnd != nil
+    }
+
     /// How high the picker is: half as it opens (`openPicker()`), full once pulled up or once
     /// its search opens.
     @State var pickerDetent: PresentationDetent = .medium
@@ -132,7 +137,7 @@ struct WorkoutScreen: View {
         session: AppSession,
         namer: WorkoutNamer,
         finishBeats: Binding<FinishBeats>,
-        isPushed: Bool = false,
+        pushedEnd: Binding<EndChoices?>? = nil,
     ) {
         _finishBeats = finishBeats
         _shownWorkout = State(initialValue: session.opened)
@@ -140,13 +145,12 @@ struct WorkoutScreen: View {
         _phase = State(initialValue: WorkoutPhase(
             resuming: session.loggedWorkout
                 .map { LiveWorkout(workout: session.opened, loggedWorkout: $0) },
-            restOverride: Self.restOverride,
             at: .now,
         ))
         _footShowsEmpty = State(initialValue: session.opened.exercises.isEmpty)
         self.session = session
         self.namer = namer
-        self.isPushed = isPushed
+        self.pushedEnd = pushedEnd
     }
 
     /// The workout on screen. Every change to it is saved as it is made, and a write that changes
@@ -350,6 +354,9 @@ struct WorkoutScreen: View {
         // window's black behind the keyboard's rounded top corners.
         .background { Color.pp(.background).ignoresSafeArea() }
         .navigationBarTitleDisplayMode(.inline)
+        // A workout in progress pushed on the Workouts screen has End where back was, and no
+        // back swipe: nothing leaves it until it ends.
+        .navigationBarBackButtonHidden(isPushed && barShowsWorkout)
         .sheet(item: addExerciseOpening, content: picker)
         // By item, so the sheet keeps its content as it slides away; by opening, so each opening
         // starts from fresh state (`RowSheet.opening`).

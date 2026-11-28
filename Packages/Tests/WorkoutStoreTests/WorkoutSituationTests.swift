@@ -176,24 +176,28 @@ struct WorkoutSituationTests {
     }
 
     @Test("""
-    A skipped rest before the same exercise's reps set runs to its stored leave, as a screen \
-    opening then finds it
+    A skipped rest before the same exercise's reps set moves on its hold after the tap, as a \
+    screen opening then finds it
     """)
     func skippedRestBetweenSets() throws {
-        // Two answers today: the screen that took the tap moves on `skipHold` after it, by the
-        // time its phase keeps (`Resting.skipLeave`); the stored rest, cut to whole seconds
-        // rounded down, moves on at its own hold. The situation can read only the stored one.
+        // One answer: the stored tap times the move for the screen that took it and for one
+        // opening in its hold alike (`WorkoutRest.leaveClock`).
         var live = try Self.started(Self.workout())
         live.loggedWorkout = live.landingStart(at: Self.at(0.5))
         live = try live.logging(at: live.at(clock: 10))
         live.loggedWorkout = live.skippingRest(at: live.at(clock: 30.6))
-        let leave = try #require(live.rest()?.leaveClock)
-        #expect(leave > 30.6 + LiveWorkout.skipHold)
-        Self.expectAgrees(live, at: live.at(clock: 30.6 + LiveWorkout.skipHold))
+        let rest = try #require(live.rest())
+        let leave = rest.leaveClock
+        #expect(try leave == #require(rest.skippedAt) + LiveWorkout.skipHold)
+        #expect(abs(leave - (30.6 + LiveWorkout.skipHold)) < 1e-6)
+        Self.expectAgrees(live, at: live.at(clock: leave - 0.1))
         #expect(try Self.situation(live, at: live.at(clock: leave - 0.1)) == .resting(
             #require(live.rest()),
         ))
         Self.expectAgrees(live, at: live.at(clock: leave))
+        #expect(try Self.situation(live, at: live.at(clock: leave)) != .resting(
+            #require(live.rest()),
+        ))
     }
 
     @Test("""

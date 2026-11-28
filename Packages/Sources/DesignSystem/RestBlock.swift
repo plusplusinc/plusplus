@@ -14,8 +14,7 @@ import SwiftUI
 /// as it ends. Its changing digits roll down as each second goes and up on +15 s, its last change,
 /// to 0:00, at once; cut, by Skip rest or held as it goes, it shows whole at once, whatever roll
 /// was in flight (`figureKey(skips:)`). To VoiceOver it is one element, "Rest", its value the time
-/// left in
-/// words.
+/// left in words. Shut, its count runs no timeline (`RestRoom.isShown`).
 public struct RestBlock: View {
     public enum Stage: Sendable {
         case none
@@ -98,7 +97,7 @@ public struct RestBlock: View {
             ends: ends,
             isPaused: !ticks,
         )) { context in
-            let seconds = left(at: context.date, within: shown)
+            let seconds = Self.drawing(left(at: context.date, within: shown))
             let text = Self.text(seconds, locale: locale)
             Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
@@ -252,7 +251,28 @@ private struct RestRoom: View, Animatable {
         Spacing.lg + (isAboveLabel ? 2 * RailRowMetrics.verticalInset : 0)
     }
 
+    /// Whether the room shows: open, opening, or closing. Shut, its count has no timeline.
+    var isShown: Bool {
+        open > 0 || block.stage == .open
+    }
+
     var body: some View {
+        room.modifier(RestRoomHeight(open: open))
+    }
+
+    /// The count, or, shut, its figure drawn once with no timeline: the room keeps its parts laid
+    /// out, as Start's landing reads the rows by them (`WorkoutFinishUITests`: with the shut room
+    /// drawing nothing, the list landed 32 pt high). In and out at once: the parts fade on `open`.
+    @ViewBuilder private var figure: some View {
+        if isShown {
+            block.countdown(size: size, locale: locale, turns: !reduceMotion, skips: restSkips)
+                .transition(.identity)
+        } else {
+            RestBlock.shutFigure(size: size, locale: locale).transition(.identity)
+        }
+    }
+
+    @ViewBuilder private var room: some View {
         // From the share of the room that holds each part whole, so nothing is drawn cut off at
         // the room's bottom against the row under it: from fixed shares, the countdown came in
         // with the room a third open, half of it drawn against the first member's name.
@@ -274,7 +294,7 @@ private struct RestRoom: View, Animatable {
                 Color.clear
                     .frame(width: 0, height: capHeight)
                     .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
-                    .restStop(open > 0 || block.stage == .open)
+                    .restStop(isShown)
             }
             .font(.ppRowTitle)
             .foregroundStyle(.pp(.textPrimary))
@@ -283,22 +303,16 @@ private struct RestRoom: View, Animatable {
             .padding(.top, Spacing.sm)
             .modifier(BottomIn(Self.space) { bottoms.word = $0 })
             .opacity(word)
-            block.countdown(
-                size: size,
-                locale: locale,
-                turns: !reduceMotion,
-                skips: restSkips,
-            )
-            .figureBox(size: size)
-            .padding(.top, Spacing.md)
-            .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
-            .coming(countdown)
+            figure
+                .figureBox(size: size)
+                .padding(.top, Spacing.md)
+                .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
+                .coming(countdown)
         }
         .padding(.bottom, below)
         .coordinateSpace(.named(Self.space))
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { bottoms.room = $0 }
         .accessibilityHidden(block.stage != .open)
-        .modifier(RestRoomHeight(open: open))
     }
 }
 
