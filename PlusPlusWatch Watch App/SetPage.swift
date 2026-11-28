@@ -103,6 +103,12 @@ struct WatchBars: View {
 struct WatchMiddle: View {
     let middle: WatchFace.Middle
     var isQuiet = false
+    @Environment(\.isLuminanceReduced) private var isWristDown
+    @Environment(\.forcesDim) private var forcesDim
+
+    private var isDimmed: Bool {
+        isWristDown || forcesDim
+    }
 
     var body: some View {
         Group {
@@ -139,7 +145,7 @@ struct WatchMiddle: View {
     private func big(_ text: String) -> some View {
         Text(text)
             .ppWatchFont(.figure)
-            .foregroundStyle(Color.pp(isQuiet ? .textSecondary : .textPrimary))
+            .foregroundStyle(Color.pp(isQuiet || isDimmed ? .textSecondary : .textPrimary))
             .lineLimit(1)
             .minimumScaleFactor(0.6)
     }
@@ -188,6 +194,12 @@ struct WatchKey: View {
     var isPrimary = false
     var isSmall = false
     let action: () -> Void
+    @Environment(\.isLuminanceReduced) private var isWristDown
+    @Environment(\.forcesDim) private var forcesDim
+
+    private var isDimmed: Bool {
+        isWristDown || forcesDim
+    }
 
     init(
         _ title: LocalizedStringKey,
@@ -207,11 +219,16 @@ struct WatchKey: View {
         Button(action: action) {
             Text(title)
                 .ppWatchFont(isSmall ? .pairKey : .key)
-                .foregroundStyle(Color.pp(isPrimary ? .onPrimaryKey : .textPrimary))
+                .foregroundStyle(Color.pp(textColor))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background {
-                    Capsule().fill(Color.pp(isPrimary ? .primaryKey : .surface))
-                    if let fill {
+                    if isDimmed {
+                        // Wrist down: an outline, with no fill and no purple.
+                        Capsule().strokeBorder(Color.pp(.borderStrong), lineWidth: 1.5)
+                    } else {
+                        Capsule().fill(Color.pp(isPrimary ? .primaryKey : .surface))
+                    }
+                    if let fill, !isDimmed {
                         GeometryReader { proxy in
                             Rectangle()
                                 .fill(Color.pp(.done))
@@ -224,6 +241,13 @@ struct WatchKey: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+
+    private var textColor: ColorToken {
+        if isDimmed {
+            return .textSecondary
+        }
+        return isPrimary ? .onPrimaryKey : .textPrimary
     }
 }
 

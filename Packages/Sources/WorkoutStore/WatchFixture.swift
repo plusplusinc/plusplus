@@ -15,6 +15,14 @@ public enum WatchFixture: String, CaseIterable, Sendable {
     case superset
     case paused
     case unreachable
+    /// Four sets into a longer workout, for the time and list pages.
+    case chestDay
+    /// End tapped, with sets logged.
+    case endChoice
+    /// Finished on the wrist.
+    case finished
+    /// Wrist down through a rest.
+    case dimmed
 
     /// The moment every fixture is read at, fixed so a screenshot is the same each time.
     public static let start = Date(timeIntervalSinceReferenceDate: 820_000_000)
@@ -24,6 +32,9 @@ public enum WatchFixture: String, CaseIterable, Sendable {
         switch self {
         case .startIn: Self.run(Self.benchWorkout, sets: 0, then: 0)
         case .set, .unreachable: Self.run(Self.benchWorkout, sets: 0, then: 6)
+        case .chestDay, .endChoice: Self.run(Self.chestDayWorkout, sets: 4, then: 70)
+        case .finished: Self.run(Self.pushDayWorkout, sets: 9, then: 5)
+        case .dimmed: Self.run(Self.benchWorkout, sets: 1, then: 32)
         case .resting: Self.run(Self.benchWorkout, sets: 1, then: 32)
         case .allLogged: Self.run(Self.pushDayWorkout, sets: 9, then: 1)
         case .timed: Self.run(Self.plankWorkout, sets: 0, then: 24)
@@ -53,6 +64,14 @@ public enum WatchFixture: String, CaseIterable, Sendable {
         row("barbell-bench-press", sets: 3, .reps(5), Weight(45, .pounds), rest: 60),
         row("push-up", sets: 3, .reps(12), nil, rest: 45),
         row("pull-up", sets: 3, .reps(6), nil, rest: 60),
+    ])
+
+    static let chestDayWorkout = Workout(name: "Chest day", exercises: [
+        row("push-up", sets: 3, .reps(12), nil, rest: 45),
+        row("barbell-bench-press", sets: 3, .reps(5), Weight(45, .pounds), rest: 60),
+        row("dumbbell-row", sets: 3, .reps(10), Weight(25, .pounds), rest: 60),
+        row("plank", sets: 3, .time(seconds: 60), nil, rest: 30),
+        row("pull-up", sets: 3, .reps(8), nil, rest: 60),
     ])
 
     static let plankWorkout = Workout(name: "Core", exercises: [

@@ -27,9 +27,7 @@ struct WatchRoot: View {
     var body: some View {
         #if DEBUG
         if let fixture = options.fixture {
-            let (live, at) = fixture.live
-            WorkoutPages(live: live, frozenAt: options.freeze ? at : nil) { _ in }
-                .environment(\.isLuminanceReduced, options.dim)
+            fixturePages(fixture)
         } else {
             running
                 .onAppear {
@@ -45,14 +43,113 @@ struct WatchRoot: View {
 
     @ViewBuilder
     private var running: some View {
-        if let live = workout.live, live.workoutSession.isInProgress {
-            WorkoutPages(live: live, isPhoneAway: !workout.isPhoneInReach) { tap in
-                workout.tap(tap.action(on: live))
+        if let ended = workout.ended {
+            FinishedPage(end: ended) { workout.dismissEnded() }
+        } else if let live = workout.live, live.workoutSession.isInProgress {
+            WorkoutPages(live: live, isPhoneAway: !workout.isPhoneInReach) { action in
+                workout.tap(action)
             }
         } else {
             IdlePage()
         }
     }
+
+    #if DEBUG
+    /// A fixed state of the boards, for a screenshot.
+    @ViewBuilder
+    private func fixturePages(_ fixture: WatchFixture) -> some View {
+        let (live, at) = fixture.live
+        if fixture == .finished {
+            FinishedPage(end: LinkEnd(live.finishing(at: at), at: at)) { }
+        } else {
+            WorkoutPages(
+                live: live,
+                frozenAt: options.freeze ? at : nil,
+                isPhoneAway: fixture == .unreachable,
+                page: WorkoutPages.Page(rawValue: options.page ?? "") ?? .set,
+                isEnding: fixture == .endChoice,
+                forcesDim: options.dim || fixture == .dimmed,
+            ) { _ in }
+        }
+    }
+    #endif
+}
+
+/// The workout's three pages, swiped between: its time, the set, and the whole workout. Read
+/// each second of its clock, or once at `frozenAt`.
+struct WorkoutPages: View {
+    enum Page: String {
+        case time
+        case set
+        case list
+    }
+
+    let live: LiveWorkout
+    var frozenAt: Date?
+    var isPhoneAway = false
+    @State var page = Page.set
+    @State var isEnding = false
+    /// Draws wrist down whatever the wrist does: a screenshot's `-watchDim`.
+    var forcesDim = false
+    let act: (WorkoutAction) -> Void
+
+    var body: some View {
+        if let frozenAt {
+            pages(at: frozenAt)
+        } else {
+            TimelineView(.periodic(from: live.workoutSession.clockStart, by: 1)) { context in
+                pages(at: context.date)
+            }
+        }
+    }
+
+    private func pages(at date: Date) -> some View {
+        TabView(selection: $page) {
+            timePage(at: date)
+                .tag(Page.time)
+            setPage(at: date)
+                .tag(Page.set)
+            ListPage(name: live.watchTimePage(at: date).name, rows: live.watchList())
+                .tag(Page.list)
+        }
+        .tabViewStyle(.page)
+        .onChange(of: page) { isEnding = false }
+        .environment(\.forcesDim, forcesDim)
+    }
+
+    @ViewBuilder
+    private func timePage(at date: Date) -> some View {
+        let time = live.watchTimePage(at: date)
+        if isEnding {
+            EndChoicePage(
+                offersFinish: time.offersFinish,
+                finish: { act(.finish) },
+                discard: { act(.discard) },
+            )
+        } else {
+            TimePage(page: time) {
+                act(time.isPaused ? .resume : .pause)
+            } end: {
+                isEnding = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func setPage(at date: Date) -> some View {
+        if let face = live.watchFace(at: date) {
+            SetPage(face: face, isPhoneAway: isPhoneAway) { tap in
+                act(tap.action(on: live))
+            }
+        } else {
+            IdlePage()
+        }
+    }
+}
+
+extension EnvironmentValues {
+    /// Draws wrist down whatever the wrist does, for a screenshot (`-watchDim`).
+    @Entry var forcesDim = false
 }
 
 extension SetPageTap {
@@ -64,33 +161,6 @@ extension SetPageTap {
         case .extendRest: .extendRest(by: 15)
         case .finish: .finish
         case .resume: .resume
-        }
-    }
-}
-
-/// The set page of `live`, read each second of its clock, or once at `frozenAt`.
-struct WorkoutPages: View {
-    let live: LiveWorkout
-    var frozenAt: Date?
-    var isPhoneAway = false
-    let tap: (SetPageTap) -> Void
-
-    var body: some View {
-        if let frozenAt {
-            page(at: frozenAt)
-        } else {
-            TimelineView(.periodic(from: live.workoutSession.clockStart, by: 1)) { context in
-                page(at: context.date)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func page(at date: Date) -> some View {
-        if let face = live.watchFace(at: date) {
-            SetPage(face: face, isPhoneAway: isPhoneAway, tap: tap)
-        } else {
-            IdlePage()
         }
     }
 }
