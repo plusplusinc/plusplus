@@ -43,7 +43,8 @@ struct StoreCustomizeTests {
 
     /// Every workout stored, as a relaunch would read it.
     private func loggedWorkouts() throws -> [LoggedWorkout] {
-        try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>()).map(\.loggedWorkout)
+        try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
+            .map(\.loggedWorkout)
     }
 
     @Test("A new muscle group reaches every workout's row, its numbers kept, its rest following")
@@ -112,7 +113,7 @@ struct StoreCustomizeTests {
         loggedWorkout = loggedWorkout.logging(next, of: workout.exercises[0], at: Self.at(20))
         try await store.save(loggedWorkout)
         let context = ModelContext(container)
-        let set = try #require(try context.fetch(FetchDescriptor<StoredSet>()).first)
+        let set = try #require(try context.fetch(FetchDescriptor<StoredLoggedSet>()).first)
         set.exerciseName = nil
         try context.save()
 

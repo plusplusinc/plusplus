@@ -5,7 +5,7 @@ extension Store {
     /// The workout `id` as stored, its rows read through today's exercises, without marking it
     /// opened; nil if there is none.
     public func workout(_ id: Workout.ID, weightUnit: WeightUnit) throws -> Workout? {
-        var descriptor = FetchDescriptor<StoredRoutine>(predicate: #Predicate { $0.id == id })
+        var descriptor = FetchDescriptor<StoredWorkout>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         guard let stored = try modelContext.fetch(descriptor).first else { return nil }
         return try Self.workout(from: stored, exercises: exercises(), weightUnit: weightUnit)
@@ -72,7 +72,7 @@ extension Store {
     /// it reads now, so it keeps the name it was logged under. Saved with the rename.
     func keepLoggedNames(of id: String, named current: String?, renamedTo name: String) throws {
         guard let current, current != name else { return }
-        let unnamed = try modelContext.fetch(FetchDescriptor<StoredSet>(
+        let unnamed = try modelContext.fetch(FetchDescriptor<StoredLoggedSet>(
             predicate: #Predicate { $0.exerciseID == id && $0.exerciseName == nil },
         ))
         for set in unnamed {
@@ -90,15 +90,15 @@ extension Store {
         let exercises = try modelContext.fetch(FetchDescriptor<StoredExercise>(
             predicate: #Predicate { $0.id == id },
         ))
-        let rows = try modelContext.fetch(FetchDescriptor<StoredRoutineExercise>(
+        let rows = try modelContext.fetch(FetchDescriptor<StoredWorkoutExercise>(
             predicate: #Predicate { $0.exerciseID == id },
         ))
         for exercise in exercises {
             modelContext.delete(exercise)
         }
-        var touched: [StoredRoutine] = []
+        var touched: [StoredWorkout] = []
         for row in rows {
-            if let workout = row.routine, !touched.contains(where: { $0 === workout }) {
+            if let workout = row.workout, !touched.contains(where: { $0 === workout }) {
                 touched.append(workout)
             }
             modelContext.delete(row)

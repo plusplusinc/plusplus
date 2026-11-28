@@ -90,7 +90,7 @@ struct StoreRecencyTests {
     func openUnknown() async throws {
         try await relaunch().save(Self.workout("A"), at: Self.at(1))
         #expect(try await relaunch().openWorkout(UUID(), weightUnit: .pounds) == nil)
-        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredRoutine>()) == 1)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredWorkout>()) == 1)
     }
 
     @Test("An untouched workout never lists")

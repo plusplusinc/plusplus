@@ -25,7 +25,7 @@ struct StoreHealthFieldsTests {
     /// A workout finished and saved, and its stored model in `context`.
     private func savedFinished(
         in context: ModelContext,
-    ) async throws -> (LoggedWorkout, StoredWorkout) {
+    ) async throws -> (LoggedWorkout, StoredWorkoutSession) {
         try await relaunch().save(workout, at: Self.at(1))
         let finished = LoggedWorkout(
             workoutID: workout.id,
@@ -33,7 +33,7 @@ struct StoreHealthFieldsTests {
             startedAt: Self.at(10),
         ).finishing(at: Self.at(100))
         try await relaunch().save(finished)
-        let stored = try #require(try context.fetch(FetchDescriptor<StoredWorkout>()).first)
+        let stored = try #require(try context.fetch(FetchDescriptor<StoredWorkoutSession>()).first)
         return (finished, stored)
     }
 
@@ -54,8 +54,8 @@ struct StoreHealthFieldsTests {
         read.workoutName = "Upper body"
         try await relaunch().save(read)
         let fresh = ModelContext(container)
-        let kept = try #require(try fresh.fetch(FetchDescriptor<StoredWorkout>()).first)
-        #expect(kept.routineName == "Upper body")
+        let kept = try #require(try fresh.fetch(FetchDescriptor<StoredWorkoutSession>()).first)
+        #expect(kept.workoutName == "Upper body")
         #expect(kept.pauseTimes == times.map(Self.at))
         #expect(kept.healthActivity == "swimming")
     }

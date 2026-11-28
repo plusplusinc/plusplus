@@ -18,10 +18,10 @@ struct StorePlanTests {
     }
 
     /// Saves a workout of one `name` row, then sets its stored fields with `edit`.
-    private func storedRow(_ name: String, edit: (StoredRoutineExercise) -> Void) async throws {
+    private func storedRow(_ name: String, edit: (StoredWorkoutExercise) -> Void) async throws {
         try await relaunch().save(Workout(exercises: [WorkoutExercise.builtIn(name)]))
         let context = ModelContext(container)
-        let row = try #require(try context.fetch(FetchDescriptor<StoredRoutineExercise>()).first)
+        let row = try #require(try context.fetch(FetchDescriptor<StoredWorkoutExercise>()).first)
         edit(row)
         try context.save()
     }
@@ -119,7 +119,7 @@ struct StorePlanTests {
     func defaultStored() async throws {
         try await relaunch().save(Workout(exercises: [WorkoutExercise.builtIn("Push-up")]))
         let row = try #require(
-            try ModelContext(container).fetch(FetchDescriptor<StoredRoutineExercise>()).first,
+            try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutExercise>()).first,
         )
         #expect(row.sets == 3)
         #expect(row.reps == 10)

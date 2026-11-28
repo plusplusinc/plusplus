@@ -7,11 +7,11 @@ enum RoutineSchemaV9: VersionedSchema {
     static let versionIdentifier = Schema.Version(9, 0, 0)
     static var models: [any PersistentModel.Type] {
         [
-            StoredRoutine.self,
-            StoredRoutineExercise.self,
+            RoutineSchemaV7.StoredRoutine.self,
+            RoutineSchemaV7.StoredRoutineExercise.self,
             StoredWorkout.self,
             StoredSet.self,
-            StoredExercise.self,
+            RoutineSchemaV8.StoredExercise.self,
         ]
     }
 

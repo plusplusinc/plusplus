@@ -1,6 +1,6 @@
 import OSLog
 
-extension StoredRoutineExercise {
+extension StoredWorkoutExercise {
     /// Writes every field of the plan, setting only the fields that differ, so an unchanged row
     /// stays clean. A row's plan is stored even when it is the default, so it keeps what was
     /// shown if a later version's default changes; a rest the user never set stays nil, so it

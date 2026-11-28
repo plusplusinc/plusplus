@@ -57,7 +57,7 @@ struct StoreSupersetTests {
     func roundRestStoredUnset() async throws {
         try await relaunch().save(grouped())
         let context = ModelContext(container)
-        for row in try context.fetch(FetchDescriptor<StoredRoutineExercise>())
+        for row in try context.fetch(FetchDescriptor<StoredWorkoutExercise>())
             where row.supersetID != nil
         {
             row.roundRest = 900
@@ -78,7 +78,7 @@ struct StoreSupersetTests {
         try await relaunch().save(workout)
         let first = try #require(workout.exercises.first { $0.id == rows[3].id })
         let context = ModelContext(container)
-        for row in try context.fetch(FetchDescriptor<StoredRoutineExercise>())
+        for row in try context.fetch(FetchDescriptor<StoredWorkoutExercise>())
             where [rows[4].id, rows[5].id].contains(row.id)
         {
             row.sets = first.plan.sets + 2

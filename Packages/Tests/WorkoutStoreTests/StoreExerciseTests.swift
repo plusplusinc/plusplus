@@ -91,13 +91,13 @@ struct StoreExerciseTests {
         for (group, measure) in [("neck", "reps"), ("back", "distance")] {
             let stored = StoredExercise(id: CreatedExercise.newID())
             stored.name = "From later"
-            stored.muscleGroup = group
+            stored.muscleGroups = group
             stored.measure = measure
             context.insert(stored)
         }
         let odd = StoredExercise(id: "created:odd")
         odd.name = "Odd kit"
-        odd.muscleGroup = "back,neck"
+        odd.muscleGroups = "back,neck"
         odd.equipment = "rings,sled"
         context.insert(odd)
         try context.save()
@@ -121,8 +121,8 @@ struct StoreExerciseTests {
 
     /// The stored rows of the workout `id`, by position, as their exercises' ids.
     private func storedRows(of id: Workout.ID) throws -> [String] {
-        try ModelContext(container).fetch(FetchDescriptor<StoredRoutineExercise>(
-            predicate: #Predicate { $0.routine?.id == id },
+        try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutExercise>(
+            predicate: #Predicate { $0.workout?.id == id },
             sortBy: [SortDescriptor(\.position)],
         )).map(\.exerciseID)
     }

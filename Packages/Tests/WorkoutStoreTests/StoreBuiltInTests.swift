@@ -92,7 +92,7 @@ struct StoreBuiltInTests {
         try await store.save(loggedWorkout)
         // One logged before V9 stored a name.
         let context = ModelContext(container)
-        let first = try #require(try context.fetch(FetchDescriptor<StoredSet>(
+        let first = try #require(try context.fetch(FetchDescriptor<StoredLoggedSet>(
             sortBy: [SortDescriptor(\.position)],
         )).first)
         first.exerciseName = nil
@@ -118,7 +118,7 @@ struct StoreBuiltInTests {
 
     /// Every logged set's name, in the order logged.
     private func loggedNames() throws -> [String?] {
-        try ModelContext(container).fetch(FetchDescriptor<StoredSet>(
+        try ModelContext(container).fetch(FetchDescriptor<StoredLoggedSet>(
             sortBy: [SortDescriptor(\.position)],
         )).map(\.exerciseName)
     }

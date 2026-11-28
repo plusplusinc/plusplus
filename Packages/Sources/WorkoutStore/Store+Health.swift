@@ -9,7 +9,7 @@ extension Store {
     /// one stays stored without an id, so every catch-up looks at it again. The sets come in the
     /// same fetch: a workout with no stored type takes its type from them.
     public func owedToHealth() throws -> [LoggedWorkout] {
-        var unsent = FetchDescriptor<StoredWorkout>(
+        var unsent = FetchDescriptor<StoredWorkoutSession>(
             predicate: #Predicate { $0.endedAt != nil && $0.healthWorkoutID == nil },
             sortBy: [SortDescriptor(\.endedAt), SortDescriptor(\.id)],
         )
@@ -25,7 +25,8 @@ extension Store {
     /// Which of the logged workouts `ids` the store still holds: a delete of one of these never
     /// landed.
     public func heldLoggedWorkouts(among ids: [LoggedWorkout.ID]) throws -> Set<LoggedWorkout.ID> {
-        let held = FetchDescriptor<StoredWorkout>(predicate: #Predicate { ids.contains($0.id) })
+        let held =
+            FetchDescriptor<StoredWorkoutSession>(predicate: #Predicate { ids.contains($0.id) })
         return try Set(modelContext.fetch(held).map(\.id))
     }
 

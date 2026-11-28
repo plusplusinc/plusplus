@@ -57,7 +57,7 @@ struct AppSessionLogDeleteTests {
         session.finish(at: Self.at(20))
         await session.deleteLoggedWorkout(loggedWorkout.id)
         #expect(session.log?.loggedWorkouts == [])
-        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(stored.isEmpty)
     }
 

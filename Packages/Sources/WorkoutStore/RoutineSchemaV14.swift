@@ -1,18 +1,18 @@
 import Foundation
 import SwiftData
 
-/// Today's shape: V13's, with a logged workout keeping each pause's times, its Apple Health type
-/// as worked out at Finish, and the id of the workout Health saved for it.
+/// As #301 shipped it: V13's, with a logged workout keeping each pause's times, its Apple Health
+/// type as worked out at Finish, and the id of the workout Health saved for it.
 enum RoutineSchemaV14: VersionedSchema {
     static let versionIdentifier = Schema.Version(14, 0, 0)
     static var models: [any PersistentModel.Type] {
         [
-            StoredRoutine.self,
-            StoredRoutineExercise.self,
+            RoutineSchemaV7.StoredRoutine.self,
+            RoutineSchemaV7.StoredRoutineExercise.self,
             StoredWorkout.self,
             StoredSet.self,
-            StoredExercise.self,
-            StoredCustomization.self,
+            RoutineSchemaV8.StoredExercise.self,
+            RoutineSchemaV10.StoredCustomization.self,
         ]
     }
 

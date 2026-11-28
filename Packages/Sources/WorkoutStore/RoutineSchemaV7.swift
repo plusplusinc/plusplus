@@ -1,8 +1,8 @@
 import Foundation
 import SwiftData
 
-/// Today's routines: V4's, with each row's rest and a superset's rest after a round on every
-/// member, each automatic or set by hand. Its workouts are still V6's.
+/// The routines' last shape: V4's, with each row's rest and a superset's rest after a round on
+/// every member, each automatic or set by hand. Its workouts are still V6's.
 enum RoutineSchemaV7: VersionedSchema {
     static let versionIdentifier = Schema.Version(7, 0, 0)
     static var models: [any PersistentModel.Type] {

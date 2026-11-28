@@ -8,12 +8,22 @@ import SwiftData
 public actor Store {
     static let schema = Schema(versionedSchema: StoreMigrationPlan.current)
 
+    /// On disk, through `StoreRenameBackup`, which keeps a copy of a store under the old names
+    /// until its rename is checked.
     public static func open(_ mode: StorageMode) throws -> Store {
-        try Store(modelContainer: WorkoutStoreContainer.make(
-            mode: mode,
-            schema: schema,
-            migrationPlan: StoreMigrationPlan.self,
-        ))
+        switch mode {
+        case .local:
+            Logger.storage.info("Opening store in local mode")
+            return try Store(modelContainer: StoreRenameBackup.open(
+                at: WorkoutStoreContainer.localURL(schema: schema),
+            ))
+        case .inMemory:
+            return try Store(modelContainer: WorkoutStoreContainer.make(
+                mode: mode,
+                schema: schema,
+                migrationPlan: StoreMigrationPlan.self,
+            ))
+        }
     }
 
     /// What the app opens with (`Launch`). A logged workout in progress opens with its workout,
@@ -24,7 +34,7 @@ public actor Store {
     /// cleared one is deleted. A weight never saved reads as its exercise's default in
     /// `weightUnit`.
     public func launch(weightUnit: WeightUnit) throws -> Launch {
-        var inProgress = FetchDescriptor<StoredWorkout>(
+        var inProgress = FetchDescriptor<StoredWorkoutSession>(
             predicate: #Predicate { $0.endedAt == nil },
             sortBy: [SortDescriptor(\.startedAt, order: .reverse), SortDescriptor(\.id)],
         )
@@ -38,10 +48,10 @@ public actor Store {
             return .inProgress(workout, loggedWorkout)
         }
         // Picked here, as the list sorts, so launch opens the workout the list puts first.
-        guard let latest = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+        guard let latest = try modelContext.fetch(FetchDescriptor<StoredWorkout>())
             .min(by: Self.isMoreRecent(_:than:))
         else { return .newWorkout }
-        var finished = FetchDescriptor<StoredWorkout>(
+        var finished = FetchDescriptor<StoredWorkoutSession>(
             predicate: #Predicate { $0.endedAt != nil },
             sortBy: [SortDescriptor(\.endedAt, order: .reverse)],
         )
@@ -59,7 +69,7 @@ public actor Store {
     /// cleared to nothing while it ran, goes in the same save.
     public func save(_ loggedWorkout: LoggedWorkout) throws {
         let target = try storedLoggedWorkout(id: loggedWorkout.id) ?? {
-            let new = StoredWorkout(id: loggedWorkout.id)
+            let new = StoredWorkoutSession(id: loggedWorkout.id)
             modelContext.insert(new)
             return new
         }()
@@ -74,7 +84,7 @@ public actor Store {
     /// Diffs the logged workout's stored sets against `sets` by id: a set gone is deleted, a
     /// new one inserted, and each written at its place in the order logged. A stored set this build
     /// can't read, never in `sets`, is kept rather than taken for one gone.
-    private func writeSets(_ sets: [LoggedSet], of loggedWorkout: StoredWorkout) {
+    private func writeSets(_ sets: [LoggedSet], of loggedWorkout: StoredWorkoutSession) {
         let old = loggedWorkout.sets ?? []
         let kept = Set(sets.map(\.id))
         for set in old where !kept.contains(set.id) && set.isReadable {
@@ -84,9 +94,9 @@ public actor Store {
         let byID = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for (position, set) in sets.enumerated() {
             let stored = byID[set.id] ?? {
-                let new = StoredSet(id: set.id)
+                let new = StoredLoggedSet(id: set.id)
                 modelContext.insert(new)
-                new.workout = loggedWorkout
+                new.workoutSession = loggedWorkout
                 return new
             }()
             stored.write(set, position: position)
@@ -96,7 +106,7 @@ public actor Store {
     /// Every finished logged workout, the latest finish first, a tie by id. All of them, not a
     /// window: an opened logged workout compares with the time before, however long ago.
     public func finishedLoggedWorkouts() throws -> [LoggedWorkout] {
-        let finished = FetchDescriptor<StoredWorkout>(
+        let finished = FetchDescriptor<StoredWorkoutSession>(
             predicate: #Predicate { $0.endedAt != nil },
             sortBy: [SortDescriptor(\.endedAt, order: .reverse), SortDescriptor(\.id)],
         )
@@ -108,7 +118,7 @@ public actor Store {
     /// doesn't save is undone, all of it (`saveOrRollback()`).
     public func discardLoggedWorkout(_ id: LoggedWorkout.ID) throws {
         guard let stored = try storedLoggedWorkout(id: id) else { return }
-        if let workoutID = stored.routineID {
+        if let workoutID = stored.workoutID {
             try deleteIfCleared(workoutID: workoutID)
         }
         modelContext.delete(stored)
@@ -175,7 +185,7 @@ public actor Store {
     /// stable. Sorted here: a sort descriptor can't take the later of two dates.
     public func workoutsByRecency(weightUnit: WeightUnit) throws -> [Workout] {
         let exercises = try exercises()
-        return try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+        return try modelContext.fetch(FetchDescriptor<StoredWorkout>())
             .sorted(by: Self.isMoreRecent(_:than:))
             .map { Self.workout(from: $0, exercises: exercises, weightUnit: weightUnit) }
     }
@@ -190,7 +200,7 @@ public actor Store {
             return
         }
         let target = stored ?? {
-            let new = StoredRoutine(id: workout.id)
+            let new = StoredWorkout(id: workout.id)
             modelContext.insert(new)
             return new
         }()
@@ -242,10 +252,10 @@ public actor Store {
         for customization in try modelContext.fetch(FetchDescriptor<StoredCustomization>()) {
             modelContext.delete(customization)
         }
-        for workout in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
+        for workout in try modelContext.fetch(FetchDescriptor<StoredWorkout>()) {
             modelContext.delete(workout)
         }
-        for loggedWorkout in try modelContext.fetch(FetchDescriptor<StoredWorkout>()) {
+        for loggedWorkout in try modelContext.fetch(FetchDescriptor<StoredWorkoutSession>()) {
             modelContext.delete(loggedWorkout)
         }
         try modelContext.save()
@@ -254,19 +264,20 @@ public actor Store {
 
     /// Recency, the later of a workout's last edit and last open; a tie by id, so the order is
     /// stable and launch opens the workout listed first.
-    private static func isMoreRecent(_ one: StoredRoutine, than other: StoredRoutine) -> Bool {
+    private static func isMoreRecent(_ one: StoredWorkout, than other: StoredWorkout) -> Bool {
         let (oneRecency, otherRecency) = (one.recency, other.recency)
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
     }
 
-    func storedLoggedWorkout(id: UUID) throws -> StoredWorkout? {
-        var descriptor = FetchDescriptor<StoredWorkout>(predicate: #Predicate { $0.id == id })
+    func storedLoggedWorkout(id: UUID) throws -> StoredWorkoutSession? {
+        var descriptor =
+            FetchDescriptor<StoredWorkoutSession>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
     }
 
-    private func stored(id: UUID) throws -> StoredRoutine? {
-        var descriptor = FetchDescriptor<StoredRoutine>(predicate: #Predicate { $0.id == id })
+    private func stored(id: UUID) throws -> StoredWorkout? {
+        var descriptor = FetchDescriptor<StoredWorkout>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
     }
@@ -275,7 +286,7 @@ public actor Store {
     /// exercise this build can't read, is left out rather than failing the workout, and kept in
     /// the store by its saves (`writeRows`). Supersets come back whole, as the rules keep them.
     static func workout(
-        from stored: StoredRoutine,
+        from stored: StoredWorkout,
         exercises list: ExerciseList,
         weightUnit: WeightUnit,
     ) -> Workout {

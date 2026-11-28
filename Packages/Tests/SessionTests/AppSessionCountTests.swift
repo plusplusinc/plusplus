@@ -130,7 +130,7 @@ struct AppSessionCountTests {
         // Counting from the lead: 18 s done 18 s on.
         session.finish(at: Self.at(lead + 18))
         await session.writesLanded()
-        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
             .map(\.loggedWorkout)
         #expect(stored.first?.sets.map(\.target) == [.time(seconds: 18)])
     }
