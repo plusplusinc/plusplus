@@ -71,7 +71,7 @@ extension AppSession {
         // Each delete of these was sent before the wait below, so once it ends the store says
         // whether it landed. One sent after is noted, and the catch-up it asks for settles it.
         let removals = health.removalsToSettle()
-        await loggedWorkoutWritesLanded()
+        await workoutSessionWritesLanded()
         await health.refreshed()
         guard let store else { return }
         // Settled with saving off too: the store alone says which deletes landed.

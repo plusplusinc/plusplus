@@ -141,11 +141,11 @@ extension StoreUpgradeTests {
             let store = try Self.current(at: url)
             let launch = try await store.launch(weightUnit: .pounds)
             workout = try #require(launch.workout)
-            let running = try #require(launch.loggedWorkout)
+            let running = try #require(launch.workoutSession)
             finishedBefore = try await store.finishedWorkoutSessions()
             Self.expectAsWritten(running: running, finished: finishedBefore)
             // Mid-rest still: 60 s and the +15 s tap, from the log at 9, not skipped.
-            let live = LiveWorkout(workout: workout, loggedWorkout: running)
+            let live = LiveWorkout(workout: workout, workoutSession: running)
             let rest = try #require(live.rest())
             #expect(rest.length == 75)
             #expect(rest.startClock == 9)
@@ -158,13 +158,13 @@ extension StoreUpgradeTests {
 
         // A second launch, on a new container over the same file.
         let store = try Self.current(at: url)
-        let reopened = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
+        let reopened = try #require(try await store.launch(weightUnit: .pounds).workoutSession)
         #expect(reopened == skipped)
         #expect(reopened.sets.map(\.restAdjustment) == [-56, 15], "The skip cut nothing")
         #expect(reopened.sets.first?.restSkippedAt == nil, "V12's skip stays a cut")
         let tap = try #require(reopened.sets.last?.restSkippedAt)
         #expect(abs(tap - 44.5) < 1e-6)
-        let live = LiveWorkout(workout: workout, loggedWorkout: reopened)
+        let live = LiveWorkout(workout: workout, workoutSession: reopened)
         let rest = try #require(live.rest())
         #expect(rest.length == 75)
         #expect(rest.leaveClock == tap + LiveWorkout.skipHold)
@@ -174,7 +174,7 @@ extension StoreUpgradeTests {
         #expect(count.startClock == tap + LiveWorkout.skipHold + lead)
 
         // One answer for where the workout is, from the file as from the screen that skipped.
-        let before = LiveWorkout(workout: workout, loggedWorkout: skipped)
+        let before = LiveWorkout(workout: workout, workoutSession: skipped)
         for clock in [tap, tap + 0.1, rest.leaveClock, rest.leaveClock + 3, count.startClock] {
             let now = reopened.date(ofClock: clock)
             #expect(live.situation(at: now) == before.situation(at: now), "At \(clock)")

@@ -76,20 +76,20 @@ struct StoreBuiltInTests {
         let store = relaunch()
         let workout = try Workout(name: "Push", exercises: [Self.row()])
         try await store.save(workout)
-        var loggedWorkout = WorkoutSession(
+        var workoutSession = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Push",
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
         )
         for second in [20.0, 30] {
-            let next = try #require(workout.nextSet(after: loggedWorkout.sets))
-            loggedWorkout = loggedWorkout.logging(
+            let next = try #require(workout.nextSet(after: workoutSession.sets))
+            workoutSession = workoutSession.logging(
                 next,
                 of: workout.exercises[0],
                 at: Date(timeIntervalSinceReferenceDate: second),
             )
         }
-        try await store.save(loggedWorkout)
+        try await store.save(workoutSession)
         // One logged before V9 stored a name.
         let context = ModelContext(container)
         let first = try #require(try context.fetch(FetchDescriptor<StoredLoggedSet>(
@@ -104,13 +104,13 @@ struct StoreBuiltInTests {
 
         // Logged after the rename, it keeps that name once the rename is cleared.
         let renamed = try #require(try await relaunch().workout(workout.id, weightUnit: .pounds))
-        let next = try #require(renamed.nextSet(after: loggedWorkout.sets))
-        loggedWorkout = loggedWorkout.logging(
+        let next = try #require(renamed.nextSet(after: workoutSession.sets))
+        workoutSession = workoutSession.logging(
             next,
             of: renamed.exercises[0],
             at: Date(timeIntervalSinceReferenceDate: 40),
         )
-        try await relaunch().save(loggedWorkout)
+        try await relaunch().save(workoutSession)
         try await relaunch().clearCustomizations("barbell-bench-press")
         #expect(try await reread(workout.id).exercise.name == "Barbell bench press")
         #expect(try loggedNames() == ["Barbell bench press", "Barbell bench press", "Bench press"])

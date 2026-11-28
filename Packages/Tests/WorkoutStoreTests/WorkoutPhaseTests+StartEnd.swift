@@ -3,7 +3,7 @@ import Testing
 @testable import WorkoutStore
 
 extension WorkoutPhaseTests {
-    static let loggedWorkout = WorkoutSession(workoutID: UUID(), workoutName: "", startedAt: .now)
+    static let workoutSession = WorkoutSession(workoutID: UUID(), workoutName: "", startedAt: .now)
 
     /// A transition of Start's or End's, by name.
     enum Step {
@@ -70,7 +70,7 @@ extension WorkoutPhaseTests {
     static func ending(from phase: WorkoutPhase) -> WorkoutPhase {
         var ended = phase
         // One moment for every ending, so two endings of one phase are equal.
-        ended.end(loggedWorkout, at: loggedWorkout.startedAt)
+        ended.end(workoutSession, at: workoutSession.startedAt)
         return ended
     }
 
@@ -134,14 +134,14 @@ extension WorkoutPhaseTests {
             + Self.startAndEnd.filter(Self.isEnding)
         for phase in Self.everyPhase + Self.startAndEnd {
             var ended = phase
-            let applied = ended.end(Self.loggedWorkout)
+            let applied = ended.end(Self.workoutSession)
             if without.contains(phase) {
                 #expect(!applied, "\(phase)")
                 #expect(ended == phase)
             } else {
                 #expect(applied, "\(phase)")
                 #expect(Self.isEnding(ended))
-                #expect(ended.endingWorkoutSession == Self.loggedWorkout)
+                #expect(ended.endingWorkoutSession == Self.workoutSession)
                 #expect(!ended.takesLog)
                 #expect(!ended.isMovingOn)
                 #expect(ended.move == nil)
@@ -194,21 +194,21 @@ extension WorkoutPhaseTests {
             #expect(phase.drawnWorkoutSession == nil, "\(phase)")
         }
         var phase = Self.ending(from: Self.logging(.nextSet))
-        #expect(phase.drawnWorkoutSession == Self.loggedWorkout)
+        #expect(phase.drawnWorkoutSession == Self.workoutSession)
         #expect(
             phase.hidden == [Self.logged],
             "Drawn as it was, the set not yet shown stays hidden",
         )
         _ = Self.applying([.keyLeaves], to: &phase)
         #expect(
-            phase.drawnWorkoutSession == Self.loggedWorkout,
+            phase.drawnWorkoutSession == Self.workoutSession,
             "The key's beats leave the list as it is",
         )
         let left = phase.listLeaves()
         #expect(left)
         #expect(phase.drawnWorkoutSession == nil)
         #expect(
-            phase.endingWorkoutSession == Self.loggedWorkout,
+            phase.endingWorkoutSession == Self.workoutSession,
             "The bar's time stays until it fades",
         )
         let leftAgain = phase.listLeaves()
@@ -226,7 +226,7 @@ extension WorkoutPhaseTests {
         let came = Date.now
         var phase = Self.logging(.nextSet)
         #expect(phase.drawnEnd == nil)
-        phase.end(Self.loggedWorkout, at: came)
+        phase.end(Self.workoutSession, at: came)
         #expect(phase.drawnEnd == came)
         _ = Self.applying([.keyLeaves], to: &phase)
         #expect(phase.drawnEnd == came, "The key's beats leave the rest held")
@@ -238,7 +238,7 @@ extension WorkoutPhaseTests {
     func endingBeats() {
         var phase = Self.ending(from: .running)
         #expect(Self.applying([.timeFades, .rest, .keyLeaves], to: &phase) == [false, false, true])
-        #expect(phase.endingWorkoutSession == Self.loggedWorkout)
+        #expect(phase.endingWorkoutSession == Self.workoutSession)
         #expect(Self.applying([.keyLeaves, .rest, .timeFades], to: &phase) == [false, false, true])
         #expect(phase.endingWorkoutSession == nil)
         #expect(Self.applying([.rest], to: &phase) == [true])
@@ -255,7 +255,7 @@ extension WorkoutPhaseTests {
         var phase = Self.ending(from: Self.logging(.nextSet))
         #expect(phase.isEndBegun)
         #expect(phase.keyGone == nil, "the key stays up")
-        #expect(phase.drawnWorkoutSession == Self.loggedWorkout)
+        #expect(phase.drawnWorkoutSession == Self.workoutSession)
         _ = Self.applying([.keyLeaves], to: &phase)
         #expect(!phase.isEndBegun)
     }

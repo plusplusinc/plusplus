@@ -12,13 +12,13 @@ extension AppSession {
         /// Log, its tabs showing.
         case log
         /// A finished logged workout, pushed onto Log from its History tab.
-        case loggedWorkout(WorkoutSession.ID)
+        case workoutSession(WorkoutSession.ID)
 
         /// Whether something is pushed, so the edge swipe goes back rather than opening the
         /// drawer.
         public var isPushed: Bool {
             switch self {
-            case .pushedWorkout, .loggedWorkout: true
+            case .pushedWorkout, .workoutSession: true
             case .workout, .workouts, .log: false
             }
         }
@@ -27,7 +27,7 @@ extension AppSession {
     /// While a workout is in progress, and through a way's lead, as a finish's before Log
     /// (`isLeadPending`), the drawer stays shut: neither ++ nor a swipe opens it, only the way.
     public var isDrawerLocked: Bool {
-        loggedWorkout != nil || isLeadPending
+        workoutSession != nil || isLeadPending
     }
 
     /// Shows the Workouts screen and closes the drawer. A finish's way to Log that this cuts
@@ -184,7 +184,7 @@ extension AppSession {
     /// with nothing left to show it, would otherwise come up over the next workout shown.
     /// Refused while a workout is in progress, which nothing leaves until it ends.
     public func popWorkout() {
-        if screen == .pushedWorkout, loggedWorkout == nil {
+        if screen == .pushedWorkout, workoutSession == nil {
             screen = .workouts
             opensAddExerciseOnShow = false
             addExercise = nil
@@ -196,7 +196,7 @@ extension AppSession {
     public var showing: Showing {
         switch screen {
         case .workouts: .workouts
-        case .log, .loggedWorkout: .log
+        case .log, .workoutSession: .log
         case .workout, .pushedWorkout: .workout
         }
     }
@@ -225,6 +225,6 @@ extension AppSession {
     /// Whether the open workout has anything to delete, for the workout screen's Delete: one
     /// with nothing saved has none, and one in progress is not deleted (`delete(_:)`).
     public var canDeleteOpen: Bool {
-        !current.isEmpty && loggedWorkout == nil
+        !current.isEmpty && workoutSession == nil
     }
 }

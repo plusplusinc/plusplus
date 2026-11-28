@@ -40,12 +40,12 @@ public actor Store {
         )
         inProgress.fetchLimit = 1
         if let current = try modelContext.fetch(inProgress).first {
-            let loggedWorkout = current.loggedWorkout
+            let workoutSession = current.workoutSession
             let exercises = try exercises()
-            let workout = try stored(id: loggedWorkout.workoutID)
+            let workout = try stored(id: workoutSession.workoutID)
                 .map { Self.workout(from: $0, exercises: exercises, weightUnit: weightUnit) }
-                ?? Workout(id: loggedWorkout.workoutID, name: loggedWorkout.workoutName)
-            return .inProgress(workout, loggedWorkout)
+                ?? Workout(id: workoutSession.workoutID, name: workoutSession.workoutName)
+            return .inProgress(workout, workoutSession)
         }
         // Picked here, as the list sorts, so launch opens the workout the list puts first.
         guard let latest = try modelContext.fetch(FetchDescriptor<StoredWorkout>())
@@ -67,16 +67,16 @@ public actor Store {
 
     /// Saves the logged workout as it is now, every field. Once it has ended, its workout, if
     /// cleared to nothing while it ran, goes in the same save.
-    public func save(_ loggedWorkout: WorkoutSession) throws {
-        let target = try storedWorkoutSession(id: loggedWorkout.id) ?? {
-            let new = StoredWorkoutSession(id: loggedWorkout.id)
+    public func save(_ workoutSession: WorkoutSession) throws {
+        let target = try storedWorkoutSession(id: workoutSession.id) ?? {
+            let new = StoredWorkoutSession(id: workoutSession.id)
             modelContext.insert(new)
             return new
         }()
-        target.write(loggedWorkout)
-        writeSets(loggedWorkout.sets, of: target)
-        if !loggedWorkout.isInProgress {
-            try deleteIfCleared(workoutID: loggedWorkout.workoutID)
+        target.write(workoutSession)
+        writeSets(workoutSession.sets, of: target)
+        if !workoutSession.isInProgress {
+            try deleteIfCleared(workoutID: workoutSession.workoutID)
         }
         try modelContext.save()
     }
@@ -84,8 +84,8 @@ public actor Store {
     /// Diffs the logged workout's stored sets against `sets` by id: a set gone is deleted, a
     /// new one inserted, and each written at its place in the order logged. A stored set this build
     /// can't read, never in `sets`, is kept rather than taken for one gone.
-    private func writeSets(_ sets: [LoggedSet], of loggedWorkout: StoredWorkoutSession) {
-        let old = loggedWorkout.sets ?? []
+    private func writeSets(_ sets: [LoggedSet], of workoutSession: StoredWorkoutSession) {
+        let old = workoutSession.sets ?? []
         let kept = Set(sets.map(\.id))
         for set in old where !kept.contains(set.id) && set.isReadable {
             modelContext.delete(set)
@@ -96,7 +96,7 @@ public actor Store {
             let stored = byID[set.id] ?? {
                 let new = StoredLoggedSet(id: set.id)
                 modelContext.insert(new)
-                new.workoutSession = loggedWorkout
+                new.workoutSession = workoutSession
                 return new
             }()
             stored.write(set, position: position)
@@ -110,7 +110,7 @@ public actor Store {
             predicate: #Predicate { $0.endedAt != nil },
             sortBy: [SortDescriptor(\.endedAt, order: .reverse), SortDescriptor(\.id)],
         )
-        return try modelContext.fetch(finished).map(\.loggedWorkout)
+        return try modelContext.fetch(finished).map(\.workoutSession)
     }
 
     /// Deletes the logged workout, keeping nothing of it, its sets with it, and its workout if
@@ -255,8 +255,8 @@ public actor Store {
         for workout in try modelContext.fetch(FetchDescriptor<StoredWorkout>()) {
             modelContext.delete(workout)
         }
-        for loggedWorkout in try modelContext.fetch(FetchDescriptor<StoredWorkoutSession>()) {
-            modelContext.delete(loggedWorkout)
+        for workoutSession in try modelContext.fetch(FetchDescriptor<StoredWorkoutSession>()) {
+            modelContext.delete(workoutSession)
         }
         try modelContext.save()
     }

@@ -32,16 +32,16 @@ public struct LogPeriod: Equatable, Sendable {
     /// weekday.
     public let weeks: [[Day]]
     /// The finished logged workouts that started in the period, up to `now`.
-    public let loggedWorkoutCount: Int
+    public let workoutSessionCount: Int
 
-    /// The period around `now`, with the days on which one of `loggedWorkouts` started. Logged
+    /// The period around `now`, with the days on which one of `workoutSessions` started. Logged
     /// workouts still in progress don't count.
-    public init(loggedWorkouts: [WorkoutSession], calendar: Calendar, now: Date) {
+    public init(workoutSessions: [WorkoutSession], calendar: Calendar, now: Date) {
         let firstDay = Self.firstDay(calendar: calendar, now: now)
         let today = calendar.startOfDay(for: now)
-        let finished = loggedWorkouts.filter { !$0.isInProgress }.map(\.startedAt)
+        let finished = workoutSessions.filter { !$0.isInProgress }.map(\.startedAt)
             .filter { $0 >= firstDay && $0 <= now }
-        let loggedWorkoutDays = Set(finished.map { calendar.startOfDay(for: $0) })
+        let workoutSessionDays = Set(finished.map { calendar.startOfDay(for: $0) })
         let days = (0 ..< Self.weekCount * 7).compactMap { offset -> Day? in
             guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else {
                 return nil
@@ -49,7 +49,7 @@ public struct LogPeriod: Equatable, Sendable {
             let day = calendar.startOfDay(for: date)
             return Day(
                 date: day,
-                hasWorkoutSession: loggedWorkoutDays.contains(day),
+                hasWorkoutSession: workoutSessionDays.contains(day),
                 isToday: day == today,
                 isAfterToday: day > today,
             )
@@ -59,7 +59,7 @@ public struct LogPeriod: Equatable, Sendable {
         weeks = stride(from: 0, to: days.count, by: 7).map { start in
             Array(days[start ..< min(start + 7, days.count)])
         }
-        loggedWorkoutCount = finished.count
+        workoutSessionCount = finished.count
     }
 
     /// The start of the first day of the week `weekCount - 1` weeks before the one holding `now`.

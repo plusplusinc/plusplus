@@ -71,7 +71,7 @@ public struct WorkoutKey: Sendable {
     /// a count, or its "Start in" (decided 2026-11-24). Paused after the last set, the key stays
     /// Finish workout.
     private var continues: Bool {
-        guard let stored, stored.loggedWorkout.isPaused else { return false }
+        guard let stored, stored.workoutSession.isPaused else { return false }
         return !stored.isDone
     }
 
@@ -206,7 +206,7 @@ public struct WorkoutKey: Sendable {
     /// Whether Skip rest has cut `rest`, as the workout drawn stores it
     /// (`LoggedSet.restSkippedAt`): the one in progress, or the one End took.
     private func isSkipped(_ rest: WorkoutPhase.Resting) -> Bool {
-        guard let last = (stored?.loggedWorkout ?? phase.drawnWorkoutSession)?.sets.last
+        guard let last = (stored?.workoutSession ?? phase.drawnWorkoutSession)?.sets.last
         else { return false }
         return last.planned == rest.set && last.restSkippedAt != nil
     }

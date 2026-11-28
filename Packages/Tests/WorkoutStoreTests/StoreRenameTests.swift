@@ -28,7 +28,7 @@ struct StoreRenameTests {
         // pause, and sets; the finished ones; and the exercises.
         let store = Store(modelContainer: container)
         let launch = try await store.launch(weightUnit: .pounds)
-        let running = try #require(launch.loggedWorkout)
+        let running = try #require(launch.workoutSession)
         #expect(running.isInProgress)
         #expect(running.workoutName == "Upper")
         #expect(launch.workout?.id == running.workoutID)
@@ -51,7 +51,7 @@ struct StoreRenameTests {
         _ = try Self.openCurrent(at: url)
         #expect(try StoreRenameFixture.currentLines(at: url) == before)
         let store = try Store(modelContainer: Self.openCurrent(at: url))
-        let running = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
+        let running = try #require(try await store.launch(weightUnit: .pounds).workoutSession)
         try await store.discardWorkoutSession(running.id)
         let after = try StoreRenameFixture.counts(StoreRenameFixture.currentLines(at: url))
         #expect(after["session"] == 2)

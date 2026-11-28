@@ -49,7 +49,7 @@ struct AppSessionLogDeleteTests {
         let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
         await session.refreshLog()
         await session.deleteWorkoutSession(deleted.id)
-        #expect(session.log?.loggedWorkouts == [kept])
+        #expect(session.log?.workoutSessions == [kept])
         #expect(try await relaunch().finishedWorkoutSessions() == [kept])
     }
 
@@ -57,10 +57,10 @@ struct AppSessionLogDeleteTests {
     func deleteBehindFinish() async throws {
         let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
         session.start(on: workout.id, at: Self.at(10))
-        let loggedWorkout = try #require(session.loggedWorkout)
+        let workoutSession = try #require(session.workoutSession)
         session.finish(at: Self.at(20))
-        await session.deleteWorkoutSession(loggedWorkout.id)
-        #expect(session.log?.loggedWorkouts == [])
+        await session.deleteWorkoutSession(workoutSession.id)
+        #expect(session.log?.workoutSessions == [])
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(stored.isEmpty)
     }
@@ -69,12 +69,12 @@ struct AppSessionLogDeleteTests {
     func inProgressRefused() async throws {
         let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
         session.start(on: workout.id, at: Self.at(10))
-        let loggedWorkout = try #require(session.loggedWorkout)
-        await session.deleteWorkoutSession(loggedWorkout.id)
+        let workoutSession = try #require(session.workoutSession)
+        await session.deleteWorkoutSession(workoutSession.id)
         await session.writesLanded()
-        #expect(session.loggedWorkout == loggedWorkout)
+        #expect(session.workoutSession == workoutSession)
         let launch = try await relaunch().launch(weightUnit: .pounds)
-        #expect(launch.loggedWorkout == loggedWorkout)
+        #expect(launch.workoutSession == workoutSession)
     }
 
     @Test("A delete the store refuses leaves the workout in the log")
@@ -84,25 +84,25 @@ struct AppSessionLogDeleteTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        let loggedWorkout = finished(at: 10)
+        let workoutSession = finished(at: 10)
         try await Store(modelContainer: ModelContainer(
             for: Store.schema,
             configurations: ModelConfiguration(schema: Store.schema, url: url),
-        )).save(loggedWorkout)
+        )).save(workoutSession)
         // The same file opened read-only: its reads work, and its saves throw.
         let readOnly = try ModelContainer(
             for: Store.schema,
             configurations: ModelConfiguration(schema: Store.schema, url: url, allowsSave: false),
         )
         await #expect(throws: (any Error).self) {
-            try await Store(modelContainer: readOnly).deleteWorkoutSession(loggedWorkout.id)
+            try await Store(modelContainer: readOnly).deleteWorkoutSession(workoutSession.id)
         }
         let session = AppSession(
             workout: workout,
             store: Store(modelContainer: readOnly),
             namer: .muscleGroupsOnly,
         )
-        await session.deleteWorkoutSession(loggedWorkout.id)
-        #expect(session.log?.loggedWorkouts == [loggedWorkout])
+        await session.deleteWorkoutSession(workoutSession.id)
+        #expect(session.log?.workoutSessions == [workoutSession])
     }
 }

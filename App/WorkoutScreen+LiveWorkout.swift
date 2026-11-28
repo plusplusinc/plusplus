@@ -167,7 +167,7 @@ extension WorkoutScreen {
     /// Takes away the screen's room under the list's end once Start or a move to the next
     /// exercise is over. It can go at any moment: `landingRoomTop` holds the landing.
     func letRoomGo() {
-        guard isMakingRoom, !isStarting, !isMovingOn, !isResting, session.loggedWorkout != nil
+        guard isMakingRoom, !isStarting, !isMovingOn, !isResting, session.workoutSession != nil
         else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
@@ -204,7 +204,7 @@ extension WorkoutScreen {
     func end(holdingStill: Bool = false, _ change: () -> Void) -> Bool {
         // Once only: a second End is refused.
         var ended = phase
-        guard let loggedWorkout = session.loggedWorkout, ended.end(loggedWorkout) else {
+        guard let workoutSession = session.workoutSession, ended.end(workoutSession) else {
             return false
         }
         sequence.cancel()

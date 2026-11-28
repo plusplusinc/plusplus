@@ -30,10 +30,10 @@ extension StoreUpgradeTests {
             )
             context.insert(row)
             row.routine = workout
-            let loggedWorkout = RoutineSchemaV12.StoredWorkout(id: UUID())
-            loggedWorkout.routineID = workout.id
-            loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
-            context.insert(loggedWorkout)
+            let workoutSession = RoutineSchemaV12.StoredWorkout(id: UUID())
+            workoutSession.routineID = workout.id
+            workoutSession.startedAt = Date(timeIntervalSinceReferenceDate: 2)
+            context.insert(workoutSession)
             // A rest skipped under V12: its cut stored as the adjustment.
             let set = RoutineSchemaV12.StoredSet(id: UUID())
             set.rowID = rowID
@@ -43,7 +43,7 @@ extension StoreUpgradeTests {
             set.clockWhenLogged = 30
             set.restAdjustment = -40
             context.insert(set)
-            set.workout = loggedWorkout
+            set.workout = workoutSession
             try context.save()
         }
 
@@ -53,15 +53,16 @@ extension StoreUpgradeTests {
             configurations: ModelConfiguration(schema: Store.schema, url: url),
         )
         let store = Store(modelContainer: current)
-        var loggedWorkout = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
-        #expect(loggedWorkout.sets.map(\.restSkippedAt) == [nil])
-        #expect(loggedWorkout.sets.map(\.restAdjustment) == [-40])
-        #expect(loggedWorkout.sets.map(\.clockWhenLogged) == [30])
+        var workoutSession = try #require(try await store.launch(weightUnit: .pounds)
+            .workoutSession)
+        #expect(workoutSession.sets.map(\.restSkippedAt) == [nil])
+        #expect(workoutSession.sets.map(\.restAdjustment) == [-40])
+        #expect(workoutSession.sets.map(\.clockWhenLogged) == [30])
 
-        loggedWorkout.sets[0].restSkippedAt = 42.5
-        try await store.save(loggedWorkout)
+        workoutSession.sets[0].restSkippedAt = 42.5
+        try await store.save(workoutSession)
         let relaunched = try await Store(modelContainer: current)
-            .launch(weightUnit: .pounds).loggedWorkout
+            .launch(weightUnit: .pounds).workoutSession
         #expect(relaunched?.sets.map(\.restSkippedAt) == [42.5])
         #expect(relaunched?.sets.map(\.restAdjustment) == [-40])
     }

@@ -17,10 +17,10 @@ struct LogPeriodTests {
     private static let mondayFirst = calendar(firstWeekday: 2)
 
     private func period(
-        _ loggedWorkouts: [WorkoutSession] = [],
+        _ workoutSessions: [WorkoutSession] = [],
         calendar: Calendar = sundayFirst,
     ) -> LogPeriod {
-        LogPeriod(loggedWorkouts: loggedWorkouts, calendar: calendar, now: Fixture.now)
+        LogPeriod(workoutSessions: workoutSessions, calendar: calendar, now: Fixture.now)
     }
 
     @Test("A week that starts on Sunday: Sun Oct 25 to Sat Nov 21, today the last square")
@@ -59,12 +59,12 @@ struct LogPeriodTests {
             startedAt: Fixture.date(day: 20, hour: 23),
             endedAt: Fixture.date(day: 20, hour: 23, minute: 59),
         )
-        let before = Fixture.loggedWorkout(daysAgo: 28, [])
+        let before = Fixture.workoutSession(daysAgo: 28, [])
         let period = period([late, before])
         let marked = period.weeks.joined().filter(\.hasWorkoutSession).map(\.date)
         #expect(marked == [Fixture.calendar.startOfDay(for: Fixture.date(day: 20))])
-        #expect(period.loggedWorkoutCount == 1)
-        #expect(period.loggedWorkoutCountText(locale: Fixture.locale) == "1 workout")
+        #expect(period.workoutSessionCount == 1)
+        #expect(period.workoutSessionCountText(locale: Fixture.locale) == "1 workout")
     }
 
     @Test("A workout across midnight marks the day it started, the day its row reads")
@@ -90,29 +90,29 @@ struct LogPeriodTests {
             startedAt: Fixture.now,
         )
         let period = period([
-            Fixture.loggedWorkout(daysAgo: 2, []),
-            Fixture.loggedWorkout(daysAgo: 2, []),
+            Fixture.workoutSession(daysAgo: 2, []),
+            Fixture.workoutSession(daysAgo: 2, []),
             inProgress,
         ])
         #expect(period.weeks.joined().filter(\.hasWorkoutSession).count == 1)
-        #expect(period.loggedWorkoutCount == 2)
+        #expect(period.workoutSessionCount == 2)
     }
 
     /// History leaves a workout just finished out until it comes in.
     @Test("A log leaving a workout out counts and marks without it; nil or a stranger, unchanged")
     func leavingOut() {
-        let earlier = Fixture.loggedWorkout(daysAgo: 2, [])
-        let today = Fixture.loggedWorkout(daysAgo: 0, [])
-        let log = WorkoutLog(loggedWorkouts: [earlier, today])
+        let earlier = Fixture.workoutSession(daysAgo: 2, [])
+        let today = Fixture.workoutSession(daysAgo: 0, [])
+        let log = WorkoutLog(workoutSessions: [earlier, today])
         let without = log.leavingOut(today.id)
-        #expect(without.loggedWorkouts == [earlier])
-        let marked = period(without.loggedWorkouts).weeks.joined().filter(\.hasWorkoutSession)
+        #expect(without.workoutSessions == [earlier])
+        let marked = period(without.workoutSessions).weeks.joined().filter(\.hasWorkoutSession)
         #expect(marked.count == 1, "today's square fills only once the workout comes in")
-        #expect(period(without.loggedWorkouts).loggedWorkoutCount == 1)
+        #expect(period(without.workoutSessions).workoutSessionCount == 1)
         #expect(log.leavingOut(nil) == log)
         #expect(log.leavingOut(UUID()) == log)
-        let first = WorkoutLog(loggedWorkouts: [today])
-        #expect(first.leavingOut(today.id).loggedWorkouts.isEmpty, "the first ever leaves none")
+        let first = WorkoutLog(workoutSessions: [today])
+        #expect(first.leavingOut(today.id).workoutSessions.isEmpty, "the first ever leaves none")
     }
 
     @Test("The bar's range: one month shortened, a year on each side across one, each day numbered")
@@ -121,7 +121,7 @@ struct LogPeriodTests {
             let now = Fixture.calendar.date(
                 from: DateComponents(year: year, month: month, day: day, hour: 18),
             ) ?? .distantPast
-            return LogPeriod(loggedWorkouts: [], calendar: Self.sundayFirst, now: now)
+            return LogPeriod(workoutSessions: [], calendar: Self.sundayFirst, now: now)
         }
         let dash = "\u{2009}\u{2013}\u{2009}"
         let oneMonth = range(year: 2026, month: 11, day: 28)
@@ -139,7 +139,7 @@ struct LogPeriodTests {
 
     @Test("A day reads its date and whether a workout was done")
     func spokenDay() throws {
-        let period = period([Fixture.loggedWorkout(daysAgo: 0, [])])
+        let period = period([Fixture.workoutSession(daysAgo: 0, [])])
         let today = try #require(period.weeks.last?.last)
         let yesterday = try #require(period.weeks.last?.dropLast().last)
         #expect(LogPeriod.spokenDay(today, locale: Fixture.locale, calendar: Self.sundayFirst)

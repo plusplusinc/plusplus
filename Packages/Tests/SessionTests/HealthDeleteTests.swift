@@ -37,7 +37,7 @@ struct HealthDeleteTests {
         let session = await showingLog(health)
         await session.deleteWorkoutSession(deleted.id)
         await session.healthJobsLanded()
-        #expect(session.log?.loggedWorkouts.map(\.id) == [kept.id])
+        #expect(session.log?.workoutSessions.map(\.id) == [kept.id])
         #expect(health.inHealth.withLock { $0 } == [kept.id])
         #expect(health.removals.withLock { $0.last } == [deleted.id])
         #expect(session.health.removalsOwed.isEmpty)
@@ -52,7 +52,7 @@ struct HealthDeleteTests {
         health.refusesRemovals.withLock { $0 = true }
         await session.deleteWorkoutSession(deleted.id)
         await session.healthJobsLanded()
-        #expect(session.log?.loggedWorkouts == [])
+        #expect(session.log?.workoutSessions == [])
         #expect(health.inHealth.withLock { $0.contains(deleted.id) })
         health.refusesRemovals.withLock { $0 = false }
         await session.caughtUpHealth()
@@ -70,7 +70,7 @@ struct HealthDeleteTests {
         let session = await showingLog(health)
         await session.deleteWorkoutSession(deleted.id)
         await session.healthJobsLanded()
-        #expect(session.log?.loggedWorkouts == [])
+        #expect(session.log?.workoutSessions == [])
         #expect(try await fixture.store().finishedWorkoutSessions().isEmpty)
         #expect(health.removals.withLock { $0.count } == removalsBefore)
         health.access.withLock { $0 = .on }
@@ -92,7 +92,7 @@ struct HealthDeleteTests {
         await session.caughtUpHealth()
         await session.deleteWorkoutSession(deleted.id)
         await session.healthJobsLanded()
-        #expect(session.log?.loggedWorkouts == [])
+        #expect(session.log?.workoutSessions == [])
         #expect(session.health.removalsOwed.isEmpty)
         #expect(fixture.defaults.object(forKey: HealthSaving.removalsKey) == nil)
         health.access.withLock { $0 = .on }
@@ -172,7 +172,7 @@ struct HealthDeleteTests {
         let health = FakeHealth(.on)
         let session = fixture.launched(health, workout: workout)
         session.start(on: workout.id, at: HealthFixture.at(10))
-        let logged = try #require(session.loggedWorkout)
+        let logged = try #require(session.workoutSession)
         await session.deleteWorkoutSession(logged.id)
         await session.healthJobsLanded()
         #expect(health.removals.withLock { $0.isEmpty })
@@ -198,7 +198,7 @@ struct HealthDeleteTests {
         session.health.oweRemoval(of: deleted.id)
         health.releaseRead()
         await session.healthJobsLanded()
-        session.loggedWorkoutWrites.yield(.delete(deleted.id))
+        session.workoutSessionWrites.yield(.delete(deleted.id))
         await session.caughtUpHealth()
         #expect(try await fixture.store().finishedWorkoutSessions().isEmpty)
         #expect(health.inHealth.withLock { $0.isEmpty })

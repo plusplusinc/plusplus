@@ -50,7 +50,7 @@ public final class AppSession {
     /// Counts the finishes, so a read of the log begun before one reads again (`refreshLog()`).
     @ObservationIgnored var finishes = 0
     /// The logged workout in progress on the open workout, from Start until Finish or Discard.
-    public private(set) var loggedWorkout: WorkoutSession?
+    public private(set) var workoutSession: WorkoutSession?
     /// The workout just finished, which Log has yet to bring into History; taken by Log as it
     /// shows (`takeJustFinished()`). Unobserved: nothing is drawn from it, it only seeds Log's
     /// arrival, and observed, Log taking it redrew the drawer's content as it closed.
@@ -82,7 +82,7 @@ public final class AppSession {
     /// waits its turn: one logged workout's end and the next one's start can both be waiting,
     /// and keeping only the newest would drop the end, leaving the first in progress in the store.
     @ObservationIgnored
-    let loggedWorkoutWrites: AsyncStream<WorkoutSessionQueueEntry>.Continuation
+    let workoutSessionWrites: AsyncStream<WorkoutSessionQueueEntry>.Continuation
     /// Apple Health's catch-ups, one at a time, from the first asked (`catchUpHealth()`), and
     /// whether one is queued and not yet started, which covers any asked meanwhile.
     @ObservationIgnored lazy var healthJobs = startHealthJobs()
@@ -90,7 +90,7 @@ public final class AppSession {
 
     public init(
         workout: Workout,
-        loggedWorkout: WorkoutSession? = nil,
+        workoutSession: WorkoutSession? = nil,
         exercises: ExerciseList = .builtIn,
         store: Store?,
         namer: WorkoutNamer,
@@ -100,11 +100,11 @@ public final class AppSession {
         self.health = health
         opened = workout
         current = workout
-        self.loggedWorkout = loggedWorkout
+        self.workoutSession = workoutSession
         self.exercises = exercises
         self.store = store
         (saves, saving) = Self.startSaving(to: store)
-        loggedWorkoutWrites = Self.startWritingWorkoutSessions(to: store)
+        workoutSessionWrites = Self.startWritingWorkoutSessions(to: store)
     }
 
     /// Every saved workout, latest first, with the open one first as it is now.
@@ -116,7 +116,7 @@ public final class AppSession {
     public func save(_ workout: Workout) {
         changeLive { $0.droppingCount(for: workout) }
         current = workout
-        saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
+        saves.yield(WorkoutSave(workout: workout, keepsEmpty: workoutSession != nil))
     }
 
     /// Opens the drawer, unless one in progress keeps it shut or a row's sheet has been asked for.
@@ -192,7 +192,7 @@ public final class AppSession {
     /// stops Start. So does back from a pushed one within Start's beats, which would otherwise
     /// start a workout with no screen showing it.
     public func canStart(on workout: Workout.ID) -> Bool {
-        loggedWorkout == nil && !isSwitching && showing == .workout && workout == current.id
+        workoutSession == nil && !isSwitching && showing == .workout && workout == current.id
             && !current.exercises.isEmpty
     }
 
@@ -206,10 +206,10 @@ public final class AppSession {
     /// one running; one saved ended, or discarded, leaves none.
     func change(_ write: WorkoutSessionWrite) {
         switch write {
-        case let .save(changed): loggedWorkout = changed.isInProgress ? changed : nil
-        case .discard: loggedWorkout = nil
+        case let .save(changed): workoutSession = changed.isInProgress ? changed : nil
+        case .discard: workoutSession = nil
         }
-        loggedWorkoutWrites.yield(.write(write))
+        workoutSessionWrites.yield(.write(write))
     }
 
     /// A workout cleared to nothing while in progress was kept; once it ends, it is deleted, as
@@ -320,7 +320,7 @@ public final class AppSession {
         while current != landed {
             landed = current
             do {
-                try await store?.save(landed, keepsEmpty: loggedWorkout != nil)
+                try await store?.save(landed, keepsEmpty: workoutSession != nil)
             } catch {
                 Logger.session.error("The workout didn't save: \(error)")
             }
@@ -333,7 +333,7 @@ public final class AppSession {
     /// wait on it rather than on time.
     func writesLanded() async {
         await finishSaving()
-        await loggedWorkoutWritesLanded()
+        await workoutSessionWritesLanded()
     }
 }
 
@@ -373,7 +373,7 @@ extension AppSession {
     /// it back. Refused for a workout in progress, and while a switch is under way. A
     /// delete that fails leaves the workout listed.
     public func delete(_ id: Workout.ID) async {
-        guard !isSwitching, loggedWorkout?.workoutID != id else { return }
+        guard !isSwitching, workoutSession?.workoutID != id else { return }
         isSwitching = true
         defer { isSwitching = false }
         if id == current.id {

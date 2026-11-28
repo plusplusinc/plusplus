@@ -74,7 +74,7 @@ struct AppSessionScreenTests {
         session.showLog()
         let id = UUID()
         session.openWorkoutSession(id)
-        #expect(session.screen == .loggedWorkout(id))
+        #expect(session.screen == .workoutSession(id))
         #expect(session.screen.isPushed)
         #expect(session.showing == .log)
         session.popWorkoutSession()
@@ -101,20 +101,20 @@ struct AppSessionScreenTests {
         let session = session()
         #expect(session.log == nil)
         await session.refreshLog()
-        #expect(session.log?.loggedWorkouts == [finished])
+        #expect(session.log?.workoutSessions == [finished])
     }
 
     @Test("Finish names the workout for Log to bring in, and a read straight after lists it")
     func justFinished() async throws {
         let (session, _) = try sessionWithRow()
         session.start(on: session.current.id)
-        let finishing = try #require(session.loggedWorkout)
+        let finishing = try #require(session.workoutSession)
         session.finish()
         #expect(session.justFinished == finishing.id)
         // No wait for the write first: Log reads as the drawer closes over it, or at once with
         // VoiceOver or the app leaving the foreground.
         await session.refreshLog()
-        #expect(session.log?.loggedWorkouts.map(\.id) == [finishing.id])
+        #expect(session.log?.workoutSessions.map(\.id) == [finishing.id])
         session.takeJustFinished()
         #expect(session.justFinished == nil, "taken, it comes in once only")
     }
@@ -137,7 +137,7 @@ struct AppSessionScreenTests {
         session.discard()
         #expect(session.justFinished == nil)
         await session.refreshLog()
-        #expect(session.log?.loggedWorkouts.isEmpty == true)
+        #expect(session.log?.workoutSessions.isEmpty == true)
         #expect(session.screen == .workout, "the app stays on the workout")
     }
 
@@ -274,7 +274,7 @@ extension AppSessionScreenTests {
         session.popWorkout()
         #expect(!session.canStart(on: workout.id))
         session.start(on: workout.id)
-        #expect(session.loggedWorkout == nil)
+        #expect(session.workoutSession == nil)
     }
 
     @Test("A pop while a pushed workout is in progress is refused, and pops again once it ends")
@@ -296,9 +296,9 @@ extension AppSessionScreenTests {
         session.start(on: session.current.id)
         #expect(session.screen == .pushedWorkout)
         #expect(session.opened == saved)
-        #expect(session.loggedWorkout?.workoutID == saved.id)
+        #expect(session.workoutSession?.workoutID == saved.id)
         // Its "Start in" begins as its own Start lands on the first set.
-        #expect(session.loggedWorkout?.count == nil)
+        #expect(session.workoutSession?.count == nil)
     }
 
     @Test("Start at the root keeps the screen the workout opened with")
@@ -310,6 +310,6 @@ extension AppSessionScreenTests {
         #expect(session.screen == .workout)
         #expect(session.opened == workout)
         // Its "Start in" begins as its own Start lands on the first set.
-        #expect(session.loggedWorkout?.count == nil)
+        #expect(session.workoutSession?.count == nil)
     }
 }

@@ -13,8 +13,8 @@ extension LaunchOptions {
     }
 
     static func seedLog(_ store: Store) async throws {
-        for loggedWorkout in LogSeed.loggedWorkouts(now: .now) {
-            try await store.save(loggedWorkout)
+        for workoutSession in LogSeed.workoutSessions(now: .now) {
+            try await store.save(workoutSession)
         }
     }
 }
@@ -43,18 +43,18 @@ private enum LogSeed {
 
     /// A workout name, days ago, minutes long, and each exercise's sets in order, by id; an id no
     /// exercise has is logged under `orphanName`.
-    static func loggedWorkouts(now: Date) -> [WorkoutSession] {
+    static func workoutSessions(now: Date) -> [WorkoutSession] {
         let bench = "dumbbell-bench-press"
         let orphan = "landmine-press-retired"
         return [
-            loggedWorkout("Upper body", daysAgo: 0, minutes: 51, now: now, [
+            workoutSession("Upper body", daysAgo: 0, minutes: 51, now: now, [
                 (bench, [reps(10, 30), reps(10, 30), reps(10, 30)]),
                 ("pull-up", [reps(8), reps(8), reps(7)]),
                 ("chin-up", [reps(6), reps(6)]),
                 ("plank", [time(60), time(60), time(48, planned: 60)]),
                 (orphan, [reps(8, 45), reps(8, 45)]),
             ]),
-            loggedWorkout("Legs and core", daysAgo: 2, minutes: 44, now: now, [
+            workoutSession("Legs and core", daysAgo: 2, minutes: 44, now: now, [
                 ("barbell-back-squat", [reps(5, 185), reps(5, 185), reps(5, 185)]),
                 ("goblet-squat", [reps(10, 50), reps(10, 50)]),
                 ("side-plank", [
@@ -62,36 +62,36 @@ private enum LogSeed {
                     time(40, planned: 45, side: .left), time(45, side: .right),
                 ]),
             ]),
-            loggedWorkout("Upper body", daysAgo: 4, minutes: 48, now: now, [
+            workoutSession("Upper body", daysAgo: 4, minutes: 48, now: now, [
                 (bench, [reps(10, 25), reps(10, 25), reps(10, 25)]),
                 ("pull-up", [reps(6), reps(6), reps(6)]),
                 ("plank", [time(45), time(45), time(45)]),
                 ("barbell-bench-press", [reps(5, 135), reps(5, 135)]),
                 (orphan, [reps(8, 40), reps(8, 40)]),
             ]),
-            loggedWorkout("Legs and core", daysAgo: 7, minutes: 39, now: now, [
+            workoutSession("Legs and core", daysAgo: 7, minutes: 39, now: now, [
                 ("barbell-back-squat", [reps(5, 185), reps(5, 185), reps(5, 185)]),
                 ("romanian-deadlift", [reps(8, 40), reps(8, 40)]),
             ]),
-            loggedWorkout("", daysAgo: 9, minutes: 22, now: now, [
+            workoutSession("", daysAgo: 9, minutes: 22, now: now, [
                 ("barbell-bench-press", [reps(5, 145), reps(5, 145)]),
             ]),
-            loggedWorkout("Leg day, before its rename", daysAgo: 11, minutes: 41, now: now, [
+            workoutSession("Leg day, before its rename", daysAgo: 11, minutes: 41, now: now, [
                 ("barbell-back-squat", [reps(5, 185), reps(5, 185), reps(5, 185)]),
                 ("romanian-deadlift", [reps(8, 40), reps(8, 40)]),
             ]),
-            loggedWorkout("Upper body", daysAgo: 14, minutes: 50, now: now, [
+            workoutSession("Upper body", daysAgo: 14, minutes: 50, now: now, [
                 (bench, [reps(10, 25), reps(10, 25), reps(10, 25)]),
                 ("pull-up", [reps(6), reps(6), reps(5)]),
                 ("plank", [time(45), time(45), time(45)]),
             ]),
-            loggedWorkout("Arms", daysAgo: 16, minutes: 27, now: now, [
+            workoutSession("Arms", daysAgo: 16, minutes: 27, now: now, [
                 ("biceps-curl", [reps(10, 20), reps(10, 20), reps(10, 20)]),
             ]),
-            loggedWorkout("Legs and core", daysAgo: 20, minutes: 43, now: now, [
+            workoutSession("Legs and core", daysAgo: 20, minutes: 43, now: now, [
                 ("barbell-back-squat", [reps(5, 185), reps(5, 185), reps(5, 185)]),
             ]),
-            loggedWorkout("Upper body", daysAgo: 36, minutes: 55, now: now, [
+            workoutSession("Upper body", daysAgo: 36, minutes: 55, now: now, [
                 (bench, [reps(10, 20), reps(10, 20), reps(10, 20)]),
             ]),
         ]
@@ -99,7 +99,7 @@ private enum LogSeed {
 
     static let orphanName = "Half-kneeling single-arm landmine press with rotation"
 
-    private static func loggedWorkout(
+    private static func workoutSession(
         _ name: String,
         daysAgo: Int,
         minutes: Int,

@@ -107,9 +107,9 @@ struct LogScreen: View {
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
             .navigationDestination(item: pushedWorkoutSession) { id in
-                if let log = session.log, let loggedWorkout = log.loggedWorkout(id: id) {
+                if let log = session.log, let workoutSession = log.workoutSession(id: id) {
                     WorkoutSessionScreen(
-                        loggedWorkout: loggedWorkout,
+                        workoutSession: workoutSession,
                         log: log,
                         exercises: session.exercises,
                     )
@@ -134,12 +134,12 @@ struct LogScreen: View {
             "Delete from Log?",
             isPresented: $isAskingToDelete,
             presenting: deleting,
-        ) { loggedWorkout in
+        ) { workoutSession in
             Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) { delete(loggedWorkout.id) }
-        } message: { loggedWorkout in
-            let day = loggedWorkout.dayText(locale: locale, calendar: calendar)
-            Text("\(Self.name(of: loggedWorkout)), \(day)")
+            Button("Delete", role: .destructive) { delete(workoutSession.id) }
+        } message: { workoutSession in
+            let day = workoutSession.dayText(locale: locale, calendar: calendar)
+            Text("\(Self.name(of: workoutSession)), \(day)")
         }
         .task { await bringIn() }
     }
@@ -161,7 +161,7 @@ struct LogScreen: View {
         let closed = start + DrawerWay.arrival(reduceMotion: reduceMotion)
         var due = closed + Self.arrivalDelay
         // Only for a row that will come in: with a log read missing it, the empty part stays.
-        if showsNoWorkoutSessions, session.log?.loggedWorkout(id: coming) != nil {
+        if showsNoWorkoutSessions, session.log?.workoutSession(id: coming) != nil {
             guard await (try? beat(until: closed)) != nil else { return }
             withAnimation(.easeOut(duration: Self.emptyFade / .seconds(1))) {
                 emptyGivesWay = true
@@ -179,8 +179,8 @@ struct LogScreen: View {
         }
     }
 
-    func askToDelete(_ loggedWorkout: WorkoutSession) {
-        deleting = loggedWorkout
+    func askToDelete(_ workoutSession: WorkoutSession) {
+        deleting = workoutSession
         isAskingToDelete = true
     }
 
@@ -231,13 +231,13 @@ struct LogScreen: View {
 
     /// Whether History lists nothing, the workout yet to come in left out.
     private var showsNoWorkoutSessions: Bool {
-        session.log?.leavingOut(arriving).loggedWorkouts.isEmpty == true
+        session.log?.leavingOut(arriving).workoutSessions.isEmpty == true
     }
 
     /// The pushed logged workout, which the back button and the back swipe pop.
     private var pushedWorkoutSession: Binding<WorkoutSession.ID?> {
         Binding {
-            if case let .loggedWorkout(id) = session.screen {
+            if case let .workoutSession(id) = session.screen {
                 id
             } else {
                 nil

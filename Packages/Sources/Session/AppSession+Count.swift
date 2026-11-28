@@ -28,9 +28,9 @@ extension AppSession {
 
     /// Changes the workout through a rule on it, storing only a change.
     func changeLive(_ rule: (LiveWorkout) -> WorkoutSession) {
-        guard let loggedWorkout else { return }
-        let changed = rule(LiveWorkout(workout: current, loggedWorkout: loggedWorkout))
-        if changed != loggedWorkout {
+        guard let workoutSession else { return }
+        let changed = rule(LiveWorkout(workout: current, workoutSession: workoutSession))
+        if changed != workoutSession {
             change(.save(changed))
         }
     }

@@ -54,7 +54,7 @@ extension AppSession {
             for await entry in stream {
                 do {
                     switch entry {
-                    case let .write(.save(loggedWorkout)): try await store?.save(loggedWorkout)
+                    case let .write(.save(workoutSession)): try await store?.save(workoutSession)
                     case let .write(.discard(id)): try await store?.discardWorkoutSession(id)
                     case let .delete(id): try await store?.deleteWorkoutSession(id)
                     case let .landed(done): done.resume()
@@ -68,7 +68,7 @@ extension AppSession {
     }
 
     /// Returns once every logged workout write sent so far has landed, or failed.
-    func loggedWorkoutWritesLanded() async {
-        await withCheckedContinuation { done in loggedWorkoutWrites.yield(.landed(done)) }
+    func workoutSessionWritesLanded() async {
+        await withCheckedContinuation { done in workoutSessionWrites.yield(.landed(done)) }
     }
 }

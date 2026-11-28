@@ -53,7 +53,7 @@ extension WorkoutScreen {
             endStartRide()
             growthLift = 0
             underBarCut = 0
-            if session.loggedWorkout == nil {
+            if session.workoutSession == nil {
                 // Start pressed and stopped before the workout began: nothing has changed.
                 isMakingRoom = false
             }

@@ -13,7 +13,7 @@ extension TimedSetTests {
         let tap = 63.5
         let cut = LiveWorkout(
             workout: after.workout,
-            loggedWorkout: after.skippingRest(at: Self.at(tap)),
+            workoutSession: after.skippingRest(at: Self.at(tap)),
         )
         let timed = try #require(cut.timedSet, "Begun at the tap, not at the rest's end")
         let held = tap + LiveWorkout.skipHold
@@ -27,11 +27,11 @@ extension TimedSetTests {
         #expect(rest.endClock == 70)
         #expect(rest.shownLeft(atClock: held) == 70 - tap)
         // The screen's own begin, as the rest moves on, changes nothing.
-        #expect(cut.beginningCount(at: Self.at(held + 0.1)) == cut.loggedWorkout)
+        #expect(cut.beginningCount(at: Self.at(held + 0.1)) == cut.workoutSession)
         // Nor does a second Skip rest or +15 s, in the hold or after it.
         for second in [tap + 0.1, held + 0.1] {
-            #expect(cut.skippingRest(at: Self.at(second)) == cut.loggedWorkout)
-            #expect(cut.extendingRest(by: 15, at: Self.at(second)) == cut.loggedWorkout)
+            #expect(cut.skippingRest(at: Self.at(second)) == cut.workoutSession)
+            #expect(cut.extendingRest(by: 15, at: Self.at(second)) == cut.workoutSession)
         }
     }
 
@@ -47,12 +47,12 @@ extension TimedSetTests {
         let tap = 52.5
         let cut = LiveWorkout(
             workout: after.workout,
-            loggedWorkout: after.skippingRest(at: Self.at(tap)),
+            workoutSession: after.skippingRest(at: Self.at(tap)),
         )
         let leave = tap + LiveWorkout.skipHold
         #expect(cut.rest()?.leaveClock == leave)
         // All of "Start in" and its hold come after the move.
-        #expect(cut.loggedWorkout.count?.startClock == leave + Self.lead)
+        #expect(cut.workoutSession.count?.startClock == leave + Self.lead)
         #expect(cut.countStage(at: Self.at(leave + 0.1)) == .startIn)
         // Reopened in the hold, the screen opens in the rest; after it, on "Start in".
         let inHold = WorkoutPhase(resuming: cut, at: Self.at(tap + 0.1))
@@ -71,10 +71,10 @@ extension TimedSetTests {
         for tap in [40.1, 55.0, 69.9] {
             let cut = LiveWorkout(
                 workout: after.workout,
-                loggedWorkout: after.skippingRest(at: Self.at(tap)),
+                workoutSession: after.skippingRest(at: Self.at(tap)),
             )
             let rest = try #require(cut.rest())
-            let count = try #require(cut.loggedWorkout.count)
+            let count = try #require(cut.workoutSession.count)
             #expect(count.startClock == rest.leaveClock + Self.lead, "Tapped at \(tap)")
             // Its count keeps the time it had through the hold, though 0:00 comes in it.
             #expect(rest.shownLeft(atClock: rest.leaveClock - 0.01) > 0, "Tapped at \(tap)")
@@ -87,16 +87,16 @@ extension TimedSetTests {
         // The rest runs from 40 to 70; the next plank counts from its move on, at 71.
         let begun = LiveWorkout(
             workout: after.workout,
-            loggedWorkout: after.beginningCount(at: Self.at(71.2)),
+            workoutSession: after.beginningCount(at: Self.at(71.2)),
         )
         let count = try #require(begun.setCount)
         var workout = begun.workout
         workout.exercises[0].setRest(90)
-        let edited = LiveWorkout(workout: workout, loggedWorkout: begun.loggedWorkout)
+        let edited = LiveWorkout(workout: workout, workoutSession: begun.workoutSession)
         // The rest runs to 130 now, while the plank counts: a tap would begin the set over.
         #expect(try #require(edited.rest()).takesTaps(atClock: 75))
-        #expect(edited.skippingRest(at: Self.at(75)) == edited.loggedWorkout)
-        #expect(edited.extendingRest(by: 15, at: Self.at(75)) == edited.loggedWorkout)
+        #expect(edited.skippingRest(at: Self.at(75)) == edited.workoutSession)
+        #expect(edited.extendingRest(by: 15, at: Self.at(75)) == edited.workoutSession)
         #expect(edited.setCount == count)
     }
 }

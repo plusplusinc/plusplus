@@ -14,7 +14,7 @@ extension AppSession {
     ) {
         self.init(
             workout: launch.workout ?? Workout(),
-            loggedWorkout: launch.loggedWorkout,
+            workoutSession: launch.workoutSession,
             exercises: exercises,
             store: store,
             namer: namer,

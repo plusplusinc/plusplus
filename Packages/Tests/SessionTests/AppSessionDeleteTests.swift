@@ -110,7 +110,7 @@ struct AppSessionDeleteTests {
     }
 
     @Test("A finished logged workout of the deleted workout is still stored")
-    func loggedWorkoutKept() async throws {
+    func workoutSessionKept() async throws {
         let upper = try Self.upper()
         let session = session(upper)
         session.save(upper)
@@ -118,9 +118,9 @@ struct AppSessionDeleteTests {
         session.finish(at: Date(timeIntervalSinceReferenceDate: 20))
         await session.delete(upper.id)
         await session.writesLanded()
-        let loggedWorkouts = try ModelContext(container)
+        let workoutSessions = try ModelContext(container)
             .fetch(FetchDescriptor<StoredWorkoutSession>())
-        #expect(loggedWorkouts.map(\.loggedWorkout.workoutID) == [upper.id])
-        #expect(loggedWorkouts.allSatisfy { !$0.loggedWorkout.isInProgress })
+        #expect(workoutSessions.map(\.workoutSession.workoutID) == [upper.id])
+        #expect(workoutSessions.allSatisfy { !$0.workoutSession.isInProgress })
     }
 }

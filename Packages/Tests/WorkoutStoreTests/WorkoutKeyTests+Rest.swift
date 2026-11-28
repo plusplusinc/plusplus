@@ -138,7 +138,7 @@ extension WorkoutKeyTests {
     /// Ending in a rest: the rest's keys stay while the list draws the workout, taking no tap.
     private static func endingInRest(_ on: Seed) -> [Row] {
         var phase = resting(on.second, leadingTo: on.toRow, to: .settled)
-        phase.end(on.live(logged: 2).loggedWorkout)
+        phase.end(on.live(logged: 2).workoutSession)
         return [
             Row(
                 "Ending in a rest: the rest's keys drawn, a tap Start's",
@@ -160,9 +160,9 @@ extension WorkoutKeyTests {
         workout.setRestAfterRound(60, of: workout.exercises[0].id)
         let start = Date(timeIntervalSinceReferenceDate: 1000)
         let started = WorkoutSession(workoutID: workout.id, workoutName: "Pull", startedAt: start)
-        var live = LiveWorkout(workout: workout, loggedWorkout: started)
+        var live = LiveWorkout(workout: workout, workoutSession: started)
         let bench = try #require(live.currentSet)
-        live.loggedWorkout = try live.loggedWorkout.logging(
+        live.workoutSession = try live.workoutSession.logging(
             bench,
             of: #require(live.currentExercise),
             at: start,
@@ -174,7 +174,7 @@ extension WorkoutKeyTests {
             return []
         }
         let before = live
-        live.loggedWorkout = try live.loggedWorkout.logging(
+        live.workoutSession = try live.workoutSession.logging(
             pull,
             of: #require(live.currentExercise),
             at: start,

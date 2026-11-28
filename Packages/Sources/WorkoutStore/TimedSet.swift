@@ -113,7 +113,7 @@ extension LiveWorkout {
     /// The count begun for the current set, timed or reps: nil with none begun, or one begun for
     /// another set.
     public var setCount: SetCount? {
-        guard let count = loggedWorkout.count, count.set == currentSet else { return nil }
+        guard let count = workoutSession.count, count.set == currentSet else { return nil }
         return count
     }
 
@@ -136,7 +136,7 @@ extension LiveWorkout {
     /// its "Start in" is over.
     public func countStage(at now: Date) -> CountStage? {
         guard let count = setCount else { return nil }
-        if count.startClock > loggedWorkout.clock(at: now) {
+        if count.startClock > workoutSession.clock(at: now) {
             return .startIn
         }
         return isOnTimedSet ? .counting : nil
@@ -151,7 +151,7 @@ extension LiveWorkout {
 
     /// The count `set` stopped at as it was logged: nil for a set not logged, or not timed.
     public func loggedCount(of set: PlannedSet) -> LoggedCount? {
-        guard let logged = loggedWorkout.sets.last(where: { $0.planned == set }),
+        guard let logged = workoutSession.sets.last(where: { $0.planned == set }),
               case let .time(done) = logged.target,
               case let .time(planned) = logged.plannedTarget
         else { return nil }
@@ -177,12 +177,12 @@ extension LiveWorkout {
     /// (`beginningCount(at:)`). Decided as the edit is written, never from a
     /// reaction to it, which SwiftUI can skip for a second change in one frame.
     public func droppingCount(for edited: Workout) -> WorkoutSession {
-        guard let count = loggedWorkout.count,
+        guard let count = workoutSession.count,
               let before = workout.exercises.first(where: { $0.id == count.set.row }),
               let after = edited.exercises.first(where: { $0.id == count.set.row }),
               before.plan.target.isTime != after.plan.target.isTime
-        else { return loggedWorkout }
-        var dropped = loggedWorkout
+        else { return workoutSession }
+        var dropped = workoutSession
         dropped.count = nil
         return dropped
     }
@@ -195,13 +195,13 @@ extension LiveWorkout {
     /// its clock, so its time has shown only 0:00 and none of it is lost: any other, as one
     /// whose landing waited on the phone being unlocked, only begins its count.
     public func landingStart(at now: Date) -> WorkoutSession {
-        guard loggedWorkout.isInProgress, loggedWorkout.sets.isEmpty, loggedWorkout.count == nil,
-              loggedWorkout.pausedAt == nil, loggedWorkout.pausedSeconds == 0,
-              loggedWorkout.clock(at: now) < 1
+        guard workoutSession.isInProgress, workoutSession.sets.isEmpty, workoutSession.count == nil,
+              workoutSession.pausedAt == nil, workoutSession.pausedSeconds == 0,
+              workoutSession.clock(at: now) < 1
         else { return beginningCount(at: now) }
-        var landed = loggedWorkout
+        var landed = workoutSession
         landed.startedAt = now
-        let begun = LiveWorkout(workout: workout, loggedWorkout: landed).beginningCount(at: now)
+        let begun = LiveWorkout(workout: workout, workoutSession: landed).beginningCount(at: now)
         return Self.timeStartingAtCount(begun)
     }
 
@@ -223,13 +223,13 @@ extension LiveWorkout {
     /// in" holds 0:00 for `startInHold` before the set begins. A count kept for no set goes. The
     /// rest of the workout is unchanged until the rest before the set moves on.
     public func beginningCount(at now: Date) -> WorkoutSession {
-        guard loggedWorkout.isInProgress, setCount == nil else { return loggedWorkout }
-        var begun = loggedWorkout
+        guard workoutSession.isInProgress, setCount == nil else { return workoutSession }
+        var begun = workoutSession
         begun.count = nil
         guard let set = currentSet else { return begun }
-        let clock = loggedWorkout.clock(at: now)
+        let clock = workoutSession.clock(at: now)
         var lead = workout.startIn(before: set)
-        var base = loggedWorkout.tick(nearest: now)
+        var base = workoutSession.tick(nearest: now)
         var restJustEnded = false
         if let rest = rest() {
             guard rest.isOver(atClock: clock) else { return begun }
@@ -262,15 +262,15 @@ extension LiveWorkout {
         of row: WorkoutExercise,
         at now: Date,
     ) -> WorkoutSession {
-        let clock = loggedWorkout.clock(at: now)
+        let clock = workoutSession.clock(at: now)
         let timed = timedSet.flatMap { $0.set == set ? $0 : nil }
         let endClock = timed.flatMap { $0.isOver(atClock: clock) ? $0.endClock : nil }
-        var logged = loggedWorkout.logging(
+        var logged = workoutSession.logging(
             set,
             of: row,
-            at: endClock.map(loggedWorkout.date(ofClock:)) ?? now,
+            at: endClock.map(workoutSession.date(ofClock:)) ?? now,
         )
-        guard logged.sets.count > loggedWorkout.sets.count else { return loggedWorkout }
+        guard logged.sets.count > workoutSession.sets.count else { return workoutSession }
         if let timed {
             let last = logged.sets.count - 1
             logged.sets[last].target = .time(seconds: timed.done(atClock: clock))
@@ -289,18 +289,18 @@ extension LiveWorkout {
     /// logged as the pause began, where its count stopped, so its time of day and its clock agree.
     public func finishing(at now: Date) -> WorkoutSession {
         guard countStage(at: now) == .counting, let timed = timedSet, let row = currentExercise
-        else { return loggedWorkout.finishing(at: now) }
-        return logging(timed.set, of: row, at: loggedWorkout.pausedAt ?? now).finishing(at: now)
+        else { return workoutSession.finishing(at: now) }
+        return logging(timed.set, of: row, at: workoutSession.pausedAt ?? now).finishing(at: now)
     }
 
     /// The workout with `seconds` added to the set counting, as a +15 s tap does. Unchanged
     /// during "Start in" or once over, so a tap landing as it ends brings nothing back.
     public func extendingCount(by seconds: Int, at now: Date) -> WorkoutSession {
-        let clock = loggedWorkout.clock(at: now)
-        guard loggedWorkout.isInProgress, let timed = timedSet, timed.startIn(atClock: clock) == 0,
+        let clock = workoutSession.clock(at: now)
+        guard workoutSession.isInProgress, let timed = timedSet, timed.startIn(atClock: clock) == 0,
               !timed.isOver(atClock: clock)
-        else { return loggedWorkout }
-        var extended = loggedWorkout
+        else { return workoutSession }
+        var extended = workoutSession
         extended.count?.added += seconds
         return extended
     }
@@ -309,12 +309,12 @@ extension LiveWorkout {
     /// logged at its full time, then the next set's count begun. One set, never a chain.
     public func caughtUp(at now: Date) -> WorkoutSession {
         var live = self
-        if let timed = timedSet, timed.isOver(atClock: loggedWorkout.clock(at: now)),
+        if let timed = timedSet, timed.isOver(atClock: workoutSession.clock(at: now)),
            let row = currentExercise
         {
             live = LiveWorkout(
                 workout: workout,
-                loggedWorkout: logging(timed.set, of: row, at: now),
+                workoutSession: logging(timed.set, of: row, at: now),
             )
         }
         return live.beginningCount(at: now)

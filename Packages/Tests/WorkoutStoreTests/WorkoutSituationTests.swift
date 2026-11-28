@@ -25,7 +25,7 @@ struct WorkoutSituationTests {
     static func started(_ workout: Workout) -> LiveWorkout {
         LiveWorkout(
             workout: workout,
-            loggedWorkout: WorkoutSession(
+            workoutSession: WorkoutSession(
                 workoutID: workout.id,
                 workoutName: "Test",
                 startedAt: start,
@@ -44,7 +44,7 @@ struct WorkoutSituationTests {
         case let .resting(rest):
             #expect(rest.next == live.currentSet)
         case .notStarted, .allLogged, .nothingToDo:
-            #expect(live.currentSet == nil || !live.loggedWorkout.isInProgress)
+            #expect(live.currentSet == nil || !live.workoutSession.isInProgress)
         }
         return situation
     }
@@ -73,7 +73,7 @@ struct WorkoutSituationTests {
     @Test("Through a workout, each situation is the phase a screen opens on and the count's stage")
     func agreesWithToday() throws {
         var live = try Self.started(Self.workout(plankRest: 60))
-        live.loggedWorkout = live.landingStart(at: Self.at(0.5))
+        live.workoutSession = live.landingStart(at: Self.at(0.5))
         Self.expectAgrees(live, at: Self.at(1))
         #expect(try Self.situation(live, at: Self.at(1)) == .countingIn(#require(live.setCount)))
         let up = live.at(clock: 1)
@@ -137,7 +137,7 @@ struct WorkoutSituationTests {
         try expectComingUp(live, at: Self.at(0.3))
 
         // Out of a rest before another exercise, its end not yet noticed.
-        live.loggedWorkout = live.landingStart(at: Self.at(0.5))
+        live.workoutSession = live.landingStart(at: Self.at(0.5))
         live = try live.logging(at: live.at(clock: 10))
         live = try live.logging(at: live.at(clock: 80))
         let toPlank = try #require(live.rest()?.leaveClock)
@@ -161,11 +161,11 @@ struct WorkoutSituationTests {
         // tap, and a screen opening in its hold opens in the rest. The situation takes the rest:
         // the count's "Start in" begins only as the rest moves on (`WorkoutRest.leaveClock`).
         var live = try Self.started(Self.workout())
-        live.loggedWorkout = live.landingStart(at: Self.at(0.5))
+        live.workoutSession = live.landingStart(at: Self.at(0.5))
         live = try live.logging(at: live.at(clock: 10))
         live = try live.logging(at: live.at(clock: 80))
         let tap = 100.0
-        live.loggedWorkout = live.skippingRest(at: live.at(clock: tap))
+        live.workoutSession = live.skippingRest(at: live.at(clock: tap))
         let inHold = live.at(clock: tap + 0.1)
         #expect(live.countStage(at: inHold) == .startIn)
         #expect(WorkoutPhase(resuming: live, at: inHold).resting != nil)
@@ -183,9 +183,9 @@ struct WorkoutSituationTests {
         // One answer: the stored tap times the move for the screen that took it and for one
         // opening in its hold alike (`WorkoutRest.leaveClock`).
         var live = try Self.started(Self.workout())
-        live.loggedWorkout = live.landingStart(at: Self.at(0.5))
+        live.workoutSession = live.landingStart(at: Self.at(0.5))
         live = try live.logging(at: live.at(clock: 10))
-        live.loggedWorkout = live.skippingRest(at: live.at(clock: 30.6))
+        live.workoutSession = live.skippingRest(at: live.at(clock: 30.6))
         let rest = try #require(live.rest())
         let leave = rest.leaveClock
         #expect(try leave == #require(rest.skippedAt) + LiveWorkout.skipHold)
@@ -211,7 +211,7 @@ struct WorkoutSituationTests {
         // The situation takes the rest: every stored rule (the count's, +15 s's, Skip rest's)
         // acts on it.
         var live = try Self.started(Self.workout())
-        live.loggedWorkout = live.landingStart(at: Self.at(0.5))
+        live.workoutSession = live.landingStart(at: Self.at(0.5))
         live = try live.logging(at: live.at(clock: 10))
         live = try live.logging(at: live.at(clock: 80))
         live.workout.exercises.reverse()
@@ -219,7 +219,7 @@ struct WorkoutSituationTests {
         let rest = try #require(live.rest())
         #expect(rest.next.row == live.workout.exercises[0].id)
         #expect(WorkoutPhase(resuming: live, at: now) == .running)
-        #expect(live.beginningCount(at: now) == live.loggedWorkout, "No count begun mid-rest")
+        #expect(live.beginningCount(at: now) == live.workoutSession, "No count begun mid-rest")
         #expect(Self.situation(live, at: now) == .resting(rest))
     }
 
@@ -231,7 +231,7 @@ struct WorkoutSituationTests {
         // Two answers today for the first two: the phase says at rest (`.running`), and
         // `isDone` says done. The situation takes `isDone`: there is no set to be at rest on.
         var live = try Self.started(Self.workout(plankRest: 0))
-        live.loggedWorkout = live.landingStart(at: Self.at(0.5))
+        live.workoutSession = live.landingStart(at: Self.at(0.5))
         for index in live.workout.setOrder.indices {
             live = try live.logging(at: live.at(clock: Double(index + 1) * 100))
         }
@@ -246,14 +246,14 @@ struct WorkoutSituationTests {
         #expect(Self.situation(emptied, at: now) == .nothingToDo)
 
         var finished = live
-        finished.loggedWorkout = live.finishing(at: now)
+        finished.workoutSession = live.finishing(at: now)
         #expect(Self.situation(finished, at: now.addingTimeInterval(60)) == .notStarted)
     }
 
     @Test("Paused in any situation, it holds as time passes, and resumed it goes on from there")
     func pausedHolds() throws {
         var live = try Self.started(Self.workout(plankRest: 60))
-        live.loggedWorkout = live.landingStart(at: Self.at(0.5))
+        live.workoutSession = live.landingStart(at: Self.at(0.5))
         var moments: [(LiveWorkout, Double)] = [(live, -2), (live, 1)]
         live = try live.logging(at: live.at(clock: 10))
         moments.append((live, 30))
@@ -267,11 +267,11 @@ struct WorkoutSituationTests {
             let pausedAt = live.at(clock: clock)
             let before = live.situation(at: pausedAt)
             var paused = live
-            paused.loggedWorkout = live.loggedWorkout.pausing(at: pausedAt)
+            paused.workoutSession = live.workoutSession.pausing(at: pausedAt)
             let away = pausedAt.addingTimeInterval(1000)
             #expect(paused.situation(at: away) == before, "Paused at \(clock): \(before)")
             var resumed = paused
-            resumed.loggedWorkout = paused.loggedWorkout.resuming(at: away)
+            resumed.workoutSession = paused.workoutSession.resuming(at: away)
             #expect(resumed.situation(at: away.addingTimeInterval(2)) == live
                 .situation(at: pausedAt.addingTimeInterval(2)))
         }
@@ -285,18 +285,18 @@ struct WorkoutSituationTests {
 extension LiveWorkout {
     /// When the workout's clock reads `clock`, running on with no pause.
     fileprivate func at(clock: Double) -> Date {
-        loggedWorkout.date(ofClock: clock)
+        workoutSession.date(ofClock: clock)
     }
 
     /// The workout with its current set logged at `now`.
     fileprivate func logging(at now: Date) throws -> Self {
         let set = try #require(currentSet)
         let row = try #require(currentExercise)
-        return Self(workout: workout, loggedWorkout: logging(set, of: row, at: now))
+        return Self(workout: workout, workoutSession: logging(set, of: row, at: now))
     }
 
     /// The workout with the current set's count begun at `now`, as the screen begins it.
     fileprivate func countBegun(at now: Date) -> Self {
-        Self(workout: workout, loggedWorkout: beginningCount(at: now))
+        Self(workout: workout, workoutSession: beginningCount(at: now))
     }
 }

@@ -33,20 +33,20 @@ struct TimedSetTests {
     /// and `startIn()` checks the lead Start begins.
     static func started(_ workout: Workout) -> LiveWorkout {
         var begun = begun(workout)
-        begun.loggedWorkout.count?.startClock = 10
+        begun.workoutSession.count?.startClock = 10
         return begun
     }
 
     /// `workout` as Start begins it, at `start`, its first count as `beginningCount` begins it.
     static func begun(_ workout: Workout) -> LiveWorkout {
-        let loggedWorkout = WorkoutSession(
+        let workoutSession = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Test",
             startedAt: start,
         )
-        let begun = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
+        let begun = LiveWorkout(workout: workout, workoutSession: workoutSession)
             .beginningCount(at: start)
-        return LiveWorkout(workout: workout, loggedWorkout: begun)
+        return LiveWorkout(workout: workout, workoutSession: begun)
     }
 
     /// `live` with its current set logged at `seconds`.
@@ -55,7 +55,7 @@ struct TimedSetTests {
         let row = try #require(live.currentExercise)
         return LiveWorkout(
             workout: live.workout,
-            loggedWorkout: live.logging(set, of: row, at: at(seconds)),
+            workoutSession: live.logging(set, of: row, at: at(seconds)),
         )
     }
 
@@ -79,52 +79,52 @@ struct TimedSetTests {
     func runOut() throws {
         let live = try Self.started(Self.workout(rest: 60))
         let after = try Self.logged(live, at: 45)
-        let set = try #require(after.loggedWorkout.sets.first)
+        let set = try #require(after.workoutSession.sets.first)
         #expect(set.target == .time(seconds: 30))
         #expect(set.plannedTarget == .time(seconds: 30))
         #expect(set.clockWhenLogged == 40)
         #expect(after.rest()?.startClock == 40)
         // The rest still runs: no count begins.
-        #expect(after.loggedWorkout.count == nil)
+        #expect(after.workoutSession.count == nil)
     }
 
     @Test("A log with 17 to 18 s left stores 12 done of 30")
     func earlyLog() throws {
         let live = try Self.started(Self.workout())
         let after = try Self.logged(live, at: 10 + 12.5)
-        #expect(after.loggedWorkout.sets.first?.target == .time(seconds: 12))
+        #expect(after.workoutSession.sets.first?.target == .time(seconds: 12))
         // The rest after it begins on the clock's whole second at the log, never ahead of it,
         // so it turns over with the workout's time.
-        #expect(after.loggedWorkout.sets.first?.clockWhenLogged == 22)
+        #expect(after.workoutSession.sets.first?.clockWhenLogged == 22)
     }
 
     @Test("+15 s adds to this set only, never during Start in or once over")
     func extend() throws {
         let live = try Self.started(Self.workout())
-        #expect(live.extendingCount(by: 15, at: Self.at(5)) == live.loggedWorkout)
+        #expect(live.extendingCount(by: 15, at: Self.at(5)) == live.workoutSession)
         let extended = LiveWorkout(
             workout: live.workout,
-            loggedWorkout: live.extendingCount(by: 15, at: Self.at(30)),
+            workoutSession: live.extendingCount(by: 15, at: Self.at(30)),
         )
         #expect(extended.timedSet?.length == 45)
         #expect(extended.timedSet?.remaining(atClock: 30) == 25)
-        #expect(extended.extendingCount(by: 15, at: Self.at(55)) == extended.loggedWorkout)
+        #expect(extended.extendingCount(by: 15, at: Self.at(55)) == extended.workoutSession)
         let after = try Self.logged(extended, at: 55)
-        #expect(after.loggedWorkout.sets.first?.target == .time(seconds: 45))
-        #expect(after.loggedWorkout.sets.first?.timeAdded == 15)
+        #expect(after.workoutSession.sets.first?.target == .time(seconds: 45))
+        #expect(after.workoutSession.sets.first?.timeAdded == 15)
         #expect(Self.landed(after, at: 56).timedSet?.length == 30)
     }
 
     /// `live` as the screen lands on its current set at `seconds`, beginning its count.
     static func landed(_ live: LiveWorkout, at seconds: Double) -> LiveWorkout {
-        LiveWorkout(workout: live.workout, loggedWorkout: live.beginningCount(at: at(seconds)))
+        LiveWorkout(workout: live.workout, workoutSession: live.beginningCount(at: at(seconds)))
     }
 
     @Test("A log begins no count: with no rest before it, Start in begins as the screen lands")
     func startInAtLanding() throws {
         let live = try Self.started(Self.workout())
         let after = try Self.logged(live, at: 40)
-        #expect(after.loggedWorkout.count == nil)
+        #expect(after.workoutSession.count == nil)
         // Landed 0.75 s after the log: its Start in is all from there, on the clock's nearest
         // whole second, so it turns over with the workout's time.
         let lead = Self.lead
@@ -137,13 +137,13 @@ struct TimedSetTests {
     func fromRest() throws {
         let live = try Self.started(Self.workout(rest: 20))
         let after = try Self.logged(live, at: 40)
-        #expect(after.beginningCount(at: Self.at(50)) == after.loggedWorkout)
+        #expect(after.beginningCount(at: Self.at(50)) == after.workoutSession)
         // 0:00 at 60, held a moment.
-        #expect(after.beginningCount(at: Self.at(60.5)) == after.loggedWorkout)
+        #expect(after.beginningCount(at: Self.at(60.5)) == after.workoutSession)
         let leave = 60 + LiveWorkout.restHold
         let begun = LiveWorkout(
             workout: after.workout,
-            loggedWorkout: after.beginningCount(at: Self.at(leave + 0.5)),
+            workoutSession: after.beginningCount(at: Self.at(leave + 0.5)),
         )
         #expect(begun.timedSet?.startClock == leave)
         #expect(begun.countStage(at: Self.at(leave + 0.5)) == .counting)
@@ -155,7 +155,7 @@ struct TimedSetTests {
         let after = try Self.logged(live, at: 40)
         let begun = LiveWorkout(
             workout: after.workout,
-            loggedWorkout: after.beginningCount(at: Self.at(100)),
+            workoutSession: after.beginningCount(at: Self.at(100)),
         )
         #expect(begun.timedSet?.startClock == 100 + Self.lead)
     }
@@ -178,8 +178,8 @@ struct TimedSetTests {
     @Test("A pause stops the count; resumed, it carries on")
     func pause() throws {
         let live = try Self.started(Self.workout())
-        let paused = live.loggedWorkout.pausing(at: Self.at(20)).resuming(at: Self.at(80))
-        let resumed = LiveWorkout(workout: live.workout, loggedWorkout: paused)
+        let paused = live.workoutSession.pausing(at: Self.at(20)).resuming(at: Self.at(80))
+        let resumed = LiveWorkout(workout: live.workout, workoutSession: paused)
         #expect(resumed.timedSet?.remaining(atClock: paused.clock(at: Self.at(80))) == 20)
     }
 
@@ -188,10 +188,10 @@ struct TimedSetTests {
         let live = try Self.started(Self.workout())
         let caught = LiveWorkout(
             workout: live.workout,
-            loggedWorkout: live.caughtUp(at: Self.at(300)),
+            workoutSession: live.caughtUp(at: Self.at(300)),
         )
-        #expect(caught.loggedWorkout.sets.count == 1)
-        #expect(caught.loggedWorkout.sets.first?.clockWhenLogged == 40)
+        #expect(caught.workoutSession.sets.count == 1)
+        #expect(caught.workoutSession.sets.first?.clockWhenLogged == 40)
         #expect(caught.timedSet?.startClock == 300 + Self.lead)
     }
 
@@ -212,7 +212,7 @@ struct TimedSetTests {
         #expect(live.timedSet == nil, "The plank's count stays with the plank")
         let begun = LiveWorkout(
             workout: live.workout,
-            loggedWorkout: live.beginningCount(at: Self.at(20)),
+            workoutSession: live.beginningCount(at: Self.at(20)),
         )
         #expect(begun.currentSet?.row == side.id)
         #expect(begun.timedSet?.startClock == 20 + Self.lead)
@@ -228,14 +228,14 @@ struct TimedSetTests {
         #expect(longer.startClock == 10)
         #expect(longer.remaining(atClock: 15) == 15)
         #expect(
-            live.beginningCount(at: Self.at(15)) == live.loggedWorkout,
+            live.beginningCount(at: Self.at(15)) == live.workoutSession,
             "No second count begins",
         )
         live.workout.exercises[0].plan.target = .time(seconds: 3)
         let shorter = try #require(live.timedSet)
         #expect(shorter.isOver(atClock: 15))
         let after = try Self.logged(live, at: 15)
-        let set = try #require(after.loggedWorkout.sets.first)
+        let set = try #require(after.workoutSession.sets.first)
         #expect(set.target == .time(seconds: 3))
         #expect(set.clockWhenLogged == 13)
     }
@@ -267,9 +267,12 @@ struct TimedSetTests {
         for (target, at) in [(SetTarget.reps(10), 60.0), (.time(seconds: 30), 62)] {
             var edited = live.workout
             edited.exercises[0].plan.target = target
-            live = LiveWorkout(workout: edited, loggedWorkout: live.droppingCount(for: edited))
-            live = LiveWorkout(workout: edited, loggedWorkout: live.beginningCount(at: Self.at(at)))
-            #expect(live.loggedWorkout.count?.startClock == at + lead, "as \(target)")
+            live = LiveWorkout(workout: edited, workoutSession: live.droppingCount(for: edited))
+            live = LiveWorkout(
+                workout: edited,
+                workoutSession: live.beginningCount(at: Self.at(at)),
+            )
+            #expect(live.workoutSession.count?.startClock == at + lead, "as \(target)")
         }
     }
 }

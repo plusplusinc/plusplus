@@ -8,24 +8,24 @@ import WorkoutStore
 /// the time before it was done (a gain in green, anything else in gray), and a quiet line for one
 /// done a side at a time or a set short of its plan.
 struct WorkoutSessionScreen: View {
-    let loggedWorkout: WorkoutSession
+    let workoutSession: WorkoutSession
     let log: WorkoutLog
     let exercises: ExerciseList
 
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let rows = log.exercises(of: loggedWorkout, in: exercises)
+        let rows = log.exercises(of: workoutSession, in: exercises)
         let sets = rows.reduce(0) { $0 + $1.exercise.rounds.count }
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text(AttributedString.monoNumbers(
-                    loggedWorkout.logLine(sets: sets, locale: locale),
+                    workoutSession.logLine(sets: sets, locale: locale),
                     font: .ppRowDetailNumber,
                 ))
                 .font(.ppRowDetail)
                 .foregroundStyle(.pp(.textSecondary))
-                .accessibilityLabel(loggedWorkout.spokenLogLine(sets: sets, locale: locale))
+                .accessibilityLabel(workoutSession.spokenLogLine(sets: sets, locale: locale))
                 // The first exercise's own room (`LogRow`) parts it from the line, as Diff's
                 // first row is parted from its line.
                 ForEach(rows, id: \.exercise.id) { row in
@@ -45,7 +45,7 @@ struct WorkoutSessionScreen: View {
             .padding(.bottom, Spacing.xl)
         }
         .background { Color.pp(.background).ignoresSafeArea() }
-        .navigationTitle(LogScreen.name(of: loggedWorkout))
+        .navigationTitle(LogScreen.name(of: workoutSession))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

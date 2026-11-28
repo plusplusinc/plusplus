@@ -14,7 +14,7 @@ extension Store {
             sortBy: [SortDescriptor(\.endedAt), SortDescriptor(\.id)],
         )
         unsent.relationshipKeyPathsForPrefetching = [\.sets]
-        let read = try modelContext.fetch(unsent).map(\.loggedWorkout)
+        let read = try modelContext.fetch(unsent).map(\.workoutSession)
         let owed = read.filter { $0.healthWithheld == nil }
         if owed.count < read.count {
             Logger.storage.notice("\(read.count - owed.count) workouts withheld from Apple Health")

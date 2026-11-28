@@ -28,7 +28,7 @@ struct HealthOfferTests {
         )
         let session = await launched(health, workout: workout)
         session.start(on: workout.id, at: HealthFixture.at(start))
-        let logged = try #require(session.loggedWorkout)
+        let logged = try #require(session.workoutSession)
         session.finish(at: HealthFixture.at(start + 60))
         await session.healthJobsLanded()
         return (session, logged.id)

@@ -25,7 +25,7 @@ extension WorkoutScreen {
                     if barIsLive {
                         EndButton {
                             // Under a finish's "++" the workout has ended: nothing to ask.
-                            if session.loggedWorkout != nil {
+                            if session.workoutSession != nil {
                                 askToEnd()
                             }
                         }
@@ -43,7 +43,7 @@ extension WorkoutScreen {
         // and only faded its glass. The glass changes size on the frame: it grows at Start
         // before the crossfade, and shrinks at End once the time has faded out.
         ToolbarItem(placement: .topBarTrailing) {
-            let timed = session.loggedWorkout ?? endingTime
+            let timed = session.workoutSession ?? endingTime
             // Trailing, where ••• sits in its own glass, so it holds still as the glass changes.
             ZStack(alignment: .trailing) {
                 // Always there, faded rather than put in or taken out. While the item holds only
@@ -58,7 +58,7 @@ extension WorkoutScreen {
                     .allowsHitTesting(timed == nil)
                     .accessibilityShown(timed == nil)
                 if let timed {
-                    WorkoutTimeKey(loggedWorkout: timed, togglePause: togglePause)
+                    WorkoutTimeKey(workoutSession: timed, togglePause: togglePause)
                         .opacity(barIsLive ? 1 : 0)
                         .transition(.opacity)
                 }
@@ -85,7 +85,7 @@ extension WorkoutScreen {
     /// Whether the bar draws the workout in progress: End and its time. Held under a finish's
     /// "++", where the store has already ended it, so the bar changes only as the ending plays.
     var barShowsWorkout: Bool {
-        session.loggedWorkout != nil || phase.isEndBegun
+        session.workoutSession != nil || phase.isEndBegun
     }
 
     /// The ending workout's time, stopped at End while a finish holds the screen still, so it

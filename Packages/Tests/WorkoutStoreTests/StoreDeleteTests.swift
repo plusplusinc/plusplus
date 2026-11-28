@@ -35,19 +35,19 @@ struct StoreDeleteTests {
     }
 
     @Test("A finished logged workout of a deleted workout is still stored")
-    func loggedWorkoutsStay() async throws {
+    func workoutSessionsStay() async throws {
         let upper = Workout(name: "Upper")
         try await relaunch().save(upper, at: Self.at(1))
-        let loggedWorkout = WorkoutSession(
+        let workoutSession = WorkoutSession(
             workoutID: upper.id,
             workoutName: upper.name,
             startedAt: Self.at(10),
         )
         .finishing(at: Self.at(20))
-        try await relaunch().save(loggedWorkout)
+        try await relaunch().save(workoutSession)
         try await relaunch().deleteWorkout(upper.id)
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
-        #expect(stored.map(\.loggedWorkout) == [loggedWorkout])
+        #expect(stored.map(\.workoutSession) == [workoutSession])
     }
 
     @Test("Launch after the last-opened workout is deleted opens the next most recent")
@@ -69,7 +69,7 @@ struct StoreDeleteTests {
     }
 
     @Test("A finished logged workout deleted from Log is gone after a relaunch, its sets with it")
-    func loggedWorkoutDeleted() async throws {
+    func workoutSessionDeleted() async throws {
         let row = try WorkoutExercise.builtIn("Push-up")
         let upper = Workout(name: "Upper", exercises: [row])
         try await relaunch().save(upper, at: Self.at(1))
@@ -94,7 +94,7 @@ struct StoreDeleteTests {
     }
 
     @Test("A logged workout still in progress is never deleted from Log; only Discard ends it")
-    func loggedWorkoutInProgressKept() async throws {
+    func workoutSessionInProgressKept() async throws {
         let upper = Workout(name: "Upper")
         try await relaunch().save(upper, at: Self.at(1))
         let running = WorkoutSession(
@@ -104,6 +104,6 @@ struct StoreDeleteTests {
         )
         try await relaunch().save(running)
         try await relaunch().deleteWorkoutSession(running.id)
-        #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == running)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workoutSession == running)
     }
 }

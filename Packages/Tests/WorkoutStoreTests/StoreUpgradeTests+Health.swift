@@ -85,7 +85,7 @@ extension StoreUpgradeTests {
         #expect(finished.map(\.sets.count) == [1, 1])
         #expect(finished.allSatisfy { $0.pauses.isEmpty })
         #expect(finished.allSatisfy { $0.healthActivity == nil && $0.healthWorkoutID == nil })
-        let running = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
+        let running = try #require(try await store.launch(weightUnit: .pounds).workoutSession)
         #expect(running.id == V13Store.inProgress.id)
         #expect(running.pausedAt == V13Store.at(1100))
         #expect(running.pausedSeconds == 20)
@@ -99,7 +99,7 @@ extension StoreUpgradeTests {
         try old.write()
 
         let store = try Self.current(at: old.url)
-        var running = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
+        var running = try #require(try await store.launch(weightUnit: .pounds).workoutSession)
         running = running.resuming(at: V13Store.at(1150))
             .pausing(at: V13Store.at(1200))
             .resuming(at: V13Store.at(1210))

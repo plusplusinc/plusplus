@@ -244,8 +244,8 @@ extension LogPeriod {
     }
 
     /// "9 workouts", "1 workout".
-    public func loggedWorkoutCountText(locale: Locale = .current) -> String {
-        counted(loggedWorkoutCount, "workout", "workouts", locale: locale)
+    public func workoutSessionCountText(locale: Locale = .current) -> String {
+        counted(workoutSessionCount, "workout", "workouts", locale: locale)
     }
 
     /// "Saturday, November 21, workout", "Friday, November 20, no workout", for VoiceOver.

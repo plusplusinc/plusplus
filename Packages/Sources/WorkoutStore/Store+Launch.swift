@@ -19,9 +19,9 @@ extension Store {
         }
 
         /// The logged workout in progress, if any.
-        public var loggedWorkout: WorkoutSession? {
-            if case let .inProgress(_, loggedWorkout) = self {
-                loggedWorkout
+        public var workoutSession: WorkoutSession? {
+            if case let .inProgress(_, workoutSession) = self {
+                workoutSession
             } else {
                 nil
             }

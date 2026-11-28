@@ -25,7 +25,7 @@ struct HealthSavingTests {
         let health = FakeHealth(.on, store: fixture.store())
         let session = fixture.launched(health, workout: workout)
         session.start(on: workout.id, at: HealthFixture.at(10))
-        let logged = try #require(session.loggedWorkout)
+        let logged = try #require(session.workoutSession)
         session.finish(at: HealthFixture.at(70))
         // Nothing reads Health in the Finish tap's turn, nor as the session was made.
         #expect(health.accessReads.withLock { $0 } == 0)

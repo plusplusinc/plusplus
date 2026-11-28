@@ -126,7 +126,7 @@ extension LiveWorkout {
     /// logged before its clock was kept, or nothing left to do. Whether it is over is the
     /// caller's, at its moment.
     public func rest() -> WorkoutRest? {
-        guard let last = loggedWorkout.sets.last, let start = last.clockWhenLogged,
+        guard let last = workoutSession.sets.last, let start = last.clockWhenLogged,
               let next = currentSet
         else { return nil }
         let gap = Self.running(rest: workout.rest(after: last.planned, before: next))
@@ -157,10 +157,10 @@ extension LiveWorkout {
     /// tap does, at `now`. Unchanged with no rest running, or once it takes no taps
     /// (`WorkoutRest.takesTaps(atClock:)`), or once the next set's count has begun.
     public func extendingRest(by seconds: Int, at now: Date) -> WorkoutSession {
-        guard loggedWorkout.isInProgress, setCount == nil, let rest = rest(),
-              rest.takesTaps(atClock: loggedWorkout.clock(at: now))
-        else { return loggedWorkout }
-        var extended = loggedWorkout
+        guard workoutSession.isInProgress, setCount == nil, let rest = rest(),
+              rest.takesTaps(atClock: workoutSession.clock(at: now))
+        else { return workoutSession }
+        var extended = workoutSession
         extended.sets[extended.sets.count - 1].restAdjustment += seconds
         return extended
     }
@@ -173,13 +173,13 @@ extension LiveWorkout {
     /// so a relaunch finds the count where the screen had it. Unchanged with no rest running, or
     /// once it takes no taps (`WorkoutRest.takesTaps(atClock:)`).
     public func skippingRest(at now: Date) -> WorkoutSession {
-        let clock = loggedWorkout.clock(at: now)
+        let clock = workoutSession.clock(at: now)
         // A count begun once the rest moved on is its set's, though an edit that lengthens the
         // rest runs it again: a skip then would begin the set over. +15 s refuses it alike.
-        guard loggedWorkout.isInProgress, setCount == nil, var rest = rest(),
+        guard workoutSession.isInProgress, setCount == nil, var rest = rest(),
               rest.takesTaps(atClock: clock)
-        else { return loggedWorkout }
-        var skipped = loggedWorkout
+        else { return workoutSession }
+        var skipped = workoutSession
         skipped.sets[skipped.sets.count - 1].restSkippedAt = clock
         rest.skippedAt = clock
         if isCountDue {

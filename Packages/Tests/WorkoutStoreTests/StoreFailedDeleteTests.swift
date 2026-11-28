@@ -91,12 +91,12 @@ final class StoreFailedDeleteTests {
         try refuseSaves()
         await #expect(throws: (any Error).self) { try await store.discardWorkoutSession(running.id)
         }
-        #expect(try await store.launch(weightUnit: .pounds).loggedWorkout == running)
+        #expect(try await store.launch(weightUnit: .pounds).workoutSession == running)
         #expect(try await store.workout(cleared.id, weightUnit: .pounds) == cleared)
         try allowSaves()
         try await store.save(Workout(name: "Lower"), at: Self.at(30))
         let relaunched = relaunch()
-        #expect(try await relaunched.launch(weightUnit: .pounds).loggedWorkout == running)
+        #expect(try await relaunched.launch(weightUnit: .pounds).workoutSession == running)
         #expect(try await relaunched.workout(cleared.id, weightUnit: .pounds) == cleared)
     }
 

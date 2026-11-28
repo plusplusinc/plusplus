@@ -11,8 +11,8 @@ extension AppSession {
     /// landed saves it there from what the store keeps (`catchUpHealth()`); whether the system
     /// lets the app is read then, not in the Finish tap's turn.
     public func finish(at now: Date = .now) {
-        guard let loggedWorkout else { return }
-        var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
+        guard let workoutSession else { return }
+        var finished = LiveWorkout(workout: current, workoutSession: workoutSession)
             .finishing(at: now)
         finished.workoutName = shownName
         finished.healthActivity = HealthActivity(logged: finished.sets, in: exercises)
@@ -20,7 +20,7 @@ extension AppSession {
         // In the log from the finish, not from the read after its write lands, so Log's first
         // frame after it already holds it, and the Health prompt is there with it
         // (`healthPrompt`); History leaves it out until it comes in (`justFinished`).
-        log = log.map { WorkoutLog(loggedWorkouts: $0.loggedWorkouts + [finished]) }
+        log = log.map { WorkoutLog(workoutSessions: $0.workoutSessions + [finished]) }
         finishes += 1
         justFinished = finished.id
         deleteIfCleared()
@@ -30,26 +30,26 @@ extension AppSession {
 
     /// Ends the workout keeping nothing of it, as if Start never ran: Log has nothing to bring in.
     public func discard() {
-        guard let loggedWorkout else { return }
-        change(.discard(loggedWorkout.id))
+        guard let workoutSession else { return }
+        change(.discard(workoutSession.id))
         deleteIfCleared()
     }
 
     /// Pauses the workout, or resumes it if paused.
     public func togglePause(at now: Date = .now) {
-        guard let loggedWorkout else { return }
+        guard let workoutSession else { return }
         change(.save(
-            loggedWorkout.isPaused
-                ? loggedWorkout.resuming(at: now)
-                : loggedWorkout.pausing(at: now),
+            workoutSession.isPaused
+                ? workoutSession.resuming(at: now)
+                : workoutSession.pausing(at: now),
         ))
     }
 
     /// Logs `planned`, a set of `row`, at the numbers `row` plans now, or a timed set at the time
     /// its count has run (`LiveWorkout.logging`).
     public func log(_ planned: PlannedSet, of row: WorkoutExercise, at now: Date = .now) {
-        guard let loggedWorkout else { return }
-        let live = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
+        guard let workoutSession else { return }
+        let live = LiveWorkout(workout: current, workoutSession: workoutSession)
         change(.save(live.logging(planned, of: row, at: now)))
     }
 

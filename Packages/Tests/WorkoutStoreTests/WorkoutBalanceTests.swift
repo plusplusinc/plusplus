@@ -7,15 +7,15 @@ struct WorkoutBalanceTests {
     private typealias Fixture = LogFixture
 
     private func balance(
-        _ loggedWorkouts: [WorkoutSession],
+        _ workoutSessions: [WorkoutSession],
         in list: ExerciseList = .builtIn,
     ) -> Balance {
-        WorkoutLog(loggedWorkouts: loggedWorkouts)
+        WorkoutLog(workoutSessions: workoutSessions)
             .balance(in: list, now: Fixture.now, calendar: Fixture.calendar)
     }
 
     private func core(_ daysAgo: Int) -> WorkoutSession {
-        Fixture.loggedWorkout(daysAgo: daysAgo, [Fixture.set("plank", .time(seconds: 30))])
+        Fixture.workoutSession(daysAgo: daysAgo, [Fixture.set("plank", .time(seconds: 30))])
     }
 
     private func group(_ group: MuscleGroup, in balance: Balance) -> GroupRecency? {
@@ -34,7 +34,7 @@ struct WorkoutBalanceTests {
 
     @Test("A group counts its sets since the period's first day, a per-side round once")
     func setCounts() {
-        let sides = Fixture.loggedWorkout(daysAgo: 3, [
+        let sides = Fixture.workoutSession(daysAgo: 3, [
             Fixture.set("plank", round: 1, .time(seconds: 30), side: .left),
             Fixture.set("plank", round: 1, .time(seconds: 30), side: .right),
             Fixture.set("plank", round: 2, .time(seconds: 30), side: .left),
@@ -51,12 +51,12 @@ struct WorkoutBalanceTests {
 
     @Test("Groups run fewest sets first, ties in declaration order")
     func order() {
-        let loggedWorkout = Fixture.loggedWorkout(daysAgo: 1, [
+        let workoutSession = Fixture.workoutSession(daysAgo: 1, [
             Fixture.set("plank", round: 1, .reps(5)),
             Fixture.set("plank", round: 2, .reps(5)),
             Fixture.set("pull-up", .reps(5)),
         ])
-        #expect(balance([loggedWorkout]).groups.map(\.group)
+        #expect(balance([workoutSession]).groups.map(\.group)
             == [.chest, .shoulders, .arms, .legs, .back, .core])
         #expect(balance([]).groups.map(\.group) == MuscleGroup.allCases)
         #expect(balance([]).mostSets == 0)
@@ -66,11 +66,11 @@ struct WorkoutBalanceTests {
     func createdAndGone() {
         let created = CreatedExercise(name: "Thing", muscleGroups: [.chest, .back])
         let list = ExerciseList(created: [created])
-        let loggedWorkouts = [
-            Fixture.loggedWorkout(daysAgo: 1, [Fixture.set(created.id, .reps(5))]),
-            Fixture.loggedWorkout(daysAgo: 1, [Fixture.set("gone", .reps(5))]),
+        let workoutSessions = [
+            Fixture.workoutSession(daysAgo: 1, [Fixture.set(created.id, .reps(5))]),
+            Fixture.workoutSession(daysAgo: 1, [Fixture.set("gone", .reps(5))]),
         ]
-        let balance = balance(loggedWorkouts, in: list)
+        let balance = balance(workoutSessions, in: list)
         #expect(missed(balance).sorted { $0.rawValue < $1.rawValue }
             == [.arms, .core, .legs, .shoulders])
         #expect(group(.back, in: balance)?.sets == 1)

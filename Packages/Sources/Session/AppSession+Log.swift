@@ -11,12 +11,12 @@ extension AppSession {
 
     /// Pushes a finished logged workout onto Log, read-only.
     public func openWorkoutSession(_ id: WorkoutSession.ID) {
-        screen = .loggedWorkout(id)
+        screen = .workoutSession(id)
     }
 
     /// Pops the logged workout pushed onto Log, as its back button and back swipe do.
     public func popWorkoutSession() {
-        if case .loggedWorkout = screen {
+        if case .workoutSession = screen {
             screen = .log
         }
     }
@@ -34,7 +34,7 @@ extension AppSession {
     /// shows.
     public func deleteWorkoutSession(_ id: WorkoutSession.ID) async {
         health.oweRemoval(of: id)
-        loggedWorkoutWrites.yield(.delete(id))
+        workoutSessionWrites.yield(.delete(id))
         catchUpHealth()
         await refreshLog()
     }
@@ -48,7 +48,7 @@ extension AppSession {
         if let note = health.note {
             return .note(note)
         }
-        guard health.isOffered, log?.loggedWorkouts.isEmpty == false else { return nil }
+        guard health.isOffered, log?.workoutSessions.isEmpty == false else { return nil }
         return .ask
     }
 
@@ -76,9 +76,9 @@ extension AppSession {
         var finishesRead: Int
         repeat {
             finishesRead = finishes
-            await loggedWorkoutWritesLanded()
+            await workoutSessionWritesLanded()
             do {
-                let read = try await WorkoutLog(loggedWorkouts: store.finishedWorkoutSessions())
+                let read = try await WorkoutLog(workoutSessions: store.finishedWorkoutSessions())
                 if finishesRead == finishes {
                     log = read
                 }
