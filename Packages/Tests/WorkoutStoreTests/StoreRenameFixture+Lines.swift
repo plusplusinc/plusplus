@@ -60,6 +60,45 @@ extension StoreRenameFixture {
             .sorted()
     }
 
+    /// The store's lines under today's names, in the same text as V14's.
+    static func lines(current context: ModelContext) throws -> [String] {
+        let workouts = try context.fetch(FetchDescriptor<StoredRoutine>()).map {
+            text("workout", [$0.id, $0.name, $0.editedAt, $0.openedAt])
+        }
+        let rows = try context.fetch(FetchDescriptor<StoredRoutineExercise>()).map {
+            text("row", [
+                $0.id, $0.routine?.id, $0.exerciseID, $0.position, $0.sets, $0.reps,
+                $0.seconds, $0.weight, $0.weightUnit, $0.supersetID, $0.rest, $0.isRestAuto,
+                $0.roundRest, $0.isRoundRestAuto,
+            ])
+        }
+        let sessions = try context.fetch(FetchDescriptor<StoredWorkoutSession>()).map {
+            text("session", [
+                $0.id, $0.workoutID, $0.workoutName, $0.startedAt, $0.pausedAt,
+                $0.pausedSeconds, $0.endedAt, $0.countRowID, $0.countRound, $0.countSide,
+                $0.countStartClock, $0.countAdded, $0.pauseTimes, $0.healthActivity,
+                $0.healthWorkoutID,
+            ])
+        }
+        let sets = try context.fetch(FetchDescriptor<StoredLoggedSet>()).map {
+            text("set", [
+                $0.id, $0.workoutSession?.id, $0.rowID, $0.exerciseID, $0.exerciseName,
+                $0.position, $0.round, $0.side, $0.reps, $0.seconds, $0.weight, $0.weightUnit,
+                $0.plannedReps, $0.plannedSeconds, $0.plannedWeight, $0.plannedWeightUnit,
+                $0.loggedAt, $0.clockWhenLogged, $0.restAdjustment, $0.timeAdded,
+                $0.restSkippedAt,
+            ])
+        }
+        let exercises = try context.fetch(FetchDescriptor<StoredExercise>()).map {
+            text("exercise", [
+                $0.id, $0.name, $0.muscleGroups, $0.equipment, $0.measure, $0.isPerSide,
+                $0.createdAt,
+            ])
+        }
+        return try (workouts + rows + sessions + sets + exercises + customizations(in: context))
+            .sorted()
+    }
+
     /// Unchanged by the rename, so one reader serves both.
     static func customizations(in context: ModelContext) throws -> [String] {
         try context.fetch(FetchDescriptor<RoutineSchemaV10.StoredCustomization>()).map {

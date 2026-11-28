@@ -139,7 +139,7 @@ struct AppSessionTests {
         session.start(on: workout.id, at: Self.at(30))
         let second = try #require(session.loggedWorkout)
         await session.writesLanded()
-        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
             .map(\.loggedWorkout)
         #expect(stored.first { $0.id == first.id }?.endedAt == Self.at(20))
         #expect(stored.first { $0.id == second.id }?.isInProgress == true)
@@ -157,7 +157,7 @@ struct AppSessionTests {
         session.save(workout)
         session.finish()
         await session.writesLanded()
-        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(stored.map(\.loggedWorkout.workoutName) == ["Push day"])
     }
 
@@ -199,7 +199,7 @@ struct AppSessionTests {
         }
         #expect(session.loggedWorkout == nil)
         // Of the two workouts, only the finished one is kept.
-        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(stored.map(\.loggedWorkout.startedAt) == [Self.at(10)])
     }
 

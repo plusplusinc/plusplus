@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-typealias StoredExercise = RoutineSchemaV8.StoredExercise
+typealias StoredExercise = StoreSchemaV15.StoredExercise
 
 extension StoredExercise {
     /// The exercise as set, or nil for a measure this build doesn't know, or muscle groups none of
@@ -9,8 +9,8 @@ extension StoredExercise {
     /// else. None stored at all is an exercise that works none. An unknown group or piece of
     /// equipment beside known ones is left out of its set.
     var created: CreatedExercise? {
-        let groups = Set<MuscleGroup>(stored: muscleGroup)
-        guard groups.isEmpty == muscleGroup.isEmpty,
+        let groups = Set<MuscleGroup>(stored: muscleGroups)
+        guard groups.isEmpty == muscleGroups.isEmpty,
               let measure = Measure(rawValue: measure) else { return nil }
         return CreatedExercise(
             id: id,
@@ -26,7 +26,7 @@ extension StoredExercise {
     /// Sets only the fields that changed, so an unchanged exercise stays clean.
     func write(_ created: CreatedExercise) {
         update(\.name, to: created.name)
-        update(\.muscleGroup, to: created.muscleGroups.stored)
+        update(\.muscleGroups, to: created.muscleGroups.stored)
         update(\.equipment, to: created.equipment.stored)
         update(\.measure, to: created.measure.rawValue)
         update(\.isPerSide, to: created.isPerSide)

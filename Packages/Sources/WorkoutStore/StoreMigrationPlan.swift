@@ -1,7 +1,8 @@
 import SwiftData
 
 /// Every stored shape the app has shipped, oldest first, and a lightweight stage between each,
-/// since every change so far only added an attribute or a model.
+/// but for the two that move rows to a renamed model (`moveSessions`, `moveWorkouts`):
+/// SwiftData can't rename a model, and a rename by inference drops its rows with no error.
 enum StoreMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [
@@ -19,6 +20,8 @@ enum StoreMigrationPlan: SchemaMigrationPlan {
             RoutineSchemaV12.self,
             RoutineSchemaV13.self,
             RoutineSchemaV14.self,
+            StoreSchemaV15.self,
+            StoreSchemaV16.self,
         ]
     }
 
@@ -37,9 +40,16 @@ enum StoreMigrationPlan: SchemaMigrationPlan {
             .lightweight(fromVersion: RoutineSchemaV11.self, toVersion: RoutineSchemaV12.self),
             .lightweight(fromVersion: RoutineSchemaV12.self, toVersion: RoutineSchemaV13.self),
             .lightweight(fromVersion: RoutineSchemaV13.self, toVersion: RoutineSchemaV14.self),
+            .lightweight(fromVersion: RoutineSchemaV14.self, toVersion: StoreSchemaV15.self),
+            .custom(
+                fromVersion: StoreSchemaV15.self,
+                toVersion: StoreSchemaV16.self,
+                willMigrate: moveSessions(in:),
+                didMigrate: nil,
+            ),
         ]
     }
 
     /// The current shape, the plan's last.
-    static let current = RoutineSchemaV14.self
+    static let current = StoreSchemaV16.self
 }

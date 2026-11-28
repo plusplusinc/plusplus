@@ -46,7 +46,7 @@ struct StoreDeleteTests {
         .finishing(at: Self.at(20))
         try await relaunch().save(loggedWorkout)
         try await relaunch().deleteWorkout(upper.id)
-        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(stored.map(\.loggedWorkout) == [loggedWorkout])
     }
 
@@ -84,7 +84,7 @@ struct StoreDeleteTests {
         try await relaunch().save(kept)
         try await relaunch().deleteLoggedWorkout(deleted.id)
         #expect(try await relaunch().finishedLoggedWorkouts() == [kept])
-        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredSet>()) == 1)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredLoggedSet>()) == 1)
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [upper])
         try await relaunch().deleteLoggedWorkout(deleted.id)
     }

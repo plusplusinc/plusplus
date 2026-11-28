@@ -91,13 +91,13 @@ struct StoreExerciseTests {
         for (group, measure) in [("neck", "reps"), ("back", "distance")] {
             let stored = StoredExercise(id: CreatedExercise.newID())
             stored.name = "From later"
-            stored.muscleGroup = group
+            stored.muscleGroups = group
             stored.measure = measure
             context.insert(stored)
         }
         let odd = StoredExercise(id: "created:odd")
         odd.name = "Odd kit"
-        odd.muscleGroup = "back,neck"
+        odd.muscleGroups = "back,neck"
         odd.equipment = "rings,sled"
         context.insert(odd)
         try context.save()

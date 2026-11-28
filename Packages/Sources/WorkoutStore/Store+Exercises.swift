@@ -72,7 +72,7 @@ extension Store {
     /// it reads now, so it keeps the name it was logged under. Saved with the rename.
     func keepLoggedNames(of id: String, named current: String?, renamedTo name: String) throws {
         guard let current, current != name else { return }
-        let unnamed = try modelContext.fetch(FetchDescriptor<StoredSet>(
+        let unnamed = try modelContext.fetch(FetchDescriptor<StoredLoggedSet>(
             predicate: #Predicate { $0.exerciseID == id && $0.exerciseName == nil },
         ))
         for set in unnamed {

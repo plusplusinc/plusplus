@@ -2,15 +2,17 @@ import Foundation
 import OSLog
 import SwiftData
 
-typealias StoredWorkout = RoutineSchemaV14.StoredWorkout
-typealias StoredSet = RoutineSchemaV14.StoredSet
+/// The stored shape of a time through a workout, `LoggedWorkout`, and of its sets. The class
+/// names will be CloudKit record types once sync is on.
+typealias StoredWorkoutSession = StoreSchemaV15.StoredWorkoutSession
+typealias StoredLoggedSet = StoreSchemaV15.StoredLoggedSet
 
-extension StoredWorkout {
-    /// Writes every field, setting only those that differ, so an unchanged workout stays clean.
+extension StoredWorkoutSession {
+    /// Writes every field, setting only those that differ, so an unchanged session stays clean.
     /// Its sets are written by the store, which diffs them by id.
     func write(_ loggedWorkout: LoggedWorkout) {
-        update(\.routineID, to: loggedWorkout.workoutID)
-        update(\.routineName, to: loggedWorkout.workoutName)
+        update(\.workoutID, to: loggedWorkout.workoutID)
+        update(\.workoutName, to: loggedWorkout.workoutName)
         update(\.startedAt, to: loggedWorkout.startedAt)
         update(\.pausedAt, to: loggedWorkout.pausedAt)
         update(\.pausedSeconds, to: loggedWorkout.pausedSeconds)
@@ -66,8 +68,8 @@ extension StoredWorkout {
     var loggedWorkout: LoggedWorkout {
         var loggedWorkout = LoggedWorkout(
             id: id,
-            workoutID: routineID ?? UUID(),
-            workoutName: routineName,
+            workoutID: workoutID ?? UUID(),
+            workoutName: workoutName,
             startedAt: startedAt,
             pausedAt: pausedAt,
             pausedSeconds: pausedSeconds,
@@ -82,7 +84,7 @@ extension StoredWorkout {
     }
 }
 
-extension StoredSet {
+extension StoredLoggedSet {
     /// Writes every field of `set`, logged `position`th, setting only those that differ.
     func write(_ set: LoggedSet, position: Int) {
         update(\.rowID, to: set.row)

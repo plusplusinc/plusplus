@@ -54,7 +54,7 @@ struct StoreLoggedWorkoutTests {
         var finished = resumed.pausing(at: Self.at(60)).finishing(at: Self.at(70))
         finished.healthActivity = .flexibility
         try await relaunch().save(finished)
-        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(stored.map(\.loggedWorkout) == [finished])
     }
 
@@ -79,10 +79,10 @@ struct StoreLoggedWorkoutTests {
         try await relaunch().save(loggedWorkout)
         // A set with no row, as a store not written by this build might hold.
         let context = ModelContext(container)
-        let stored = try #require(try context.fetch(FetchDescriptor<StoredWorkout>()).first)
-        let unreadable = StoredSet(id: UUID())
+        let stored = try #require(try context.fetch(FetchDescriptor<StoredWorkoutSession>()).first)
+        let unreadable = StoredLoggedSet(id: UUID())
         context.insert(unreadable)
-        unreadable.workout = stored
+        unreadable.workoutSession = stored
         try context.save()
         let loaded = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
         #expect(loaded.sets.isEmpty)
@@ -91,7 +91,7 @@ struct StoreLoggedWorkoutTests {
             of: bench,
             at: Self.at(20),
         ))
-        let sets = try ModelContext(container).fetch(FetchDescriptor<StoredSet>())
+        let sets = try ModelContext(container).fetch(FetchDescriptor<StoredLoggedSet>())
         #expect(sets.contains { $0.id == unreadable.id })
         #expect(sets.count == 2)
     }
@@ -126,9 +126,9 @@ struct StoreLoggedWorkoutTests {
         loggedWorkout.sets.remove(at: 1)
         let finished = loggedWorkout.finishing(at: Self.at(50))
         try await relaunch().save(finished)
-        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(stored.map(\.loggedWorkout) == [finished])
-        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredSet>()) == 2)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredLoggedSet>()) == 2)
     }
 
     @Test("Discarding a workout deletes its logged sets")
@@ -141,7 +141,7 @@ struct StoreLoggedWorkoutTests {
             .logging(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
         try await store.save(loggedWorkout)
         try await store.discardLoggedWorkout(loggedWorkout.id)
-        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredSet>()) == 0)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredLoggedSet>()) == 0)
     }
 
     @Test("After Discard, launch reopens the workout and the store holds no logged workout")
@@ -155,7 +155,7 @@ struct StoreLoggedWorkoutTests {
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.workout == workout)
         #expect(launch.loggedWorkout == nil)
-        #expect(try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>()).isEmpty)
+        #expect(try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>()).isEmpty)
         try await store.discardLoggedWorkout(loggedWorkout.id)
     }
 

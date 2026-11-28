@@ -118,7 +118,8 @@ struct AppSessionDeleteTests {
         session.finish(at: Date(timeIntervalSinceReferenceDate: 20))
         await session.delete(upper.id)
         await session.writesLanded()
-        let loggedWorkouts = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        let loggedWorkouts = try ModelContext(container)
+            .fetch(FetchDescriptor<StoredWorkoutSession>())
         #expect(loggedWorkouts.map(\.loggedWorkout.workoutID) == [upper.id])
         #expect(loggedWorkouts.allSatisfy { !$0.loggedWorkout.isInProgress })
     }
