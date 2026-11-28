@@ -55,7 +55,7 @@ extension StoreUpgradeTests {
         #expect(workout.name == "Upper")
         #expect(workout.exercises.map(\.id) == [rowID])
         #expect(workout.exercises.first?.plan.sets == 4)
-        #expect(workout.exercises.first?.plan.rest == .byHand(75))
+        #expect(workout.exercises.first?.plan.rest == .byHand(seconds: 75))
         #expect(try await store.exercises() == .builtIn)
 
         let created = CreatedExercise(name: "Ring row with rotation", muscleGroups: [.back])

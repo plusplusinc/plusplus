@@ -44,12 +44,12 @@ struct PlanValueTests {
     @Test("A step moves a set or a rep by one, a time by 5 s, a weight by its load's step")
     func steps() throws {
         var row = try Self.row("Biceps curl")
-        row.step(.sets, by: 1)
-        row.step(.target, by: -1)
-        row.step(.weight, by: 1)
+        row.step(.sets, by: .up)
+        row.step(.target, by: .down)
+        row.step(.weight, by: .up)
         #expect(row.plan == ExercisePlan(sets: 4, target: .reps(11), weight: Weight(20, .pounds)))
         var plank = try Self.row("Plank")
-        plank.step(.target, by: 1)
+        plank.step(.target, by: .up)
         #expect(plank.plan.target == .time(seconds: 35))
     }
 
@@ -60,7 +60,7 @@ struct PlanValueTests {
                 exercise: Exercise.builtIn(named: name),
                 weightUnit: .kilograms,
             )
-            row.step(.weight, by: 1)
+            row.step(.weight, by: .up)
             return row.plan.weight
         }
         #expect(try stepped("Overhead press") == Weight(8, .kilograms))
@@ -76,9 +76,9 @@ struct PlanValueTests {
             $0.weight = Weight(5, .pounds)
         }
         for part in low.exercise.planParts {
-            #expect(!low.canStep(part, by: -1))
-            #expect(low.canStep(part, by: 1))
-            low.step(part, by: -1)
+            #expect(!low.canStep(part, by: .down))
+            #expect(low.canStep(part, by: .up))
+            low.step(part, by: .down)
         }
         #expect(low.plan == ExercisePlan(sets: 1, target: .reps(1), weight: Weight(5, .pounds)))
 
@@ -88,37 +88,37 @@ struct PlanValueTests {
             $0.weight = Weight(995, .pounds)
         }
         for part in high.exercise.planParts {
-            high.step(part, by: 1)
-            #expect(!high.canStep(part, by: 1))
-            high.step(part, by: 1)
+            high.step(part, by: .up)
+            #expect(!high.canStep(part, by: .up))
+            high.step(part, by: .up)
         }
         #expect(high.plan == ExercisePlan(
             sets: 99,
             target: .reps(999),
             weight: Weight(1000, .pounds),
         ))
-        #expect(high.canStep(.weight, by: -1))
+        #expect(high.canStep(.weight, by: .down))
 
         var plank = try Self.row("Plank") { $0.target = .time(seconds: 5) }
-        #expect(!plank.canStep(.target, by: -1))
-        plank.step(.target, by: -1)
+        #expect(!plank.canStep(.target, by: .down))
+        plank.step(.target, by: .down)
         #expect(plank.plan.target == .time(seconds: 5))
         plank.plan.target = .time(seconds: 5999)
-        #expect(!plank.canStep(.target, by: 1))
-        plank.step(.target, by: 1)
+        #expect(!plank.canStep(.target, by: .up))
+        plank.step(.target, by: .up)
         #expect(plank.plan.target == .time(seconds: 5999))
 
         var bar = try Self.row("Barbell row")
-        #expect(!bar.canStep(.weight, by: -1))
-        bar.step(.weight, by: -1)
+        #expect(!bar.canStep(.weight, by: .down))
+        bar.step(.weight, by: .down)
         #expect(bar.plan.weight == Weight(45, .pounds))
     }
 
     @Test("A stepper's ends are values a plan can be stored with")
     func limitsAreStorable() throws {
         var plank = try Self.row("Plank") { $0.target = .time(seconds: 10) }
-        plank.step(.target, by: -1)
-        plank.step(.target, by: -1)
+        plank.step(.target, by: .down)
+        plank.step(.target, by: .down)
         guard case let .time(lowest) = plank.plan.target else {
             Issue.record("A plank's target is a time")
             return
@@ -131,8 +131,8 @@ struct PlanValueTests {
                     exercise: Exercise.builtIn(named: name),
                     weightUnit: unit,
                 )
-                while row.canStep(.weight, by: -1) {
-                    row.step(.weight, by: -1)
+                while row.canStep(.weight, by: .down) {
+                    row.step(.weight, by: .down)
                 }
                 let weight = try #require(row.plan.weight)
                 #expect(PlanLimits.weight.contains(weight.amount), "\(name) in \(unit)")

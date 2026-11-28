@@ -99,8 +99,8 @@ public struct ExercisePlan: Equatable, Sendable {
 public enum Rest: Equatable, Sendable {
     /// Derived, keeping the last rest set by hand, nil if never.
     case auto(kept: Int?)
-    /// Set by hand, in seconds.
-    case byHand(Int)
+    /// Set by hand. Labeled, since a set count and a rep count are `Int`s too.
+    case byHand(seconds: Int)
 
     /// Auto, never set by hand: where every rest starts.
     public static let neverSet = Self.auto(kept: nil)
@@ -132,7 +132,7 @@ public enum Rest: Equatable, Sendable {
     /// Auto turned on, keeping the rest set by hand for later, or off, bringing that back, or,
     /// if there is none, keeping `derived`, the rest it reads now.
     func settingAuto(_ isOn: Bool, derived: @autoclosure () -> Int) -> Self {
-        isOn ? .auto(kept: lastByHand) : .byHand(lastByHand ?? derived())
+        isOn ? .auto(kept: lastByHand) : .byHand(seconds: lastByHand ?? derived())
     }
 }
 

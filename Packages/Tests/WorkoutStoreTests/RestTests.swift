@@ -112,8 +112,8 @@ struct RestTests {
         #expect(workout.exercises[1].label(of: .rest) == "Rest")
         workout.join(ids[2], .below)
         var row = workout.exercises[2]
-        while row.canStep(.sets, by: -1) {
-            row.step(.sets, by: -1)
+        while row.canStep(.sets, by: .down) {
+            row.step(.sets, by: .down)
         }
         workout.update(row)
         #expect(workout.exercises[3].plan.sets == 1)
@@ -137,7 +137,7 @@ struct RestTests {
         var bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
         #expect(bench.rest == 90)
         for _ in 0 ..< 5 {
-            bench.step(.target, by: -1)
+            bench.step(.target, by: .down)
         }
         #expect(bench.plan.target == .reps(5))
         #expect(bench.rest == 150)
@@ -145,7 +145,7 @@ struct RestTests {
         #expect(bench.isRestAuto)
 
         var plank = try WorkoutExercise.builtIn("Plank")
-        plank.step(.target, by: 1)
+        plank.step(.target, by: .up)
         #expect(plank.rest == 35)
     }
 
@@ -154,18 +154,19 @@ struct RestTests {
     )
     func handSetStays() throws {
         var bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
-        bench.step(.rest, by: -1)
+        bench.step(.rest, by: .down)
         #expect(bench.rest == 75)
         #expect(!bench.isRestAuto)
-        bench.step(.target, by: -5)
-        bench.step(.target, by: -1)
+        for _ in 0 ..< 6 {
+            bench.step(.target, by: .down)
+        }
         #expect(bench.rest == 75)
     }
 
     @Test("Auto on goes back to the reps' rest; off again brings back the rest set by hand")
     func autoRemembers() throws {
         var bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
-        bench.step(.rest, by: 1)
+        bench.step(.rest, by: .up)
         #expect(bench.rest == 105)
         bench.isRestAuto = true
         #expect(bench.rest == 90)
@@ -178,8 +179,10 @@ struct RestTests {
     func autoOffKeepsReading() throws {
         var curl = try WorkoutExercise.builtIn("Biceps curl")
         curl.isRestAuto = false
-        #expect(curl.plan.rest == .byHand(60))
-        curl.step(.target, by: -10)
+        #expect(curl.plan.rest == .byHand(seconds: 60))
+        for _ in 0 ..< 10 {
+            curl.step(.target, by: .down)
+        }
         #expect(curl.rest == 60)
     }
 
@@ -187,35 +190,35 @@ struct RestTests {
     func snapsToMarks() throws {
         var plank = try WorkoutExercise.builtIn("Plank") { $0.target = .time(seconds: 50) }
         #expect(plank.rest == 50)
-        plank.step(.rest, by: 1)
+        plank.step(.rest, by: .up)
         #expect(plank.rest == 60)
-        plank.step(.rest, by: 1)
+        plank.step(.rest, by: .up)
         #expect(plank.rest == 75)
         var down = try WorkoutExercise.builtIn("Plank") { $0.target = .time(seconds: 50) }
-        down.step(.rest, by: -1)
+        down.step(.rest, by: .down)
         #expect(down.rest == 45)
-        down.step(.rest, by: -1)
+        down.step(.rest, by: .down)
         #expect(down.rest == 30)
         var near = try WorkoutExercise.builtIn("Plank") { $0.target = .time(seconds: 10) }
-        near.step(.rest, by: -1)
+        near.step(.rest, by: .down)
         #expect(near.rest == 0)
-        #expect(!near.canStep(.rest, by: -1))
-        #expect(595.steppedRest(by: 1) == 600)
-        #expect(600.steppedRest(by: 1) == nil)
+        #expect(!near.canStep(.rest, by: .down))
+        #expect(595.steppedRest(by: .up) == 600)
+        #expect(600.steppedRest(by: .up) == nil)
     }
 
     @Test("Rest steps stop at none and at 10 min")
     func limits() throws {
         var stretch = try WorkoutExercise.builtIn("Pigeon stretch")
-        #expect(!stretch.canStep(.rest, by: -1))
-        #expect(stretch.canStep(.rest, by: 1))
-        stretch.step(.rest, by: 1)
+        #expect(!stretch.canStep(.rest, by: .down))
+        #expect(stretch.canStep(.rest, by: .up))
+        stretch.step(.rest, by: .up)
         #expect(stretch.rest == 15)
         var long = try WorkoutExercise.builtIn("Barbell back squat") {
-            $0.rest = .byHand(600)
+            $0.rest = .byHand(seconds: 600)
         }
-        #expect(!long.canStep(.rest, by: 1))
-        long.step(.rest, by: -1)
+        #expect(!long.canStep(.rest, by: .up))
+        long.step(.rest, by: .down)
         #expect(long.rest == 585)
         #expect(PlanLimits.rest == 0 ... 600)
     }

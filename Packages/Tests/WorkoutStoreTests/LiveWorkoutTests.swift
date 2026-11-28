@@ -43,13 +43,16 @@ struct LiveWorkoutTests {
         let pull = try WorkoutExercise.builtIn("Pull-up")
         let workout = Workout(exercises: [push, pull])
         var live = live(workout)
-        #expect(live.currentSet == PlannedSet(row: push.id, round: 1))
+        #expect(live.currentSet == PlannedSet(row: push.id, round: 1, side: nil))
         #expect(live.currentExercise?.id == push.id)
         live = try logging(
-            [PlannedSet(row: push.id, round: 1), PlannedSet(row: push.id, round: 2)],
+            [
+                PlannedSet(row: push.id, round: 1, side: nil),
+                PlannedSet(row: push.id, round: 2, side: nil),
+            ],
             on: live,
         )
-        #expect(live.currentSet == PlannedSet(row: pull.id, round: 1))
+        #expect(live.currentSet == PlannedSet(row: pull.id, round: 1, side: nil))
         #expect(live.currentExercise?.id == pull.id)
     }
 
@@ -61,7 +64,7 @@ struct LiveWorkoutTests {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }
         let one = live(Workout(exercises: [push]))
         #expect(!one.isDone)
-        #expect(try logging([PlannedSet(row: push.id, round: 1)], on: one).isDone)
+        #expect(try logging([PlannedSet(row: push.id, round: 1, side: nil)], on: one).isDone)
     }
 
     @Test("A row is finished once every set of it is logged, and never with none planned")
@@ -71,9 +74,9 @@ struct LiveWorkoutTests {
         let workout = Workout(exercises: [push, pull])
         var live = live(workout)
         #expect(live.finishedRows.isEmpty)
-        live = try logging([PlannedSet(row: push.id, round: 1)], on: live)
+        live = try logging([PlannedSet(row: push.id, round: 1, side: nil)], on: live)
         #expect(live.finishedRows.isEmpty)
-        live = try logging([PlannedSet(row: push.id, round: 2)], on: live)
+        live = try logging([PlannedSet(row: push.id, round: 2, side: nil)], on: live)
         #expect(live.finishedRows == [push.id])
     }
 
@@ -98,7 +101,10 @@ struct LiveWorkoutTests {
         let workout = try superset("Push-up", "Pull-up", sets: 3)
         let (rowA, rowB) = (workout.exercises[0].id, workout.exercises[1].id)
         let live = try logging(
-            [PlannedSet(row: rowA, round: 1), PlannedSet(row: rowB, round: 1)],
+            [
+                PlannedSet(row: rowA, round: 1, side: nil),
+                PlannedSet(row: rowB, round: 1, side: nil),
+            ],
             on: live(workout),
         )
         #expect(live.currentExercise?.id == rowA)
@@ -111,7 +117,7 @@ struct LiveWorkoutTests {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }
         let pull = try WorkoutExercise.builtIn("Pull-up")
         let live = try logging(
-            [PlannedSet(row: push.id, round: 1)],
+            [PlannedSet(row: push.id, round: 1, side: nil)],
             on: live(Workout(exercises: [push, pull])),
         )
         #expect(live.finishedRows == [push.id])
@@ -123,9 +129,12 @@ struct LiveWorkoutTests {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
         let row = try WorkoutExercise.builtIn("Dumbbell row") { $0.sets = 1 }
         let live = live(Workout(exercises: [push, row]))
-        #expect(live.step(logging: PlannedSet(row: push.id, round: 1)) == .nextSet)
+        #expect(live.step(logging: PlannedSet(row: push.id, round: 1, side: nil)) == .nextSet)
         let pushed = try logging(
-            [PlannedSet(row: push.id, round: 1), PlannedSet(row: push.id, round: 2)],
+            [
+                PlannedSet(row: push.id, round: 1, side: nil),
+                PlannedSet(row: push.id, round: 2, side: nil),
+            ],
             on: live,
         )
         let left = PlannedSet(row: row.id, round: 1, side: .left)
@@ -138,10 +147,9 @@ struct LiveWorkoutTests {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }
         let pull = try WorkoutExercise.builtIn("Pull-up")
         let live = live(Workout(exercises: [push, pull]))
-        #expect(live.step(logging: PlannedSet(row: push.id, round: 1)) == .nextExercise(
-            to: PlannedSet(row: pull.id, round: 1),
-            isBack: false,
-            startsRound: false,
+        #expect(live.step(logging: PlannedSet(row: push.id, round: 1, side: nil)) == .nextExercise(
+            to: PlannedSet(row: pull.id, round: 1, side: nil),
+            way: .onward,
         ))
     }
 
@@ -149,11 +157,10 @@ struct LiveWorkoutTests {
     func round() throws {
         let workout = try superset("Push-up", "Pull-up", sets: 3)
         let (rowA, rowB) = (workout.exercises[0].id, workout.exercises[1].id)
-        let live = try logging([PlannedSet(row: rowA, round: 1)], on: live(workout))
-        #expect(live.step(logging: PlannedSet(row: rowB, round: 1)) == .nextExercise(
-            to: PlannedSet(row: rowA, round: 2),
-            isBack: true,
-            startsRound: true,
+        let live = try logging([PlannedSet(row: rowA, round: 1, side: nil)], on: live(workout))
+        #expect(live.step(logging: PlannedSet(row: rowB, round: 1, side: nil)) == .nextExercise(
+            to: PlannedSet(row: rowA, round: 2, side: nil),
+            way: .backIntoLaterRound,
         ))
     }
 
@@ -163,23 +170,22 @@ struct LiveWorkoutTests {
         let pull = try WorkoutExercise.builtIn("Pull-up") { $0.sets = 2 }
         // Pull-up's first set logged while it was first, then the rows swapped.
         let live = try logging(
-            [PlannedSet(row: pull.id, round: 1)],
+            [PlannedSet(row: pull.id, round: 1, side: nil)],
             on: live(Workout(exercises: [push, pull])),
         )
-        #expect(live.step(logging: PlannedSet(row: pull.id, round: 2)) == .nextExercise(
-            to: PlannedSet(row: push.id, round: 1),
-            isBack: true,
-            startsRound: false,
+        #expect(live.step(logging: PlannedSet(row: pull.id, round: 2, side: nil)) == .nextExercise(
+            to: PlannedSet(row: push.id, round: 1, side: nil),
+            way: .back,
         ))
     }
 
     @Test("The last planned set leads nowhere")
     func last() throws {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
-        let live = try logging([PlannedSet(row: push.id, round: 1)], on: live(Workout(
+        let live = try logging([PlannedSet(row: push.id, round: 1, side: nil)], on: live(Workout(
             exercises: [push],
         )))
-        #expect(live.step(logging: PlannedSet(row: push.id, round: 2)) == .last)
+        #expect(live.step(logging: PlannedSet(row: push.id, round: 2, side: nil)) == .last)
     }
 
     @Test("Hiding the newest logged set gives the workout before it, and no older set")
@@ -187,8 +193,8 @@ struct LiveWorkoutTests {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 3 }
         let workout = Workout(exercises: [push])
         let (first, second) = (
-            PlannedSet(row: push.id, round: 1),
-            PlannedSet(row: push.id, round: 2),
+            PlannedSet(row: push.id, round: 1, side: nil),
+            PlannedSet(row: push.id, round: 2, side: nil),
         )
         let before = try logging([first], on: live(workout))
         let after = try logging([second], on: before)
@@ -240,8 +246,8 @@ struct LiveWorkoutTests {
         try tap()
         #expect(!phase.takesLog, "Set 2 is held")
         let drawn = stored.hiding(phase.hidden)
-        #expect(drawn.currentSet == PlannedSet(row: push.id, round: 2))
-        let taken = try logging([PlannedSet(row: push.id, round: 3)], on: stored)
+        #expect(drawn.currentSet == PlannedSet(row: push.id, round: 2, side: nil))
+        let taken = try logging([PlannedSet(row: push.id, round: 3, side: nil)], on: stored)
         #expect(
             taken.currentExercise?.id == pull.id,
             "Taken, the push-ups' last set would leave the stored workout on pull-ups, not drawn",
@@ -258,9 +264,9 @@ struct LiveWorkoutTests {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
         var live = live(Workout(exercises: [push]))
         #expect(live.logText == "Log set")
-        live = try logging([PlannedSet(row: push.id, round: 1)], on: live)
+        live = try logging([PlannedSet(row: push.id, round: 1, side: nil)], on: live)
         #expect(live.logText == "Log last set")
-        live = try logging([PlannedSet(row: push.id, round: 2)], on: live)
+        live = try logging([PlannedSet(row: push.id, round: 2, side: nil)], on: live)
         #expect(live.logText == nil)
     }
 }

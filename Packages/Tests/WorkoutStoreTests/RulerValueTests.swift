@@ -39,8 +39,8 @@ struct RulerValueTests {
         var row = WorkoutExercise(exercise: Exercise(created: created), weightUnit: .pounds)
         #expect(try row.weightRange == Self.row("Biceps curl").weightRange)
         // From its start, − reaches the floor, 5 lb, and stops there.
-        while row.canStep(.weight, by: -1) {
-            row.step(.weight, by: -1)
+        while row.canStep(.weight, by: .down) {
+            row.step(.weight, by: .down)
         }
         #expect(row.plan.weight == Weight(5, .pounds))
         // The ruler, dragged past its end, holds there too.
@@ -66,22 +66,22 @@ struct RulerValueTests {
     @Test("− / + from a weight off its steps land on the next step that way")
     func weightSnaps() throws {
         var curl = try Self.row("Biceps curl") { $0.weight = Weight(27.5, .pounds) }
-        curl.step(.weight, by: 1)
+        curl.step(.weight, by: .up)
         #expect(curl.plan.weight == Weight(30, .pounds))
         curl.setWeight(27.5)
-        curl.step(.weight, by: -1)
+        curl.step(.weight, by: .down)
         #expect(curl.plan.weight == Weight(25, .pounds))
-        curl.step(.weight, by: -1)
+        curl.step(.weight, by: .down)
         #expect(curl.plan.weight == Weight(20, .pounds))
     }
 
     @Test("− / + from a time off its 5 s marks land on the next mark that way")
     func timeSnaps() throws {
         var plank = try Self.row("Plank") { $0.target = .time(seconds: 32) }
-        plank.step(.target, by: 1)
+        plank.step(.target, by: .up)
         #expect(plank.plan.target == .time(seconds: 35))
         plank.plan.target = .time(seconds: 32)
-        plank.step(.target, by: -1)
+        plank.step(.target, by: .down)
         #expect(plank.plan.target == .time(seconds: 30))
     }
 
@@ -89,9 +89,9 @@ struct RulerValueTests {
     func timeTop() throws {
         #expect(WorkoutExercise.timeRange == 5 ... 5995)
         var plank = try Self.row("Plank") { $0.target = .time(seconds: 5990) }
-        plank.step(.target, by: 1)
+        plank.step(.target, by: .up)
         #expect(plank.plan.target == .time(seconds: 5995))
-        #expect(!plank.canStep(.target, by: 1))
+        #expect(!plank.canStep(.target, by: .up))
         plank.setTime(6000)
         #expect(plank.plan.target == .time(seconds: 5995))
         plank.setTime(0)

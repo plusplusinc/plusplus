@@ -87,7 +87,7 @@ struct StoreWorkoutSessionTests {
         let loaded = try #require(try await relaunch().launch(weightUnit: .pounds).workoutSession)
         #expect(loaded.sets.isEmpty)
         try await relaunch().save(loaded.logging(
-            PlannedSet(row: bench.id, round: 1),
+            PlannedSet(row: bench.id, round: 1, side: nil),
             of: bench,
             at: Self.at(20),
         ))
@@ -138,7 +138,7 @@ struct StoreWorkoutSessionTests {
         let store = relaunch()
         try await store.save(workout, at: Self.at(1))
         let workoutSession = Self.started(workout, at: 10)
-            .logging(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
+            .logging(PlannedSet(row: row.id, round: 1, side: nil), of: row, at: Self.at(20))
         try await store.save(workoutSession)
         try await store.discardWorkoutSession(workoutSession.id)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredLoggedSet>()) == 0)

@@ -68,12 +68,12 @@ struct StorePlanTests {
     @Test("Rest round-trips: automatic, set by hand, and a hand rest kept while automatic")
     func restRoundTrip() async throws {
         var remembered = try WorkoutExercise.builtIn("Barbell bench press")
-        remembered.step(.rest, by: 1)
+        remembered.step(.rest, by: .up)
         remembered.isRestAuto = true
         let workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Push-up"),
             WorkoutExercise.builtIn("Biceps curl") {
-                $0.rest = .byHand(0)
+                $0.rest = .byHand(seconds: 0)
             },
             remembered,
         ])

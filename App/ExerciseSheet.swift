@@ -8,8 +8,8 @@ struct RoundSteps {
     let value: () -> (text: String, spoken: String)
     /// The rest in seconds, which its digits roll up or down by.
     let seconds: () -> Double
-    let canStep: (Int) -> Bool
-    let step: (Int) -> Void
+    let canStep: (StepDirection) -> Bool
+    let step: (StepDirection) -> Void
     /// Sets it by hand to a number of seconds, as its ruler is dragged; Auto goes off.
     let set: (Int) -> Void
     /// Whether its rest is derived from the members, and a switch to set that.
@@ -75,10 +75,10 @@ struct ExerciseSheet<Customize: View>: View {
                                 showsTag: auto?.wrappedValue == true,
                                 spokenValue: spokenValue(of: part),
                                 isOpen: open == part,
-                                canDecrease: canStep(part, by: -1),
-                                canIncrease: canStep(part, by: 1),
+                                canDecrease: canStep(part, by: .down),
+                                canIncrease: canStep(part, by: .up),
                                 onToggle: { toggle(part, scroller) },
-                                onStep: { step(part, by: $0) },
+                                onStep: { step(part, by: StepDirection($0)) },
                                 ruler: ruler(for: part),
                                 accessory: auto.map(autoSwitch),
                                 footer: auto.map { restFooter(isAuto: $0.wrappedValue, of: part) },
@@ -240,14 +240,14 @@ struct ExerciseSheet<Customize: View>: View {
         }
     }
 
-    private func canStep(_ part: SheetPart, by direction: Int) -> Bool {
+    private func canStep(_ part: SheetPart, by direction: StepDirection) -> Bool {
         switch part {
         case let .plan(plan): item.canStep(plan, by: direction)
         case .restAfterRound: rounds?.canStep(direction) ?? false
         }
     }
 
-    private func step(_ part: SheetPart, by direction: Int) {
+    private func step(_ part: SheetPart, by direction: StepDirection) {
         switch part {
         case let .plan(plan): item.step(plan, by: direction)
         case .restAfterRound: rounds?.step(direction)
@@ -354,5 +354,12 @@ extension ExerciseSheet {
         withTransaction(\.disablesAnimations, true) {
             isCustomizing = true
         }
+    }
+}
+
+extension StepDirection {
+    /// The way a `ValueRow`'s key steps a part: + up, − down.
+    fileprivate init(_ key: StepKey) {
+        self = key == .increase ? .up : .down
     }
 }

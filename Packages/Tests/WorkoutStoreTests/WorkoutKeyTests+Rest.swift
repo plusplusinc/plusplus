@@ -169,7 +169,7 @@ extension WorkoutKeyTests {
         )
         let pull = try #require(live.currentSet)
         let step = live.step(logging: pull)
-        guard case .nextExercise(_, isBack: true, _) = step else {
+        guard case let .nextExercise(_, way) = step, way.isBack else {
             Issue.record("The first round's last member should lead back up the loop: \(step)")
             return []
         }

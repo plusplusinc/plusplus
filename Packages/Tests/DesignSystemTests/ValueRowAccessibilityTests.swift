@@ -22,7 +22,7 @@ struct ValueRowAccessibilityTests {
     /// UIKit scroll view exists (`WorkoutDrawerUITests`); hosted, they never did.
     @Test("An open ruler row is one adjustable element that steps up and down")
     func openRulerRowSteps() throws {
-        var steps: [Int] = []
+        var steps: [StepKey] = []
         let row = ValueRow(
             label: "Weight",
             value: "25.0 lb",
@@ -42,7 +42,7 @@ struct ValueRowAccessibilityTests {
         #expect(element.accessibilityTraits.contains(.adjustable))
         element.accessibilityIncrement()
         element.accessibilityDecrement()
-        #expect(steps == [1, -1])
+        #expect(steps == [.increase, .decrease])
     }
 
     /// The value of the element VoiceOver reads for a Rest row, tagged Auto.

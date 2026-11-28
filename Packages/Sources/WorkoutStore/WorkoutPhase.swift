@@ -98,12 +98,8 @@ public enum WorkoutPhase: Equatable, Sendable {
     public struct Move: Equatable, Sendable {
         /// The set logged.
         public let set: PlannedSet
-        /// Whether the next row is above the one left: round a superset's loop, or to a row moved
-        /// above.
-        public let isBack: Bool
-        /// Whether the move goes back to a superset's member in a later round, whose first member
-        /// shows the round just done until the move rolls it on.
-        public let startsRound: Bool
+        /// Which way it goes, onward or back, and whether back into a later round.
+        public let way: MoveWay
         public internal(set) var beat: Beat
         /// Whether the move sets off from a rest, whose row has already closed: the key comes
         /// back with the next set's words, not the set logged's.
@@ -134,9 +130,16 @@ public enum WorkoutPhase: Equatable, Sendable {
             beat == .rolled
         }
 
-        /// Whether the next row still shows the round just done, rather than its own.
+        /// Whether the next row still shows the round just done, rather than its own: back into a
+        /// later round, its first member does until the move rolls it on.
         public var holdsRound: Bool {
-            startsRound && !hasRolled
+            way.startsRound && !hasRolled
+        }
+
+        /// Whether the next row is above the one left: round a superset's loop, or to a row moved
+        /// above.
+        public var isBack: Bool {
+            way.isBack
         }
     }
 
@@ -243,20 +246,15 @@ public enum WorkoutPhase: Equatable, Sendable {
         case .nextSet:
             self = .held(set)
         // With no motion too: the rest crossfades in and out.
-        case let .nextExercise(_, isBack, _) where rests:
+        case let .nextExercise(_, way) where rests:
             self = .resting(Resting(
                 set: set,
-                isBack: isBack,
+                isBack: way.isBack,
                 isWithinExercise: false,
                 beat: .logged,
             ))
-        case let .nextExercise(_, isBack, startsRound) where moves:
-            self = .movingOn(Move(
-                set: set,
-                isBack: isBack,
-                startsRound: startsRound,
-                beat: .logged,
-            ))
+        case let .nextExercise(_, way) where moves:
+            self = .movingOn(Move(set: set, way: way, beat: .logged))
         case .last where moves:
             self = .closing(set, isShown: false)
         case .nextExercise, .last:

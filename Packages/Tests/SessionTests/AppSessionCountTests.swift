@@ -60,6 +60,7 @@ struct AppSessionCountTests {
     func eachChangeStored() async throws {
         let workout = try Self.planks()
         let row = workout.exercises[0]
+        let planned = PlannedSet(row: row.id, round: 1, side: nil)
         let session = AppSession(workout: workout, store: relaunch(), namer: .muscleGroupsOnly)
         session.save(workout)
         // The set begins after its "Start in" and its 0:00 hold, 6 s after the landing.
@@ -67,7 +68,7 @@ struct AppSessionCountTests {
             ("start", { session.start(on: workout.id, at: Self.at(6)) }),
             ("landed", { session.beginCount(at: Self.at(6)) }),
             ("+15 s", { session.extendCount(by: 15, at: Self.at(20)) }),
-            ("log", { session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(30)) }),
+            ("log", { session.log(planned, of: row, at: Self.at(30)) }),
         ]
         for step in steps {
             step.change()
@@ -93,7 +94,7 @@ struct AppSessionCountTests {
         session.start(on: workout.id, at: Self.at(-Self.lead))
         session.beginCount(at: Self.at(-Self.lead))
         // Logged early at 20 s: its rest runs from 20 to 50.
-        session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
+        session.log(PlannedSet(row: row.id, round: 1, side: nil), of: row, at: Self.at(20))
         let steps: [(name: String, change: () -> Void)] = [
             ("+15 s", { session.extendRest(by: 15, at: Self.at(25)) }),
             ("skip", { session.skipRest(at: Self.at(30)) }),

@@ -36,7 +36,7 @@ extension StoredWorkoutExercise {
     /// missing or out of range, which read as Auto, never set.
     private static func rest(seconds: Int?, isAuto: Bool) -> Rest {
         let seconds = seconds.flatMap { PlanLimits.rest.contains($0) ? $0 : nil }
-        return isAuto ? .auto(kept: seconds) : seconds.map(Rest.byHand) ?? .neverSet
+        return isAuto ? .auto(kept: seconds) : seconds.map(Rest.byHand(seconds:)) ?? .neverSet
     }
 
     /// The stored plan, field by field: a field never stored, out of range, or for another

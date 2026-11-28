@@ -45,14 +45,16 @@ struct RoundRestTests {
     func shared() throws {
         var workout = try Self.joined("Barbell bench press", "Dumbbell row")
         let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
-        workout.stepRestAfterRound(of: first, by: 1)
+        workout.stepRestAfterRound(of: first, by: .up)
         #expect(workout.restAfterRound(of: second) == 105)
         #expect(!workout.isRoundAuto(of: second))
         #expect(workout.restAfterRoundText(of: second, locale: Locale(identifier: "en_US"))
             == "1m\u{00A0}45s")
         // A member's own reps no longer move a rest set by hand.
         var bench = workout.exercises[0]
-        bench.step(.target, by: 10)
+        for _ in 0 ..< 10 {
+            bench.step(.target, by: .up)
+        }
         workout.update(bench)
         #expect(workout.restAfterRound(of: first) == 105)
     }
@@ -61,7 +63,7 @@ struct RoundRestTests {
     func updateKeepsRoundRest() throws {
         var workout = try Self.joined("Barbell bench press", "Dumbbell row")
         let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
-        workout.stepRestAfterRound(of: first, by: 1)
+        workout.stepRestAfterRound(of: first, by: .up)
         var bench = workout.exercises[0]
         bench.roundRest = .neverSet
         bench.plan.sets += 1
@@ -75,7 +77,7 @@ struct RoundRestTests {
     func autoRemembers() throws {
         var workout = try Self.joined("Barbell bench press", "Dumbbell row")
         let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
-        workout.stepRestAfterRound(of: first, by: -1)
+        workout.stepRestAfterRound(of: first, by: .down)
         #expect(workout.restAfterRound(of: first) == 75)
         workout.setRoundAuto(true, of: second)
         #expect(workout.isRoundAuto(of: first))
@@ -91,7 +93,9 @@ struct RoundRestTests {
         workout.setRoundAuto(false, of: first)
         #expect(workout.restAfterRound(of: first) == 90)
         var bench = workout.exercises[0]
-        bench.step(.target, by: 10)
+        for _ in 0 ..< 10 {
+            bench.step(.target, by: .up)
+        }
         workout.update(bench)
         #expect(workout.restAfterRound(of: first) == 90)
     }
@@ -100,13 +104,13 @@ struct RoundRestTests {
     func splitRestores() throws {
         var workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Barbell bench press") {
-                $0.rest = .byHand(200)
+                $0.rest = .byHand(seconds: 200)
             },
             WorkoutExercise.builtIn("Dumbbell row"),
         ])
         let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
         workout.join(first, .below)
-        workout.stepRestAfterRound(of: first, by: 1)
+        workout.stepRestAfterRound(of: first, by: .up)
         #expect(workout.exercises.map(\.rest) == [200, 90])
         workout.leaveSuperset(second)
         #expect(workout.exercises.map(\.rest) == [200, 90])
@@ -118,7 +122,7 @@ struct RoundRestTests {
     func joinTakesSetRest() throws {
         var workout = try Self.joined("Barbell bench press", "Dumbbell row", "Biceps curl")
         let (first, third) = (workout.exercises[0].id, workout.exercises[2].id)
-        workout.stepRestAfterRound(of: first, by: 1)
+        workout.stepRestAfterRound(of: first, by: .up)
         workout.join(third, .above)
         #expect(workout.restAfterRound(of: third) == 105)
         #expect(!workout.isRoundAuto(of: third))

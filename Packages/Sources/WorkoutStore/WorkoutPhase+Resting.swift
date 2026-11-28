@@ -52,8 +52,8 @@ extension WorkoutPhase {
             return
         }
         var isBack = false
-        if case let .nextExercise(_, back, _) = step {
-            isBack = back
+        if case let .nextExercise(_, way) = step {
+            isBack = way.isBack
         }
         self = .resting(Resting(
             set: rest.after,
@@ -113,11 +113,11 @@ extension WorkoutPhase {
         }
         // Out of a rest, the next round shows from the start, its words arriving with its
         // segments and figures: held on the round just done, the caption read "Round 1 of 3" over
-        // the next round's green segment for half a second.
+        // the next round's green segment for half a second. So a move back into a later round
+        // goes as `.back`, which holds no round.
         self = .movingOn(Move(
             set: rest.set,
-            isBack: rest.isBack,
-            startsRound: false,
+            way: rest.isBack ? .back : .onward,
             beat: .shown,
             isFromRest: true,
         ))

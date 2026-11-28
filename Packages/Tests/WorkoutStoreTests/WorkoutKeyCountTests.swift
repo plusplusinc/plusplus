@@ -140,7 +140,7 @@ struct WorkoutKeyCountTests {
             live = LiveWorkout(workout: live.workout, workoutSession: live.beginningCount(at: at))
         }
         let last = try #require(live.workoutSession.sets.last?.planned)
-        var move = WorkoutPhase.Move(set: last, isBack: false, startsRound: false, beat: .shown)
+        var move = WorkoutPhase.Move(set: last, way: .onward, beat: .shown)
         let held = Self.key(live, phase: .movingOn(move))
         #expect(held.drawnCount == .counting, "The count logged, held full for its beat")
         #expect(held.phase.loggedAndDrawn == last)
@@ -191,7 +191,7 @@ struct WorkoutKeyCountTests {
         let live = try TimedSetTests.logged(begun, at: 20)
         let set = try #require(live.workoutSession.sets.last?.planned)
         #expect(live.isOnTimedSet != timedFirst)
-        var move = WorkoutPhase.Move(set: set, isBack: false, startsRound: false, beat: .shown)
+        var move = WorkoutPhase.Move(set: set, way: .onward, beat: .shown)
         for beat in [WorkoutPhase.Move.Beat.shown, .landed, .shifting] {
             move.beat = beat
             let key = Self.key(live, phase: .movingOn(move))
@@ -211,12 +211,7 @@ struct WorkoutKeyCountTests {
             workout: live.workout,
             workoutSession: live.logging(set, of: row, at: Self.start.addingTimeInterval(40)),
         )
-        var move = try WorkoutPhase.Move(
-            set: #require(live.currentSet),
-            isBack: false,
-            startsRound: false,
-            beat: .shown,
-        )
+        var move = try WorkoutPhase.Move(set: #require(live.currentSet), way: .onward, beat: .shown)
         move.isFromRest = true
         let key = Self.key(live, phase: .movingOn(move))
         #expect(key.drawnCount == .counting)

@@ -50,11 +50,11 @@ struct WorkoutKeyTests {
             push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
             dumbbell = try WorkoutExercise.builtIn("Dumbbell row") { $0.sets = 1 }
             workout = Workout(exercises: [push, dumbbell])
-            first = PlannedSet(row: push.id, round: 1)
-            second = PlannedSet(row: push.id, round: 2)
+            first = PlannedSet(row: push.id, round: 1, side: nil)
+            second = PlannedSet(row: push.id, round: 2, side: nil)
             left = PlannedSet(row: dumbbell.id, round: 1, side: .left)
             right = PlannedSet(row: dumbbell.id, round: 1, side: .right)
-            toRow = .nextExercise(to: left, isBack: false, startsRound: false)
+            toRow = .nextExercise(to: left, way: .onward)
         }
 
         /// The workout with its first `count` sets logged, in order, at their rows' plans, the
