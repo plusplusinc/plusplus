@@ -167,5 +167,37 @@ class Card(unittest.TestCase):
         self.assertTrue(self.wrote())
 
 
+class Status(unittest.TestCase):
+    """`status` points a session that takes a card at /onward, and says nothing otherwise."""
+
+    def setUp(self):
+        self.folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.folder)
+        options = [{"id": "O_1", "name": "In Progress"}, {"id": "O_2", "name": "Done"}]
+        project = {"id": "PVT_1", "field": {"id": "F_1", "options": options}}
+        response = {"data": {"organization": {"projectV2": project}}}
+        (self.folder / "response.json").write_text(json.dumps(response))
+        gh = self.folder / "gh"
+        gh.write_text('#!/bin/bash\necho "$*" >> "$(dirname "$0")/calls.log"\n'
+                      'printf \'HTTP/2.0 200 OK\\r\\n\\r\\n\'\ncat "$(dirname "$0")/response.json"\n')
+        gh.chmod(0o755)
+
+    def board(self, *args):
+        env = dict(os.environ, PATH=f"{self.folder}:{os.environ['PATH']}")
+        return subprocess.run([str(BOARD), "status", "PVTI_1", *args], capture_output=True, text=True, env=env)
+
+    def test_in_progress_points_at_onward(self):
+        run = self.board("In Progress")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertIn("/onward", run.stdout)
+        self.assertIn("agent-record.py", run.stdout)
+        self.assertIn("updateProjectV2ItemFieldValue", (self.folder / "calls.log").read_text())
+
+    def test_any_other_status_prints_nothing(self):
+        run = self.board("Done")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(run.stdout, "")
+
+
 if __name__ == "__main__":
     unittest.main()

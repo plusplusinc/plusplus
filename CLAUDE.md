@@ -16,7 +16,7 @@ with its sets, reps or time, weight, and rest, some joined into supersets, saved
 it is edited, and logged set by set on that same screen; a Workouts screen listing and
 filtering the saved ones; and Log, the finished ones. Settings, from the drawer, picks Light,
 Dark, or the phone's, Void makes dark true black, and Apple Health gets finished workouts once
-allowed there. Nothing syncs yet, and there is no
+allowed. Nothing syncs yet, and there is no
 watch app yet.
 
 This file does not say how a feature looks or behaves. That is in the doc comments of the types
@@ -147,7 +147,8 @@ preview rendering, headless on Xcode 27. See `docs/agent-tooling.md`.
 ## Branching
 
 `main` only moves through pull requests, which a ruleset enforces. Work in a worktree; the main
-checkout stays on `main` for the nightly retro and session-start tidying.
+checkout stays on `main` for the nightly retro and session-start tidying. A session in a worktree
+builds there, on a new branch: Claude Code refuses its agents' edits elsewhere.
 
 ```sh
 git fetch origin main
@@ -158,8 +159,7 @@ gh pr update-branch <topic>   # merges main in; a rebase of a pushed branch need
 Open a PR with `/pr`, in any session: "PR check" fails a body without the template's lines, or
 a diff that undoes a recent merge. CI must be green before a PR merges. **Merges are
 squashed**: the PR title and body become the one commit on `main`, so write the body as a
-commit message that is also true before the merge ("Tense tells the truth"). Notes about review
-order or "as discussed" belong in a PR comment, not the body.
+commit message that is also true before the merge ("Tense tells the truth").
 
 ## Gotchas
 
