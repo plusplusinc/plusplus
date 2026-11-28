@@ -60,7 +60,7 @@ lists a run for the pushed commit.
 
 Merge a branch's PR from its own worktree with no number (`gh pr merge --squash --auto` takes
 the branch's): a number written before `gh pr create` prints it is a guess, and a wrong one
-merges another PR.
+merges another PR. After the merge, `--auto` included, move its card to Done.
 
 The body goes in on stdin, as above, for `gh pr edit` too, never from a file: the scratchpad is
 shared by the lead and every subagent, and another session can overwrite a body file there
