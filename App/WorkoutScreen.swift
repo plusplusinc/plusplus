@@ -276,7 +276,7 @@ struct WorkoutScreen: View {
                 .padding(.bottom, Spacing.md)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
-                .roomToLand(top: landingRoomTop)
+                .roomToLand(top: landingRoomTop, fromMark: landsOnMark)
                 .roomBelow(isMakingRoom)
                 // Outside the rail and the room under the list, which both read it.
                 .listResizes(resizes)
