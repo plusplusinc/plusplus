@@ -4,7 +4,7 @@ import Testing
 @testable import Session
 @testable import WorkoutStore
 
-/// Deleting a finished workout session from Log through the session: it leaves the log and the
+/// Deleting a finished workout session from Log through `AppSession`: it leaves the log and the
 /// store, after any write of it still queued, never the one in progress (the store refuses it,
 /// `StoreDeleteTests`), and a delete the store
 /// refuses leaves it in the log. A relaunch is a second store over the same container.
