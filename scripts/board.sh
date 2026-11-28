@@ -23,7 +23,8 @@
 # `body` refuses a body that is only a State section, which would drop the rest of the card.
 # `state` refuses to replace the State of an In Progress card that names one session
 # (`session_...`) with a State that names another: two sessions would lead one card. `--take`
-# says the first session has ended and this one takes the card over.
+# says the first session has ended and this one takes the card over. `status` to In Progress
+# prints one line pointing the session at /onward, for one that took the card without it.
 # `readme` with no feature writes the README when stdin has text and reads it otherwise; with a
 # feature it only reads, printing that section to the next `## ` heading (the whole README runs
 # to hundreds of lines), and fails with the features' names when none matches. GitHub's item list
@@ -366,6 +367,10 @@ case "$command" in
         [ $# -eq 2 ] || usage
         [ "$2" != - ] || usage
         set_field "$1" Status "$2"
+        # A session that takes a card without /onward has skipped what the skill holds.
+        [ "$2" != "In Progress" ] || echo "In Progress. Lead it as /onward says (load the skill if" \
+            "this session hasn't): agents build in this session's own worktree, and each run gets" \
+            "its line on the PR with scripts/agent-record.py."
         ;;
     move)
         [ $# -eq 2 ] || usage
