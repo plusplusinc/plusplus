@@ -46,12 +46,18 @@ extension Workout {
         restAfterRound(of: id).map { WorkoutExercise.spokenRest($0, locale: locale) } ?? ""
     }
 
-    public func canStepRestAfterRound(of id: WorkoutExercise.ID, by direction: Int) -> Bool {
+    public func canStepRestAfterRound(
+        of id: WorkoutExercise.ID,
+        by direction: StepDirection,
+    ) -> Bool {
         restAfterRound(of: id)?.steppedRest(by: direction) != nil
     }
 
     /// Moves a superset's rest a step, from what it reads now, and sets it by hand.
-    public mutating func stepRestAfterRound(of id: WorkoutExercise.ID, by direction: Int) {
+    public mutating func stepRestAfterRound(
+        of id: WorkoutExercise.ID,
+        by direction: StepDirection,
+    ) {
         guard let value = restAfterRound(of: id)?.steppedRest(by: direction) else { return }
         setRestAfterRound(value, of: id)
     }

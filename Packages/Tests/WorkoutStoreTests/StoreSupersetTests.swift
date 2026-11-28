@@ -39,8 +39,8 @@ struct StoreSupersetTests {
     @Test("A superset's rest reopens on every member: set by hand, and kept while automatic")
     func roundRestRoundTrip() async throws {
         var workout = try grouped()
-        workout.stepRestAfterRound(of: rows[1].id, by: 1)
-        workout.stepRestAfterRound(of: rows[3].id, by: -1)
+        workout.stepRestAfterRound(of: rows[1].id, by: .up)
+        workout.stepRestAfterRound(of: rows[3].id, by: .down)
         workout.setRoundAuto(true, of: rows[3].id)
         try await relaunch().save(workout)
         let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).workout)

@@ -79,37 +79,37 @@ extension WorkoutExercise {
         seconds == 0 ? "None" : TimeText.spoken(seconds: seconds, locale: locale)
     }
 
-    /// Moves a part one step up (`direction` 1) or down (-1): a set or a rep at a time, a time
-    /// 5 s at a time, a weight its load's step in its unit, and a rest to the next 15 s mark. It
-    /// stops at the limits a plan is stored within, a time at 5 s, a weight at one step, a bar's
-    /// at the empty bar, and a rest at none.
-    public mutating func step(_ part: PlanPart, by direction: Int) {
+    /// Moves a part one step up or down: a set or a rep at a time, a time 5 s at a time, a
+    /// weight its load's step in its unit, and a rest to the next 15 s mark. It stops at the
+    /// limits a plan is stored within, a time at 5 s, a weight at one step, a bar's at the empty
+    /// bar, and a rest at none.
+    public mutating func step(_ part: PlanPart, by direction: StepDirection) {
         if let stepped = stepped(part, by: direction) {
             plan = stepped
         }
     }
 
     /// Whether a part can move a step that way, or is at its limit.
-    public func canStep(_ part: PlanPart, by direction: Int) -> Bool {
+    public func canStep(_ part: PlanPart, by direction: StepDirection) -> Bool {
         stepped(part, by: direction) != nil
     }
 
-    private func stepped(_ part: PlanPart, by direction: Int) -> ExercisePlan? {
+    private func stepped(_ part: PlanPart, by direction: StepDirection) -> ExercisePlan? {
         var plan = plan
         switch part {
         case .sets:
-            guard let sets = plan.sets.stepped(by: direction, within: PlanLimits.sets)
+            guard let sets = plan.sets.stepped(delta: direction.unit, within: PlanLimits.sets)
             else { return nil }
             plan.sets = sets
         case .target:
             switch plan.target {
             case let .reps(reps):
-                guard let reps = reps.stepped(by: direction, within: PlanLimits.reps)
+                guard let reps = reps.stepped(delta: direction.unit, within: PlanLimits.reps)
                 else { return nil }
                 plan.target = .reps(reps)
             case let .time(seconds):
                 let mark = seconds.nextMark(of: Self.timeStep, by: direction)
-                guard let seconds = seconds.stepped(by: mark - seconds, within: Self.timeRange)
+                guard let seconds = seconds.stepped(delta: mark - seconds, within: Self.timeRange)
                 else { return nil }
                 plan.target = .time(seconds: seconds)
             }
@@ -118,7 +118,7 @@ extension WorkoutExercise {
             else { return nil }
             let step = load.step(in: weight.unit)
             let mark = weight.amount.nextMark(of: step, by: direction)
-            guard let amount = weight.amount.stepped(by: mark - weight.amount, within: range)
+            guard let amount = weight.amount.stepped(delta: mark - weight.amount, within: range)
             else { return nil }
             weight.amount = amount
             plan.weight = weight
@@ -213,38 +213,45 @@ extension WorkoutExercise {
     }
 }
 
+extension StepDirection {
+    /// One step of a count, a set or a rep, this way.
+    var unit: Int {
+        self == .up ? 1 : -1
+    }
+}
+
 extension Double {
-    /// The next multiple of `step` up (`direction` 1) or down (-1), so a weight off the marks,
-    /// 27.5 in 5 lb steps, lands on one (30 or 25) and moves a step from there.
-    func nextMark(of step: Double, by direction: Int) -> Double {
+    /// The next multiple of `step` that way, so a weight off the marks, 27.5 in 5 lb steps,
+    /// lands on one (30 or 25) and moves a step from there.
+    func nextMark(of step: Double, by direction: StepDirection) -> Double {
         let marks = self / step
         let tolerance = 1e-9
-        let index = direction > 0 ? (marks + tolerance).rounded(.down) + 1
+        let index = direction == .up ? (marks + tolerance).rounded(.down) + 1
             : (marks - tolerance).rounded(.up) - 1
         return index * step
     }
 }
 
 extension Int {
-    /// The next multiple of `step` up (`direction` 1) or down (-1), so a time off the marks,
-    /// 32 s in 5 s steps, lands on one (35 or 30) and moves a step from there.
-    func nextMark(of step: Int, by direction: Int) -> Int {
-        direction > 0 ? (self / step + 1) * step : (self - 1) / step * step
+    /// The next multiple of `step` that way, so a time off the marks, 32 s in 5 s steps, lands
+    /// on one (35 or 30) and moves a step from there.
+    func nextMark(of step: Int, by direction: StepDirection) -> Int {
+        direction == .up ? (self / step + 1) * step : (self - 1) / step * step
     }
 
-    /// A rest moved to the next 15 s mark up (`direction` 1) or down (-1), so a rest off the
-    /// marks, a timed set's own time, lands on one (50 s goes to 60 or 45) and moves by 15 s from
-    /// there; held to a rest's limits, nil at the end it moves toward.
-    func steppedRest(by direction: Int) -> Int? {
+    /// A rest moved to the next 15 s mark that way, so a rest off the marks, a timed set's own
+    /// time, lands on one (50 s goes to 60 or 45) and moves by 15 s from there; held to a rest's
+    /// limits, nil at the end it moves toward.
+    func steppedRest(by direction: StepDirection) -> Int? {
         let mark = nextMark(of: PlanLimits.restStep, by: direction)
-        return stepped(by: mark - self, within: PlanLimits.rest)
+        return stepped(delta: mark - self, within: PlanLimits.rest)
     }
 }
 
 extension Comparable where Self: AdditiveArithmetic {
     /// The value moved by `delta` and held within `range`, or nil if it's already at the end
     /// `delta` moves toward, so a step never moves the wrong way.
-    func stepped(by delta: Self, within range: ClosedRange<Self>) -> Self? {
+    func stepped(delta: Self, within range: ClosedRange<Self>) -> Self? {
         let canMove = delta > .zero ? self < range.upperBound
             : delta < .zero && self > range.lowerBound
         return canMove ? min(max(self + delta, range.lowerBound), range.upperBound) : nil

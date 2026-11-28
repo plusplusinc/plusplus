@@ -1,5 +1,11 @@
 import SwiftUI
 
+/// Which of a `ValueRow`'s two keys stepped it, by a press or a VoiceOver swipe.
+public enum StepKey: Sendable, Hashable {
+    case decrease
+    case increase
+}
+
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono, and an optional note under the label. Tapping anywhere on it opens a − / +
 /// stepper inside it, under the value, and tapping again closes it. A key that can't step is
@@ -29,7 +35,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     private let canDecrease: Bool
     private let canIncrease: Bool
     private let onToggle: () -> Void
-    private let onStep: (Int) -> Void
+    private let onStep: (StepKey) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
@@ -52,7 +58,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         Spacing.sm + Radius.key
     }
 
-    /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
+    /// `onStep` gets the key that stepped, each only while its `can` is true.
     /// Without an accessory there's no hairline, and without a footer no room under the fill:
     /// pass nil, not an empty view, for a row that has none. Pass an optional value
     /// (`value.map { … }`), never an `if let` in a view builder, which builds a view that is never
@@ -69,7 +75,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         canDecrease: Bool,
         canIncrease: Bool,
         onToggle: @escaping () -> Void,
-        onStep: @escaping (Int) -> Void,
+        onStep: @escaping (StepKey) -> Void,
         ruler: ValueRuler? = nil,
         accessory: Accessory?,
         footer: Footer?,
@@ -185,8 +191,8 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .accessibilityAction { onToggle() }
         .accessibilityAdjustableAction { direction in
             switch direction {
-            case .increment: step(by: 1)
-            case .decrement: step(by: -1)
+            case .increment: step(.increase)
+            case .decrement: step(.decrease)
             @unknown default: break
             }
         }
@@ -231,9 +237,9 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     private var keys: some View {
         HStack(spacing: Spacing.sm) {
-            stepKey("Decrease", "minus", by: -1)
+            stepKey("Decrease", "minus", .decrease)
                 .disabled(!canDecrease)
-            stepKey("Increase", "plus", by: 1)
+            stepKey("Increase", "plus", .increase)
                 .disabled(!canIncrease)
         }
     }
@@ -281,9 +287,9 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         return "\(spokenValue), \(tag)"
     }
 
-    private func stepKey(_ title: String, _ image: String, by direction: Int) -> some View {
+    private func stepKey(_ title: String, _ image: String, _ key: StepKey) -> some View {
         Button {
-            step(by: direction)
+            step(key)
         } label: {
             // The whole key is the button, not just its glyph.
             Label(title, systemImage: image)
@@ -298,10 +304,10 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .buttonRepeatBehavior(.enabled)
     }
 
-    private func step(by direction: Int) {
-        guard direction > 0 ? canIncrease : canDecrease else { return }
+    private func step(_ key: StepKey) {
+        guard key == .increase ? canIncrease : canDecrease else { return }
         withAnimation(ValueRow<EmptyView, EmptyView>.change) {
-            onStep(direction)
+            onStep(key)
         }
     }
 }
@@ -330,7 +336,7 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
         canDecrease: Bool,
         canIncrease: Bool,
         onToggle: @escaping () -> Void,
-        onStep: @escaping (Int) -> Void,
+        onStep: @escaping (StepKey) -> Void,
     ) {
         self.init(
             label: label,
@@ -374,7 +380,7 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
             canDecrease: true,
             canIncrease: true,
             onToggle: { withAnimation(ValueRow.motion) { open = open == 1 ? -1 : 1 } },
-            onStep: { reps += $0 },
+            onStep: { reps += $0 == .increase ? 1 : -1 },
         )
         ValueRow(
             label: "Weight",
