@@ -20,6 +20,7 @@ struct IdlePage: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, WatchPage.sideInset)
     }
 }
 

@@ -36,6 +36,25 @@ extension WorkoutExercise {
         return figures
     }
 
+    /// The figures as the current exercise shows them, on the phone and the Watch, each number
+    /// over what it counts: a time under a minute as its seconds over "seconds", "30" "seconds";
+    /// a minute or more as a clock over "min", "1:30" "min", which a plural unit misread as
+    /// "1:00 minutes"; with "per side" after it where the plan's figure has it, so it reads as
+    /// reps and weight do.
+    public func shownFigures(side: Side?, locale: Locale = .current) -> [PlanFigure] {
+        figures(side: side, locale: locale).enumerated().map { index, figure in
+            guard index == 0, case let .time(seconds) = plan.target else { return figure }
+            let number = seconds < 60
+                ? seconds.formatted(.number.locale(locale))
+                : Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond).locale(locale))
+            let unit = seconds < 60 ? String(localized: "seconds") : String(localized: "min")
+            return PlanFigure(
+                number: number,
+                unit: [unit, figure.unit].filter { !$0.isEmpty }.joined(separator: " "),
+            )
+        }
+    }
+
     /// The figures in words, for VoiceOver: "10 reps per side, 50 pounds"; with a `side`,
     /// "10 reps, 50 pounds".
     public func spokenFigures(side: Side? = nil, locale: Locale = .current) -> String {

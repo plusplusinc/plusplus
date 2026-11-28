@@ -96,6 +96,7 @@ extension WorkoutExercise {
             equipment: [exercise].equipment.map(\.name),
             figures: shownFigures(side: set.side, locale: locale)
                 .map { .init(number: $0.number, unit: $0.unit) },
+
             spokenFigures: spokenFigures(side: set.side, locale: locale),
         )
     }
@@ -108,23 +109,6 @@ extension WorkoutExercise {
             total: plan.sets,
             locale: locale,
         )
-    }
-
-    /// The figures as the current exercise shows them, each number over what it counts: a time
-    /// under a minute as its seconds over "seconds", "30" "seconds"; a minute or more as a clock
-    /// over "min", "1:30" "min", which a plural unit misread as "1:00 minutes"; with "per side"
-    /// after it where the plan's figure has it, so it reads as reps and weight do.
-    func shownFigures(side: Side?, locale: Locale) -> [(number: String, unit: String)] {
-        figures(side: side, locale: locale).enumerated().map { index, figure in
-            guard index == 0, case let .time(seconds) = plan.target else {
-                return (figure.number, figure.unit)
-            }
-            let number = seconds < 60
-                ? seconds.formatted(.number.locale(locale))
-                : Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond).locale(locale))
-            let unit = seconds < 60 ? String(localized: "seconds") : String(localized: "min")
-            return (number, [unit, figure.unit].filter { !$0.isEmpty }.joined(separator: " "))
-        }
     }
 }
 
