@@ -228,7 +228,7 @@ struct WorkoutPhaseTests {
         for phase in Self.everyPhase + Self.startAndEnd {
             for hasLiveWorkout in [false, true] {
                 var stopped = phase
-                let live = LiveWorkout(workout: Workout(), loggedWorkout: Self.loggedWorkout)
+                let live = LiveWorkout(workout: Workout(), workoutSession: Self.workoutSession)
                 stopped.settleAtOnce(resuming: hasLiveWorkout ? live : nil, at: .now)
                 #expect(
                     stopped == (hasLiveWorkout ? .running : .idle),
@@ -236,7 +236,7 @@ struct WorkoutPhaseTests {
                 )
                 #expect(stopped.takesLog == hasLiveWorkout, "The key logs only with a workout")
                 var ended = stopped
-                let endable = ended.end(Self.loggedWorkout)
+                let endable = ended.end(Self.workoutSession)
                 #expect(endable == hasLiveWorkout, "End ends only a workout")
             }
         }

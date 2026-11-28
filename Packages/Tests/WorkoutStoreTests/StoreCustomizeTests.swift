@@ -42,9 +42,9 @@ struct StoreCustomizeTests {
     }
 
     /// Every workout stored, as a relaunch would read it.
-    private func loggedWorkouts() throws -> [LoggedWorkout] {
+    private func workoutSessions() throws -> [WorkoutSession] {
         try ModelContext(container).fetch(FetchDescriptor<StoredWorkoutSession>())
-            .map(\.loggedWorkout)
+            .map(\.workoutSession)
     }
 
     @Test("A new muscle group reaches every workout's row, its numbers kept, its rest following")
@@ -79,21 +79,21 @@ struct StoreCustomizeTests {
         try await store.save(Self.curl)
         let workout = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
         try await store.save(workout)
-        var loggedWorkout = LoggedWorkout(
+        var workoutSession = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Arms",
             startedAt: Self.at(10),
         )
-        let next = try #require(workout.nextSet(after: loggedWorkout.sets))
-        loggedWorkout = loggedWorkout.logging(next, of: workout.exercises[0], at: Self.at(20))
-        try await store.save(loggedWorkout)
+        let next = try #require(workout.nextSet(after: workoutSession.sets))
+        workoutSession = workoutSession.logging(next, of: workout.exercises[0], at: Self.at(20))
+        try await store.save(workoutSession)
 
         var renamed = Self.curl
         renamed.name = "Hammer curl"
         try await relaunch().save(renamed)
         #expect(try await reread(workout.id).exercises.map(\.exercise.name) == ["Hammer curl"])
         #expect(try await relaunch().exercises().exercise(id: Self.curl.id)?.name == "Hammer curl")
-        let set = try #require(try loggedWorkouts().first?.sets.first)
+        let set = try #require(try workoutSessions().first?.sets.first)
         #expect(set.exerciseID == Self.curl.id)
         #expect(set.exerciseName == "Cable curl")
     }
@@ -104,14 +104,14 @@ struct StoreCustomizeTests {
         try await store.save(Self.curl)
         let workout = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
         try await store.save(workout)
-        var loggedWorkout = LoggedWorkout(
+        var workoutSession = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Arms",
             startedAt: Self.at(10),
         )
-        let next = try #require(workout.nextSet(after: loggedWorkout.sets))
-        loggedWorkout = loggedWorkout.logging(next, of: workout.exercises[0], at: Self.at(20))
-        try await store.save(loggedWorkout)
+        let next = try #require(workout.nextSet(after: workoutSession.sets))
+        workoutSession = workoutSession.logging(next, of: workout.exercises[0], at: Self.at(20))
+        try await store.save(workoutSession)
         let context = ModelContext(container)
         let set = try #require(try context.fetch(FetchDescriptor<StoredLoggedSet>()).first)
         set.exerciseName = nil
@@ -120,7 +120,7 @@ struct StoreCustomizeTests {
         var renamed = Self.curl
         renamed.name = "Hammer curl"
         try await relaunch().save(renamed)
-        #expect(try loggedWorkouts().first?.sets.first?.exerciseName == "Cable curl")
+        #expect(try workoutSessions().first?.sets.first?.exerciseName == "Cable curl")
     }
 
     @Test("Switching Measure, or the weight, away and back brings every row's numbers back")
@@ -161,14 +161,14 @@ struct StoreCustomizeTests {
         for (index, workout) in [named, unnamed, emptiedNamed].enumerated() {
             try await store.save(workout, at: Self.at(TimeInterval(index)))
         }
-        var loggedWorkout = LoggedWorkout(
+        var workoutSession = WorkoutSession(
             workoutID: named.id,
             workoutName: "Arms",
             startedAt: Self.at(10),
         )
-        let next = try #require(named.nextSet(after: loggedWorkout.sets))
-        loggedWorkout = loggedWorkout.logging(next, of: named.exercises[0], at: Self.at(20))
-        try await store.save(loggedWorkout)
+        let next = try #require(named.nextSet(after: workoutSession.sets))
+        workoutSession = workoutSession.logging(next, of: named.exercises[0], at: Self.at(20))
+        try await store.save(workoutSession)
 
         try await relaunch().deleteExercise(Self.curl.id)
         #expect(try await relaunch().exercises() == .builtIn)
@@ -177,7 +177,7 @@ struct StoreCustomizeTests {
         #expect(try await relaunch().workout(unnamed.id, weightUnit: .pounds) == nil)
         // A name is something: it stays, with no rows.
         #expect(try await reread(emptiedNamed.id).exercises.isEmpty)
-        let set = try #require(try loggedWorkouts().first?.sets.first)
+        let set = try #require(try workoutSessions().first?.sets.first)
         #expect(set.exerciseID == Self.curl.id)
         #expect(set.exerciseName == "Cable curl")
     }

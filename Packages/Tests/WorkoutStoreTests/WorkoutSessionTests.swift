@@ -2,37 +2,37 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-@Suite("Logged workout")
-struct LoggedWorkoutTests {
+@Suite("Workout session")
+struct WorkoutSessionTests {
     private let start = Date(timeIntervalSinceReferenceDate: 1000)
 
     private func at(_ seconds: Double) -> Date {
         start.addingTimeInterval(seconds)
     }
 
-    private let loggedWorkout: LoggedWorkout
+    private let workoutSession: WorkoutSession
 
     init() {
-        loggedWorkout = LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: start)
+        workoutSession = WorkoutSession(workoutID: UUID(), workoutName: "Upper", startedAt: start)
     }
 
     @Test("Running, the time is the time since Start, never below zero")
     func running() {
-        #expect(loggedWorkout.elapsed(at: at(0)) == .zero)
-        #expect(loggedWorkout.elapsed(at: at(252)) == .seconds(252))
-        #expect(loggedWorkout.elapsed(at: at(-30)) == .zero)
-        #expect(loggedWorkout.isInProgress)
-        #expect(!loggedWorkout.isPaused)
+        #expect(workoutSession.elapsed(at: at(0)) == .zero)
+        #expect(workoutSession.elapsed(at: at(252)) == .seconds(252))
+        #expect(workoutSession.elapsed(at: at(-30)) == .zero)
+        #expect(workoutSession.isInProgress)
+        #expect(!workoutSession.isPaused)
     }
 
     @Test("Fractions of a second round down")
     func roundsDown() {
-        #expect(loggedWorkout.elapsed(at: at(59.9)) == .seconds(59))
+        #expect(workoutSession.elapsed(at: at(59.9)) == .seconds(59))
     }
 
     @Test("Paused, the time holds; resumed, it carries on from there")
     func pauseAndResume() {
-        let paused = loggedWorkout.pausing(at: at(60))
+        let paused = workoutSession.pausing(at: at(60))
         #expect(paused.isPaused)
         #expect(paused.elapsed(at: at(60)) == .seconds(60))
         #expect(paused.elapsed(at: at(500)) == .seconds(60))
@@ -44,7 +44,7 @@ struct LoggedWorkoutTests {
 
     @Test("Two pauses add up")
     func twoPauses() {
-        let twice = loggedWorkout
+        let twice = workoutSession
             .pausing(at: at(10)).resuming(at: at(20))
             .pausing(at: at(30)).resuming(at: at(45))
         #expect(twice.pausedSeconds == 25)
@@ -54,7 +54,7 @@ struct LoggedWorkoutTests {
 
     @Test("Each resume keeps its pause's times, and a finish while paused keeps the last")
     func pausesKept() {
-        let twice = loggedWorkout
+        let twice = workoutSession
             .pausing(at: at(10)).resuming(at: at(20))
             .pausing(at: at(30)).resuming(at: at(45))
         #expect(twice.pauses == [
@@ -65,13 +65,13 @@ struct LoggedWorkoutTests {
         #expect(finished.pauses.last == DateInterval(start: at(60), end: at(100)))
         #expect(finished.pauses.reduce(0) { $0 + $1.duration } == finished.pausedSeconds)
         // A resume read off a clock set back keeps a pause of no length, not one reversed.
-        let setBack = loggedWorkout.pausing(at: at(50)).resuming(at: at(40))
+        let setBack = workoutSession.pausing(at: at(50)).resuming(at: at(40))
         #expect(setBack.pauses == [DateInterval(start: at(50), duration: 0)])
     }
 
     /// Started at 0 with its time due at 10, as through the first set's "Start in".
-    private var startingIn: LoggedWorkout {
-        var early = loggedWorkout
+    private var startingIn: WorkoutSession {
+        var early = workoutSession
         early.startedAt = at(10)
         return early
     }
@@ -107,17 +107,17 @@ struct LoggedWorkoutTests {
 
     @Test("Pausing a paused workout and resuming a running one change nothing")
     func noOps() {
-        let paused = loggedWorkout.pausing(at: at(10))
+        let paused = workoutSession.pausing(at: at(10))
         #expect(paused.pausing(at: at(20)) == paused)
-        #expect(loggedWorkout.resuming(at: at(20)) == loggedWorkout)
+        #expect(workoutSession.resuming(at: at(20)) == workoutSession)
     }
 
     @Test("Finished, running or paused, the time is fixed whatever the clock")
     func finishing() {
-        let finished = loggedWorkout.finishing(at: at(300))
+        let finished = workoutSession.finishing(at: at(300))
         #expect(!finished.isInProgress)
         #expect(finished.elapsed(at: at(9000)) == .seconds(300))
-        let pausedThenFinished = loggedWorkout.pausing(at: at(100)).finishing(at: at(300))
+        let pausedThenFinished = workoutSession.pausing(at: at(100)).finishing(at: at(300))
         #expect(pausedThenFinished.pausedSeconds == 200)
         #expect(pausedThenFinished.pausedAt == nil)
         #expect(!pausedThenFinished.isPaused)
@@ -128,31 +128,31 @@ struct LoggedWorkoutTests {
 
     @Test("The clock starts later by the time paused")
     func clockStart() {
-        #expect(loggedWorkout.pausing(at: at(10)).resuming(at: at(25)).clockStart == at(15))
+        #expect(workoutSession.pausing(at: at(10)).resuming(at: at(25)).clockStart == at(15))
     }
 
     @Test("The time next turns over on the clock's whole seconds, from the start or past a pause")
     func nextSecond() {
-        #expect(loggedWorkout.nextSecond(after: at(0)) == at(1))
-        #expect(loggedWorkout.nextSecond(after: at(4.3)) == at(5))
-        #expect(loggedWorkout.nextSecond(after: at(5)) == at(6))
-        let resumed = loggedWorkout.pausing(at: at(10)).resuming(at: at(25.4))
+        #expect(workoutSession.nextSecond(after: at(0)) == at(1))
+        #expect(workoutSession.nextSecond(after: at(4.3)) == at(5))
+        #expect(workoutSession.nextSecond(after: at(5)) == at(6))
+        let resumed = workoutSession.pausing(at: at(10)).resuming(at: at(25.4))
         #expect(resumed.nextSecond(after: at(30)) == at(30.4))
         #expect(resumed.nextSecond(after: at(30.4)) == at(31.4))
     }
 
     @Test("Ending offers Finish only once a set is logged, and only while in progress")
     func offersFinish() throws {
-        #expect(!loggedWorkout.offersFinish)
+        #expect(!workoutSession.offersFinish)
         let row = try WorkoutExercise.builtIn("Push-up")
-        let done = loggedWorkout.logging(PlannedSet(row: row.id, round: 1), of: row, at: at(30))
+        let done = workoutSession.logging(PlannedSet(row: row.id, round: 1), of: row, at: at(30))
         #expect(done.offersFinish)
         #expect(!done.finishing(at: at(300)).offersFinish)
     }
 }
 
-@Suite("Logged workout text")
-struct LoggedWorkoutTextTests {
+@Suite("Workout session text")
+struct WorkoutSessionTextTests {
     private let locale = Locale(identifier: "en_US")
 
     @Test(
@@ -163,7 +163,7 @@ struct LoggedWorkoutTextTests {
         ],
     )
     func elapsedText(seconds: Int, text: String) {
-        #expect(LoggedWorkout.elapsedText(.seconds(seconds), locale: locale) == text)
+        #expect(WorkoutSession.elapsedText(.seconds(seconds), locale: locale) == text)
     }
 
     @Test(
@@ -174,6 +174,6 @@ struct LoggedWorkoutTextTests {
         ],
     )
     func spokenElapsed(seconds: Int, text: String) {
-        #expect(LoggedWorkout.spokenElapsed(.seconds(seconds), locale: locale) == text)
+        #expect(WorkoutSession.spokenElapsed(.seconds(seconds), locale: locale) == text)
     }
 }

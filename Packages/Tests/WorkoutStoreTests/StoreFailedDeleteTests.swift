@@ -78,36 +78,37 @@ final class StoreFailedDeleteTests {
         #expect(try await relaunch().workout(upper.id, weightUnit: .pounds) == upper)
     }
 
-    @Test("A discard that fails leaves the logged workout, its sets, and its cleared workout")
-    func discardLoggedWorkout() async throws {
+    @Test("A discard that fails leaves the workout session, its sets, and its cleared workout")
+    func discardWorkoutSession() async throws {
         let row = try WorkoutExercise.builtIn("Push-up")
         // Cleared to nothing while it runs: the discard would delete it in the same save.
         let cleared = Workout()
         let store = relaunch()
         try await store.save(cleared, at: Self.at(1), keepsEmpty: true)
-        let running = LoggedWorkout(workoutID: cleared.id, workoutName: "", startedAt: Self.at(10))
+        let running = WorkoutSession(workoutID: cleared.id, workoutName: "", startedAt: Self.at(10))
             .logging(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
         try await store.save(running)
         try refuseSaves()
-        await #expect(throws: (any Error).self) { try await store.discardLoggedWorkout(running.id) }
-        #expect(try await store.launch(weightUnit: .pounds).loggedWorkout == running)
+        await #expect(throws: (any Error).self) { try await store.discardWorkoutSession(running.id)
+        }
+        #expect(try await store.launch(weightUnit: .pounds).workoutSession == running)
         #expect(try await store.workout(cleared.id, weightUnit: .pounds) == cleared)
         try allowSaves()
         try await store.save(Workout(name: "Lower"), at: Self.at(30))
         let relaunched = relaunch()
-        #expect(try await relaunched.launch(weightUnit: .pounds).loggedWorkout == running)
+        #expect(try await relaunched.launch(weightUnit: .pounds).workoutSession == running)
         #expect(try await relaunched.workout(cleared.id, weightUnit: .pounds) == cleared)
     }
 
     @Test(
         "A Log delete that fails leaves the finished workout and its sets, after a later save too",
     )
-    func deleteLoggedWorkout() async throws {
+    func deleteWorkoutSession() async throws {
         let row = try WorkoutExercise.builtIn("Push-up")
         let upper = Workout(name: "Upper", exercises: [row])
         let store = relaunch()
         try await store.save(upper, at: Self.at(1))
-        let finished = LoggedWorkout(
+        let finished = WorkoutSession(
             workoutID: upper.id,
             workoutName: "Upper",
             startedAt: Self.at(10),
@@ -116,11 +117,12 @@ final class StoreFailedDeleteTests {
         .finishing(at: Self.at(30))
         try await store.save(finished)
         try refuseSaves()
-        await #expect(throws: (any Error).self) { try await store.deleteLoggedWorkout(finished.id) }
-        #expect(try await store.finishedLoggedWorkouts() == [finished])
+        await #expect(throws: (any Error).self) { try await store.deleteWorkoutSession(finished.id)
+        }
+        #expect(try await store.finishedWorkoutSessions() == [finished])
         try allowSaves()
         try await store.save(Workout(name: "Lower"), at: Self.at(40))
-        #expect(try await relaunch().finishedLoggedWorkouts() == [finished])
+        #expect(try await relaunch().finishedWorkoutSessions() == [finished])
     }
 
     @Test("An exercise delete that fails leaves the exercise, its rows, and the workout it empties")

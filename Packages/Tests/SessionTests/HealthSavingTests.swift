@@ -25,7 +25,7 @@ struct HealthSavingTests {
         let health = FakeHealth(.on, store: fixture.store())
         let session = fixture.launched(health, workout: workout)
         session.start(on: workout.id, at: HealthFixture.at(10))
-        let logged = try #require(session.loggedWorkout)
+        let logged = try #require(session.workoutSession)
         session.finish(at: HealthFixture.at(70))
         // Nothing reads Health in the Finish tap's turn, nor as the session was made.
         #expect(health.accessReads.withLock { $0 } == 0)
@@ -37,7 +37,7 @@ struct HealthSavingTests {
         #expect(saved.start == HealthFixture.at(10))
         #expect(saved.end == HealthFixture.at(70))
         #expect(saves.first?.stored == [logged.id])
-        let read = try #require(try await fixture.store().finishedLoggedWorkouts().first)
+        let read = try #require(try await fixture.store().finishedWorkoutSessions().first)
         #expect(read.healthWorkoutID != nil)
     }
 
@@ -78,7 +78,7 @@ struct HealthSavingTests {
             DateInterval(start: HealthFixture.at(40), end: HealthFixture.at(50)),
             DateInterval(start: HealthFixture.at(60), end: HealthFixture.at(90)),
         ])
-        let stored = try #require(try await store.finishedLoggedWorkouts().first)
+        let stored = try #require(try await store.finishedWorkoutSessions().first)
         #expect(stored.healthActivity == .functionalStrength)
         #expect(stored.pauses == saved.pauses)
     }

@@ -6,20 +6,20 @@ import Testing
 struct WorkoutDiffTests {
     private typealias Fixture = LogFixture
 
-    private func progress(_ loggedWorkouts: [LoggedWorkout]) -> [DiffItem] {
-        WorkoutLog(loggedWorkouts: loggedWorkouts)
+    private func progress(_ workoutSessions: [WorkoutSession]) -> [DiffItem] {
+        WorkoutLog(workoutSessions: workoutSessions)
             .diff(in: .builtIn, now: Fixture.now, calendar: Fixture.calendar)
     }
 
-    private func bench(_ daysAgo: Int, _ pounds: Double, id: String = "bench") -> LoggedWorkout {
-        Fixture.loggedWorkout(
+    private func bench(_ daysAgo: Int, _ pounds: Double, id: String = "bench") -> WorkoutSession {
+        Fixture.workoutSession(
             daysAgo: daysAgo,
             [Fixture.set(id, .reps(8), Fixture.pounds(pounds))],
         )
     }
 
     @Test("An exercise in one workout is left out, and in two is in")
-    func twoLoggedWorkouts() {
+    func twoWorkoutSessions() {
         #expect(progress([bench(1, 135)]).isEmpty)
         #expect(progress([bench(1, 135), bench(3, 135)]).count == 1)
     }
@@ -37,13 +37,13 @@ struct WorkoutDiffTests {
 
     @Test("Per side follows the newest workout's sets, as the name does")
     func perSideFromNewest() throws {
-        let sided = Fixture.loggedWorkout(
+        let sided = Fixture.workoutSession(
             daysAgo: 1,
             [Fixture.set("bench", .reps(8), Fixture.pounds(50), side: .left)],
         )
         let item = try #require(progress([sided, bench(5, 50)]).first)
         #expect(item.isPerSide)
-        let unsided = try #require(progress([bench(1, 50), Fixture.loggedWorkout(
+        let unsided = try #require(progress([bench(1, 50), Fixture.workoutSession(
             daysAgo: 5,
             [Fixture.set("bench", .reps(8), Fixture.pounds(50), side: .left)],
         )]).first)

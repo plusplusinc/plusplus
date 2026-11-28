@@ -2,30 +2,30 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A finished logged workout, pushed onto Log, read-only: its workout's name as it was, centered
+/// A finished workout session, pushed onto Log, read-only: its workout's name as it was, centered
 /// in the bar as its inline title beside the system's back button; its day, length, and sets,
 /// then its exercises in the order done, each with its rounds' figures in purple, the change from
 /// the time before it was done (a gain in green, anything else in gray), and a quiet line for one
 /// done a side at a time or a set short of its plan.
-struct LoggedWorkoutScreen: View {
-    let loggedWorkout: LoggedWorkout
+struct WorkoutSessionScreen: View {
+    let workoutSession: WorkoutSession
     let log: WorkoutLog
     let exercises: ExerciseList
 
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let rows = log.exercises(of: loggedWorkout, in: exercises)
+        let rows = log.exercises(of: workoutSession, in: exercises)
         let sets = rows.reduce(0) { $0 + $1.exercise.rounds.count }
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text(AttributedString.monoNumbers(
-                    loggedWorkout.logLine(sets: sets, locale: locale),
+                    workoutSession.logLine(sets: sets, locale: locale),
                     font: .ppRowDetailNumber,
                 ))
                 .font(.ppRowDetail)
                 .foregroundStyle(.pp(.textSecondary))
-                .accessibilityLabel(loggedWorkout.spokenLogLine(sets: sets, locale: locale))
+                .accessibilityLabel(workoutSession.spokenLogLine(sets: sets, locale: locale))
                 // The first exercise's own room (`LogRow`) parts it from the line, as Diff's
                 // first row is parted from its line.
                 ForEach(rows, id: \.exercise.id) { row in
@@ -45,7 +45,7 @@ struct LoggedWorkoutScreen: View {
             .padding(.bottom, Spacing.xl)
         }
         .background { Color.pp(.background).ignoresSafeArea() }
-        .navigationTitle(LogScreen.name(of: loggedWorkout))
+        .navigationTitle(LogScreen.name(of: workoutSession))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

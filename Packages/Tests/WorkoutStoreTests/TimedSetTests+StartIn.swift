@@ -8,14 +8,14 @@ extension TimedSetTests {
         let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
         let live = Self.begun(workout)
         let lead = Self.lead
-        #expect(live.loggedWorkout.count?.startClock == lead)
+        #expect(live.workoutSession.count?.startClock == lead)
         #expect(live.countStage(at: Self.at(lead - LiveWorkout.startInHold)) == .startIn)
         #expect(live.countStage(at: Self.at(lead)) == nil, "Over, the set stands")
         let after = try Self.logged(live, at: lead + 1)
-        let first = after.loggedWorkout.sets.first
+        let first = after.workoutSession.sets.first
         #expect(first?.target == first?.plannedTarget)
-        #expect(after.loggedWorkout.count == nil)
-        #expect(Self.landed(after, at: lead + 2).loggedWorkout.count == nil)
+        #expect(after.workoutSession.count == nil)
+        #expect(Self.landed(after, at: lead + 2).workoutSession.count == nil)
     }
 
     @Test("Start in comes as each exercise does, 5 s before a set's other side, none between sets")
@@ -36,9 +36,9 @@ extension TimedSetTests {
     func timeStartsWithFirstSet() throws {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
         let workout = Workout(exercises: [push])
-        let made = LoggedWorkout(workoutID: workout.id, workoutName: "Test", startedAt: Self.at(0))
+        let made = WorkoutSession(workoutID: workout.id, workoutName: "Test", startedAt: Self.at(0))
         let lead = Self.lead
-        let landed = LiveWorkout(workout: workout, loggedWorkout: made)
+        let landed = LiveWorkout(workout: workout, workoutSession: made)
             .landingStart(at: Self.at(0.5))
         // "Start in" counts up to zero, where the set and the time begin.
         #expect(landed.clock(at: Self.at(0.5)) == -lead)
@@ -47,15 +47,15 @@ extension TimedSetTests {
         #expect(landed.elapsed(at: Self.at(0.5 + lead + 1)) == .seconds(1))
 
         // Logged 2 s into "Start in": the time starts at the log, and the rest with it.
-        let live = LiveWorkout(workout: workout, loggedWorkout: landed)
+        let live = LiveWorkout(workout: workout, workoutSession: landed)
         let logged = try Self.logged(live, at: 2.5)
-        #expect(logged.loggedWorkout.startedAt == Self.at(2.5))
-        #expect(logged.loggedWorkout.sets.first?.clockWhenLogged == 0)
+        #expect(logged.workoutSession.startedAt == Self.at(2.5))
+        #expect(logged.workoutSession.sets.first?.clockWhenLogged == 0)
 
         // Skip rest a moment after a log: the rest keeps its length, and holds what it had left.
         let skipped = LiveWorkout(
             workout: workout,
-            loggedWorkout: logged.loggedWorkout.logging(
+            workoutSession: logged.workoutSession.logging(
                 PlannedSet(row: push.id, round: 9),
                 of: push,
                 at: Self.at(13.1),
@@ -63,20 +63,20 @@ extension TimedSetTests {
         )
         let over = LiveWorkout(
             workout: workout,
-            loggedWorkout: skipped.skippingRest(at: Self.at(13.3)),
+            workoutSession: skipped.skippingRest(at: Self.at(13.3)),
         )
-        let tap = over.loggedWorkout.clock(at: Self.at(13.3))
+        let tap = over.workoutSession.clock(at: Self.at(13.3))
         let rest = try #require(over.rest())
         #expect(rest.length == skipped.rest()?.length)
         #expect(rest.skippedAt == tap)
         #expect(rest.shownLeft(atClock: tap + 5) == rest.remaining(atClock: tap))
 
         // A device clock set back under way never reads as a time not started.
-        #expect(logged.loggedWorkout.clock(at: Self.at(-100)) == 0)
+        #expect(logged.workoutSession.clock(at: Self.at(-100)) == 0)
 
         // Under way, a landing only begins a count: the clock is never set back.
         #expect(logged.landingStart(at: Self.at(30)).startedAt == Self.at(2.5))
-        let resumed = LoggedWorkout(
+        let resumed = WorkoutSession(
             workoutID: workout.id,
             workoutName: "Test",
             startedAt: Self.at(0),
@@ -85,11 +85,12 @@ extension TimedSetTests {
         var paused = made
         paused.pausedAt = Self.at(0.2)
         for kept in [resumed, paused] {
-            let live = LiveWorkout(workout: workout, loggedWorkout: kept)
+            let live = LiveWorkout(workout: workout, workoutSession: kept)
             #expect(live.landingStart(at: Self.at(10)).startedAt == Self.at(0))
         }
         // A landing that waited, as on the phone being unlocked, loses none of the time.
-        let late = LiveWorkout(workout: workout, loggedWorkout: made).landingStart(at: Self.at(180))
+        let late = LiveWorkout(workout: workout, workoutSession: made)
+            .landingStart(at: Self.at(180))
         #expect(late.startedAt == Self.at(0))
         #expect(late.count?.startClock == 180 + lead)
     }
@@ -105,7 +106,7 @@ extension TimedSetTests {
             for second in [2, hold] {
                 #expect(WorkoutPhase(resuming: live, at: Self.at(second)) == .timing(.startIn))
                 // Its count is kept, not begun again from the relaunch.
-                #expect(live.beginningCount(at: Self.at(second)) == live.loggedWorkout)
+                #expect(live.beginningCount(at: Self.at(second)) == live.workoutSession)
             }
             #expect(WorkoutPhase(resuming: live, at: Self.at(Self.lead)) == up)
         }
@@ -125,7 +126,7 @@ extension TimedSetTests {
         #expect(after.beginningCount(at: Self.at(60.5)).count == nil, "Nor while it holds 0:00")
         let leave = 60 + LiveWorkout.restHold
         let begun = Self.landed(after, at: leave + 0.5)
-        #expect(begun.loggedWorkout.count?.startClock == leave + Self.lead)
+        #expect(begun.workoutSession.count?.startClock == leave + Self.lead)
         #expect(begun.countStage(at: Self.at(leave + 1)) == .startIn)
     }
 }

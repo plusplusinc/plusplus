@@ -4,7 +4,7 @@ import XCTest
 /// `testFinishKeyKeepsTheWorkout`: launch opens the Workouts list, and Log lists the finished one.
 /// Which launch the store finds
 /// is `StoreLaunchTests`'; what Log reads from the store and how each row reads are the
-/// package's (`StoreLoggedWorkoutTests`, `WorkoutLogTextTests`);
+/// package's (`StoreWorkoutSessionTests`, `WorkoutLogTextTests`);
 /// this is what a relaunch brings back to Log, the system push and back of an opened
 /// workout, the segmented control's wire from each tab to what it shows, and a row's swipe to
 /// Delete, which ends it on an empty History.

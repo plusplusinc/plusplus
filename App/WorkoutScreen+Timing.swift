@@ -57,19 +57,19 @@ extension WorkoutScreen {
                 length: Double(timed.length),
                 ends: .distantPast,
                 pausedLeft: timed
-                    .remaining(atClock: shown.loggedWorkout.clock(at: phase.drawnMoment)),
+                    .remaining(atClock: shown.workoutSession.clock(at: phase.drawnMoment)),
             )
         }
         guard countBeats.earlyLog == nil, phase.loggedAndDrawn == nil,
               liveKey.drawnCount == .counting,
               let timed = live?.timedSet,
-              let loggedWorkout = session.loggedWorkout
+              let workoutSession = session.workoutSession
         else { return .over }
-        let clock = loggedWorkout.clock(at: .now)
+        let clock = workoutSession.clock(at: .now)
         return KeyFill(
             length: Double(timed.length),
-            ends: loggedWorkout.date(ofClock: timed.endClock),
-            pausedLeft: loggedWorkout.isPaused ? timed.remaining(atClock: clock) : nil,
+            ends: workoutSession.date(ofClock: timed.endClock),
+            pausedLeft: workoutSession.isPaused ? timed.remaining(atClock: clock) : nil,
         )
     }
 
@@ -156,9 +156,8 @@ extension WorkoutScreen {
         }
         let time = RestBlock.spoken(Double(seconds), locale: locale)
         // The workout with every log, the one drawn hidden included.
-        let logs = (session.loggedWorkout ?? phase.drawnLoggedWorkout).map {
-            LiveWorkout(workout: workout, loggedWorkout: $0)
-        }
+        let logs = (session.workoutSession ?? phase.drawnWorkoutSession)
+            .map { LiveWorkout(workout: workout, workoutSession: $0) }
         if let logged = phase.loggedAndDrawn ?? phase.endingHidden, logged.row == id,
            let kept = logs?.loggedCount(of: logged)
         {
@@ -179,33 +178,34 @@ extension WorkoutScreen {
                 kind: .startIn(time: time),
             )
         }
-        let loggedWorkout = shown.loggedWorkout
+        let workoutSession = shown.workoutSession
         // Held: paused; or ended, where End found it (`drawnMoment`), as the workout's time
         // holds; or logged early, where the tap stopped it, as its fill runs on.
-        let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? phase.drawnMoment)
-        let holds = loggedWorkout.isPaused || phase.endingCount != nil || countBeats.earlyLog != nil
+        let clock = workoutSession.clock(at: countBeats.earlyLog ?? phase.drawnMoment)
+        let holds = workoutSession.isPaused || phase.endingCount != nil
+            || countBeats.earlyLog != nil
         switch stage {
         case .startIn:
             return SetRest(
                 isRunning: true,
                 length: length,
                 // Reading 0:00 for its hold before the set begins.
-                ends: loggedWorkout.date(ofClock: timed.startClock - LiveWorkout.startInHold),
+                ends: workoutSession.date(ofClock: timed.startClock - LiveWorkout.startInHold),
                 pausedLeft: holds
                     ? max(0, timed.startIn(atClock: clock) - LiveWorkout.startInHold) : nil,
                 turns: true,
                 kind: .startIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
-                isPaused: loggedWorkout.isPaused,
+                isPaused: workoutSession.isPaused,
             )
         case .counting:
             return SetRest(
                 isRunning: true,
                 length: timed.length,
-                ends: loggedWorkout.date(ofClock: timed.endClock),
+                ends: workoutSession.date(ofClock: timed.endClock),
                 pausedLeft: holds ? timed.remaining(atClock: clock) : nil,
                 turns: true,
                 kind: .count,
-                isPaused: loggedWorkout.isPaused,
+                isPaused: workoutSession.isPaused,
             )
         }
     }
@@ -238,18 +238,18 @@ extension WorkoutScreen {
                 kind: .startIn(),
             )
         }
-        let loggedWorkout = shown.loggedWorkout
-        let holds = loggedWorkout.isPaused || phase.endingCount != nil
+        let workoutSession = shown.workoutSession
+        let holds = workoutSession.isPaused || phase.endingCount != nil
         // Reading 0:00 for its hold before the set begins.
         let zero = count.startClock - LiveWorkout.startInHold
         return SetRest(
             isRunning: true,
             length: length,
-            ends: loggedWorkout.date(ofClock: zero),
-            pausedLeft: holds ? max(0, zero - loggedWorkout.clock(at: phase.drawnMoment)) : nil,
+            ends: workoutSession.date(ofClock: zero),
+            pausedLeft: holds ? max(0, zero - workoutSession.clock(at: phase.drawnMoment)) : nil,
             turns: true,
             kind: .startIn(),
-            isPaused: loggedWorkout.isPaused,
+            isPaused: workoutSession.isPaused,
         )
     }
 
@@ -257,14 +257,14 @@ extension WorkoutScreen {
     /// pause, or a resume starts it again. On a reps set, its "Start in" alone.
     var countWatch: CountWatch? {
         guard let stage = phase.timing, let live, let count = live.setCount,
-              let loggedWorkout = session.loggedWorkout
+              let workoutSession = session.workoutSession
         else { return nil }
         return CountWatch(
             stage: stage,
             set: count.set,
             startClock: count.startClock,
             endClock: live.timedSet?.endClock ?? count.startClock,
-            isPaused: loggedWorkout.isPaused,
+            isPaused: workoutSession.isPaused,
         )
     }
 
@@ -275,8 +275,8 @@ extension WorkoutScreen {
     func watchCount() async {
         guard let watch = countWatch, !watch.isPaused else { return }
         let target = watch.stage == .startIn ? watch.startClock : watch.endClock
-        while let loggedWorkout = session.loggedWorkout {
-            let left = target - loggedWorkout.clock(at: .now)
+        while let workoutSession = session.workoutSession {
+            let left = target - workoutSession.clock(at: .now)
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }

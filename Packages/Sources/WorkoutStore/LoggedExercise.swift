@@ -46,7 +46,7 @@ public struct LoggedExercise: Identifiable, Equatable, Sendable {
     }
 }
 
-extension LoggedWorkout {
+extension WorkoutSession {
     /// Its sets grouped by exercise, in the order each exercise was first logged, so a superset's
     /// A1 B1 A2 B2 reads A then B, and one exercise in two rows reads once. A round is a row's
     /// round: an exercise in two rows keeps both rows' rounds, in the order logged.

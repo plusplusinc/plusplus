@@ -159,7 +159,7 @@ extension LoggedExercise {
     }
 }
 
-extension LoggedWorkout {
+extension WorkoutSession {
     /// "Thu, Nov 19 · 51 min", and with `sets`, "Thu, Nov 19 · 51 min · 21 sets".
     public func logLine(
         sets: Int? = nil,
@@ -244,8 +244,8 @@ extension LogPeriod {
     }
 
     /// "9 workouts", "1 workout".
-    public func loggedWorkoutCountText(locale: Locale = .current) -> String {
-        counted(loggedWorkoutCount, "workout", "workouts", locale: locale)
+    public func workoutSessionCountText(locale: Locale = .current) -> String {
+        counted(workoutSessionCount, "workout", "workouts", locale: locale)
     }
 
     /// "Saturday, November 21, workout", "Friday, November 20, no workout", for VoiceOver.
@@ -258,7 +258,7 @@ extension LogPeriod {
             dateStyle(locale: locale, calendar: calendar).weekday(.wide).month(.wide).day(),
         )
         let today = day.isToday ? "Today, " : ""
-        return "\(today)\(date), \(day.hasLoggedWorkout ? "workout" : "no workout")"
+        return "\(today)\(date), \(day.hasWorkoutSession ? "workout" : "no workout")"
     }
 }
 

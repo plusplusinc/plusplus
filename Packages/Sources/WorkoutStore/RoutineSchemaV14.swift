@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// As #301 shipped it: V13's, with a logged workout keeping each pause's times, its Apple Health
+/// As #301 shipped it: V13's, with a workout session keeping each pause's times, its Apple Health
 /// type as worked out at Finish, and the id of the workout Health saved for it.
 enum RoutineSchemaV14: VersionedSchema {
     static let versionIdentifier = Schema.Version(14, 0, 0)
@@ -35,7 +35,7 @@ enum RoutineSchemaV14: VersionedSchema {
         var countSide: String?
         var countStartClock: Double?
         var countAdded = 0
-        /// `LoggedWorkout.pauses`, each resumed pause's start then end, in order; nil for a
+        /// `WorkoutSession.pauses`, each resumed pause's start then end, in order; nil for a
         /// workout from before V14. An odd count, or a pause ending before it starts, reads as
         /// none, and a save leaves it as it is.
         var pauseTimes: [Date]?
