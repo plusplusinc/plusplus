@@ -69,6 +69,29 @@ struct StoreSupersetTests {
         #expect(reopened.isRoundAuto(of: rows[1].id))
     }
 
+    @Test(
+        "A superset whose stored members disagree reopens with its first member's rounds and rest",
+    )
+    func disagreeingMembersReopenAsFirst() async throws {
+        var workout = try grouped()
+        workout.setRestAfterRound(90, of: rows[3].id)
+        try await relaunch().save(workout)
+        let first = try #require(workout.exercises.first { $0.id == rows[3].id })
+        let context = ModelContext(container)
+        for row in try context.fetch(FetchDescriptor<StoredRoutineExercise>())
+            where [rows[4].id, rows[5].id].contains(row.id)
+        {
+            row.sets = first.plan.sets + 2
+            row.roundRest = 30
+        }
+        try context.save()
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        for id in [rows[3].id, rows[4].id, rows[5].id] {
+            #expect(reopened.exercises.first { $0.id == id }?.plan.sets == first.plan.sets)
+            #expect(reopened.restAfterRound(of: id) == 90)
+        }
+    }
+
     @Test("A cut superset reopens as it was cut, the row left over plain")
     func cutReopens() async throws {
         let store = relaunch()

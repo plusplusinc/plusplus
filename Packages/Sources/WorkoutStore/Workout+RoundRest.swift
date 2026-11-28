@@ -2,7 +2,7 @@ import Foundation
 
 // A superset's own rest, after each round, the last included, which is the way to the next
 // exercise. Going from one member to the next takes no time. Every member holds the same value, as
-// they hold one round count, Auto, derived from the members' own rests, until a step or the Auto
+// they hold one round count: Auto, derived from the members' own rests, until a step or the Auto
 // switch sets it by hand.
 
 extension Rest {
@@ -50,19 +50,15 @@ extension Workout {
         restAfterRound(of: id)?.steppedRest(by: direction) != nil
     }
 
-    /// Moves a superset's rest a step, from what it reads now, and sets it on every member.
+    /// Moves a superset's rest a step, from what it reads now, and sets it by hand.
     public mutating func stepRestAfterRound(of id: WorkoutExercise.ID, by direction: Int) {
         guard let value = restAfterRound(of: id)?.steppedRest(by: direction) else { return }
         setRestAfterRound(value, of: id)
     }
 
-    /// Sets a superset's rest by hand, as a step does, on every member.
+    /// Sets a superset's rest by hand, as a step does.
     public mutating func setRestAfterRound(_ seconds: Int, of id: WorkoutExercise.ID) {
-        guard let superset = exercises.first(where: { $0.id == id })?.supersetID else { return }
-        let value = WorkoutExercise.heldRest(seconds)
-        for row in exercises.indices where exercises[row].supersetID == superset {
-            exercises[row].roundRest = .byHand(value)
-        }
+        setRoundRest(.byHand(WorkoutExercise.heldRest(seconds)), of: id)
     }
 
     /// Whether `id`'s superset derives its rest from its members; false for a plain row.
@@ -74,14 +70,27 @@ extension Workout {
 
     /// Makes `id`'s superset derive its rest from its members (on), keeping the rest set by
     /// hand for later, or brings that back (off), or, if there is none, keeps the rest it reads
-    /// now; on every member.
+    /// now.
     public mutating func setRoundAuto(_ isAuto: Bool, of id: WorkoutExercise.ID) {
-        guard let row = exercises.first(where: { $0.id == id }), let superset = row.supersetID
+        guard let row = exercises.first(where: { $0.id == id }), row.supersetID != nil
         else { return }
-        let shared = row.roundRest.settingAuto(isAuto, derived: derivedRestAfterRound(of: id))
-        for row in exercises.indices where exercises[row].supersetID == superset {
-            exercises[row].roundRest = shared
-        }
+        setRoundRest(
+            row.roundRest.settingAuto(isAuto, derived: derivedRestAfterRound(of: id)),
+            of: id,
+        )
+    }
+
+    /// Gives `id`'s superset `rest`, keeping its round count; nothing for a plain row.
+    private mutating func setRoundRest(_ rest: Rest, of id: WorkoutExercise.ID) {
+        guard let index = exercises.firstIndex(where: { $0.id == id }),
+              let superset = exercises[index].supersetID, let run = supersetRun(at: index)
+        else { return }
+        exercises.formSuperset(
+            superset,
+            at: run,
+            rounds: exercises[run.lowerBound].plan.sets,
+            rest: rest,
+        )
     }
 
     /// The rest after a round when none is set: the longest of the members' own rests, less a
@@ -109,16 +118,5 @@ extension Exercise {
             return !muscleGroups.isDisjoint(with: other.muscleGroups)
         }
         return !tags.primary.isDisjoint(with: other.tags.primary)
-    }
-}
-
-extension [WorkoutExercise] {
-    /// Gives the rows at `indices` one superset's rest: `source`'s, each it never set taken from
-    /// the first of the rows that set it.
-    mutating func shareRoundRest(_ source: Rest, over indices: some Collection<Int>) {
-        let shared = source.filled(from: indices.map { self[$0].roundRest })
-        for row in indices {
-            self[row].roundRest = shared
-        }
     }
 }
