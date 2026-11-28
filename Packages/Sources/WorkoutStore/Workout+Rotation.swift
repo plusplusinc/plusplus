@@ -14,7 +14,9 @@ public struct PlannedSet: Hashable, Sendable {
     /// Nil for an exercise not done per side.
     public let side: Side?
 
-    public init(row: WorkoutExercise.ID, round: Int, side: Side? = nil) {
+    /// `side` has no default, so a set built for a per-side exercise never leaves it out and
+    /// matches no planned set: pass nil only for an exercise not done per side.
+    public init(row: WorkoutExercise.ID, round: Int, side: Side?) {
         self.row = row
         self.round = round
         self.side = side

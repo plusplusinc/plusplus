@@ -65,7 +65,11 @@ struct HealthSavingTests {
         )
         session.start(on: workout.id, at: HealthFixture.at(10))
         for (row, seconds) in zip(rows, [20.0, 30]) {
-            session.log(PlannedSet(row: row.id, round: 1), of: row, at: HealthFixture.at(seconds))
+            session.log(
+                PlannedSet(row: row.id, round: 1, side: nil),
+                of: row,
+                at: HealthFixture.at(seconds),
+            )
         }
         session.togglePause(at: HealthFixture.at(40))
         session.togglePause(at: HealthFixture.at(50))

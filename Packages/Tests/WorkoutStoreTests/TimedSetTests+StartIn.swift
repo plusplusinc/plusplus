@@ -56,7 +56,7 @@ extension TimedSetTests {
         let skipped = LiveWorkout(
             workout: workout,
             loggedWorkout: logged.loggedWorkout.logging(
-                PlannedSet(row: push.id, round: 9),
+                PlannedSet(row: push.id, round: 9, side: nil),
                 of: push,
                 at: Self.at(13.1),
             ),

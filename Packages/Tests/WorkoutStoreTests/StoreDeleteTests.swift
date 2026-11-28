@@ -75,7 +75,11 @@ struct StoreDeleteTests {
         try await relaunch().save(upper, at: Self.at(1))
         func finished(at seconds: TimeInterval) -> LoggedWorkout {
             LoggedWorkout(workoutID: upper.id, workoutName: upper.name, startedAt: Self.at(seconds))
-                .logging(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(seconds + 10))
+                .logging(
+                    PlannedSet(row: row.id, round: 1, side: nil),
+                    of: row,
+                    at: Self.at(seconds + 10),
+                )
                 .finishing(at: Self.at(seconds + 20))
         }
         let deleted = finished(at: 10)

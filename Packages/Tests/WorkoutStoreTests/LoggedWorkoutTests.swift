@@ -88,7 +88,7 @@ struct LoggedWorkoutTests {
         // "Start in" runs out and a set is logged as usual: Health gets the start, no pause.
         let row = try WorkoutExercise.builtIn("Push-up")
         let finished = resumed
-            .logging(PlannedSet(row: row.id, round: 1), of: row, at: at(20))
+            .logging(PlannedSet(row: row.id, round: 1, side: nil), of: row, at: at(20))
             .finishing(at: at(30))
         let health = try HealthWorkout(finished, in: .builtIn)
         #expect(health.start == at(13))
@@ -99,7 +99,11 @@ struct LoggedWorkoutTests {
     func startingClockAfterPause() throws {
         let row = try WorkoutExercise.builtIn("Push-up")
         let paused = startingIn.pausing(at: at(2)).resuming(at: at(5))
-        let logged = paused.logging(PlannedSet(row: row.id, round: 1), of: row, at: at(8))
+        let logged = paused.logging(
+            PlannedSet(row: row.id, round: 1, side: nil),
+            of: row,
+            at: at(8),
+        )
         #expect(logged.startedAt == at(8))
         #expect(logged.pauses.isEmpty)
         #expect(logged.clock(at: at(8)) == 0)
@@ -145,7 +149,11 @@ struct LoggedWorkoutTests {
     func offersFinish() throws {
         #expect(!loggedWorkout.offersFinish)
         let row = try WorkoutExercise.builtIn("Push-up")
-        let done = loggedWorkout.logging(PlannedSet(row: row.id, round: 1), of: row, at: at(30))
+        let done = loggedWorkout.logging(
+            PlannedSet(row: row.id, round: 1, side: nil),
+            of: row,
+            at: at(30),
+        )
         #expect(done.offersFinish)
         #expect(!done.finishing(at: at(300)).offersFinish)
     }

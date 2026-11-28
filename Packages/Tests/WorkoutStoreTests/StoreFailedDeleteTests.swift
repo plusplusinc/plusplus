@@ -86,7 +86,7 @@ final class StoreFailedDeleteTests {
         let store = relaunch()
         try await store.save(cleared, at: Self.at(1), keepsEmpty: true)
         let running = LoggedWorkout(workoutID: cleared.id, workoutName: "", startedAt: Self.at(10))
-            .logging(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
+            .logging(PlannedSet(row: row.id, round: 1, side: nil), of: row, at: Self.at(20))
         try await store.save(running)
         try refuseSaves()
         await #expect(throws: (any Error).self) { try await store.discardLoggedWorkout(running.id) }
@@ -112,7 +112,7 @@ final class StoreFailedDeleteTests {
             workoutName: "Upper",
             startedAt: Self.at(10),
         )
-        .logging(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
+        .logging(PlannedSet(row: row.id, round: 1, side: nil), of: row, at: Self.at(20))
         .finishing(at: Self.at(30))
         try await store.save(finished)
         try refuseSaves()

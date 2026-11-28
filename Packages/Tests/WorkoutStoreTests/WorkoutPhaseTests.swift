@@ -7,8 +7,8 @@ import Testing
 struct WorkoutPhaseTests {
     private static let row = UUID()
     private static let other = UUID()
-    static let logged = PlannedSet(row: row, round: 1)
-    private static let next = PlannedSet(row: other, round: 1)
+    static let logged = PlannedSet(row: row, round: 1, side: nil)
+    private static let next = PlannedSet(row: other, round: 1, side: nil)
 
     static let down = LiveWorkout.Step.nextExercise(
         to: next,
@@ -16,7 +16,7 @@ struct WorkoutPhaseTests {
         startsRound: false,
     )
     private static let round = LiveWorkout.Step.nextExercise(
-        to: PlannedSet(row: other, round: 2),
+        to: PlannedSet(row: other, round: 2, side: nil),
         isBack: true,
         startsRound: true,
     )

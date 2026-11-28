@@ -180,13 +180,14 @@ struct AppSessionTests {
     func relaunchAfterEachChange() async throws {
         let workout = try Self.upper()
         let row = workout.exercises[0]
+        let set = PlannedSet(row: row.id, round: 1, side: nil)
         let session = session(workout)
         session.save(workout)
         let steps: [(name: String, change: () -> Void)] = [
             ("start", { session.start(on: workout.id, at: Self.at(10)) }),
             ("pause", { session.togglePause(at: Self.at(20)) }),
             ("resume", { session.togglePause(at: Self.at(30)) }),
-            ("log", { session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(40)) }),
+            ("log", { session.log(set, of: row, at: Self.at(40)) }),
             ("finish", { session.finish(at: Self.at(50)) }),
             ("start again", { session.start(on: workout.id, at: Self.at(60)) }),
             ("discard", { session.discard() }),
@@ -270,7 +271,7 @@ struct AppSessionTests {
         let session = session(workout)
         session.save(workout)
         session.start(on: workout.id)
-        let set = PlannedSet(row: row.id, round: 1)
+        let set = PlannedSet(row: row.id, round: 1, side: nil)
         session.log(set, of: row)
         await session.writesLanded()
         let stored = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
