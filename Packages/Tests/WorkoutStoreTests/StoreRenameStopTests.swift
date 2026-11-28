@@ -8,7 +8,7 @@ import Testing
 @Suite("Store rename cut short")
 struct StoreRenameStopTests {
     static func exists(_ url: URL) -> Bool {
-        FileManager.default.fileExists(atPath: url.path())
+        FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
     }
 
     @Test(
@@ -96,8 +96,8 @@ struct StoreRenameStopTests {
     func killedAfterSessions() async throws {
         let (url, before) = try StoreRenameFixture.copyCommitted()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        await #expect(processExitsWith: .signal(SIGKILL)) { [path = url.path() as String] in
-            _ = try? StoreRenameBackup.open(at: URL(filePath: path), plan: KilledAfterSessions.self)
+        await #expect(processExitsWith: .signal(SIGKILL)) { [url = url as URL] in
+            _ = try? StoreRenameBackup.open(at: url, plan: KilledAfterSessions.self)
         }
         try Self.renamedWhole(at: url, before: before)
     }
@@ -106,8 +106,8 @@ struct StoreRenameStopTests {
     func killedAfterWorkouts() async throws {
         let (url, before) = try StoreRenameFixture.copyCommitted()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        await #expect(processExitsWith: .signal(SIGKILL)) { [path = url.path() as String] in
-            _ = try? StoreRenameBackup.open(at: URL(filePath: path), plan: KilledAfterWorkouts.self)
+        await #expect(processExitsWith: .signal(SIGKILL)) { [url = url as URL] in
+            _ = try? StoreRenameBackup.open(at: url, plan: KilledAfterWorkouts.self)
         }
         try Self.renamedWhole(at: url, before: before)
     }

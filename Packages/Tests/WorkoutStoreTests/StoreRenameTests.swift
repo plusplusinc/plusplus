@@ -134,6 +134,7 @@ struct StoreRenameTests {
         #expect(workout.id == workoutID)
         #expect(workout.name == "Upper")
         #expect(workout.exercises.map(\.exercise.id) == ["push-up"])
-        #expect(!FileManager.default.fileExists(atPath: StoreRenameBackup.folder(for: url).path()))
+        #expect(!FileManager.default.fileExists(atPath: StoreRenameBackup.folder(for: url)
+                .path(percentEncoded: false)))
     }
 }

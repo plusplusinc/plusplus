@@ -130,7 +130,8 @@ extension StoreRenameFixture {
         let source = try #require(Bundle.module.url(forResource: "Fixtures", withExtension: nil))
             .appending(path: "V14")
         let folder = try folder()
-        for name in try FileManager.default.contentsOfDirectory(atPath: source.path())
+        for name in try FileManager.default
+            .contentsOfDirectory(atPath: source.path(percentEncoded: false))
             where name.hasPrefix("PlusPlus.store")
         {
             try FileManager.default.copyItem(

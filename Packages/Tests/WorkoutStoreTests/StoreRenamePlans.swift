@@ -110,7 +110,8 @@ enum SeesTheCopy: SchemaMigrationPlan {
     static var stages: [MigrationStage] {
         StoreRenamePlans.stages(sessions: { context in
             let backup = try StoreRenameBackup.folder(for: StoreRenamePlans.url(of: context))
-            let names = try FileManager.default.contentsOfDirectory(atPath: backup.path())
+            let names = try FileManager.default
+                .contentsOfDirectory(atPath: backup.path(percentEncoded: false))
             guard names.contains("counts.json"), names.contains("PlusPlus.store") else {
                 throw NoCopy()
             }

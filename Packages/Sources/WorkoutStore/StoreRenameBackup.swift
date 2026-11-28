@@ -64,7 +64,7 @@ enum StoreRenameBackup {
             try restore(url, from: backup)
             Logger.storage.notice("Put the store back from its copy before the rename")
         } else {
-            if files.fileExists(atPath: backup.path()) {
+            if files.fileExists(atPath: backup.path(percentEncoded: false)) {
                 try files.removeItem(at: backup)
             }
             if try holdsOldNames(url) {
@@ -113,7 +113,10 @@ enum StoreRenameBackup {
     /// Whether the file at `url` is a store under the names before V15; false when there is
     /// none. Read from its metadata, without opening it, which would migrate it.
     static func holdsOldNames(_ url: URL) throws -> Bool {
-        guard FileManager.default.fileExists(atPath: url.path()) else { return false }
+        // Not `path()`, which escapes the space in `Application Support` and finds no file.
+        guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
+            return false
+        }
         let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
             type: .sqlite,
             at: url,
@@ -124,7 +127,7 @@ enum StoreRenameBackup {
 
     /// The store's files: the store and SQLite's own beside it, its write-ahead log and index.
     private static func storeFiles(of url: URL, in folder: URL) throws -> [String] {
-        try FileManager.default.contentsOfDirectory(atPath: folder.path())
+        try FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))
             .filter { $0.hasPrefix(url.lastPathComponent) }
     }
 

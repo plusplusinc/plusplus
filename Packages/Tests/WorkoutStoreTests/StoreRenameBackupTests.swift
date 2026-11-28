@@ -20,7 +20,7 @@ struct StoreRenameBackupTests {
     )
 
     static func exists(_ url: URL) -> Bool {
-        FileManager.default.fileExists(atPath: url.path())
+        FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
     }
 
     static func currentLines(at url: URL) throws -> [String] {
@@ -155,11 +155,14 @@ struct StoreRenameBackupTests {
         try Data("kept".utf8).write(to: backup.appending(path: "file"))
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o555],
-            ofItemAtPath: backup.path(),
+            ofItemAtPath: backup.path(percentEncoded: false),
         )
         defer {
             try? FileManager.default
-                .setAttributes([.posixPermissions: 0o755], ofItemAtPath: backup.path())
+                .setAttributes(
+                    [.posixPermissions: 0o755],
+                    ofItemAtPath: backup.path(percentEncoded: false),
+                )
             try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
         }
 

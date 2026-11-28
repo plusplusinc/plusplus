@@ -12,9 +12,10 @@ enum StoreRenameFixture {
     typealias OldSession = RoutineSchemaV14.StoredWorkout
     typealias OldSet = RoutineSchemaV14.StoredSet
 
+    /// A new folder whose path has a space, as the app's `Application Support` does.
     static func folder() throws -> URL {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "StoreRename-\(UUID().uuidString)")
+            .appending(path: "Store Rename-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         return folder
     }
