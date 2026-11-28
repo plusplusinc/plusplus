@@ -64,7 +64,7 @@ extension Workout {
 
     /// Sets a superset's rest by hand, as a step does.
     public mutating func setRestAfterRound(_ seconds: Int, of id: WorkoutExercise.ID) {
-        setRoundRest(.byHand(WorkoutExercise.heldRest(seconds)), of: id)
+        setRoundRest(.byHand(seconds: WorkoutExercise.heldRest(seconds)), of: id)
     }
 
     /// Whether `id`'s superset derives its rest from its members; false for a plain row.

@@ -124,7 +124,7 @@ struct PlanValueTests {
             return
         }
         #expect(lowest == 5)
-        #expect(PlanLimits.seconds.contains(lowest))
+        #expect(PlanLimits.holds(seconds: lowest))
         for unit in [WeightUnit.pounds, .kilograms] {
             for name in ["Overhead press", "Goblet squat", "Barbell row"] {
                 var row = try WorkoutExercise(
@@ -135,7 +135,7 @@ struct PlanValueTests {
                     row.step(.weight, by: .down)
                 }
                 let weight = try #require(row.plan.weight)
-                #expect(PlanLimits.weight.contains(weight.amount), "\(name) in \(unit)")
+                #expect(PlanLimits.holds(weight: weight.amount), "\(name) in \(unit)")
             }
         }
     }

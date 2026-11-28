@@ -179,7 +179,7 @@ struct RestTests {
     func autoOffKeepsReading() throws {
         var curl = try WorkoutExercise.builtIn("Biceps curl")
         curl.isRestAuto = false
-        #expect(curl.plan.rest == .byHand(60))
+        #expect(curl.plan.rest == .byHand(seconds: 60))
         for _ in 0 ..< 10 {
             curl.step(.target, by: .down)
         }
@@ -215,7 +215,7 @@ struct RestTests {
         stretch.step(.rest, by: .up)
         #expect(stretch.rest == 15)
         var long = try WorkoutExercise.builtIn("Barbell back squat") {
-            $0.rest = .byHand(600)
+            $0.rest = .byHand(seconds: 600)
         }
         #expect(!long.canStep(.rest, by: .up))
         long.step(.rest, by: .down)

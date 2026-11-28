@@ -73,7 +73,7 @@ struct StorePlanTests {
         let workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Push-up"),
             WorkoutExercise.builtIn("Biceps curl") {
-                $0.rest = .byHand(0)
+                $0.rest = .byHand(seconds: 0)
             },
             remembered,
         ])

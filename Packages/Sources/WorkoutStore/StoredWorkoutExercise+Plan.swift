@@ -35,8 +35,8 @@ extension StoredWorkoutExercise {
     /// A stored rest: Auto, keeping the seconds if any; or set by hand, unless its seconds are
     /// missing or out of range, which read as Auto, never set.
     private static func rest(seconds: Int?, isAuto: Bool) -> Rest {
-        let seconds = seconds.flatMap { PlanLimits.rest.contains($0) ? $0 : nil }
-        return isAuto ? .auto(kept: seconds) : seconds.map(Rest.byHand) ?? .neverSet
+        let seconds = seconds.flatMap { PlanLimits.holds(rest: $0) ? $0 : nil }
+        return isAuto ? .auto(kept: seconds) : seconds.map(Rest.byHand(seconds:)) ?? .neverSet
     }
 
     /// The stored plan, field by field: a field never stored, out of range, or for another
@@ -47,13 +47,13 @@ extension StoredWorkoutExercise {
         let target: SetTarget =
             switch fallback.target {
             case .reps:
-                reps.flatMap { PlanLimits.reps.contains($0) ? .reps($0) : nil } ?? fallback.target
+                reps.flatMap { PlanLimits.holds(reps: $0) ? .reps($0) : nil } ?? fallback.target
             case .time:
-                seconds.flatMap { PlanLimits.seconds.contains($0) ? .time(seconds: $0) : nil }
+                seconds.flatMap { PlanLimits.holds(seconds: $0) ? .time(seconds: $0) : nil }
                     ?? fallback.target
             }
         return ExercisePlan(
-            sets: sets.flatMap { PlanLimits.sets.contains($0) ? $0 : nil } ?? fallback.sets,
+            sets: sets.flatMap { PlanLimits.holds(sets: $0) ? $0 : nil } ?? fallback.sets,
             target: target,
             weight: exercise.load == nil ? nil : storedWeight ?? fallback.weight,
             rest: Self.rest(seconds: rest, isAuto: isRestAuto),
@@ -61,7 +61,7 @@ extension StoredWorkoutExercise {
     }
 
     private var storedWeight: Weight? {
-        guard let weight, PlanLimits.weight.contains(weight), let weightUnit else { return nil }
+        guard let weight, PlanLimits.holds(weight: weight), let weightUnit else { return nil }
         guard let unit = WeightUnit(rawValue: weightUnit) else {
             Logger.storage
                 .error("Read an unknown weight unit \(weightUnit, privacy: .public) as the default")

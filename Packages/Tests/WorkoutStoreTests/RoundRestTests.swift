@@ -104,7 +104,7 @@ struct RoundRestTests {
     func splitRestores() throws {
         var workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Barbell bench press") {
-                $0.rest = .byHand(200)
+                $0.rest = .byHand(seconds: 200)
             },
             WorkoutExercise.builtIn("Dumbbell row"),
         ])

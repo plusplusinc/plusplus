@@ -15,7 +15,7 @@ struct WorkoutSummaryTests {
         try WorkoutExercise.builtIn(name) {
             $0.sets = sets
             $0.target = target
-            $0.rest = .byHand(rest)
+            $0.rest = .byHand(seconds: rest)
         }
     }
 

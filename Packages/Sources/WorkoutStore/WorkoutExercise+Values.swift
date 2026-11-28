@@ -124,7 +124,7 @@ extension WorkoutExercise {
             plan.weight = weight
         case .rest:
             guard let rest = rest.steppedRest(by: direction) else { return nil }
-            plan.rest = .byHand(rest)
+            plan.rest = .byHand(seconds: rest)
         }
         return plan
     }
@@ -151,7 +151,7 @@ extension WorkoutExercise {
 
     /// Sets the rest by hand, as a step does, which turns Auto off; held to `restRange`.
     public mutating func setRest(_ seconds: Int) {
-        plan.rest = .byHand(Self.heldRest(seconds))
+        plan.rest = .byHand(seconds: Self.heldRest(seconds))
     }
 
     static func heldRest(_ seconds: Int) -> Int {
