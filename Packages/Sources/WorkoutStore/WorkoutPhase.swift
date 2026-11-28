@@ -98,8 +98,7 @@ public enum WorkoutPhase: Equatable, Sendable {
     public struct Move: Equatable, Sendable {
         /// The set logged.
         public let set: PlannedSet
-        /// The way it goes: back into a later round, the next row's first member shows the round
-        /// just done until the move rolls it on.
+        /// Which way it goes, onward or back, and whether back into a later round.
         public let way: MoveWay
         public internal(set) var beat: Beat
         /// Whether the move sets off from a rest, whose row has already closed: the key comes
@@ -131,20 +130,16 @@ public enum WorkoutPhase: Equatable, Sendable {
             beat == .rolled
         }
 
-        /// Whether the next row still shows the round just done, rather than its own.
+        /// Whether the next row still shows the round just done, rather than its own: back into a
+        /// later round, its first member does until the move rolls it on.
         public var holdsRound: Bool {
-            startsRound && !hasRolled
+            way.startsRound && !hasRolled
         }
 
         /// Whether the next row is above the one left: round a superset's loop, or to a row moved
         /// above.
         public var isBack: Bool {
             way.isBack
-        }
-
-        /// Whether the move goes back to a superset's member in a later round.
-        public var startsRound: Bool {
-            way.startsRound
         }
     }
 

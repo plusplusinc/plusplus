@@ -103,8 +103,8 @@ extension LiveWorkout {
 public enum MoveWay: Equatable, Sendable {
     /// To a row below the one left.
     case onward
-    /// To a row above the one left, round a superset's loop or to a row moved above, in the same
-    /// round.
+    /// To a row above the one left, round a superset's loop or to a row moved above, holding no
+    /// round: in the same round, or out of a rest (`WorkoutPhase.endRest`).
     case back
     /// Back to a superset's member, in a later round.
     case backIntoLaterRound
