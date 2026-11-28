@@ -178,9 +178,10 @@ nonisolated struct PulseShape: Shape {
     func path(in _: CGRect) -> Path {
         let start = SetMotion.travelStart
         // From the log, so the node left, gone to its own color, is never seen before the pulse
-        // covers it; it waits there, round, until `travelStart`.
-        guard time >= 0, time < Self.runEnd(way), route.length > 0,
-              let target = route.points.last
+        // covers it; it waits there, round, until `travelStart`. A route with no length is the
+        // pulse already at its end, a circle there: dropped, out of a superset's round rest the
+        // rail had no green for 1 to 4 frames, as the rest's stop met the rising node and went.
+        guard time >= 0, time < Self.runEnd(way), let target = route.points.last
         else { return Path() }
         let landed = time - SetMotion.landing(way)
         if landed >= 0 {
@@ -316,6 +317,8 @@ nonisolated struct PulseShape: Shape {
 /// becomes without a seam. With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
     let route: RailRoute?
+    /// Where the run lands, on each frame, while the stop it set off from may be gone.
+    let landing: CGPoint?
     let way: SetMotion.Way
     let run: Int
     var leavesNode = true
@@ -360,9 +363,9 @@ struct RailPulseRun: View {
     }
 
     private var drawnRoute: (route: RailRoute, leavesNode: Bool) {
-        guard let route else { return (RailRoute([]), leavesNode) }
-        return Self.drawn(
+        Self.drawn(
             route,
+            landing: landing,
             way: way,
             leavesNode: leavesNode,
             origin: origin?.run == run ? origin?.point : nil,
@@ -375,13 +378,19 @@ struct RailPulseRun: View {
     /// with it before it shot down (2026-11-19); with a neck to it, the green split and stretched
     /// up after it. Once the node has moved, the pulse leaves it behind at once, in its own
     /// color, and goes on down as one shape. Round a loop it heads up anyway, along the loop
-    /// drawn from the node.
+    /// drawn from the node. Once the stop it set off from is gone, `landing` alone: a rest's stop
+    /// goes as its room closes, by then on the node, before the pulse lands (2026-11-27).
     static func drawn(
-        _ route: RailRoute,
+        _ route: RailRoute?,
+        landing: CGPoint?,
         way: SetMotion.Way,
         leavesNode: Bool,
         origin: CGPoint?,
     ) -> (route: RailRoute, leavesNode: Bool) {
+        guard let route else {
+            guard let landing, origin != nil else { return (RailRoute([]), leavesNode) }
+            return (RailRoute([landing]), false)
+        }
         guard way == .down, leavesNode, let origin, let start = route.points.first,
               start != origin
         else { return (route, leavesNode) }

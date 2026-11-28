@@ -45,14 +45,23 @@ struct RailPulseTests {
         #expect(stretch.count > 4)
     }
 
-    /// A pulse down a 64 pt route at the sizes the rail draws at the default text size.
-    private func blob(_ time: Double, way: SetMotion.Way = .down) -> Path {
+    /// A pulse down a 64 pt route, or `route`, at the sizes the rail draws at the default text
+    /// size.
+    private func blob(
+        _ time: Double,
+        way: SetMotion.Way = .down,
+        route: RailRoute = .line(from: .zero, to: CGPoint(x: 0, y: 64)),
+        leavesNode: Bool = true,
+        joinsNode: Bool = true,
+    ) -> Path {
         PulseShape(
             time: time,
-            route: RailRoute.line(from: .zero, to: CGPoint(x: 0, y: 64)),
+            route: route,
             size: 14,
             restingSize: 10,
             way: way,
+            leavesNode: leavesNode,
+            joinsNode: joinsNode,
         ).path(in: .zero)
     }
 
@@ -146,25 +155,71 @@ struct RailPulseTests {
     func leavesRisingNode() {
         // The node left has risen 20 pt since the tap; the rest is 64 pt below where it was.
         let risen = RailRoute.line(from: CGPoint(x: 0, y: -20), to: CGPoint(x: 0, y: 64))
-        let drawn = RailPulseRun.drawn(risen, way: .down, leavesNode: true, origin: .zero)
+        let drawn = RailPulseRun.drawn(
+            risen,
+            landing: nil,
+            way: .down,
+            leavesNode: true,
+            origin: .zero,
+        )
         #expect(drawn.route.points.first == .zero)
         #expect(!drawn.leavesNode)
         for step in 0 ... 60 {
             let time = PulseShape.runEnd(.down) * Double(step) / 60
-            let box = PulseShape(
-                time: time,
+            let box = blob(
+                time,
                 route: drawn.route,
-                size: 14,
-                restingSize: 10,
                 leavesNode: drawn.leavesNode,
                 joinsNode: false,
-            ).path(in: .zero).boundingRect
+            ).boundingRect
             // One shape, never above the dot it set off as.
             #expect(box.isNull || box.minY >= -7 - 1e-9, "at \(time) s: \(box)")
         }
         // A node that stays put is left behind as before.
         let still = RailRoute.line(from: .zero, to: CGPoint(x: 0, y: 64))
-        #expect(RailPulseRun.drawn(still, way: .down, leavesNode: true, origin: .zero).leavesNode)
+        #expect(RailPulseRun.drawn(
+            still,
+            landing: nil,
+            way: .down,
+            leavesNode: true,
+            origin: .zero,
+        ).leavesNode)
+    }
+
+    @Test(
+        "Out of a rest, as its stop meets the node and goes, the pulse is a circle on the node",
+        arguments: [nil, RailRoute.line(from: CGPoint(x: 0, y: 64), to: CGPoint(x: 0, y: 64))],
+    )
+    @MainActor
+    func landsAfterRestCloses(route: RailRoute?) {
+        let node = CGPoint(x: 0, y: 64)
+        // The rest's stop gone, or level with the node on the frame the two pass.
+        let drawn = RailPulseRun.drawn(
+            route,
+            landing: node,
+            way: .down,
+            leavesNode: false,
+            origin: .zero,
+        )
+        // From the head's reaching the node until the plop has settled, never a frame without
+        // it, nor a tail up the rail.
+        let reaches = SetMotion.landing(.down) - SetMotion.collapse
+        let end = PulseShape.runEnd(.down)
+        for time in stride(from: reaches, to: end, by: (end - reaches) / 60) {
+            let box = blob(time, route: drawn.route, leavesNode: drawn.leavesNode).boundingRect
+            #expect(!box.isNull && box.contains(node), "at \(time) s: \(box)")
+            // No taller than the plop swings it.
+            #expect(box.height <= 14 * (1 + SetMotion.plopFlatten) + 1e-9, "at \(time) s: \(box)")
+        }
+        // Before a run has set off from anywhere, nothing.
+        let unstarted = RailPulseRun.drawn(
+            route,
+            landing: node,
+            way: .down,
+            leavesNode: false,
+            origin: nil,
+        )
+        #expect(blob(reaches, route: unstarted.route).isEmpty == (route == nil))
     }
 
     @Test("Up a loop, the travel shoots off, ends where it lands, and still moves as it lands")
