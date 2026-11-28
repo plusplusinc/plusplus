@@ -15,23 +15,24 @@ public struct PillButtonStyle: ButtonStyle {
     fileprivate var labelColor: ColorToken = .textPrimary
     fileprivate var filling: KeyFill?
     fileprivate var widens = false
-    /// Its least height at the default text size, never under a tap target's.
-    fileprivate var height = Self.touchHeight
-    /// How the body style scales at the text size now, which the height and inset scale by.
-    @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
-
+    /// Each scaled on its own, not as a multiple of one scaled unit: the system rounds each
+    /// scaled value, and a rounded unit times 44 drew the pill 3 points off at AX5.
+    private let scaledHeight: ScaledMetric<CGFloat>
     /// Above and below the label.
-    private var labelInset: CGFloat {
-        Self.labelInset * scale
-    }
+    @ScaledMetric(relativeTo: .body) private var labelInset: CGFloat = 10
 
     private var minHeight: CGFloat {
-        height * scale
+        scaledHeight.wrappedValue
     }
 
-    private static let labelInset: CGFloat = 10
+    public init() {
+        self.init(height: Self.touchHeight)
+    }
 
-    public init() { }
+    /// `height` tall at the default text size, never under a tap target's.
+    fileprivate init(height: CGFloat) {
+        scaledHeight = ScaledMetric(wrappedValue: max(height, Self.touchHeight), relativeTo: .body)
+    }
 
     public func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: minHeight / 2)
@@ -93,11 +94,10 @@ extension ButtonStyle where Self == PillButtonStyle {
     /// The pill in green, the + that adds an exercise's fill and its label's color, `height`
     /// tall at the default text size, at least a tap target, and as wide as it is given.
     public static func greenPill(height: CGFloat = 0) -> PillButtonStyle {
-        var style = PillButtonStyle()
+        var style = PillButtonStyle(height: height)
         style.fill = .accent
         style.labelColor = .onPrimaryKey
         style.widens = true
-        style.height = max(height, PillButtonStyle.touchHeight)
         return style
     }
 }
